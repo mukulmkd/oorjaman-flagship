@@ -1,0 +1,66 @@
+.web-offline-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: var(--wb-bg, #f8fafc);
+  color: var(--wb-fg, #0f172a);
+}
+
+.web-offline-card {
+  max-width: 22rem;
+  width: 100%;
+  text-align: center;
+  padding: 2rem 1.5rem;
+  border-radius: 16px;
+  border: 1px solid var(--wb-border, #e2e8f0);
+  background: var(--wb-card, #fff);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+}
+
+.web-offline-icon {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.35rem;
+  height: 2.5rem;
+  margin: 0 auto 1.25rem;
+}
+
+.web-offline-icon-bar {
+  width: 0.45rem;
+  border-radius: 999px;
+  background: var(--wb-primary, #1f8660);
+  opacity: 0.35;
+}
+
+.web-offline-icon-bar {
+  height: 1.25rem;
+}
+
+.web-offline-icon-bar--mid {
+  height: 1.75rem;
+  opacity: 0.55;
+}
+
+.web-offline-icon-bar--low {
+  height: 0.85rem;
+  opacity: 0.25;
+}
+
+.web-offline-title {
+  margin: 0 0 0.5rem;
+  font-size: var(--type-lg, 1.125rem);
+  font-weight: var(--weight-bold, 700);
+  letter-spacing: -0.02em;
+}
+
+.web-offline-message {
+  margin: 0 0 1.25rem;
+  font-size: var(--type-sm, 0.875rem);
+  line-height: 1.5;
+  color: var(--wb-muted-fg, #64748b);
+}

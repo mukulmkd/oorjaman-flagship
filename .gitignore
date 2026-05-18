@@ -1,0 +1,174 @@
+# =============================================================================
+# OorjaMan flagship monorepo — single root gitignore (all apps + packages)
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Dependencies
+# -----------------------------------------------------------------------------
+node_modules/
+.pnp
+.pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/install-state.gz
+
+# -----------------------------------------------------------------------------
+# Environment & secrets (commit only *.env.example templates)
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Service account / mobile push keys (never commit)
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+google-services.json
+GoogleService-Info.plist
+**/secrets/
+
+# -----------------------------------------------------------------------------
+# Logs
+# -----------------------------------------------------------------------------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# -----------------------------------------------------------------------------
+# OS files
+# -----------------------------------------------------------------------------
+.DS_Store
+**/.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# -----------------------------------------------------------------------------
+# Editors & IDEs
+# -----------------------------------------------------------------------------
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*~
+.vscode/*
+!.vscode/extensions.json
+
+# -----------------------------------------------------------------------------
+# TypeScript / JS tooling caches
+# -----------------------------------------------------------------------------
+*.tsbuildinfo
+**/*.tsbuildinfo
+.turbo/
+.cache/
+.parcel-cache/
+.eslintcache
+.prettiercache
+.npm/
+
+# -----------------------------------------------------------------------------
+# Test & coverage
+# -----------------------------------------------------------------------------
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+blob-report/
+
+# -----------------------------------------------------------------------------
+# Web apps — Vite (admin-web, vendor-web, support-web)
+# -----------------------------------------------------------------------------
+**/dist/
+**/dist-ssr/
+**/.vite/
+
+# -----------------------------------------------------------------------------
+# Mobile apps — Expo / React Native (customer-app, technician-app)
+# -----------------------------------------------------------------------------
+**/.expo/
+**/.expo-shared/
+**/web-build/
+**/expo-env.d.ts
+**/.metro-health-check*
+**/.metro/
+*.jsbundle
+*.hbc
+*.hprof
+
+# Expo / RN local example scaffold
+**/app-example/
+
+# EAS Build
+**/.eas/
+eas-build-local/
+*.tar.gz
+
+# -----------------------------------------------------------------------------
+# Native projects (after `npx expo prebuild` or bare workflow)
+# -----------------------------------------------------------------------------
+**/ios/Pods/
+**/ios/build/
+**/ios/DerivedData/
+**/ios/**/*.xcworkspace/xcuserdata/
+**/ios/**/*.xcodeproj/xcuserdata/
+**/ios/**/*.xcodeproj/project.xcworkspace/xcuserdata/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xccheckout
+*.xcscmblueprint
+
+**/android/.gradle/
+**/android/build/
+**/android/app/build/
+**/android/local.properties
+**/android/.idea/
+**/android/captures/
+**/android/.cxx/
+*.apk
+*.aab
+*.dex
+*.keystore
+!**/android/app/debug.keystore
+
+# -----------------------------------------------------------------------------
+# Shared build output (packages, if added later)
+# -----------------------------------------------------------------------------
+**/build/
+**/out/
+*.tgz
+
+# -----------------------------------------------------------------------------
+# Supabase CLI local state (commit migrations/, schema.sql, functions/)
+# -----------------------------------------------------------------------------
+supabase/.branches/
+supabase/.temp/
+
+# -----------------------------------------------------------------------------
+# Hosting / deploy platform local config
+# -----------------------------------------------------------------------------
+.vercel
+.netlify
+
+# -----------------------------------------------------------------------------
+# Misc local-only overrides (Vite host files, scratch notes)
+# -----------------------------------------------------------------------------
+*.local
+
+# -----------------------------------------------------------------------------
+# Cursor local state
+# ----------------------------------------------------------------------------- 
+.cursor/
+*.cursor

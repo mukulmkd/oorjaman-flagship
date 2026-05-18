@@ -1,0 +1,13 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@oorjaman/config": ["../../packages/config/src/index.ts"],
+      "@oorjaman/ui": ["../../packages/ui/src/index.ts"],
+      "@oorjaman/utils": ["../../packages/utils/src/index.ts"],
+      "@oorjaman/api": ["../../packages/api/src/index.ts"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
+}

@@ -1,0 +1,17 @@
+.web-phone-country__row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.web-phone-country__select {
+  flex: 0 0 auto;
+  min-width: 10rem;
+  max-width: 14rem;
+}
+
+.web-phone-country__national {
+  flex: 1 1 10rem;
+  min-width: 0;
+}

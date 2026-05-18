@@ -1,0 +1,160 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { BookingRow, Database, PaymentRow } from "../database.types";
+import { customerAbandonUnpaidCheckoutBooking } from "../bookings/booking-api";
+import { requireSessionUserId, SupabaseApiError, takeRows, takeSingleRow } from "../result";
+
+async function getCustomerIdForSession(client: SupabaseClient<Database>): Promise<string> {
+  const { data: userData } = await client.auth.getUser();
+  const uid = requireSessionUserId(userData.user?.id);
+  const { data, error } = await client.from("customers").select("id").eq("user_id", uid).maybeSingle();
+  if (error) throw new SupabaseApiError(error.message, error);
+  if (!data?.id) throw new SupabaseApiError("Customer profile not found.");
+  return data.id;
+}
+
+async function assertPendingPaymentOwned(
+  client: SupabaseClient<Database>,
+  paymentId: string,
+): Promise<PaymentRow> {
+  const customerId = await getCustomerIdForSession(client);
+  const { data, error } = await client
+    .from("payments")
+    .select("*")
+    .eq("id", paymentId)
+    .eq("customer_id", customerId)
+    .maybeSingle();
+  if (error) throw new SupabaseApiError(error.message, error);
+  if (!data) throw new SupabaseApiError("Payment not found.");
+  if (data.status !== "pending") {
+    throw new SupabaseApiError("This payment was already completed or failed.");
+  }
+  return data;
+}
+
+/** Pending dummy payment row linked to a checkout booking (`pending_payment`). */
+export async function createPendingPayment(
+  client: SupabaseClient<Database>,
+  params: { customerId: string; bookingId: string; amountPaise: number },
+): Promise<PaymentRow> {
+  const sessionCustomerId = await getCustomerIdForSession(client);
+  if (params.customerId !== sessionCustomerId) {
+    throw new SupabaseApiError("Customer mismatch.");
+  }
+  const amount = Math.max(0, Math.round(params.amountPaise));
+  const { data, error } = await client
+    .from("payments")
+    .insert({
+      customer_id: params.customerId,
+      booking_id: params.bookingId,
+      amount,
+      status: "pending",
+    })
+    .select()
+    .single();
+  return takeSingleRow(data, error);
+}
+
+/** Payments linked to a booking (RLS: customer / vendor / admin). Newest first. */
+export async function listPaymentsForBooking(
+  client: SupabaseClient<Database>,
+  bookingId: string,
+): Promise<PaymentRow[]> {
+  const { data, error } = await client
+    .from("payments")
+    .select("*")
+    .eq("booking_id", bookingId)
+    .order("created_at", { ascending: false });
+  return takeRows(data, error);
+}
+
+/** Simulated failure: marks payment failed (customer can retry with a new pending row for the same booking). */
+export async function markDummyPaymentFailed(
+  client: SupabaseClient<Database>,
+  paymentId: string,
+): Promise<void> {
+  await assertPendingPaymentOwned(client, paymentId);
+  const { error } = await client
+    .from("payments")
+    .update({ status: "failed" })
+    .eq("id", paymentId)
+    .eq("status", "pending");
+  if (error) throw new SupabaseApiError(error.message, error);
+}
+
+/**
+ * Customer left checkout: fail the dummy payment row and cancel the linked `pending_payment` booking.
+ */
+export async function abandonPendingCheckout(
+  client: SupabaseClient<Database>,
+  paymentId: string,
+): Promise<void> {
+  const payment = await assertPendingPaymentOwned(client, paymentId);
+  if (!payment.booking_id) {
+    throw new SupabaseApiError("Payment is not linked to a booking.");
+  }
+  await markDummyPaymentFailed(client, paymentId);
+  await customerAbandonUnpaidCheckoutBooking(client, payment.booking_id);
+}
+
+/**
+ * Simulated success: records payment success, then advances booking `pending_payment` → `confirmed`.
+ * Booking must not advance unless payment succeeds first.
+ */
+export async function completeDummyPaymentSuccess(
+  client: SupabaseClient<Database>,
+  paymentId: string,
+  options?: { paymentMethod?: string },
+): Promise<{ booking: BookingRow; payment: PaymentRow }> {
+  const payment = await assertPendingPaymentOwned(client, paymentId);
+  if (!payment.booking_id) {
+    throw new SupabaseApiError("Payment is not linked to a booking.");
+  }
+
+  const { data: bookingSnap, error: bookFetchErr } = await client
+    .from("bookings")
+    .select("id, status")
+    .eq("id", payment.booking_id)
+    .maybeSingle();
+  if (bookFetchErr) throw new SupabaseApiError(bookFetchErr.message, bookFetchErr);
+  if (!bookingSnap || bookingSnap.status !== "pending_payment") {
+    throw new SupabaseApiError("Booking is not awaiting payment confirmation.");
+  }
+
+  const paidAt = new Date().toISOString();
+  const method = options?.paymentMethod?.trim() || "UPI";
+
+  const { data: payUpdated, error: payErr } = await client
+    .from("payments")
+    .update({ status: "success", paid_at: paidAt, payment_method: method })
+    .eq("id", paymentId)
+    .eq("status", "pending")
+    .select()
+    .single();
+
+  if (payErr) throw new SupabaseApiError(payErr.message, payErr);
+  if (!payUpdated) {
+    throw new SupabaseApiError("Could not confirm payment - it may have already been processed.");
+  }
+
+  const { data: booking, error: bookErr } = await client
+    .from("bookings")
+    .update({ status: "confirmed" })
+    .eq("id", payment.booking_id)
+    .eq("status", "pending_payment")
+    .select()
+    .single();
+
+  if (bookErr || !booking) {
+    await client
+      .from("payments")
+      .update({ status: "pending", paid_at: null, payment_method: null })
+      .eq("id", paymentId)
+      .eq("status", "success");
+    throw new SupabaseApiError(
+      bookErr?.message ?? "Could not activate the booking after payment.",
+      bookErr ?? undefined,
+    );
+  }
+
+  return { booking, payment: payUpdated };
+}

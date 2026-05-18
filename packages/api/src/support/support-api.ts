@@ -1,0 +1,1418 @@
+import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
+import { getMyCustomer } from "../customers/customer-api";
+import type {
+  CustomerRow,
+  Database,
+  Json,
+  SupportAgentRow,
+  SupportConversationPriority,
+  SupportConversationRow,
+  SupportConversationStatus,
+  SupportMacroRow,
+  SupportMessageAttachmentRow,
+  SupportMessageRow,
+  SupportResolutionTag,
+  UserRow,
+} from "../database.types";
+import { formattedSiteAddressFromJson } from "../bookings/customer-booking-payload";
+import { getServiceAddressEntry } from "../customers/service-address-book";
+import { SupabaseApiError, takeRows, takeSingleRow } from "../result";
+import {
+  getSupportCategory,
+  getSupportSubcategory,
+  supportCategoryLabel,
+  SUPPORT_CATEGORIES,
+  type SupportCategory,
+} from "./support-catalog";
+
+export { SUPPORT_CATEGORIES, supportCategoryLabel, getSupportCategory, getSupportSubcategory };
+export type { SupportCategory };
+
+export type CreateSupportConversationInput = {
+  category_slug: string;
+  subcategory_slug: string;
+  details_text: string;
+  booking_id?: string | null;
+  subscription_id?: string | null;
+  service_address_id?: string | null;
+};
+
+export function listSupportCatalog(): SupportCategory[] {
+  return SUPPORT_CATEGORIES;
+}
+
+export async function createSupportConversationAsCustomer(
+  client: SupabaseClient<Database>,
+  input: CreateSupportConversationInput,
+): Promise<SupportConversationRow> {
+  const customer = await getMyCustomer(client);
+  if (!customer) {
+    throw new SupabaseApiError("Customer profile required - sign in again.");
+  }
+
+  const category = getSupportCategory(input.category_slug.trim());
+  const sub = getSupportSubcategory(input.category_slug.trim(), input.subcategory_slug.trim());
+  if (!category || !sub) {
+    throw new SupabaseApiError("Choose a valid help category.");
+  }
+
+  const details = input.details_text.trim();
+  if (details.length < 10) {
+    throw new SupabaseApiError("Please describe your issue in at least 10 characters.");
+  }
+
+  const subject = supportCategoryLabel(category.slug, sub.slug);
+
+  const { data: convRow, error: convErr } = await client
+    .from("support_conversations")
+    .insert({
+      customer_id: customer.id,
+      category_slug: category.slug,
+      subcategory_slug: sub.slug,
+      status: "queued",
+      subject,
+      details_text: details,
+      booking_id: input.booking_id?.trim() || null,
+      subscription_id: input.subscription_id?.trim() || null,
+      service_address_id: input.service_address_id?.trim() || null,
+    })
+    .select()
+    .single();
+  if (convErr) throw new SupabaseApiError(convErr.message, convErr);
+  const conversation = takeSingleRow(convRow, convErr);
+
+  const intakeMessages: { sender_role: "customer"; body: string; metadata?: Json }[] = [
+    {
+      sender_role: "customer",
+      body: category.label,
+      metadata: { intake_step: "category", category_slug: category.slug } as Json,
+    },
+    {
+      sender_role: "customer",
+      body: sub.label,
+      metadata: { intake_step: "subcategory", subcategory_slug: sub.slug } as Json,
+    },
+    {
+      sender_role: "customer",
+      body: details,
+      metadata: { intake_step: "details" } as Json,
+    },
+  ];
+
+  const { error: msgErr } = await client.from("support_messages").insert(
+    intakeMessages.map((m) => ({
+      conversation_id: conversation.id,
+      sender_role: m.sender_role,
+      body: m.body,
+      metadata: m.metadata ?? {},
+    })),
+  );
+  if (msgErr) throw new SupabaseApiError(msgErr.message, msgErr);
+
+  return conversation;
+}
+
+const INACTIVITY_CLOSE_MS = 30 * 60 * 1000;
+
+/** Closes queued/active chats with no customer message in 30+ minutes (DB RPC + system message). */
+export async function closeInactiveSupportChatsForCustomer(
+  client: SupabaseClient<Database>,
+): Promise<number> {
+  const customer = await getMyCustomer(client);
+  if (!customer) return 0;
+
+  const { data, error } = await client.rpc("close_inactive_support_chats_for_customer", {
+    p_customer_id: customer.id,
+  });
+  if (error) throw new SupabaseApiError(error.message, error);
+  return typeof data === "number" ? data : 0;
+}
+
+export function isSupportConversationOpen(conv: SupportConversationRow): boolean {
+  return conv.status === "queued" || conv.status === "active";
+}
+
+export function supportConversationInactiveMs(conv: SupportConversationRow, nowMs = Date.now()): number {
+  const anchor = conv.last_customer_message_at ?? conv.created_at;
+  return nowMs - new Date(anchor).getTime();
+}
+
+export function shouldTreatSupportConversationAsInactive(
+  conv: SupportConversationRow,
+  nowMs = Date.now(),
+): boolean {
+  if (!isSupportConversationOpen(conv)) return false;
+  return supportConversationInactiveMs(conv, nowMs) >= INACTIVITY_CLOSE_MS;
+}
+
+export async function listActiveSupportConversationsForCustomer(
+  client: SupabaseClient<Database>,
+): Promise<SupportConversationRow[]> {
+  await closeInactiveSupportChatsForCustomer(client);
+  const rows = await listMySupportConversations(client, { limit: 20 });
+  return rows.filter(
+    (r) => isSupportConversationOpen(r) && !shouldTreatSupportConversationAsInactive(r),
+  );
+}
+
+export async function getOpenSupportConversationForCustomer(
+  client: SupabaseClient<Database>,
+): Promise<SupportConversationRow | null> {
+  const active = await listActiveSupportConversationsForCustomer(client);
+  return active[0] ?? null;
+}
+
+export async function listMySupportConversations(
+  client: SupabaseClient<Database>,
+  options?: { limit?: number },
+): Promise<SupportConversationRow[]> {
+  const limit = Math.min(Math.max(options?.limit ?? 30, 1), 100);
+  const { data, error } = await client
+    .from("support_conversations")
+    .select("*")
+    .order("last_message_at", { ascending: false })
+    .limit(limit);
+  return takeRows(data, error);
+}
+
+export async function getSupportConversationById(
+  client: SupabaseClient<Database>,
+  conversationId: string,
+): Promise<SupportConversationRow> {
+  const { data, error } = await client
+    .from("support_conversations")
+    .select("*")
+    .eq("id", conversationId.trim())
+    .single();
+  return takeSingleRow(data, error);
+}
+
+export async function listSupportMessages(
+  client: SupabaseClient<Database>,
+  conversationId: string,
+): Promise<SupportMessageRow[]> {
+  const { data, error } = await client
+    .from("support_messages")
+    .select("*")
+    .eq("conversation_id", conversationId.trim())
+    .neq("sender_role", "internal")
+    .order("created_at", { ascending: true });
+  return takeRows(data, error);
+}
+
+/** Support desk thread (includes internal notes). */
+export async function listSupportMessagesForDesk(
+  client: SupabaseClient<Database>,
+  conversationId: string,
+): Promise<SupportMessageRow[]> {
+  const { data, error } = await client
+    .from("support_messages")
+    .select("*")
+    .eq("conversation_id", conversationId.trim())
+    .order("created_at", { ascending: true });
+  return takeRows(data, error);
+}
+
+export async function sendSupportMessageAsCustomer(
+  client: SupabaseClient<Database>,
+  params: { conversation_id: string; body: string },
+): Promise<SupportMessageRow> {
+  const body = params.body.trim();
+  if (!body) throw new SupabaseApiError("Message cannot be empty.");
+
+  const { data: userData, error: userErr } = await client.auth.getUser();
+  if (userErr || !userData.user) {
+    throw new SupabaseApiError("Sign in again to send a message.");
+  }
+
+  const { data, error } = await client
+    .from("support_messages")
+    .insert({
+      conversation_id: params.conversation_id.trim(),
+      sender_user_id: userData.user.id,
+      sender_role: "customer",
+      body,
+    })
+    .select()
+    .single();
+  return takeSingleRow(data, error);
+}
+
+export async function sendSupportMessageAsAdmin(
+  client: SupabaseClient<Database>,
+  params: { conversation_id: string; body: string },
+): Promise<SupportMessageRow> {
+  const body = params.body.trim();
+  if (!body) throw new SupabaseApiError("Message cannot be empty.");
+
+  const { data: userData, error: userErr } = await client.auth.getUser();
+  if (userErr || !userData.user) {
+    throw new SupabaseApiError("Sign in again to send a message.");
+  }
+
+  const convId = params.conversation_id.trim();
+  const conv = await getSupportConversationById(client, convId);
+
+  if (!conv.assigned_admin_user_id) {
+    const nextStatus: SupportConversationStatus =
+      conv.status === "queued" || conv.status === "intake" ? "active" : conv.status;
+    const { error: assignErr } = await client
+      .from("support_conversations")
+      .update({
+        assigned_admin_user_id: userData.user.id,
+        status: nextStatus,
+      })
+      .eq("id", convId);
+    if (assignErr) throw new SupabaseApiError(assignErr.message, assignErr);
+  }
+
+  const { data, error } = await client
+    .from("support_messages")
+    .insert({
+      conversation_id: convId,
+      sender_user_id: userData.user.id,
+      sender_role: "admin",
+      body,
+    })
+    .select()
+    .single();
+  return takeSingleRow(data, error);
+}
+
+export function subscribeSupportMessages(
+  client: SupabaseClient<Database>,
+  conversationId: string,
+  onChange: () => void,
+): RealtimeChannel {
+  const topic = `support-messages:${conversationId}:${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  const channel = client
+    .channel(topic)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "support_messages",
+        filter: `conversation_id=eq.${conversationId}`,
+      },
+      () => onChange(),
+    )
+    .subscribe();
+  return channel;
+}
+
+/** Live updates when assignment, status, or CSAT fields change. */
+export function subscribeSupportConversation(
+  client: SupabaseClient<Database>,
+  conversationId: string,
+  onChange: () => void,
+): RealtimeChannel {
+  const topic = `support-conversation:${conversationId}:${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  const channel = client
+    .channel(topic)
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "support_conversations",
+        filter: `id=eq.${conversationId}`,
+      },
+      () => onChange(),
+    )
+    .subscribe();
+  return channel;
+}
+
+export function unsubscribeSupportChannel(
+  client: SupabaseClient<Database>,
+  channel: RealtimeChannel,
+): void {
+  void client.removeChannel(channel);
+}
+
+/** Admin inbox: open and active conversations, newest first. */
+export type SupportConversationWithCustomer = SupportConversationRow & {
+  customer: { display_name: string | null; contact_email: string | null; alternate_phone: string | null } | null;
+};
+
+export async function listSupportConversationsForAdmin(
+  client: SupabaseClient<Database>,
+  options?: { status?: SupportConversationStatus | SupportConversationStatus[]; limit?: number },
+): Promise<SupportConversationRow[]> {
+  let q = client.from("support_conversations").select("*").order("last_message_at", { ascending: false });
+
+  if (options?.status) {
+    const st = Array.isArray(options.status) ? options.status : [options.status];
+    q = q.in("status", st);
+  } else {
+    q = q.in("status", ["queued", "active"]);
+  }
+
+  const limit = Math.min(Math.max(options?.limit ?? 100, 1), 200);
+  q = q.limit(limit);
+
+  const { data, error } = await q;
+  return takeRows(data, error);
+}
+
+async function attachCustomersToSupportConversations(
+  client: SupabaseClient<Database>,
+  rows: SupportConversationRow[],
+): Promise<SupportConversationWithCustomer[]> {
+  if (rows.length === 0) return [];
+
+  const customerIds = [...new Set(rows.map((r) => r.customer_id))];
+  const { data: customers, error: custErr } = await client
+    .from("customers")
+    .select("id, display_name, contact_email, alternate_phone")
+    .in("id", customerIds);
+  if (custErr) throw new SupabaseApiError(custErr.message, custErr);
+
+  const byId = new Map((customers ?? []).map((c) => [c.id, c]));
+
+  return rows.map((row) => ({
+    ...row,
+    customer: byId.get(row.customer_id) ?? null,
+  }));
+}
+
+export async function listSupportConversationsForAdminWithCustomer(
+  client: SupabaseClient<Database>,
+  options?: { status?: SupportConversationStatus | SupportConversationStatus[]; limit?: number },
+): Promise<SupportConversationWithCustomer[]> {
+  const rows = await listSupportConversationsForAdmin(client, options);
+  return attachCustomersToSupportConversations(client, rows);
+}
+
+export async function getSupportConversationForDeskWithCustomer(
+  client: SupabaseClient<Database>,
+  conversationId: string,
+): Promise<SupportConversationWithCustomer> {
+  const row = await getSupportConversationById(client, conversationId);
+  const [withCustomer] = await attachCustomersToSupportConversations(client, [row]);
+  return withCustomer;
+}
+
+export type SupportInboxFilter = "queued" | "mine" | "open" | "unassigned" | "resolved";
+
+/** Support desk inbox queues (support-web). */
+export async function listSupportInboxForDesk(
+  client: SupabaseClient<Database>,
+  filter: SupportInboxFilter,
+  options?: { agentUserId?: string | null; limit?: number },
+): Promise<SupportConversationWithCustomer[]> {
+  const limit = Math.min(Math.max(options?.limit ?? 120, 1), 200);
+  const agentUserId = options?.agentUserId ?? null;
+
+  let q = client.from("support_conversations").select("*");
+
+  switch (filter) {
+    case "queued":
+      q = q.eq("status", "queued").order("created_at", { ascending: true });
+      break;
+    case "mine":
+      if (!agentUserId) return [];
+      q = q
+        .eq("assigned_admin_user_id", agentUserId)
+        .in("status", ["queued", "active"])
+        .order("last_message_at", { ascending: false });
+      break;
+    case "open":
+      q = q.in("status", ["queued", "active"]).order("last_message_at", { ascending: false });
+      break;
+    case "unassigned":
+      q = q
+        .in("status", ["queued", "active"])
+        .is("assigned_admin_user_id", null)
+        .order("created_at", { ascending: true });
+      break;
+    case "resolved": {
+      const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      q = q
+        .eq("status", "resolved")
+        .gte("updated_at", since)
+        .order("last_message_at", { ascending: false });
+      break;
+    }
+  }
+
+  const { data, error } = await q.limit(limit);
+  const rows = takeRows(data, error);
+  return attachCustomersToSupportConversations(client, rows);
+}
+
+export type SupportConversationContext = {
+  booking: {
+    id: string;
+    reference_code: string | null;
+    status: string;
+    scheduled_start: string;
+    vendor_id: string | null;
+  } | null;
+  subscription: {
+    id: string;
+    plan_name: string;
+    ends_at: string;
+    status: string;
+  } | null;
+};
+
+export async function getSupportConversationContext(
+  client: SupabaseClient<Database>,
+  conversation: Pick<SupportConversationRow, "booking_id" | "subscription_id">,
+): Promise<SupportConversationContext> {
+  let booking: SupportConversationContext["booking"] = null;
+  let subscription: SupportConversationContext["subscription"] = null;
+
+  if (conversation.booking_id) {
+    const { data, error } = await client
+      .from("bookings")
+      .select("id, reference_code, status, scheduled_start, vendor_id")
+      .eq("id", conversation.booking_id)
+      .maybeSingle();
+    if (error) throw new SupabaseApiError(error.message, error);
+    if (data) booking = data;
+  }
+
+  if (conversation.subscription_id) {
+    const { data, error } = await client
+      .from("subscriptions")
+      .select("id, plan_name, ends_at, status")
+      .eq("id", conversation.subscription_id)
+      .maybeSingle();
+    if (error) throw new SupabaseApiError(error.message, error);
+    if (data) subscription = data;
+  }
+
+  return { booking, subscription };
+}
+
+export function subscribeSupportInbox(
+  client: SupabaseClient<Database>,
+  onChange: () => void,
+): RealtimeChannel {
+  const topic = `support-inbox:${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  const channel = client
+    .channel(topic)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "support_conversations" },
+      () => onChange(),
+    )
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "support_messages" },
+      () => onChange(),
+    )
+    .subscribe();
+  return channel;
+}
+
+export async function adminResolveSupportConversation(
+  client: SupabaseClient<Database>,
+  conversationId: string,
+  options?: { resolution_tag?: SupportResolutionTag; escalation_note?: string },
+): Promise<SupportConversationRow> {
+  const tag = options?.resolution_tag ?? "resolved";
+  const { data: userData, error: userErr } = await client.auth.getUser();
+  if (userErr || !userData.user) {
+    throw new SupabaseApiError("Sign in again to resolve this chat.");
+  }
+
+  const resolvedAt = new Date().toISOString();
+  const { data, error } = await client
+    .from("support_conversations")
+    .update({
+      status: "resolved",
+      close_reason: "resolved_by_admin",
+      resolution_tag: tag,
+      resolved_at: resolvedAt,
+      resolved_by_user_id: userData.user.id,
+    })
+    .eq("id", conversationId.trim())
+    .select()
+    .single();
+  const row = takeSingleRow(data, error);
+
+  const { logSupportConversationEvent } = await import("./support-audit");
+  const { supportResolutionTagLabel } = await import("./support-desk-labels");
+  const actorName = await import("./support-audit-helpers").then((m) =>
+    m.supportAgentPublicNameFromUserId(client, userData.user!.id),
+  );
+  await logSupportConversationEvent(client, {
+    conversation_id: row.id,
+    event_type: "resolved",
+    actor_role: "desk",
+    actor_user_id: userData.user.id,
+    summary: `${actorName} marked this chat resolved (${supportResolutionTagLabel(tag)})`,
+    metadata: { resolution_tag: tag, resolved_at: resolvedAt },
+  });
+
+  await client.from("support_messages").insert({
+    conversation_id: row.id,
+    sender_user_id: userData.user.id,
+    sender_role: "admin",
+    body: "This conversation was marked resolved. You can rate your experience below or start a new chat anytime.",
+  });
+
+  return row;
+}
+
+export async function adminReopenSupportConversation(
+  client: SupabaseClient<Database>,
+  conversationId: string,
+): Promise<SupportConversationRow> {
+  const { data: userData, error: userErr } = await client.auth.getUser();
+  if (userErr || !userData.user) {
+    throw new SupabaseApiError("Sign in again to reopen this chat.");
+  }
+
+  const { data, error } = await client
+    .from("support_conversations")
+    .update({ status: "active", close_reason: null })
+    .eq("id", conversationId.trim())
+    .select()
+    .single();
+  const row = takeSingleRow(data, error);
+
+  const { logSupportConversationEvent } = await import("./support-audit");
+  const actorName = await import("./support-audit-helpers").then((m) =>
+    m.supportAgentPublicNameFromUserId(client, userData.user!.id),
+  );
+  await logSupportConversationEvent(client, {
+    conversation_id: row.id,
+    event_type: "reopened",
+    actor_role: "desk",
+    actor_user_id: userData.user.id,
+    summary: `${actorName} reopened this chat`,
+  });
+
+  return row;
+}
+
+export type SupportDeskCustomerContext = SupportConversationContext & {
+  service_address: {
+    id: string;
+    label: string;
+    formatted: string;
+    photo_count: number;
+  } | null;
+  recent_bookings: {
+    id: string;
+    reference_code: string | null;
+    status: string;
+    scheduled_start: string;
+    vendor_id: string | null;
+  }[];
+  active_subscriptions: {
+    id: string;
+    plan_name: string;
+    status: string;
+    ends_at: string;
+  }[];
+  recent_resolved: {
+    id: string;
+    subject: string | null;
+    category_slug: string;
+    updated_at: string;
+  }[];
+};
+
+export async function getSupportDeskCustomerContext(
+  client: SupabaseClient<Database>,
+  conversation: Pick<
+    SupportConversationRow,
+    "id" | "customer_id" | "booking_id" | "subscription_id" | "service_address_id"
+  >,
+): Promise<SupportDeskCustomerContext> {
+  const base = await getSupportConversationContext(client, conversation);
+
+  const { data: customer, error: custErr } = await client
+    .from("customers")
+    .select("*")
+    .eq("id", conversation.customer_id)
+    .maybeSingle();
+  if (custErr) throw new SupabaseApiError(custErr.message, custErr);
+
+  let service_address: SupportDeskCustomerContext["service_address"] = null;
+  if (customer && conversation.service_address_id?.trim()) {
+    const entry = getServiceAddressEntry(customer, conversation.service_address_id.trim());
+    if (entry) {
+      service_address = {
+        id: entry.id,
+        label: entry.label,
+        formatted: formattedSiteAddressFromJson(entry.address),
+        photo_count: entry.site_photos?.length ?? 0,
+      };
+    }
+  }
+
+  const { data: bookings, error: bookErr } = await client
+    .from("bookings")
+    .select("id, reference_code, status, scheduled_start, vendor_id")
+    .eq("customer_id", conversation.customer_id)
+    .order("scheduled_start", { ascending: false })
+    .limit(5);
+  if (bookErr) throw new SupabaseApiError(bookErr.message, bookErr);
+
+  const { data: subs, error: subErr } = await client
+    .from("subscriptions")
+    .select("id, plan_name, status, ends_at")
+    .eq("customer_id", conversation.customer_id)
+    .in("status", ["active", "trialing", "paused", "past_due"])
+    .order("ends_at", { ascending: false })
+    .limit(5);
+  if (subErr) throw new SupabaseApiError(subErr.message, subErr);
+
+  const { data: resolved, error: resErr } = await client
+    .from("support_conversations")
+    .select("id, subject, category_slug, updated_at")
+    .eq("customer_id", conversation.customer_id)
+    .eq("status", "resolved")
+    .neq("id", conversation.id)
+    .order("updated_at", { ascending: false })
+    .limit(3);
+  if (resErr) throw new SupabaseApiError(resErr.message, resErr);
+
+  return {
+    ...base,
+    service_address,
+    recent_bookings: bookings ?? [],
+    active_subscriptions: subs ?? [],
+    recent_resolved: resolved ?? [],
+  };
+}
+
+export type SupportSlaHints = {
+  wait_minutes: number | null;
+  needs_first_reply: boolean;
+  customer_waiting_reply: boolean;
+};
+
+export function computeSupportSlaHints(
+  conv: Pick<
+    SupportConversationRow,
+    "status" | "created_at" | "last_message_at" | "last_customer_message_at" | "first_admin_reply_at"
+  >,
+  nowMs = Date.now(),
+): SupportSlaHints {
+  const open = conv.status === "queued" || conv.status === "active";
+  const wait_minutes =
+    open && conv.status === "queued"
+      ? Math.max(0, Math.floor((nowMs - new Date(conv.created_at).getTime()) / 60_000))
+      : null;
+  const needs_first_reply = open && !conv.first_admin_reply_at;
+  const customer_waiting_reply =
+    open &&
+    Boolean(conv.last_customer_message_at) &&
+    new Date(conv.last_customer_message_at!).getTime() >=
+      new Date(conv.last_message_at).getTime() - 2000;
+  return { wait_minutes, needs_first_reply, customer_waiting_reply };
+}
+
+export async function sendSupportInternalNote(
+  client: SupabaseClient<Database>,
+  params: { conversation_id: string; body: string },
+): Promise<SupportMessageRow> {
+  const body = params.body.trim();
+  if (!body) throw new SupabaseApiError("Note cannot be empty.");
+
+  const { data: userData, error: userErr } = await client.auth.getUser();
+  if (userErr || !userData.user) {
+    throw new SupabaseApiError("Sign in again to add a note.");
+  }
+
+  const { data, error } = await client
+    .from("support_messages")
+    .insert({
+      conversation_id: params.conversation_id.trim(),
+      sender_user_id: userData.user.id,
+      sender_role: "internal",
+      body,
+    })
+    .select()
+    .single();
+  return takeSingleRow(data, error);
+}
+
+export async function adminClaimSupportConversation(
+  client: SupabaseClient<Database>,
+  conversationId: string,
+): Promise<SupportConversationRow> {
+  const { data: userData, error: userErr } = await client.auth.getUser();
+  if (userErr || !userData.user) {
+    throw new SupabaseApiError("Sign in again to claim this chat.");
+  }
+
+  const { data, error } = await client
+    .from("support_conversations")
+    .update({
+      assigned_admin_user_id: userData.user.id,
+      status: "active",
+    })
+    .eq("id", conversationId.trim())
+    .in("status", ["queued", "active"])
+    .select()
+    .single();
+  const row = takeSingleRow(data, error);
+
+  const { logSupportConversationEvent } = await import("./support-audit");
+  const actorName = await import("./support-audit-helpers").then((m) =>
+    m.supportAgentPublicNameFromUserId(client, userData.user!.id),
+  );
+  await logSupportConversationEvent(client, {
+    conversation_id: row.id,
+    event_type: "claimed",
+    actor_role: "desk",
+    actor_user_id: userData.user.id,
+    summary: `${actorName} claimed this chat`,
+  });
+
+  return row;
+}
+
+export async function adminAssignSupportConversation(
+  client: SupabaseClient<Database>,
+  conversationId: string,
+  adminUserId: string | null,
+): Promise<SupportConversationRow> {
+  const convId = conversationId.trim();
+  const before = await getSupportConversationById(client, convId);
+
+  const patch: Database["public"]["Tables"]["support_conversations"]["Update"] = {
+    assigned_admin_user_id: adminUserId,
+  };
+  if (adminUserId) {
+    patch.status = "active";
+  }
+
+  const { data, error } = await client
+    .from("support_conversations")
+    .update(patch)
+    .eq("id", convId)
+    .select()
+    .single();
+  const row = takeSingleRow(data, error);
+
+  const { data: userData } = await client.auth.getUser();
+  const { logSupportConversationEvent } = await import("./support-audit");
+  const { supportAgentPublicNameFromUserId } = await import("./support-audit-helpers");
+
+  if (!adminUserId) {
+    const actorName = userData.user
+      ? await supportAgentPublicNameFromUserId(client, userData.user.id)
+      : "Support";
+    await logSupportConversationEvent(client, {
+      conversation_id: row.id,
+      event_type: "unassigned",
+      actor_role: "desk",
+      actor_user_id: userData.user?.id ?? null,
+      summary: `${actorName} unassigned this chat`,
+    });
+  } else if (before.assigned_admin_user_id !== adminUserId) {
+    const assigneeName = await supportAgentPublicNameFromUserId(client, adminUserId);
+    const actorName = userData.user
+      ? await supportAgentPublicNameFromUserId(client, userData.user.id)
+      : "Support";
+    await logSupportConversationEvent(client, {
+      conversation_id: row.id,
+      event_type: "assigned",
+      actor_role: "desk",
+      actor_user_id: userData.user?.id ?? null,
+      summary: `${actorName} assigned this chat to ${assigneeName}`,
+      metadata: { assignee_user_id: adminUserId },
+    });
+  }
+
+  return row;
+}
+
+export async function adminUpdateSupportPriority(
+  client: SupabaseClient<Database>,
+  conversationId: string,
+  priority: SupportConversationPriority,
+): Promise<SupportConversationRow> {
+  const convId = conversationId.trim();
+  const before = await getSupportConversationById(client, convId);
+
+  const { data, error } = await client
+    .from("support_conversations")
+    .update({ priority })
+    .eq("id", convId)
+    .select()
+    .single();
+  const row = takeSingleRow(data, error);
+
+  if (before.priority !== priority) {
+    const { data: userData } = await client.auth.getUser();
+    const { logSupportConversationEvent } = await import("./support-audit");
+    const actorName = userData.user
+      ? await import("./support-audit-helpers").then((m) =>
+          m.supportAgentPublicNameFromUserId(client, userData.user!.id),
+        )
+      : "Support";
+    await logSupportConversationEvent(client, {
+      conversation_id: row.id,
+      event_type: "priority_changed",
+      actor_role: "desk",
+      actor_user_id: userData.user?.id ?? null,
+      summary: `${actorName} set priority to ${priority}`,
+      metadata: { from: before.priority, to: priority },
+    });
+  }
+
+  return row;
+}
+
+export type SupportDeskAgent = Pick<UserRow, "id" | "full_name" | "email" | "phone">;
+
+export async function listSupportDeskAgents(
+  client: SupabaseClient<Database>,
+): Promise<SupportDeskAgent[]> {
+  const { data, error } = await client
+    .from("users")
+    .select("id, full_name, email, phone")
+    .in("role", ["admin", "support"])
+    .eq("is_active", true)
+    .order("full_name", { ascending: true });
+  return takeRows(data, error);
+}
+
+export function isSupportDeskRole(role: string | null | undefined): boolean {
+  return role === "admin" || role === "support";
+}
+
+export async function getMySupportAgent(
+  client: SupabaseClient<Database>,
+): Promise<SupportAgentRow | null> {
+  const { data: userData, error: userErr } = await client.auth.getUser();
+  if (userErr || !userData.user) return null;
+
+  const { data, error } = await client
+    .from("support_agents")
+    .select("*")
+    .eq("user_id", userData.user.id)
+    .maybeSingle();
+  if (error) throw new SupabaseApiError(error.message, error);
+  return data;
+}
+
+/** Ensures `support_agents` row exists for signed-in support role users. */
+export async function ensureMySupportAgent(
+  client: SupabaseClient<Database>,
+): Promise<SupportAgentRow | null> {
+  const { data: userData, error: userErr } = await client.auth.getUser();
+  if (userErr || !userData.user) return null;
+
+  const { data: userRow, error: roleErr } = await client
+    .from("users")
+    .select("role, full_name")
+    .eq("id", userData.user.id)
+    .maybeSingle();
+  if (roleErr) throw new SupabaseApiError(roleErr.message, roleErr);
+  if (userRow?.role !== "support") return null;
+
+  const existing = await getMySupportAgent(client);
+  if (existing) return existing;
+
+  const { data, error } = await client
+    .from("support_agents")
+    .insert({
+      user_id: userData.user.id,
+      display_name: userRow.full_name,
+    })
+    .select()
+    .single();
+  return takeSingleRow(data, error);
+}
+
+export async function adminEscalateSupportConversation(
+  client: SupabaseClient<Database>,
+  conversationId: string,
+  note: string,
+): Promise<SupportConversationRow> {
+  const trimmed = note.trim();
+  const { data, error } = await client
+    .from("support_conversations")
+    .update({
+      status: "active",
+      resolution_tag: "escalated",
+      escalated_at: new Date().toISOString(),
+      escalation_note: trimmed || null,
+    })
+    .eq("id", conversationId.trim())
+    .select()
+    .single();
+  const row = takeSingleRow(data, error);
+
+  const { data: userData } = await client.auth.getUser();
+  if (userData.user) {
+    const { logSupportConversationEvent } = await import("./support-audit");
+    const actorName = await import("./support-audit-helpers").then((m) =>
+      m.supportAgentPublicNameFromUserId(client, userData.user!.id),
+    );
+    await logSupportConversationEvent(client, {
+      conversation_id: row.id,
+      event_type: "escalated",
+      actor_role: "desk",
+      actor_user_id: userData.user.id,
+      summary: trimmed
+        ? `${actorName} escalated to operations: ${trimmed}`
+        : `${actorName} escalated to operations`,
+      metadata: { note: trimmed || null },
+    });
+  }
+
+  await client.from("support_messages").insert({
+    conversation_id: row.id,
+    sender_user_id: userData.user?.id ?? null,
+    sender_role: "admin",
+    body: trimmed
+      ? `Escalated to operations: ${trimmed}`
+      : "Escalated to our operations team for follow-up.",
+  });
+
+  return row;
+}
+
+export async function submitSupportCsatAsCustomer(
+  client: SupabaseClient<Database>,
+  conversationId: string,
+  input: { rating: number; comment?: string | null },
+): Promise<SupportConversationRow> {
+  const rating = Math.round(input.rating);
+  if (rating < 1 || rating > 5) {
+    throw new SupabaseApiError("Rating must be between 1 and 5.");
+  }
+
+  const customer = await getMyCustomer(client);
+  if (!customer) throw new SupabaseApiError("Customer profile required.");
+
+  const submittedAt = new Date().toISOString();
+  const { data, error } = await client
+    .from("support_conversations")
+    .update({
+      csat_rating: rating,
+      csat_comment: input.comment?.trim() || null,
+      csat_submitted_at: submittedAt,
+    })
+    .eq("id", conversationId.trim())
+    .eq("customer_id", customer.id)
+    .eq("status", "resolved")
+    .is("csat_submitted_at", null)
+    .select()
+    .single();
+  const row = takeSingleRow(data, error);
+
+  const { data: userData } = await client.auth.getUser();
+  const { logSupportConversationEvent } = await import("./support-audit");
+  await logSupportConversationEvent(client, {
+    conversation_id: row.id,
+    event_type: "csat_submitted",
+    actor_role: "customer",
+    actor_user_id: userData.user?.id ?? null,
+    summary: `Customer rated this chat ${rating} out of 5`,
+    metadata: {
+      rating,
+      has_comment: Boolean(input.comment?.trim()),
+      submitted_at: submittedAt,
+    },
+  });
+
+  return row;
+}
+
+export type SupportDeskInsights = {
+  open_count: number;
+  queued_count: number;
+  unassigned_count: number;
+  resolved_24h: number;
+  avg_first_reply_minutes: number | null;
+  avg_csat_7d: number | null;
+  by_category: { category_slug: string; count: number }[];
+};
+
+export async function getSupportDeskInsights(
+  client: SupabaseClient<Database>,
+): Promise<SupportDeskInsights> {
+  const { data, error } = await client.rpc("get_support_desk_insights");
+  if (error) throw new SupabaseApiError(error.message, error);
+  const raw = (data ?? {}) as Record<string, unknown>;
+  return {
+    open_count: Number(raw.open_count ?? 0),
+    queued_count: Number(raw.queued_count ?? 0),
+    unassigned_count: Number(raw.unassigned_count ?? 0),
+    resolved_24h: Number(raw.resolved_24h ?? 0),
+    avg_first_reply_minutes:
+      raw.avg_first_reply_minutes == null ? null : Number(raw.avg_first_reply_minutes),
+    avg_csat_7d: raw.avg_csat_7d == null ? null : Number(raw.avg_csat_7d),
+    by_category: Array.isArray(raw.by_category)
+      ? (raw.by_category as { category_slug: string; count: number }[])
+      : [],
+  };
+}
+
+export const SUPPORT_ATTACHMENTS_BUCKET = "support-attachments";
+
+export async function listSupportMessageAttachments(
+  client: SupabaseClient<Database>,
+  messageId: string,
+): Promise<SupportMessageAttachmentRow[]> {
+  const { data, error } = await client
+    .from("support_message_attachments")
+    .select("*")
+    .eq("message_id", messageId.trim())
+    .order("created_at", { ascending: true });
+  return takeRows(data, error);
+}
+
+export async function registerSupportMessageAttachment(
+  client: SupabaseClient<Database>,
+  input: {
+    message_id: string;
+    storage_path: string;
+    file_name?: string | null;
+    mime_type?: string | null;
+    byte_size?: number | null;
+  },
+): Promise<SupportMessageAttachmentRow> {
+  const { data, error } = await client
+    .from("support_message_attachments")
+    .insert({
+      message_id: input.message_id.trim(),
+      storage_path: input.storage_path.trim(),
+      file_name: input.file_name?.trim() || null,
+      mime_type: input.mime_type?.trim() || null,
+      byte_size: input.byte_size ?? null,
+    })
+    .select()
+    .single();
+  return takeSingleRow(data, error);
+}
+
+export function supportAttachmentStoragePath(
+  conversationId: string,
+  messageId: string,
+  fileName: string,
+): string {
+  const safe = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+  return `${conversationId.trim()}/${messageId.trim()}/${Date.now()}-${safe}`;
+}
+
+export async function listSupportMacros(
+  client: SupabaseClient<Database>,
+): Promise<SupportMacroRow[]> {
+  const { data: userData, error: userErr } = await client.auth.getUser();
+  if (userErr || !userData.user) {
+    throw new SupabaseApiError("Sign in again to load macros.");
+  }
+
+  const { data, error } = await client
+    .from("support_macros")
+    .select("*")
+    .or(`is_team.eq.true,owner_user_id.eq.${userData.user.id}`)
+    .order("title", { ascending: true });
+  return takeRows(data, error);
+}
+
+export async function createSupportMacro(
+  client: SupabaseClient<Database>,
+  input: { title: string; body: string; category_slug?: string | null; is_team?: boolean },
+): Promise<SupportMacroRow> {
+  const { data: userData, error: userErr } = await client.auth.getUser();
+  if (userErr || !userData.user) {
+    throw new SupabaseApiError("Sign in again to save a macro.");
+  }
+
+  const title = input.title.trim();
+  const body = input.body.trim();
+  if (!title || !body) throw new SupabaseApiError("Macro title and body are required.");
+
+  const isTeam = Boolean(input.is_team);
+  const { data, error } = await client
+    .from("support_macros")
+    .insert({
+      title,
+      body,
+      category_slug: input.category_slug?.trim() || null,
+      is_team: isTeam,
+      owner_user_id: isTeam ? null : userData.user.id,
+    })
+    .select()
+    .single();
+  return takeSingleRow(data, error);
+}
+
+/** Strip characters that act as wildcards in Postgres ILIKE patterns. */
+function sanitizeSupportDeskSearchQuery(query: string): string {
+  return query.replace(/[%_]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function phoneDigitsForSearch(query: string): string | null {
+  const digits = query.replace(/\D/g, "");
+  return digits.length >= 4 ? digits : null;
+}
+
+/** Customer ids matching profile, contact, or linked login (users) fields. */
+async function findSupportDeskCustomerIdsForSearch(
+  client: SupabaseClient<Database>,
+  rawQuery: string,
+  limit: number,
+): Promise<string[]> {
+  const q = sanitizeSupportDeskSearchQuery(rawQuery);
+  if (q.length < 2) return [];
+
+  const ids = new Set<string>();
+  const push = (rows: { id: string }[] | null | undefined) => {
+    for (const row of rows ?? []) {
+      ids.add(row.id);
+      if (ids.size >= limit) return;
+    }
+  };
+
+  const { data: byProfile, error: profileErr } = await client
+    .from("customers")
+    .select("id")
+    .or(`display_name.ilike.%${q}%,contact_email.ilike.%${q}%,alternate_phone.ilike.%${q}%`)
+    .limit(limit);
+  if (profileErr) throw new SupabaseApiError(profileErr.message, profileErr);
+  push(byProfile);
+
+  const digits = phoneDigitsForSearch(rawQuery);
+  if (digits && ids.size < limit) {
+    const { data: byPhone, error: phoneErr } = await client
+      .from("customers")
+      .select("id")
+      .or(`alternate_phone.ilike.%${digits}%`)
+      .limit(limit);
+    if (phoneErr) throw new SupabaseApiError(phoneErr.message, phoneErr);
+    push(byPhone);
+
+    const { data: usersByPhone, error: usersPhoneErr } = await client
+      .from("users")
+      .select("id")
+      .eq("role", "customer")
+      .ilike("phone", `%${digits}%`)
+      .limit(limit);
+    if (usersPhoneErr) throw new SupabaseApiError(usersPhoneErr.message, usersPhoneErr);
+    const userIds = (usersByPhone ?? []).map((u) => u.id);
+    if (userIds.length > 0) {
+      const { data: byUserPhone, error: custPhoneErr } = await client
+        .from("customers")
+        .select("id")
+        .in("user_id", userIds)
+        .limit(limit);
+      if (custPhoneErr) throw new SupabaseApiError(custPhoneErr.message, custPhoneErr);
+      push(byUserPhone);
+    }
+  }
+
+  if (ids.size < limit) {
+    const { data: usersByName, error: usersErr } = await client
+      .from("users")
+      .select("id")
+      .eq("role", "customer")
+      .or(`full_name.ilike.%${q}%,email.ilike.%${q}%`)
+      .limit(limit);
+    if (usersErr) throw new SupabaseApiError(usersErr.message, usersErr);
+    const userIds = (usersByName ?? []).map((u) => u.id);
+    if (userIds.length > 0) {
+      const { data: byUser, error: custErr } = await client
+        .from("customers")
+        .select("id")
+        .in("user_id", userIds)
+        .limit(limit);
+      if (custErr) throw new SupabaseApiError(custErr.message, custErr);
+      push(byUser);
+    }
+  }
+
+  return [...ids].slice(0, limit);
+}
+
+export async function searchSupportDesk(
+  client: SupabaseClient<Database>,
+  query: string,
+  options?: { limit?: number },
+): Promise<SupportConversationWithCustomer[]> {
+  const q = sanitizeSupportDeskSearchQuery(query.trim());
+  const limit = Math.min(Math.max(options?.limit ?? 40, 1), 80);
+  if (q.length < 2) return [];
+
+  const ids = new Set<string>();
+
+  const uuidLike =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(q);
+
+  if (uuidLike) {
+    const { data } = await client
+      .from("support_conversations")
+      .select("id")
+      .eq("id", q)
+      .maybeSingle();
+    if (data?.id) ids.add(data.id);
+  }
+
+  const { data: byConv } = await client
+    .from("support_conversations")
+    .select("id")
+    .or(`subject.ilike.%${q}%,details_text.ilike.%${q}%,category_slug.ilike.%${q}%`)
+    .limit(limit);
+  for (const row of byConv ?? []) ids.add(row.id);
+
+  const customerIds = await findSupportDeskCustomerIdsForSearch(client, query.trim(), 20);
+  if (customerIds.length > 0) {
+    const { data: byCustomer } = await client
+      .from("support_conversations")
+      .select("id")
+      .in("customer_id", customerIds)
+      .limit(limit);
+    for (const row of byCustomer ?? []) ids.add(row.id);
+  }
+
+  const { data: bookings } = await client
+    .from("bookings")
+    .select("id")
+    .ilike("reference_code", `%${q}%`)
+    .limit(15);
+  const bookingIds = (bookings ?? []).map((b) => b.id);
+  if (bookingIds.length > 0) {
+    const { data: byBooking } = await client
+      .from("support_conversations")
+      .select("id")
+      .in("booking_id", bookingIds)
+      .limit(limit);
+    for (const row of byBooking ?? []) ids.add(row.id);
+  }
+
+  if (ids.size === 0) return [];
+
+  const { data, error } = await client
+    .from("support_conversations")
+    .select("*")
+    .in("id", [...ids].slice(0, limit))
+    .order("last_message_at", { ascending: false });
+  const rows = takeRows(data, error);
+  return attachCustomersToSupportConversations(client, rows);
+}
+
+export type SupportDeskCustomerBrief = Pick<
+  CustomerRow,
+  "id" | "display_name" | "contact_email" | "alternate_phone" | "onboarding_completed_at"
+>;
+
+export type SupportDeskCustomerSearchHit = SupportDeskCustomerBrief & {
+  open_conversation_count: number;
+  total_conversations: number;
+  last_conversation_at: string | null;
+};
+
+export type SupportDeskCustomerProfile = {
+  customer: SupportDeskCustomerBrief;
+  conversations: SupportConversationWithCustomer[];
+  primary_conversation_id: string | null;
+  desk_context: SupportDeskCustomerContext | null;
+};
+
+/** Search customers by profile, contact, or linked app login for the support desk. */
+export async function searchSupportDeskCustomers(
+  client: SupabaseClient<Database>,
+  query: string,
+  options?: { limit?: number },
+): Promise<SupportDeskCustomerSearchHit[]> {
+  const limit = Math.min(Math.max(options?.limit ?? 25, 1), 50);
+  const customerIds = await findSupportDeskCustomerIdsForSearch(client, query.trim(), limit);
+  if (customerIds.length === 0) return [];
+
+  const { data: customers, error: custErr } = await client
+    .from("customers")
+    .select("id, display_name, contact_email, alternate_phone, onboarding_completed_at")
+    .in("id", customerIds)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  if (custErr) throw new SupabaseApiError(custErr.message, custErr);
+  if (!customers?.length) return [];
+
+  const ids = customers.map((c) => c.id);
+  const { data: convs, error: convErr } = await client
+    .from("support_conversations")
+    .select("customer_id, status, last_message_at")
+    .in("customer_id", ids);
+  if (convErr) throw new SupabaseApiError(convErr.message, convErr);
+
+  const stats = new Map<string, { open: number; total: number; last: string | null }>();
+  for (const c of convs ?? []) {
+    const cur = stats.get(c.customer_id) ?? { open: 0, total: 0, last: null };
+    cur.total += 1;
+    if (c.status === "queued" || c.status === "active") cur.open += 1;
+    if (!cur.last || c.last_message_at > cur.last) cur.last = c.last_message_at;
+    stats.set(c.customer_id, cur);
+  }
+
+  return customers.map((c) => {
+    const s = stats.get(c.id);
+    return {
+      ...c,
+      open_conversation_count: s?.open ?? 0,
+      total_conversations: s?.total ?? 0,
+      last_conversation_at: s?.last ?? null,
+    };
+  });
+}
+
+/** Full customer profile + conversations + operational context for support search. */
+export async function getSupportDeskCustomerProfile(
+  client: SupabaseClient<Database>,
+  customerId: string,
+): Promise<SupportDeskCustomerProfile> {
+  const id = customerId.trim();
+  const { data: customer, error: custErr } = await client
+    .from("customers")
+    .select("id, display_name, contact_email, alternate_phone, onboarding_completed_at")
+    .eq("id", id)
+    .single();
+  if (custErr) throw new SupabaseApiError(custErr.message, custErr);
+
+  const { data: convRows, error: convErr } = await client
+    .from("support_conversations")
+    .select("*")
+    .eq("customer_id", id)
+    .order("last_message_at", { ascending: false })
+    .limit(30);
+  if (convErr) throw new SupabaseApiError(convErr.message, convErr);
+
+  const conversations = await attachCustomersToSupportConversations(client, convRows ?? []);
+
+  const primary =
+    conversations.find((c) => c.status === "queued" || c.status === "active") ?? conversations[0] ?? null;
+
+  const desk_context = primary ? await getSupportDeskCustomerContext(client, primary) : null;
+
+  return {
+    customer,
+    conversations,
+    primary_conversation_id: primary?.id ?? null,
+    desk_context,
+  };
+}
+
+export {
+  parseSupportMessageEvent,
+  supportAgentNameFromMessage,
+  supportThreadSubtitleForCustomer,
+  type SupportMessageEventKind,
+} from "./support-message-events";
+export {
+  buildSupportConversationClosureSummary,
+  getSupportDeskUserDisplayName,
+  listSupportConversationEvents,
+  logSupportConversationEvent,
+  type SupportConversationClosureSummary,
+  type SupportConversationEventWithActor,
+} from "./support-audit";
+export {
+  formatSupportCsatStars,
+  supportCloseReasonLabel,
+  supportResolutionTagLabel,
+} from "./support-desk-labels";

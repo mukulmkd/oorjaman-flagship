@@ -1,0 +1,38 @@
+{
+  "name": "oorjaman-flagship",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "overrides": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "scripts": {
+    "customer": "npm run start -w customer-app",
+    "technician": "npm run start -w technician-app",
+    "admin": "npm run dev -w admin-web",
+    "vendor": "npm run dev -w vendor-web",
+    "support": "npm run dev -w support-web",
+    "build": "npm run build -w admin-web && npm run build -w vendor-web && npm run build -w support-web",
+    "lint": "npm run lint --workspaces --if-present",
+    "expo:types": "npm run expo:types -w customer-app && npm run expo:types -w technician-app",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "seed:dummy-users": "node scripts/seed-dummy-test-users.mjs",
+    "repair:public-users": "node scripts/repair-public-users.mjs",
+    "db:push": "node scripts/supabase-db-push.mjs",
+    "db:push:yes": "npx supabase db push --yes",
+    "db:push:include-all": "node scripts/supabase-db-push.mjs --include-all --yes",
+    "db:status": "npx supabase status",
+    "typecheck:edge-functions": "tsc -p supabase/functions/tsconfig.json --pretty false"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "dotenv": "^16.4.5",
+    "typescript": "~5.7.2"
+  }
+}

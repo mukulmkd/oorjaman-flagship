@@ -1,0 +1,446 @@
+/* Shared primitives - SaaS dashboard tokens via CSS variables (set by consuming app). */
+
+.web-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: inherit;
+  font-weight: var(--weight-semibold);
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.web-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.web-btn:active:not(:disabled) {
+  opacity: 0.9;
+}
+
+.web-btn--sm {
+  padding: 0.375rem 0.75rem;
+  font-size: var(--type-sm);
+}
+
+.web-btn--md {
+  padding: 0.5rem 1rem;
+  font-size: var(--type-sm);
+}
+
+.web-btn--lg {
+  padding: 0.625rem 1.25rem;
+  font-size: var(--type-md);
+}
+
+.web-btn--primary {
+  background: var(--wb-primary);
+  color: var(--wb-primary-fg);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+}
+
+.web-btn--primary:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+.web-btn--outline {
+  background: var(--wb-card);
+  color: var(--wb-fg);
+  border: 1px solid var(--wb-border);
+}
+
+.web-btn--outline:hover:not(:disabled) {
+  background: var(--wb-muted);
+}
+
+.web-btn--ghost {
+  background: transparent;
+  color: var(--wb-muted-fg);
+}
+
+.web-btn--ghost:hover:not(:disabled) {
+  background: var(--wb-muted);
+  color: var(--wb-fg);
+}
+
+.web-btn--danger {
+  background: var(--wb-destructive);
+  color: var(--wb-destructive-fg);
+}
+
+.web-btn--danger:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.web-card {
+  background: var(--wb-card);
+  border: 1px solid var(--wb-border);
+  border-radius: 12px;
+  box-shadow: var(--wb-card-shadow);
+  transition: transform 0.16s ease;
+}
+
+.web-card--interactive:active {
+  transform: scale(0.98);
+}
+
+/* Universal nested-press guard: if anything inside is active, don't scale parent card. */
+.web-card--interactive:has(:active) {
+  transform: none;
+}
+
+.web-card--padded {
+  padding: 1rem;
+}
+
+.web-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: var(--type-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.web-badge--neutral {
+  background: var(--wb-muted);
+  color: var(--wb-muted-fg);
+}
+
+.web-badge--warning {
+  background: rgb(254 243 199);
+  color: rgb(146 64 14);
+}
+
+.web-badge--success {
+  background: rgb(220 252 231);
+  color: rgb(22 101 52);
+}
+
+.web-badge--danger {
+  background: rgb(254 226 226);
+  color: rgb(153 27 27);
+}
+
+.web-tabs {
+  display: inline-flex;
+  padding: 4px;
+  gap: 4px;
+  background: var(--wb-muted);
+  border-radius: 10px;
+  border: 1px solid var(--wb-border);
+}
+
+.web-tab {
+  font-family: inherit;
+  font-size: var(--type-sm);
+  font-weight: var(--weight-semibold);
+  padding: 0.45rem 0.85rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background: transparent;
+  color: var(--wb-muted-fg);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.web-tab:hover {
+  color: var(--wb-fg);
+}
+
+.web-tab[aria-selected="true"] {
+  background: var(--wb-card);
+  color: var(--wb-fg);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+}
+
+.web-spinner {
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 2px solid var(--wb-border);
+  border-top-color: var(--wb-primary);
+  border-radius: 50%;
+  animation: web-spin 0.65s linear infinite;
+}
+
+@keyframes web-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.web-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgb(15 23 42 / 0.35);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.web-modal {
+  width: min(440px, 100%);
+  background: var(--wb-card);
+  border-radius: 14px;
+  border: 1px solid var(--wb-border);
+  box-shadow:
+    0 24px 48px -12px rgb(15 23 42 / 0.18),
+    0 0 0 1px rgb(15 23 42 / 0.04);
+  padding: 1rem;
+}
+
+.web-modal h3 {
+  margin: 0 0 0.5rem;
+  font-size: var(--type-md);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.02em;
+  color: var(--wb-fg);
+}
+
+.web-modal p {
+  margin: 0 0 1rem;
+  font-size: var(--type-sm);
+  line-height: 1.45;
+  color: var(--wb-muted-fg);
+}
+
+.web-field-label {
+  display: block;
+  font-size: var(--type-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--wb-muted-fg);
+  margin-bottom: 0.35rem;
+}
+
+.web-input,
+.web-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: var(--type-sm);
+  border-radius: 10px;
+  border: 1px solid var(--wb-border);
+  background: var(--wb-elevated);
+  color: var(--wb-fg);
+  padding: 0.55rem 0.75rem;
+}
+
+.web-input:focus,
+.web-textarea:focus {
+  outline: none;
+  border-color: var(--wb-ring);
+  box-shadow: 0 0 0 3px rgb(251 191 36 / 0.25);
+}
+
+.web-textarea {
+  resize: vertical;
+  min-height: 96px;
+}
+
+.web-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.web-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.web-page-header-main {
+  min-width: 0;
+}
+
+.web-page-header-title {
+  margin: 0;
+  font-size: var(--type-xl);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.03em;
+  color: var(--wb-fg);
+}
+
+.web-page-header-sub {
+  margin: 0.35rem 0 0;
+  font-size: var(--type-sm);
+  line-height: 1.45;
+  color: var(--wb-muted-fg);
+}
+
+.web-page-header-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes web-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.web-skeleton-block {
+  border-radius: 12px;
+  min-height: 1rem;
+  background: linear-gradient(
+    105deg,
+    var(--wb-muted, #f5f5f4) 0%,
+    var(--wb-border, #e7e5e4) 45%,
+    var(--wb-muted, #f5f5f4) 90%
+  );
+  background-size: 220% 100%;
+  animation: web-skeleton-shimmer 1.35s ease-in-out infinite;
+}
+
+.web-dashboard-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.web-dashboard-skeleton-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
+.web-dashboard-skeleton-kpi {
+  min-height: 104px;
+}
+
+.web-dashboard-skeleton-chart {
+  min-height: 260px;
+}
+
+.web-dashboard-skeleton-chart--short {
+  min-height: 180px;
+}
+
+.web-dashboard-skeleton-chart--tall {
+  min-height: 320px;
+}
+
+.web-table-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.web-table-skeleton-row {
+  min-height: 44px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Dropdown menu                                                             */
+/* -------------------------------------------------------------------------- */
+
+.web-dropdown {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.web-dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--wb-fg);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.web-dropdown-trigger:hover {
+  background: var(--wb-muted);
+  border-color: var(--wb-border);
+}
+
+.web-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  z-index: 50;
+  min-width: 220px;
+  padding: 0.35rem;
+  border-radius: 12px;
+  border: 1px solid var(--wb-border);
+  background: var(--wb-card);
+  box-shadow: var(--wb-card-shadow, 0 4px 24px rgb(15 23 42 / 0.1));
+}
+
+.web-dropdown-panel--end {
+  right: 0;
+}
+
+.web-dropdown-panel--start {
+  left: 0;
+}
+
+.web-dropdown-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--wb-fg);
+  font: inherit;
+  font-size: var(--type-sm);
+  font-weight: var(--weight-medium);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.web-dropdown-item:hover {
+  background: var(--wb-muted);
+}
+
+.web-dropdown-sep {
+  height: 1px;
+  margin: 0.35rem 0.25rem;
+  background: var(--wb-border);
+}
