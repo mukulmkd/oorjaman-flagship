@@ -15,6 +15,7 @@ export {
   normalizePhoneE164,
   recoverStoredSupabaseSession,
 } from "./auth/auth-api";
+export { bootstrapMobileSupabaseAuth } from "./auth/mobile-auth-bootstrap";
 export {
   AUTH_NETWORK_ERROR_MESSAGE,
   AUTH_SIGN_IN_AGAIN_MESSAGE,
@@ -37,7 +38,26 @@ export {
 } from "./auth/post-auth-routes";
 export * as userApi from "./users/user-api";
 export * as vendorApi from "./vendors/vendor-api";
+export {
+  createEmptyCoverageZone,
+  coverageZonePinsFromText,
+  coverageZonePinsToText,
+  DEFAULT_VENDOR_COVERAGE_COUNTRY_CODE,
+  flattenCoverageZones,
+  mergeCoverageIntoVendorMetadata,
+  parseVendorCoverageZones,
+  validateVendorCoverageZones,
+  VENDOR_COVERAGE_ZONES_METADATA_KEY,
+  type VendorServiceCoverageZone,
+} from "./vendors/vendor-coverage";
 export * as vendorIntakeApi from "./vendors/vendor-intake-api";
+export {
+  validateVendorIntakeFormJson,
+  validateVendorIntakeSignupFull,
+  validateVendorIntakeSignupSection,
+  type VendorIntakeSignupForm,
+  type VendorIntakeSignupSection,
+} from "./vendors/vendor-intake-validation";
 export {
   VENDOR_INTAKE_ASYNC_ID_KEY,
   VENDOR_INTAKE_ASYNC_TOKEN_KEY,
@@ -65,6 +85,7 @@ export {
 export {
   adminListNotificationEvents,
   adminListNotificationEventsPaged,
+  adminCountQueuedNotificationEvents,
   adminProcessNotificationQueue,
 } from "./notifications/notification-events-api";
 export {
@@ -86,6 +107,9 @@ export {
   adminListNotificationChannelSettings,
   adminUpdateNotificationChannelSetting,
 } from "./notifications/notification-channel-settings-api";
+export * as customerPushApi from "./notifications/customer-push-api";
+export * as technicianPushApi from "./notifications/technician-push-api";
+export type { CustomerPushPlatform, CustomerPushTokenRow } from "./notifications/customer-push-api";
 export {
   createVendorDocumentSignedUrl,
   createVendorIntakeDocumentSignedUrl,
@@ -144,7 +168,10 @@ export {
 export * from "./bookings/customer-booking-payload";
 export * from "./bookings/vendor-fallback";
 export {
+  DEFAULT_VENDOR_PLATFORM_FEE_PERCENT,
   getBookingRoutingDefaults,
+  getVendorPlatformFeePercent,
+  normalizeVendorPlatformFeePercent,
   adminGetPlatformSettings,
   adminSetDefaultVendor,
   adminUpdatePlatformSettings,
@@ -174,9 +201,20 @@ export {
   adminFetchRevenueStats,
   adminFetchSubscriptionStats,
   adminFetchVendorPerformance,
+  ANALYTICS_BUSINESS_PERIOD_LABELS,
+  ANALYTICS_MAX_DAILY_FETCH_DAYS,
+  ANALYTICS_PERIOD_BUCKET_COUNT,
+  ANALYTICS_PERIOD_DAY_WINDOW,
+  analyticsBuildBusinessPeriodSeries,
+  analyticsFormatPeriodAxisLabel,
   analyticsIstInclusiveDateRangeAscending,
+  analyticsIstMonthKeysAscending,
+  analyticsIstQuarterKeysAscending,
   analyticsPadBookingDailySeries,
   analyticsPadRevenueDailySeries,
+  analyticsPeriodChartSubtitle,
+  type AnalyticsBusinessPeriod,
+  type AnalyticsPeriodSeriesPoint,
   type BookingStatsRow,
   type BookingsCreatedDailyRow,
   type RevenueDayPoint,
@@ -184,6 +222,17 @@ export {
   type VendorPerformanceRow,
 } from "./admin/analytics-api";
 export * as technicianApi from "./technicians/technician-api";
+export * as technicianActivityApi from "./technicians/technician-activity-api";
+export {
+  isTechnicianActivityExecutable,
+  listTechnicianActivityPage,
+  readTechnicianActivityBookingStatus,
+  readTechnicianActivityReferenceCode,
+  subscribeTechnicianActivity,
+  type TechnicianActivityEventRow,
+  type TechnicianActivityKind,
+  type TechnicianActivityPage,
+} from "./technicians/technician-activity-api";
 export {
   JOB_EVIDENCE_PHOTOS_BUCKET,
   type JobEvidencePhotoPhase,
@@ -195,6 +244,13 @@ export {
 } from "./technicians/technician-documents";
 export type { TechnicianDocKind } from "./technicians/technician-documents";
 export * as subscriptionApi from "./subscriptions/subscription-api";
+export {
+  RENEWAL_NUDGE_EVENT_TYPE,
+  type RenewalNudgeAudience,
+  type RenewalNudgeChannelSummary,
+  type RenewalNudgeQueueStats,
+  type ScheduleAndSendRenewalNudgesResult,
+} from "./subscriptions/subscription-renewal-nudges-api";
 export {
   bookingMatchesSubscriptionAddress,
   getActiveSubscriptionForAddress,
@@ -282,11 +338,18 @@ export type {
   SupportConversationContext,
   SupportConversationEventWithActor,
   SupportConversationWithCustomer,
+  SupportConversationWithParticipant,
   SupportDeskAgent,
   SupportDeskCustomerBrief,
   SupportDeskCustomerContext,
+  SupportDeskTechnicianContext,
+  SupportInboxAudienceFilter,
+  SupportParticipantAudience,
   SupportDeskCustomerProfile,
   SupportDeskCustomerSearchHit,
+  SupportDeskTechnicianBrief,
+  SupportDeskTechnicianProfile,
+  SupportDeskTechnicianSearchHit,
   SupportDeskInsights,
   SupportInboxFilter,
   SupportSlaHints,
@@ -300,7 +363,10 @@ export {
   isSupportDeskRole,
   listSupportConversationEvents,
   getSupportDeskCustomerProfile,
+  getSupportDeskTechnicianProfile,
+  isTechnicianSupportConversation,
   searchSupportDeskCustomers,
+  searchSupportDeskTechnicians,
   supportCloseReasonLabel,
   supportResolutionTagLabel,
 } from "./support/support-api";
@@ -337,6 +403,25 @@ export {
   type SitePhotoWithSignedUrl,
 } from "./customers/customer-site-photos";
 export * as paymentApi from "./payments/payment-api";
+export {
+  adminBackfillVisitPayoutSettlements,
+  adminListVendorSettlements,
+  adminUpdateVendorSettlement,
+  bookingVisitValuePaise,
+  computeVisitPayoutBreakdown,
+  DEFAULT_PLATFORM_FEE_PERCENT,
+  ensureCancellationPenaltySettlement,
+  ensureVisitPayoutSettlement,
+  formatInrFromPaise,
+  settlementDisplayAmountPaise,
+  settlementKindLabel,
+  settlementStatusLabel,
+  vendorListMySettlements,
+  type AdminUpdateVendorSettlementInput,
+  type VendorSettlementKind,
+  type VendorSettlementStatus,
+  type VisitPayoutBreakdown,
+} from "./finance/vendor-settlement-api";
 export * from "./vendors/vendor-service-area";
 export {
   calculatePrice,

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CustomerRow, Database, Json } from "../database.types";
 import { requireSessionUserId, SupabaseApiError, takeSingleRow } from "../result";
+import { syncUserDisplayNameFromCustomer } from "../users/user-display-name";
 import { getCustomerSolarSizing } from "./customer-solar-sizing";
 import {
   realignActiveAmcSubscriptionsForCustomerCapacity,
@@ -57,7 +58,11 @@ export async function updateMyCustomer(
     .select()
     .single();
 
-  return takeSingleRow(data, error);
+  const customer = takeSingleRow(data, error);
+  if (patch.display_name !== undefined) {
+    await syncUserDisplayNameFromCustomer(client, customer);
+  }
+  return customer;
 }
 
 /** Full registration payload saved to `customers` (service site + solar + safety). */
@@ -271,6 +276,7 @@ export async function updateCustomerProfileAfterOnboarding(
     .single();
 
   const customer = takeSingleRow(data, error);
+  await syncUserDisplayNameFromCustomer(client, customer);
   const prevSizing = getCustomerSolarSizing(existing);
   const nextSizing = getCustomerSolarSizing(customer);
   let amc_realignments: AmcTierRealignmentSummary[] = [];
@@ -327,7 +333,9 @@ export async function completeCustomerOnboarding(
 
   if (!existing) {
     const { data, error } = await client.from("customers").insert(row).select().single();
-    return takeSingleRow(data, error);
+    const customer = takeSingleRow(data, error);
+    await syncUserDisplayNameFromCustomer(client, customer);
+    return customer;
   }
 
   const { data, error } = await client
@@ -359,7 +367,9 @@ export async function completeCustomerOnboarding(
     .select()
     .single();
 
-  return takeSingleRow(data, error);
+  const customer = takeSingleRow(data, error);
+  await syncUserDisplayNameFromCustomer(client, customer);
+  return customer;
 }
 
 /** Narrow customer fields for vendor views (RLS: booking must link vendor to customer). */

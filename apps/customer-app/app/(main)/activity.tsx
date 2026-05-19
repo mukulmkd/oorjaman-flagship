@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import {
@@ -42,10 +42,14 @@ import {
 } from "../../lib/service-address-book";
 import { supabase } from "../../lib/supabase";
 
+const ACTIVITY_PAGE_SIZE = 10;
+
 function activityIcon(kind: string): keyof typeof Ionicons.glyphMap {
   if (kind.startsWith("booking_status_in_progress") || kind === "booking_technician_assigned") {
     return "navigate-outline";
   }
+  if (kind === "customer_rating_submitted") return "star-outline";
+  if (kind === "booking_rescheduled") return "calendar-outline";
   if (kind.startsWith("booking_")) return "calendar-outline";
   if (kind.startsWith("amc_")) return "shield-checkmark-outline";
   return "ellipse-outline";
@@ -127,12 +131,16 @@ export default function ActivityScreen() {
     [addressBook.entries, selectedAddressId],
   );
 
-  const activityQuery = useQuery({
+  const activityQuery = useInfiniteQuery({
     queryKey: queryKeys.customerActivity.forAddress(selectedAddressId ?? "__none__"),
-    queryFn: () =>
-      customerActivityApi.listCustomerSiteActivityForAddress(supabase!, {
+    queryFn: ({ pageParam }) =>
+      customerActivityApi.listCustomerSiteActivityPageForAddress(supabase!, {
         service_address_id: selectedAddressId!,
+        offset: pageParam,
+        limit: ACTIVITY_PAGE_SIZE,
       }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextOffset : undefined),
     enabled: Boolean(supabase && selectedAddressId),
   });
 
@@ -187,7 +195,9 @@ export default function ActivityScreen() {
     },
   });
 
-  const events = activityQuery.data ?? [];
+  const events = activityQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  const showLoadMore = Boolean(activityQuery.hasNextPage);
+  const loadingMore = activityQuery.isFetchingNextPage;
   const trackable = trackableQuery.data ?? null;
 
   const openEvent = useCallback((event: CustomerSiteActivityEventRow) => {
@@ -219,7 +229,7 @@ export default function ActivityScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.lede}>
-            Bookings, AMC changes, and visit updates for each saved address — all in one timeline.
+            Bookings, visit status changes, reschedules, ratings, AMC updates, and more — grouped by service address.
           </Text>
         </View>
 
@@ -295,16 +305,31 @@ export default function ActivityScreen() {
                   description="Book a visit or subscribe to AMC for this address — updates will appear here."
                 />
               ) : (
-                <Card variant="muted" padded={false}>
-                  {events.map((event, index) => (
-                    <View key={event.id}>
-                      {index > 0 ? <View style={styles.eventDivider} /> : null}
-                      <View style={styles.eventPad}>
-                        <ActivityEventRow event={event} onPress={() => openEvent(event)} />
+                <>
+                  <Card variant="muted" padded={false}>
+                    {events.map((event, index) => (
+                      <View key={event.id}>
+                        {index > 0 ? <View style={styles.eventDivider} /> : null}
+                        <View style={styles.eventPad}>
+                          <ActivityEventRow event={event} onPress={() => openEvent(event)} />
+                        </View>
                       </View>
-                    </View>
-                  ))}
-                </Card>
+                    ))}
+                  </Card>
+                  {showLoadMore ? (
+                    <Button
+                      variant="outline"
+                      size="md"
+                      loading={loadingMore}
+                      disabled={loadingMore}
+                      accessibilityLabel="Load more activity"
+                      onPress={() => void activityQuery.fetchNextPage()}
+                      style={styles.loadMore}
+                    >
+                      Load more
+                    </Button>
+                  ) : null}
+                </>
               )}
             </View>
           </FadeInView>
@@ -444,6 +469,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.mutedForeground,
     marginTop: 2,
+  },
+  loadMore: {
+    marginTop: spacing.md,
+    alignSelf: "center",
   },
   muted: {
     fontFamily: fontFamily.regular,

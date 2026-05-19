@@ -13,13 +13,17 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { colors } from "@oorjaman/config";
 import { QueryProvider } from "../providers/query-provider";
+import { HelpSupportProvider } from "../components/help-support-provider";
 import {
   hideNativeSplashScreenOnce,
   initBookingNotificationHandler,
+  installMobileAuthConsoleFilters,
   keepNativeSplashScreenVisible,
   MobileAuthSessionGuard,
   MobileOfflineGate,
 } from "@oorjaman/ui";
+
+installMobileAuthConsoleFilters();
 import { supabase } from "../lib/supabase";
 
 initBookingNotificationHandler();
@@ -61,6 +65,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <QueryProvider>
+        <HelpSupportProvider>
         <MobileOfflineGate>
           <MobileAuthSessionGuard client={supabase} loginHref="/login" />
           <StatusBar style="dark" />
@@ -91,6 +96,7 @@ export default function RootLayout() {
           <Stack.Screen name="(main)" options={{ animation: "fade" }} />
         </Stack>
         </MobileOfflineGate>
+        </HelpSupportProvider>
       </QueryProvider>
     </SafeAreaProvider>
   );

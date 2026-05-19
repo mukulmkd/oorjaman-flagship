@@ -206,6 +206,11 @@ export async function recoverStoredSupabaseSession(
       throw new SupabaseApiError(error.message, error);
     }
     if (data.session) {
+      const { error: userError } = await client.auth.getUser();
+      if (userError && isInvalidRefreshTokenError(userError)) {
+        await clearInvalidStoredSession(client);
+        return null;
+      }
       await syncPublicUserAfterAuth(client);
     }
     return data.session;

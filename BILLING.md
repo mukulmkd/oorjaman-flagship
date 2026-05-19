@@ -4,6 +4,8 @@ Living checklist of third-party services that require billing accounts, API keys
 
 **Do not commit real API keys or secrets to this file.** Store keys in `.env` (local) or your secret manager (CI/production).
 
+For a full **development vs production** env checklist (Supabase, Expo, Vite, edge functions, push), see [**ENVIRONMENT.md**](ENVIRONMENT.md).
+
 ---
 
 ## How to add an entry

@@ -10,14 +10,14 @@ export function TabScreenHeader({
   children,
   style,
 }: {
-  kicker: string;
+  kicker?: string;
   lede?: string;
   children?: ReactNode;
   style?: ViewStyle;
 }) {
   return (
     <View style={[styles.wrap, style]}>
-      <Text style={styles.kicker}>{kicker}</Text>
+      {kicker ? <Text style={styles.kicker}>{kicker}</Text> : null}
       {lede ? <Text style={styles.lede}>{lede}</Text> : null}
       {children}
     </View>

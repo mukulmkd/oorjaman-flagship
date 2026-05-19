@@ -3,12 +3,18 @@ import type { BookingRow, BookingStatus, Database, Json, OpsBookingExceptionRow,
 import { offsetRangeForPage, type PagedParams, type PagedResult } from "../page-range";
 import { requireSessionUserId, SupabaseApiError, takeRows, takeSingleRow } from "../result";
 import {
+  adminBookingCancelledCopy,
   adminMarketplaceFloatedCopy,
+  adminReassignmentNeededCopy,
+  adminTechnicianReassignedCopy,
   adminVendorAcceptedCopy,
   adminVendorClaimedCopy,
+  adminVendorDeclinedCopy,
+  vendorBookingAssignedCopy,
   emitAdminBookingNotification,
   emitVendorBookingNotification,
 } from "../notifications/booking-notifications";
+import { ensureCancellationPenaltySettlement } from "../finance/vendor-settlement-api";
 import { emitMarketplaceNotificationEvents, readMarketplaceBroadcastFilter } from "../notifications/marketplace-notifications";
 import * as vendorApi from "../vendors/vendor-api";
 import {
@@ -1086,19 +1092,19 @@ export async function vendorRejectBookingRequest(
     metadata,
   });
   const vendorName = await resolveVendorDisplayName(client, updated.vendor_id);
+  const declinedCopy = adminVendorDeclinedCopy(updated, vendorName, trimmed);
   await emitAdminBookingNotification(client, {
     booking: updated,
     eventType: "admin_booking_vendor_rejected",
-    title: "Vendor declined",
-    body: `${vendorName ?? "Partner"} declined booking ${updated.reference_code ?? updated.id.slice(0, 8)}: ${trimmed}`,
+    ...declinedCopy,
     vendorName,
     note: trimmed,
   });
+  const cancelledCopy = adminBookingCancelledCopy(updated);
   await emitAdminBookingNotification(client, {
     booking: updated,
     eventType: "admin_booking_cancelled",
-    title: "Booking cancelled",
-    body: `Booking ${updated.reference_code ?? updated.id.slice(0, 8)} was cancelled after vendor decline.`,
+    ...cancelledCopy,
     vendorName,
   });
   return updated;
@@ -1190,14 +1196,15 @@ export async function vendorCancelAcceptedBooking(
     metadata: nextMeta,
   });
   const vendorName = await resolveVendorDisplayName(client, vid);
+  const reassignCopy = adminReassignmentNeededCopy(updated, vendorName);
   await emitAdminBookingNotification(client, {
     booking: updated,
     eventType: "admin_booking_needs_reassignment",
-    title: "Reassignment needed",
-    body: `${vendorName ?? "Partner"} cancelled accepted visit ${updated.reference_code ?? updated.id.slice(0, 8)}. Assign a new vendor.`,
+    ...reassignCopy,
     vendorName,
     note: trimmed,
   });
+  await ensureCancellationPenaltySettlement(client, updated, vid);
   return updated;
 }
 
@@ -1246,11 +1253,11 @@ export async function vendorReassignBookingTechnician(
   });
   const technicianName = await resolveTechnicianDisplayName(client, techId);
   const vendorName = await resolveVendorDisplayName(client, vendorId);
+  const techReassignCopy = adminTechnicianReassignedCopy(updated, vendorName, technicianName);
   await emitAdminBookingNotification(client, {
     booking: updated,
     eventType: "admin_booking_technician_reassigned",
-    title: "Technician changed",
-    body: `${vendorName ?? "Partner"} reassigned ${updated.reference_code ?? updated.id.slice(0, 8)} to ${technicianName ?? "another technician"}.`,
+    ...techReassignCopy,
     vendorName,
     technicianName,
   });
@@ -1611,12 +1618,12 @@ export async function adminAssignVendorToBooking(
     metadata: nextMeta,
   });
   const vendorName = await resolveVendorDisplayName(client, vid);
+  const assignedCopy = vendorBookingAssignedCopy(updated);
   await emitVendorBookingNotification(client, {
     booking: updated,
     eventType: "vendor_booking_assigned",
     recipientVendorId: vid,
-    title: "New booking assigned",
-    body: `Operations assigned booking ${updated.reference_code ?? updated.id.slice(0, 8)} to your organisation. Accept and assign a technician.`,
+    ...assignedCopy,
     vendorName,
     note: "Direct admin assignment.",
   });

@@ -3,6 +3,11 @@ import type { Database, UserRow } from "../database.types";
 import { isAuthSessionMissingError, SupabaseApiError } from "../result";
 
 /**
+ * `public.users` = auth identity; role tables = profile source of truth.
+ * Display labels: sync via `syncUserDisplayName*` in `./user-display-name` after profile updates.
+ */
+
+/**
  * Mirror the signed-in auth.users row into public.users (phone/email + verification timestamps).
  * No-op when there is no session. Used after OTP verify and on session restore (incl. dummy password login).
  */
@@ -60,3 +65,16 @@ export async function getMyUserRecordWithRetry(
   }
   return null;
 }
+
+export {
+  displayNameFromCustomer,
+  displayNameFromSupportAgent,
+  displayNameFromTechnician,
+  displayNameFromVendor,
+  normalizeDisplayName,
+  syncUserDisplayName,
+  syncUserDisplayNameFromCustomer,
+  syncUserDisplayNameFromSupportAgent,
+  syncUserDisplayNameFromTechnician,
+  syncUserDisplayNameFromVendor,
+} from "./user-display-name";

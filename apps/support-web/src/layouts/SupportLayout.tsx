@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { authApi } from "@oorjaman/api";
 import { DropdownMenu, DropdownMenuItem } from "@oorjaman/web-ui";
 import { SupportChatDock } from "../components/SupportChatDock";
+import { SupportDeskRealtime } from "../components/SupportDeskRealtime";
 import { ActiveChatProvider } from "../lib/active-chat-context";
 import { adminPortalUrl } from "../lib/portal-urls";
 import { useSupabase } from "../lib/supabase-context";
@@ -94,6 +95,7 @@ export function SupportLayout() {
             <Outlet />
           </div>
         </div>
+        <SupportDeskRealtime />
         <SupportChatDock />
       </div>
     </ActiveChatProvider>

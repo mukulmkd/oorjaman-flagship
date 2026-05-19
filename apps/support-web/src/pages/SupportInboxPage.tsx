@@ -6,14 +6,17 @@ import {
   queryKeys,
   supportApi,
   SUPPORT_ATTACHMENTS_BUCKET,
-  type SupportConversationWithCustomer,
+  type SupportConversationWithParticipant,
+  type SupportDeskCustomerContext,
+  type SupportDeskTechnicianContext,
+  type SupportInboxAudienceFilter,
   type SupportInboxFilter,
   type SupportMessageRow,
   type SupportResolutionTag,
 } from "@oorjaman/api";
 import { PageHeader } from "@oorjaman/web-ui";
-import { CustomerContextPanel } from "../components/CustomerContextPanel";
-import { SupportMacrosPicker } from "../components/SupportMacrosPicker";
+import { ParticipantContextPanel } from "../components/ParticipantContextPanel";
+import { SupportComposer } from "../components/SupportComposer";
 import { SupportSlaBadges } from "../components/SupportSlaBadges";
 import { ResolveConversationDialog } from "../components/ResolveConversationDialog";
 import { SupportThreadToolbar } from "../components/SupportThreadToolbar";
@@ -22,7 +25,7 @@ import {
   playNotificationChime,
   setNotificationSoundMuted,
 } from "../lib/notification-sound";
-import { useActiveChat } from "../lib/active-chat-context";
+import { shouldDeskNotifyForConversation, useActiveChat } from "../lib/active-chat-context";
 import { parseInboxDrillDown } from "../lib/support-inbox-url";
 import { useSupabase } from "../lib/supabase-context";
 import "./support-inbox.css";
@@ -33,6 +36,12 @@ const INBOX_TABS: { id: SupportInboxFilter; label: string }[] = [
   { id: "mine", label: "Mine" },
   { id: "open", label: "All open" },
   { id: "resolved", label: "Resolved (30d)" },
+];
+
+const AUDIENCE_TABS: { id: SupportInboxAudienceFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "customer", label: "Customer support" },
+  { id: "technician", label: "Technician support" },
 ];
 
 function formatWhen(iso: string): string {
@@ -51,11 +60,19 @@ function formatWhen(iso: string): string {
 export function SupportInboxPage() {
   const supabase = useSupabase();
   const queryClient = useQueryClient();
-  const { openChat, closeChat, expandChat, isLiveChat } = useActiveChat();
+  const {
+    openChat,
+    closeChat,
+    expandChat,
+    isLiveChat,
+    conversationId: activeDockConversationId,
+    dockState,
+  } = useActiveChat();
   const [searchParams, setSearchParams] = useSearchParams();
   const drillDown = useMemo(() => parseInboxDrillDown(searchParams), [searchParams]);
   const deepLinkId = searchParams.get("conversation");
   const [filter, setFilter] = useState<SupportInboxFilter>(drillDown.filter);
+  const [audience, setAudience] = useState<SupportInboxAudienceFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(deepLinkId);
   const [composer, setComposer] = useState("");
   const [internalNote, setInternalNote] = useState(false);
@@ -64,7 +81,6 @@ export function SupportInboxPage() {
   const [soundMuted, setSoundMuted] = useState(() => isNotificationSoundMuted());
   const [agentUserId, setAgentUserId] = useState<string | null>(null);
   const threadEndRef = useRef<HTMLDivElement | null>(null);
-  const inboxRealtimeReady = useRef(false);
   const soundMutedRef = useRef(soundMuted);
   soundMutedRef.current = soundMuted;
 
@@ -76,11 +92,12 @@ export function SupportInboxPage() {
   }, [supabase]);
 
   const inboxQ = useQuery({
-    queryKey: queryKeys.support.deskInbox(filter, agentUserId ?? ""),
+    queryKey: queryKeys.support.deskInbox(filter, agentUserId ?? "", audience),
     queryFn: () =>
       supportApi.listSupportInboxForDesk(supabase!, filter, {
         agentUserId,
         limit: 120,
+        audience,
       }),
     enabled: Boolean(supabase && (filter !== "mine" || agentUserId)),
     refetchInterval: 60_000,
@@ -133,11 +150,11 @@ export function SupportInboxPage() {
 
   const selectedFetchQ = useQuery({
     queryKey: selectedId ? queryKeys.support.conversation(selectedId) : [],
-    queryFn: () => supportApi.getSupportConversationForDeskWithCustomer(supabase!, selectedId!),
+    queryFn: () => supportApi.getSupportConversationForDeskWithParticipant(supabase!, selectedId!),
     enabled: Boolean(supabase && selectedId && !selectedFromList),
   });
 
-  const selected: SupportConversationWithCustomer | null =
+  const selected: SupportConversationWithParticipant | null =
     selectedFromList ?? selectedFetchQ.data ?? null;
 
   const messagesQ = useQuery({
@@ -146,11 +163,30 @@ export function SupportInboxPage() {
     enabled: Boolean(supabase && selectedId),
   });
 
-  const contextQ = useQuery({
-    queryKey: selectedId ? queryKeys.support.deskContext(selectedId) : [],
+  const customerContextQ = useQuery({
+    queryKey: selectedId ? [...queryKeys.support.deskContext(selectedId), "customer"] : [],
     queryFn: () => supportApi.getSupportDeskCustomerContext(supabase!, selected!),
-    enabled: Boolean(supabase && selected),
+    enabled: Boolean(
+      supabase && selected && !supportApi.isTechnicianSupportConversation(selected),
+    ),
   });
+
+  const technicianContextQ = useQuery({
+    queryKey: selectedId ? [...queryKeys.support.deskContext(selectedId), "technician"] : [],
+    queryFn: () => supportApi.getSupportDeskTechnicianContext(supabase!, selected!),
+    enabled: Boolean(supabase && selected && selected.participant_audience === "technician"),
+  });
+
+  const selectedIsTechnician =
+    selected != null && supportApi.isTechnicianSupportConversation(selected);
+
+  const contextLoading = selectedIsTechnician
+    ? technicianContextQ.isLoading
+    : customerContextQ.isLoading;
+
+  const contextError = selectedIsTechnician
+    ? ((technicianContextQ.error as Error | null) ?? null)
+    : ((customerContextQ.error as Error | null) ?? null);
 
   const refreshInbox = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.support.all() });
@@ -184,30 +220,19 @@ export function SupportInboxPage() {
   }, [deepLinkId, selectedFromList, selectedFetchQ.data, openChat, isLiveChat]);
 
   useEffect(() => {
-    if (!supabase) return;
-    inboxRealtimeReady.current = false;
-    const channel = supportApi.subscribeSupportInbox(supabase, () => {
-      if (inboxRealtimeReady.current && !soundMutedRef.current) {
-        playNotificationChime();
-      }
-      inboxRealtimeReady.current = true;
-      refreshInbox();
-      if (selectedId) {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.support.messages(selectedId) });
-      }
-    });
-    return () => supportApi.unsubscribeSupportChannel(supabase, channel);
-  }, [supabase, refreshInbox, selectedId, queryClient]);
-
-  useEffect(() => {
     if (!supabase || !selectedId) return;
     const channel = supportApi.subscribeSupportMessages(supabase, selectedId, () => {
-      if (!soundMuted) playNotificationChime();
+      const notify = shouldDeskNotifyForConversation(
+        dockState,
+        activeDockConversationId,
+        selectedId,
+      );
+      if (!soundMuted && notify) playNotificationChime();
       void messagesQ.refetch();
       refreshInbox();
     });
     return () => supportApi.unsubscribeSupportChannel(supabase, channel);
-  }, [supabase, selectedId, messagesQ, refreshInbox, soundMuted]);
+  }, [supabase, selectedId, messagesQ, refreshInbox, soundMuted, dockState, activeDockConversationId]);
 
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -285,7 +310,7 @@ export function SupportInboxPage() {
   const readOnly = selected?.status === "resolved";
   const selectedIsLive = selected ? isLiveChat(selected.status) : false;
 
-  const selectConversation = (c: SupportConversationWithCustomer) => {
+  const selectConversation = (c: SupportConversationWithParticipant) => {
     setSelectedId(c.id);
     if (isLiveChat(c.status)) {
       openChat(c.id, { expand: true });
@@ -299,7 +324,7 @@ export function SupportInboxPage() {
       <div className="support-inbox-page-header">
         <PageHeader
           title="Inbox"
-          subtitle="Queued chats, your assignments, and resolved threads. Replies reach customers in real time."
+          subtitle="Customer and technician support queues. Replies reach the mobile app in real time."
         />
         <div className="support-inbox-page-header-actions">
           <Link to="/search" className="support-inbox-sound-toggle">
@@ -324,6 +349,24 @@ export function SupportInboxPage() {
           </Link>
         </div>
       ) : null}
+
+      <div className="support-inbox-audience-tabs" role="tablist" aria-label="Support audience">
+        {AUDIENCE_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={audience === tab.id}
+            className={`support-inbox-audience-tab${audience === tab.id ? " support-inbox-audience-tab-active" : ""}`}
+            onClick={() => {
+              setAudience(tab.id);
+              setSelectedId(null);
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       <div className="support-inbox-tabs" role="tablist" aria-label="Inbox queue">
         {INBOX_TABS.map((tab) => (
@@ -359,7 +402,8 @@ export function SupportInboxPage() {
           ) : (
             displayedConversations.map((c) => {
               const active = c.id === selectedId;
-              const name = c.customer?.display_name?.trim() || "Customer";
+              const name = supportApi.supportParticipantDisplayName(c);
+              const audienceLabel = supportApi.supportParticipantAudienceLabel(c.participant_audience);
               return (
                 <button
                   key={c.id}
@@ -368,6 +412,9 @@ export function SupportInboxPage() {
                   onClick={() => selectConversation(c)}
                 >
                   <div className="support-inbox-row-top">
+                    <span className={`support-inbox-audience-badge support-inbox-audience-badge-${c.participant_audience}`}>
+                      {audienceLabel}
+                    </span>
                     <span className="support-inbox-row-name">{name}</span>
                     <span className={`support-inbox-status support-inbox-status-${c.status}`}>
                       {c.status}
@@ -387,7 +434,7 @@ export function SupportInboxPage() {
             <p className="support-inbox-muted support-inbox-thread-empty">Select a conversation.</p>
           ) : selectedIsLive ? (
             <div className="support-inbox-dock-placeholder">
-              <h2>{selected.customer?.display_name ?? "Customer"}</h2>
+              <h2>{supportApi.supportParticipantDisplayName(selected)}</h2>
               <p className="support-inbox-muted">{selected.subject ?? selected.category_slug}</p>
               <p className="support-inbox-dock-placeholder-lead">
                 This live chat is in the floating window at the bottom-right. Use Search to look up
@@ -403,10 +450,10 @@ export function SupportInboxPage() {
               </div>
             </div>
           ) : (
-            <>
+            <div className="support-chat-panel">
               <header className="support-inbox-thread-header">
                 <div>
-                  <h2>{selected.customer?.display_name ?? "Customer"}</h2>
+                  <h2>{supportApi.supportParticipantDisplayName(selected)}</h2>
                   <p className="support-inbox-muted">
                     {selected.subject ?? selected.category_slug}
                   </p>
@@ -471,7 +518,7 @@ export function SupportInboxPage() {
                 {messagesQ.isPending ? <p className="support-inbox-muted">Loading messages…</p> : null}
                 {(messagesQ.data ?? []).map((m: SupportMessageRow) => {
                   const roleClass =
-                    m.sender_role === "customer"
+                    m.sender_role === "customer" || m.sender_role === "technician"
                       ? "support-msg-customer"
                       : m.sender_role === "admin"
                         ? "support-msg-admin"
@@ -495,78 +542,33 @@ export function SupportInboxPage() {
                 <div ref={threadEndRef} />
               </div>
 
-              <footer className="support-inbox-composer">
-                {!readOnly ? (
-                  <SupportMacrosPicker
-                    categorySlug={selected.category_slug}
-                    onInsert={(body) => setComposer((prev) => (prev ? `${prev}\n${body}` : body))}
-                  />
-                ) : null}
-                {!readOnly ? (
-                  <label className="support-attach-file">
-                    <span className="support-inbox-muted">Attachment</span>
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,application/pdf"
-                      onChange={(e) => setPendingFile(e.target.files?.[0] ?? null)}
-                    />
-                    {pendingFile ? <span>{pendingFile.name}</span> : null}
-                  </label>
-                ) : null}
-                <label className="support-internal-toggle">
-                  <input
-                    type="checkbox"
-                    checked={internalNote}
-                    disabled={readOnly}
-                    onChange={(e) => setInternalNote(e.target.checked)}
-                  />
-                  Internal note (customer won&apos;t see)
-                </label>
-                <textarea
-                  className="support-inbox-composer-input"
-                  rows={2}
-                  placeholder={
-                    readOnly
-                      ? "Reopen to reply…"
-                      : internalNote
-                        ? "Add an internal note…"
-                        : "Reply to customer…"
-                  }
-                  value={composer}
-                  disabled={readOnly}
-                  onChange={(e) => setComposer(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      const t = composer.trim();
-                      if (t && selectedId && !readOnly) sendMut.mutate(t);
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="support-inbox-btn-primary"
-                  disabled={(!composer.trim() && !pendingFile) || sendMut.isPending || readOnly}
-                  onClick={() => {
-                    sendMut.mutate(composer.trim());
-                  }}
-                >
-                  {internalNote ? "Add note" : "Send"}
-                </button>
-              </footer>
-            </>
+              <SupportComposer
+                composer={composer}
+                onComposerChange={setComposer}
+                onSend={() => sendMut.mutate(composer.trim())}
+                sendPending={sendMut.isPending}
+                readOnly={readOnly}
+                internalNote={internalNote}
+                onInternalNoteChange={setInternalNote}
+                pendingFile={pendingFile}
+                onPendingFileChange={setPendingFile}
+                categorySlug={selected.category_slug}
+              />
+            </div>
           )}
         </section>
 
         {selected ? (
-          <CustomerContextPanel
+          <ParticipantContextPanel
             conversation={selected}
-            context={contextQ.data}
-            loading={contextQ.isPending}
+            customerContext={customerContextQ.data}
+            technicianContext={technicianContextQ.data}
+            loading={contextLoading}
+            contextError={contextError}
           />
         ) : (
           <aside className="support-context-panel support-context-panel-empty">
-            <p className="support-inbox-muted">Customer context appears when you select a chat.</p>
+            <p className="support-inbox-muted">Participant context appears when you select a chat.</p>
           </aside>
         )}
       </div>

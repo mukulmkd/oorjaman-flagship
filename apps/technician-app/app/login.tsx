@@ -258,13 +258,10 @@ export default function LoginScreen() {
 
         <Text style={styles.hint}>Sessions stay signed in until you explicitly sign out.</Text>
 
-        <Pressable
-          onPress={() => router.push("/technician-login")}
-          accessibilityRole="button"
-          style={({ pressed }) => [styles.altLinkWrap, pressed && { opacity: 0.7 }]}
-        >
-          <Text style={styles.altLink}>New technician? Complete onboarding</Text>
-        </Pressable>
+        <Text style={styles.footerNote}>
+          New technician? Use the same sign-in above. After your number is verified, we’ll walk you through
+          onboarding.
+        </Text>
       </View>
     </KeyboardAvoidingView>
   );
@@ -445,13 +442,12 @@ const styles = StyleSheet.create({
     color: colors.mutedForeground,
     textAlign: "center",
   },
-  altLinkWrap: {
-    marginTop: spacing.md,
-    alignItems: "center",
-  },
-  altLink: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: fontSize.md,
-    color: colors.primary,
+  footerNote: {
+    marginTop: spacing.sm,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+    color: colors.mutedForeground,
+    textAlign: "center",
   },
 });

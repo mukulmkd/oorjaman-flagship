@@ -9,11 +9,12 @@ import {
   LOGIN_PHONE_COUNTRIES,
   uploadVendorIntakeDocument,
   userApi,
-  validateEmailFormat,
-  validateLoginNationalPhone,
+  validateVendorIntakeSignupFull,
+  validateVendorIntakeSignupSection,
   vendorApi,
   vendorIntakeApi,
 } from "@oorjaman/api";
+import type { VendorIntakeSignupForm } from "@oorjaman/api";
 import type { Json } from "@oorjaman/api";
 import type { VendorDocKind } from "@oorjaman/api";
 import { Button, Card, Input, PhoneCountryLogin, TextArea } from "@oorjaman/web-ui";
@@ -130,10 +131,10 @@ const emptyForm = (): FormState => ({
 });
 
 const DOC_LABELS: Record<VendorDocKind, string> = {
-  pan: "PAN",
-  aadhaar: "Aadhaar",
-  gst: "GST certificate (optional)",
-  bank_proof: "Bank proof",
+  pan: "PAN *",
+  aadhaar: "Contact person Aadhaar *",
+  gst: "GST certificate *",
+  bank_proof: "Bank proof *",
   logo: "Company logo (optional)",
 };
 
@@ -334,51 +335,22 @@ export default function VendorSignupPage() {
     }
   };
 
-  const validateStep = (id: SectionId): string | null => {
-    switch (id) {
-      case "partner_login": {
-        const emailErr = validateEmailFormat(form.partner_login_email);
-        if (emailErr) return emailErr;
-        const phoneErr = validateLoginNationalPhone(nationalPhone);
-        if (phoneErr) return phoneErr;
-        return null;
-      }
-      case "company":
-        if (!form.business_name.trim()) return "Legal business name is required.";
-        if (form.contact_email.trim()) {
-          const ce = validateEmailFormat(form.contact_email);
-          if (ce) return ce;
-        }
-        return null;
-      case "contact":
-        if (form.contact_person_email.trim()) {
-          const pe = validateEmailFormat(form.contact_person_email);
-          if (pe) return pe;
-        }
-        return null;
-      case "bank": {
-        const digits = form.bank_account_number.replace(/\D/g, "");
-        if (digits.length < 4) {
-          return "Enter at least the last 4 digits of the operating account.";
-        }
-        return null;
-      }
-      case "uploads": {
-        if (!files.pan) return "PAN document is required.";
-        if (!files.aadhaar) return "Aadhaar document is required.";
-        if (!files.bank_proof) return "Bank proof is required.";
-        return null;
-      }
-      default:
-        return null;
-    }
-  };
+  const signupForm = form as VendorIntakeSignupForm;
+
+  const validateStep = (id: SectionId): string | null =>
+    validateVendorIntakeSignupSection(id, signupForm, {
+      loginNationalPhone: nationalPhone,
+      uploadFiles: files,
+    });
 
   const onSubmit = async () => {
     setSubmitError(null);
-    const err = validateStep("uploads");
-    if (err) {
-      setSubmitError(err);
+    const preUploadErr = validateVendorIntakeSignupFull(signupForm, {
+      loginNationalPhone: nationalPhone,
+      uploadFiles: files,
+    });
+    if (preUploadErr) {
+      setSubmitError(preUploadErr);
       return;
     }
     if (!supabase) {
@@ -389,10 +361,8 @@ export default function VendorSignupPage() {
     setSubmitting(true);
     try {
       const years = form.years_in_business.trim();
-      const yib = years === "" ? null : Number.parseFloat(years);
-      if (years !== "" && (yib === null || Number.isNaN(yib))) {
-        throw new Error("Years in business must be a valid number.");
-      }
+      const yib = Number.parseFloat(years);
+      const workforce = Number.parseInt(form.workforce_headcount.trim(), 10);
 
       const { id, token } = await ensureIntake();
 
@@ -405,8 +375,12 @@ export default function VendorSignupPage() {
         paths[kind] = await uploadVendorIntakeDocument(supabase, id, token, buf, kind, file.name, file.type || undefined);
       }
 
-      if (!paths.pan || !paths.aadhaar || !paths.bank_proof) {
-        throw new Error("PAN, Aadhaar, and bank proof uploads are required.");
+      const postUploadErr = validateVendorIntakeSignupFull(signupForm, {
+        loginNationalPhone: nationalPhone,
+        uploadDocPaths: paths,
+      });
+      if (postUploadErr) {
+        throw new Error(postUploadErr);
       }
 
       const bankDetailsJson: Json = {
@@ -452,6 +426,7 @@ export default function VendorSignupPage() {
         contact_person_email: form.contact_person_email.trim() || null,
         experience_summary: form.experience_summary.trim() || null,
         years_in_business: yib,
+        workforce_headcount: workforce,
         equipment_available: splitCsv(form.equipment_text),
         equipment_text: form.equipment_text,
         operating_regions_text: form.operating_regions_text,
@@ -629,38 +604,38 @@ export default function VendorSignupPage() {
                 value={form.business_name}
                 onChange={(e) => setField("business_name", e.target.value)}
               />
-              <Input label="Trade name" value={form.trade_name} onChange={(e) => setField("trade_name", e.target.value)} />
+              <Input label="Trade name *" value={form.trade_name} onChange={(e) => setField("trade_name", e.target.value)} />
               <div className="vs-row">
                 <Input
-                  label="Company type"
+                  label="Company type *"
                   placeholder="e.g. Pvt Ltd"
                   value={form.company_type}
                   onChange={(e) => setField("company_type", e.target.value)}
                 />
                 <Input
-                  label="CIN / registration no."
+                  label="CIN / registration no. *"
                   value={form.company_registration_number}
                   onChange={(e) => setField("company_registration_number", e.target.value)}
                 />
               </div>
               <div className="vs-row">
-                <Input label="GSTIN" value={form.gstin} onChange={(e) => setField("gstin", e.target.value)} />
-                <Input label="PAN (text)" value={form.pan} onChange={(e) => setField("pan", e.target.value)} />
+                <Input label="GSTIN *" value={form.gstin} onChange={(e) => setField("gstin", e.target.value.toUpperCase())} />
+                <Input label="PAN *" value={form.pan} onChange={(e) => setField("pan", e.target.value.toUpperCase())} />
               </div>
               <Input
-                label="Website"
+                label="Website *"
                 value={form.website_url}
                 onChange={(e) => setField("website_url", e.target.value)}
                 autoComplete="url"
               />
               <Input
-                label="Organisation email"
+                label="Organisation email *"
                 type="email"
                 value={form.contact_email}
                 onChange={(e) => setField("contact_email", e.target.value)}
               />
               <Input
-                label="Organisation phone"
+                label="Organisation phone *"
                 value={form.contact_phone}
                 onChange={(e) => setField("contact_phone", e.target.value)}
               />
@@ -670,22 +645,22 @@ export default function VendorSignupPage() {
           {currentSection === "contact" ? (
             <div className="vs-fields">
               <Input
-                label="Contact person name"
+                label="Contact person name *"
                 value={form.contact_person_name}
                 onChange={(e) => setField("contact_person_name", e.target.value)}
               />
               <Input
-                label="Designation"
+                label="Designation *"
                 value={form.contact_person_role}
                 onChange={(e) => setField("contact_person_role", e.target.value)}
               />
               <Input
-                label="Contact phone"
+                label="Contact phone *"
                 value={form.contact_person_phone}
                 onChange={(e) => setField("contact_person_phone", e.target.value)}
               />
               <Input
-                label="Contact email"
+                label="Contact email *"
                 type="email"
                 value={form.contact_person_email}
                 onChange={(e) => setField("contact_person_email", e.target.value)}
@@ -695,22 +670,26 @@ export default function VendorSignupPage() {
 
           {currentSection === "address" ? (
             <div className="vs-fields">
-              <Input label="Address line 1" value={form.addr_line1} onChange={(e) => setField("addr_line1", e.target.value)} />
+              <Input label="Address line 1 *" value={form.addr_line1} onChange={(e) => setField("addr_line1", e.target.value)} />
               <div className="vs-row">
-                <Input label="City" value={form.addr_city} onChange={(e) => setField("addr_city", e.target.value)} />
-                <Input label="State" value={form.addr_state} onChange={(e) => setField("addr_state", e.target.value)} />
-                <Input label="PIN code" value={form.addr_pincode} onChange={(e) => setField("addr_pincode", e.target.value)} />
+                <Input label="City *" value={form.addr_city} onChange={(e) => setField("addr_city", e.target.value)} />
+                <Input label="State *" value={form.addr_state} onChange={(e) => setField("addr_state", e.target.value)} />
+                <Input
+                  label="PIN code *"
+                  value={form.addr_pincode}
+                  onChange={(e) => setField("addr_pincode", e.target.value.replace(/\D/g, "").slice(0, 6))}
+                />
               </div>
               <p className="vs-hint">Separate regions or cities with commas.</p>
               <TextArea
-                label="Service areas"
+                label="Service areas *"
                 placeholder="e.g. Bengaluru Urban, Mysuru"
                 rows={3}
                 value={form.service_areas_text}
                 onChange={(e) => setField("service_areas_text", e.target.value)}
               />
               <TextArea
-                label="Operating regions"
+                label="Operating regions *"
                 placeholder="e.g. Karnataka, Tamil Nadu"
                 rows={2}
                 value={form.operating_regions_text}
@@ -728,12 +707,12 @@ export default function VendorSignupPage() {
                 onChange={(e) => setField("years_in_business", e.target.value)}
               />
               <Input
-                label="Approx. field workforce (optional)"
+                label="Approx. field workforce *"
                 value={form.workforce_headcount}
                 onChange={(e) => setField("workforce_headcount", e.target.value)}
               />
               <TextArea
-                label="Experience summary"
+                label="Experience summary *"
                 rows={4}
                 value={form.experience_summary}
                 onChange={(e) => setField("experience_summary", e.target.value)}
@@ -744,7 +723,7 @@ export default function VendorSignupPage() {
           {currentSection === "equipment" ? (
             <div className="vs-fields">
               <TextArea
-                label="Equipment available"
+                label="Equipment available *"
                 placeholder="Comma-separated e.g. water-fed poles, RO water"
                 rows={3}
                 value={form.equipment_text}
@@ -756,7 +735,7 @@ export default function VendorSignupPage() {
                   checked={form.flag_safety_training}
                   onChange={(e) => setField("flag_safety_training", e.target.checked)}
                 />
-                Safety training completed for crew
+                Safety training completed for crew *
               </label>
               <label style={{ display: "flex", gap: "0.5rem", alignItems: "center", fontSize: webTypography.size.sm }}>
                 <input
@@ -764,7 +743,7 @@ export default function VendorSignupPage() {
                   checked={form.flag_ppe_available}
                   onChange={(e) => setField("flag_ppe_available", e.target.checked)}
                 />
-                PPE available
+                PPE available *
               </label>
               <label style={{ display: "flex", gap: "0.5rem", alignItems: "center", fontSize: webTypography.size.sm }}>
                 <input
@@ -772,7 +751,7 @@ export default function VendorSignupPage() {
                   checked={form.flag_insurance_coverage}
                   onChange={(e) => setField("flag_insurance_coverage", e.target.checked)}
                 />
-                Insurance coverage
+                Insurance coverage *
               </label>
             </div>
           ) : null}
@@ -786,12 +765,12 @@ export default function VendorSignupPage() {
                 onChange={(e) => setField("bank_ifsc", e.target.value.toUpperCase())}
               />
               <Input
-                label="Operating bank account number"
+                label="Operating bank account number *"
                 inputMode="numeric"
                 autoComplete="off"
                 value={form.bank_account_number}
                 onChange={(e) => setField("bank_account_number", e.target.value.replace(/\D/g, ""))}
-                placeholder="We store only the last 4 digits"
+                placeholder="Full account number"
               />
               <p className="vs-hint">Upload bank proof (passbook / cheque / statement) in the next step.</p>
             </div>
@@ -799,7 +778,10 @@ export default function VendorSignupPage() {
 
           {currentSection === "uploads" ? (
             <div className="vs-doc-grid">
-              <p className="vs-hint">PDF or image. PAN, Aadhaar, and bank proof are required. GST and logo are optional.</p>
+              <p className="vs-hint">
+                PDF or image. PAN, contact person Aadhaar, GST certificate, and bank proof are required. Company logo is
+                optional.
+              </p>
               {(["pan", "aadhaar", "gst", "bank_proof", "logo"] as VendorDocKind[]).map((kind) => (
                 <div key={kind} className="vs-doc-row">
                   <div>

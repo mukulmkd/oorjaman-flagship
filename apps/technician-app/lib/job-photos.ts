@@ -12,10 +12,12 @@ function randomSuffix(): string {
  * Upload a captured library image into `job-photos/{bookingId}/{phase}-….jpg`.
  * Returns the public URL (bucket must be public or URL policy documented separately).
  */
+export type JobPhotoUploadPhase = "before" | "after" | "start_selfie";
+
 export async function uploadJobPhotoFromUri(
   client: SupabaseClient<Database>,
   bookingId: string,
-  phase: "before" | "after",
+  phase: JobPhotoUploadPhase,
   uri: string,
 ): Promise<string> {
   const response = await fetch(uri);

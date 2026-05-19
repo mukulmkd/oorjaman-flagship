@@ -28,9 +28,21 @@ export async function adminListNotificationEventsPaged(
   return { rows: takeRows(data, error), total: count ?? 0 };
 }
 
+export async function adminCountQueuedNotificationEvents(
+  client: SupabaseClient<Database>,
+  filters?: { eventType?: string; status?: string },
+): Promise<number> {
+  let q = client.from("notification_events").select("id", { count: "exact", head: true });
+  if (filters?.eventType) q = q.eq("event_type", filters.eventType);
+  if (filters?.status) q = q.eq("status", filters.status);
+  const { count, error } = await q;
+  if (error) throw new SupabaseApiError(error.message, error);
+  return count ?? 0;
+}
+
 export async function adminProcessNotificationQueue(
   client: SupabaseClient<Database>,
-  payload?: { limit?: number },
+  payload?: { limit?: number; eventType?: string },
 ): Promise<{
   ok: boolean;
   processed: number;
@@ -39,7 +51,10 @@ export async function adminProcessNotificationQueue(
   queued: number;
 }> {
   const { data, error } = await client.functions.invoke("process-notification-events", {
-    body: { limit: payload?.limit ?? 50 },
+    body: {
+      limit: payload?.limit ?? 50,
+      ...(payload?.eventType ? { event_type: payload.eventType } : {}),
+    },
   });
   if (error) throw new SupabaseApiError(error.message, error);
   if (!data || typeof data !== "object") {

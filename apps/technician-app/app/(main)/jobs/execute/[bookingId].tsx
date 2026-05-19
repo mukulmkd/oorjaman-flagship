@@ -32,6 +32,7 @@ import {
   SkeletonStack,
   useModalStackHeader,
 } from "@oorjaman/ui";
+import { ModalHeaderSupportTrailing } from "../../../../components/modal-header-support-trailing";
 import { fontFamily, fontSize, fontWeight } from "../../../../constants/fonts";
 import { supabase } from "../../../../lib/supabase";
 import { uploadAndLinkJobReportPhoto } from "../../../../lib/job-evidence-upload";
@@ -39,22 +40,49 @@ import {
   allSafetyChecked,
   emptySafetyRecord,
   SAFETY_ITEMS,
+  toPreStartSafetyAck,
+  type SafetyAckRecord,
   type SafetyKey,
 } from "../../../../lib/safety-checklist";
+import { uploadJobPhotoFromUri } from "../../../../lib/job-photos";
 import { jobStatusLabel } from "../../../../lib/job-status";
 import { formatElapsed, formatJobTimestamp, useJobElapsedMs } from "../../../../lib/job-timer";
 
-const STEPS = ["verify", "checklist", "start", "before", "after", "issues", "submit"] as const;
+const STEPS = ["verify", "safety", "selfie", "start", "before", "after", "issues", "submit"] as const;
 
 const STEP_HEADING: Record<(typeof STEPS)[number], string> = {
-  verify: "Verify Job Start Code",
-  checklist: "Safety checklist",
+  verify: "Job Start Code",
+  safety: "Safety confirmations",
+  selfie: "Start selfie",
   start: "Start timer",
   before: "Before photos",
   after: "After photos",
   issues: "Issues & notes",
-  submit: "Submit completion",
+  submit: "Happy Code & finish",
 };
+
+function readPreStartFromChecklist(checklist: Json | null | undefined): {
+  safety: Partial<SafetyAckRecord>;
+  startSelfieUrl: string | null;
+} {
+  if (!checklist || typeof checklist !== "object" || Array.isArray(checklist)) {
+    return { safety: {}, startSelfieUrl: null };
+  }
+  const pre = (checklist as Record<string, unknown>).pre_start;
+  if (!pre || typeof pre !== "object" || Array.isArray(pre)) {
+    return { safety: {}, startSelfieUrl: null };
+  }
+  const o = pre as Record<string, unknown>;
+  return {
+    safety: {
+      aware_of_safety_measures: Boolean(o.aware_of_safety_measures),
+      reviewed_guidelines: Boolean(o.reviewed_guidelines),
+      ack_job_start_code: Boolean(o.ack_job_start_code),
+      ack_ppe_on_site: Boolean(o.ack_ppe_on_site),
+    },
+    startSelfieUrl: typeof o.start_selfie_url === "string" ? o.start_selfie_url : null,
+  };
+}
 
 function normalizeVisitCode(s: string): string {
   return s.trim().toUpperCase();
@@ -160,16 +188,17 @@ export default function JobExecutionWizardScreen() {
 
   useEffect(() => {
     if (!resumed || !b?.actual_start) return;
-    setStep((s) => (s < 3 ? 3 : s));
+    setStep((s) => (s < 4 ? 4 : s));
   }, [resumed, b?.actual_start, b?.id]);
 
   const [safety, setSafety] = useState(() => emptySafetyRecord());
+  const [startSelfieUrl, setStartSelfieUrl] = useState<string | null>(null);
   const [beforeUrls, setBeforeUrls] = useState<string[]>([]);
   const [afterUrls, setAfterUrls] = useState<string[]>([]);
   const [issueNotes, setIssueNotes] = useState("");
-  const [uploading, setUploading] = useState<"before" | "after" | null>(null);
+  const [uploading, setUploading] = useState<"before" | "after" | "selfie" | null>(null);
 
-  const stepKey = STEPS[step] ?? "checklist";
+  const stepKey = STEPS[step] ?? "safety";
   const modalHeader = useModalStackHeader({
     title: b?.reference_code ?? "Field visit",
     subtitle: b
@@ -177,6 +206,13 @@ export default function JobExecutionWizardScreen() {
       : undefined,
     onClose: () => router.back(),
     closeAccessibilityLabel: "Close field visit",
+    showClose: false,
+    trailing: (
+      <ModalHeaderSupportTrailing
+        onClose={() => router.back()}
+        closeAccessibilityLabel="Close field visit"
+      />
+    ),
   });
 
   useEffect(() => {
@@ -185,12 +221,20 @@ export default function JobExecutionWizardScreen() {
     const r = jobReportQuery.data;
     const before = parsePhotoUrlArray(r.before_photo_urls);
     const after = parsePhotoUrlArray(r.after_photo_urls);
+    const { safety: restoredSafety, startSelfieUrl: restoredSelfie } = readPreStartFromChecklist(r.checklist);
     setBeforeUrls(before);
     setAfterUrls(after);
     setIssueNotes(typeof r.anomaly_notes === "string" ? r.anomaly_notes : "");
-    if (before.length > 0 && after.length > 0) setStep(5);
-    else if (before.length > 0) setStep(4);
-    else setStep(3);
+    setSafety((prev) => ({
+      ...prev,
+      ...Object.fromEntries(
+        SAFETY_ITEMS.map((item) => [item.key, restoredSafety[item.key] ?? prev[item.key]]),
+      ),
+    }));
+    if (restoredSelfie) setStartSelfieUrl(restoredSelfie);
+    if (before.length > 0 && after.length > 0) setStep(7);
+    else if (before.length > 0) setStep(5);
+    else setStep(4);
   }, [b?.status, b?.id, jobReportQuery.data]);
 
   const elapsedMs = useJobElapsedMs(b?.actual_start, b?.actual_end);
@@ -199,10 +243,8 @@ export default function JobExecutionWizardScreen() {
     mutationFn: () =>
       technicianApi.technicianStartJob(supabase!, bookingId!, {
         startCode: visitCodeInput,
-        preStartSafety: {
-          aware_of_safety_measures: safety.aware_of_safety_measures,
-          reviewed_guidelines: safety.reviewed_guidelines,
-        },
+        preStartSafety: toPreStartSafetyAck(safety),
+        startSelfieUrl: startSelfieUrl!,
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(bookingId!) });
@@ -212,7 +254,7 @@ export default function JobExecutionWizardScreen() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.technicianActiveInProgress() });
       void queryClient.invalidateQueries({ queryKey: queryKeys.jobReports.byBooking(bookingId!) });
       restoreWizardRef.current = false;
-      setStep(3);
+      setStep(4);
     },
     onError: (err: Error) => Alert.alert("Could not start job", err.message),
   });
@@ -236,8 +278,8 @@ export default function JobExecutionWizardScreen() {
           }
         : {
             pre_start: {
-              aware_of_safety_measures: safety.aware_of_safety_measures,
-              reviewed_guidelines: safety.reviewed_guidelines,
+              ...toPreStartSafetyAck(safety),
+              start_selfie_url: startSelfieUrl,
               confirmed_at: new Date().toISOString(),
             },
             acknowledged_at: new Date().toISOString(),
@@ -332,6 +374,30 @@ export default function JobExecutionWizardScreen() {
     setSafety((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
+  async function captureStartSelfie() {
+    if (!supabase || !bookingId) return;
+    const camPerm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!camPerm.granted) {
+      Alert.alert("Camera", "Camera permission is required for your start-of-visit selfie.");
+      return;
+    }
+    const shot = await ImagePicker.launchCameraAsync({
+      quality: 0.85,
+      cameraType: ImagePicker.CameraType.front,
+    });
+    const uri = shot.canceled ? null : (shot.assets[0]?.uri ?? null);
+    if (!uri) return;
+    try {
+      setUploading("selfie");
+      const publicUrl = await uploadJobPhotoFromUri(supabase, bookingId, "start_selfie", uri);
+      setStartSelfieUrl(publicUrl);
+    } catch (e) {
+      Alert.alert("Selfie upload failed", e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setUploading(null);
+    }
+  }
+
   if (!supabase || !bookingId) {
     return (
       <Screen padded edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
@@ -389,8 +455,9 @@ export default function JobExecutionWizardScreen() {
     );
   }
 
-  const checklistDone = resumed || allSafetyChecked(safety);
-  const stepLabel = STEPS[step] ?? "checklist";
+  const safetyDone = resumed || allSafetyChecked(safety);
+  const selfieDone = resumed || Boolean(startSelfieUrl);
+  const stepLabel = STEPS[step] ?? "safety";
 
   const startCodeTarget = (serviceOtp?.startCode ?? b.booking_code ?? "").trim();
   const startCodeRequired = startCodeTarget.length > 0;
@@ -400,7 +467,7 @@ export default function JobExecutionWizardScreen() {
   const happyCodeOk =
     !happyCodeRequired ||
     normalizeVisitCode(happyCodeInput) === normalizeVisitCode(serviceOtp?.happyCode ?? "");
-  const minStep = resumed ? 3 : 0;
+  const minStep = resumed ? 4 : 0;
 
   const primaryButton = (() => {
     if (step === 0) {
@@ -412,28 +479,40 @@ export default function JobExecutionWizardScreen() {
       };
     }
     if (step === 1) {
-      return { label: "Continue", disabled: !checklistDone, loading: false, onPress: () => setStep(2) };
+      return { label: "Continue", disabled: !safetyDone, loading: false, onPress: () => setStep(2) };
     }
     if (step === 2) {
       return {
+        label: "Continue",
+        disabled: !selfieDone || uploading === "selfie",
+        loading: uploading === "selfie",
+        onPress: () => setStep(3),
+      };
+    }
+    if (step === 3) {
+      return {
         label: "Start job & timer",
-        disabled: false,
+        disabled: startCodeRequired && !startCodeOk,
         loading: startJob.isPending,
         onPress: () => startJob.mutate(),
       };
     }
-    if (step === 3) {
-      return { label: "Continue", disabled: beforeUrls.length === 0, loading: false, onPress: () => setStep(4) };
-    }
     if (step === 4) {
-      return { label: "Continue", disabled: afterUrls.length === 0, loading: false, onPress: () => setStep(5) };
+      return { label: "Continue", disabled: beforeUrls.length === 0, loading: false, onPress: () => setStep(5) };
     }
     if (step === 5) {
-      return { label: "Continue to submit", disabled: false, loading: false, onPress: () => setStep(6) };
+      return { label: "Continue", disabled: afterUrls.length === 0, loading: false, onPress: () => setStep(6) };
+    }
+    if (step === 6) {
+      return { label: "Continue to finish", disabled: false, loading: false, onPress: () => setStep(7) };
     }
     return {
       label: "Submit completion report",
-      disabled: beforeUrls.length === 0 || afterUrls.length === 0 || !b.actual_start || !happyCodeOk,
+      disabled:
+        beforeUrls.length === 0 ||
+        afterUrls.length === 0 ||
+        !b.actual_start ||
+        (happyCodeRequired && (!happyCodeInput.trim() || !happyCodeOk)),
       loading: finalize.isPending,
       onPress: () => finalize.mutate(),
     };
@@ -447,19 +526,7 @@ export default function JobExecutionWizardScreen() {
         <View style={styles.progress}>
           <Text style={styles.progressText}>
             Step {step + 1} of {STEPS.length}:{" "}
-            {stepLabel === "verify"
-              ? "Verify Job Start Code"
-              : stepLabel === "checklist"
-                ? "Safety"
-                : stepLabel === "start"
-                  ? "Start timer"
-                  : stepLabel === "before"
-                    ? "Before cleaning"
-                    : stepLabel === "after"
-                      ? "After cleaning"
-                      : stepLabel === "issues"
-                        ? "Issues (optional)"
-                        : "Complete job"}
+            {STEP_HEADING[stepKey]}
           </Text>
         </View>
 
@@ -518,15 +585,18 @@ export default function JobExecutionWizardScreen() {
 
         {step === 1 ? (
           <Card variant="elevated" padded>
-            <Text style={styles.sectionTitle}>Safety checklist</Text>
-            <Text style={styles.bodyMuted}>Confirm both items before you can start the job timer.</Text>
+            <Text style={styles.sectionTitle}>Safety confirmations</Text>
+            <Text style={styles.bodyMuted}>
+              Confirm each item before continuing. These are required for every visit.
+            </Text>
             <View style={styles.checklist}>
               {SAFETY_ITEMS.map((item) => (
                 <Pressable
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: safety[item.key] }}
                   key={item.key}
-                  onPress={() => toggleSafety(item.key)}
+                  onPress={() => !resumed && toggleSafety(item.key)}
+                  disabled={resumed}
                   style={({ pressed }) => [styles.checkRow, pressed && styles.checkRowPressed]}
                 >
                   <Ionicons
@@ -543,15 +613,43 @@ export default function JobExecutionWizardScreen() {
 
         {step === 2 ? (
           <Card variant="elevated" padded>
-            <Text style={styles.sectionTitle}>Start job</Text>
+            <Text style={styles.sectionTitle}>Start-of-visit selfie</Text>
             <Text style={styles.bodyMuted}>
-              This saves your start time on the server and begins the job timer. You can leave the app - the timer
-              picks up from the saved start when you return.
+              Take a clear front-camera selfie on site before starting the job timer. This is required once per
+              visit.
             </Text>
+            {startSelfieUrl ? (
+              <Image source={{ uri: startSelfieUrl }} style={styles.selfiePreview} accessibilityLabel="Start selfie" />
+            ) : null}
+            <View style={styles.photoActions}>
+              <Button
+                loading={uploading === "selfie"}
+                size="lg"
+                variant="primary"
+                onPress={() => void captureStartSelfie()}
+              >
+                {startSelfieUrl ? "Retake selfie" : "Take selfie"}
+              </Button>
+            </View>
           </Card>
         ) : null}
 
         {step === 3 ? (
+          <Card variant="elevated" padded>
+            <Text style={styles.sectionTitle}>Start job</Text>
+            <Text style={styles.bodyMuted}>
+              Your Job Start Code, safety confirmations, and selfie will be saved. The visit timer starts on the
+              server when you tap below.
+            </Text>
+            {startCodeRequired && !startCodeOk ? (
+              <Text style={styles.codeWarn}>
+                Enter the matching Job Start Code on step 1 before starting the timer.
+              </Text>
+            ) : null}
+          </Card>
+        ) : null}
+
+        {step === 4 ? (
           <Card variant="elevated" padded>
             <Text style={styles.sectionTitle}>Before cleaning</Text>
             <Text style={styles.bodyMuted}>
@@ -575,7 +673,7 @@ export default function JobExecutionWizardScreen() {
           </Card>
         ) : null}
 
-        {step === 4 ? (
+        {step === 5 ? (
           <Card variant="elevated" padded>
             <Text style={styles.sectionTitle}>After cleaning</Text>
             <Text style={styles.bodyMuted}>
@@ -599,7 +697,7 @@ export default function JobExecutionWizardScreen() {
           </Card>
         ) : null}
 
-        {step === 5 ? (
+        {step === 6 ? (
           <Card variant="elevated" padded>
             <Text style={styles.sectionTitle}>Optional issues</Text>
             <Text style={styles.bodyMuted}>
@@ -621,14 +719,14 @@ export default function JobExecutionWizardScreen() {
           </Card>
         ) : null}
 
-        {step === 6 ? (
+        {step === 7 ? (
           <Card variant="elevated" padded>
             <Text style={styles.sectionTitle}>Complete job</Text>
             <Text style={styles.bodyMuted}>
-              Submitting stops the job timer, saves this report (including any issue notes), and sets the visit to
+              Ask the customer for their Happy Code, then submit. This stops the timer and marks the visit
               completed.
             </Text>
-            <Text style={styles.label}>Happy Code (from customer app)</Text>
+            <Text style={styles.label}>Happy Code (from customer app) *</Text>
             <Text style={styles.bodyMuted}>
               Ask the customer for the Happy Code shown in their booking after you finish cleaning.
             </Text>
@@ -643,6 +741,9 @@ export default function JobExecutionWizardScreen() {
               style={styles.codeInput}
               value={happyCodeInput}
             />
+            {happyCodeRequired && !happyCodeInput.trim() ? (
+              <Text style={styles.codeWarn}>Happy Code is required to complete this visit.</Text>
+            ) : null}
             {!happyCodeOk && happyCodeInput.trim().length > 0 ? (
               <Text style={styles.codeWarn}>Happy Code does not match this booking.</Text>
             ) : null}
@@ -827,6 +928,13 @@ const styles = StyleSheet.create({
   thumbRow: {
     marginBottom: spacing.md,
     maxHeight: 100,
+  },
+  selfiePreview: {
+    width: "100%",
+    height: 280,
+    borderRadius: 12,
+    marginBottom: spacing.md,
+    backgroundColor: colors.muted,
   },
   thumb: {
     width: 96,

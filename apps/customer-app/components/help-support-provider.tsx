@@ -1,47 +1,88 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { customerApi, queryKeys, supportApi, userApi } from "@oorjaman/api";
+import { supabase } from "../lib/supabase";
+import { CustomerPushRegistration } from "./customer-push-registration";
+import {
+  HelpSupportCtx,
+  type HelpSupportOpenContext,
+  type HelpSupportState,
+} from "./help-support-context";
 import { HelpSupportModal } from "./help-support-modal";
+import { SupportChatRealtimeNotifications } from "./support-chat-realtime-notifications";
+import { SupportNotificationResponse } from "./support-notification-response";
 
-export type HelpSupportContext = {
-  booking_id?: string | null;
-  subscription_id?: string | null;
-  service_address_id?: string | null;
-  category_slug?: string | null;
-};
-
-type HelpSupportState = {
-  openHelp: (context?: HelpSupportContext) => void;
-  closeHelp: () => void;
-};
-
-const Ctx = createContext<HelpSupportState | null>(null);
+export type { HelpSupportOpenContext, HelpSupportContext, HelpSupportState } from "./help-support-context";
+export { useHelpSupport } from "./help-support-context";
 
 export function HelpSupportProvider({ children }: { children: ReactNode }) {
   const [visible, setVisible] = useState(false);
-  const [context, setContext] = useState<HelpSupportContext | undefined>();
+  const [context, setContext] = useState<HelpSupportOpenContext | undefined>();
+  const [focusedThreadId, setFocusedThreadId] = useState<string | null>(null);
 
-  const openHelp = useCallback((ctx?: HelpSupportContext) => {
+  const userQ = useQuery({
+    queryKey: queryKeys.users.me(),
+    queryFn: () => userApi.getMyUserRecord(supabase!),
+    enabled: Boolean(supabase),
+  });
+
+  const custQ = useQuery({
+    queryKey: queryKeys.customers.mine(),
+    queryFn: () => customerApi.getMyCustomer(supabase!),
+    enabled: Boolean(supabase) && userQ.data?.role === "customer",
+  });
+
+  const trackUnread =
+    userQ.data?.role === "customer" && Boolean(custQ.data?.onboarding_completed_at);
+
+  const unreadQ = useQuery({
+    queryKey: queryKeys.support.unreadCount(),
+    queryFn: () => supportApi.countUnreadSupportMessagesForCustomer(supabase!),
+    enabled: Boolean(supabase && trackUnread),
+    refetchInterval: 120_000,
+  });
+
+  const openHelp = useCallback((ctx?: HelpSupportOpenContext) => {
     setContext(ctx);
     setVisible(true);
   }, []);
 
   const closeHelp = useCallback(() => {
     setVisible(false);
+    setFocusedThreadId(null);
+    setContext(undefined);
   }, []);
 
-  const value = useMemo(() => ({ openHelp, closeHelp }), [openHelp, closeHelp]);
+  const refreshUnreadCount = useCallback(() => {
+    void unreadQ.refetch();
+  }, [unreadQ.refetch]);
+
+  const value = useMemo(
+    () => ({
+      openHelp,
+      closeHelp,
+      unreadCount: unreadQ.data ?? 0,
+      helpVisible: visible,
+      focusedThreadId,
+      setFocusedThreadId,
+      refreshUnreadCount,
+    }),
+    [openHelp, closeHelp, unreadQ.data, visible, focusedThreadId, refreshUnreadCount],
+  );
 
   return (
-    <Ctx.Provider value={value}>
+    <HelpSupportCtx.Provider value={value}>
       {children}
-      <HelpSupportModal visible={visible} context={context} onClose={closeHelp} />
-    </Ctx.Provider>
+      <CustomerPushRegistration />
+      <SupportChatRealtimeNotifications />
+      <SupportNotificationResponse />
+      <HelpSupportModal
+        visible={visible}
+        context={context}
+        onClose={closeHelp}
+        setFocusedThreadId={setFocusedThreadId}
+        refreshUnreadCount={refreshUnreadCount}
+      />
+    </HelpSupportCtx.Provider>
   );
-}
-
-export function useHelpSupport(): HelpSupportState {
-  const ctx = useContext(Ctx);
-  if (!ctx) {
-    throw new Error("useHelpSupport must be used within HelpSupportProvider");
-  }
-  return ctx;
 }

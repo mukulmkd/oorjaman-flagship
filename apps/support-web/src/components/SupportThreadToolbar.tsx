@@ -11,11 +11,12 @@ type Props = {
   conversation: SupportConversationWithCustomer;
   agentUserId: string | null;
   onUpdated: () => void;
+  compact?: boolean;
 };
 
 const PRIORITIES: SupportConversationPriority[] = ["normal", "high", "urgent"];
 
-export function SupportThreadToolbar({ conversation, agentUserId, onUpdated }: Props) {
+export function SupportThreadToolbar({ conversation, agentUserId, onUpdated, compact = false }: Props) {
   const supabase = useSupabase();
 
   const agentsQ = useQuery({
@@ -45,7 +46,7 @@ export function SupportThreadToolbar({ conversation, agentUserId, onUpdated }: P
   const unassigned = !conversation.assigned_admin_user_id;
 
   return (
-    <div className="support-thread-toolbar">
+    <div className={`support-thread-toolbar${compact ? " support-thread-toolbar-compact" : ""}`}>
       {unassigned ? (
         <button
           type="button"

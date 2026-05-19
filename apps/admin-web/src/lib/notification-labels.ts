@@ -4,22 +4,22 @@
  */
 
 const NOTIFICATION_EVENT_TYPE_LABELS: Record<string, string> = {
-  marketplace_broadcast: "Marketplace — new request (broadcast)",
-  marketplace_claim_won: "Marketplace — your team claimed the booking",
-  admin_marketplace_floated: "Ops — marketplace opened",
-  admin_booking_vendor_claimed: "Ops — vendor claimed booking",
-  admin_booking_vendor_accepted: "Ops — technician assigned",
-  admin_booking_vendor_rejected: "Ops — vendor declined",
-  admin_booking_needs_reassignment: "Ops — reassignment needed",
-  admin_booking_technician_reassigned: "Ops — technician changed",
-  admin_booking_visit_started: "Ops — visit started",
-  admin_booking_visit_completed: "Ops — visit completed",
-  admin_booking_cancelled: "Ops — booking cancelled",
-  vendor_booking_assigned: "Partner — booking assigned to you",
-  vendor_booking_visit_started: "Partner — visit started",
-  vendor_booking_visit_completed: "Partner — visit completed",
-  subscription_renewal_nudge: "Subscription — renewal reminder",
-  low_rating_followup: "Ratings — low score follow-up",
+  marketplace_broadcast: "Marketplace - new request (broadcast)",
+  marketplace_claim_won: "Marketplace - your team claimed the booking",
+  admin_marketplace_floated: "Ops - marketplace opened",
+  admin_booking_vendor_claimed: "Ops - vendor claimed booking",
+  admin_booking_vendor_accepted: "Ops - technician assigned",
+  admin_booking_vendor_rejected: "Ops - vendor declined",
+  admin_booking_needs_reassignment: "Ops - reassignment needed",
+  admin_booking_technician_reassigned: "Ops - technician changed",
+  admin_booking_visit_started: "Ops - visit started",
+  admin_booking_visit_completed: "Ops - visit completed",
+  admin_booking_cancelled: "Ops - booking cancelled",
+  vendor_booking_assigned: "Partner - booking assigned to you",
+  vendor_booking_visit_started: "Partner - visit started",
+  vendor_booking_visit_completed: "Partner - visit completed",
+  subscription_renewal_nudge: "Subscription - renewal reminder",
+  low_rating_followup: "Ratings - low score follow-up",
 };
 
 const NOTIFICATION_CHANNEL_LABELS: Record<string, string> = {

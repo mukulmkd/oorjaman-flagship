@@ -11,12 +11,19 @@ import type {
   VendorRow,
 } from "../database.types";
 import { requireSessionUserId, SupabaseApiError, takeRows, takeSingleRow } from "../result";
+import { syncUserDisplayNameFromTechnician } from "../users/user-display-name";
 import { offsetRangeForPage, type PagedParams, type PagedResult } from "../page-range";
 import { getBookingById, readBookingServiceOtpMeta, updateBooking, type BookingPatch } from "../bookings/booking-api";
+import { ensureVisitPayoutSettlement } from "../finance/vendor-settlement-api";
 import {
+  adminVisitCompletedCopy,
+  adminVisitStartedCopy,
   emitAdminBookingNotification,
   emitVendorBookingNotification,
+  vendorVisitCompletedCopy,
+  vendorVisitStartedCopy,
 } from "../notifications/booking-notifications";
+import { lowRatingFollowupInAppCopy } from "../notifications/notification-copy";
 import { emitTechnicianInviteNotificationPlaceholder, type TechnicianInviteChannel } from "../notifications/technician-invite-notifications";
 
 export type TechnicianPublicStatsRow = Database["public"]["Views"]["technician_stats"]["Row"];
@@ -83,7 +90,18 @@ export type JobReportUpsertInput = {
 export type PreStartSafetyAck = {
   aware_of_safety_measures: boolean;
   reviewed_guidelines: boolean;
+  ack_job_start_code: boolean;
+  ack_ppe_on_site: boolean;
 };
+
+function allPreStartSafetyAcked(ack: PreStartSafetyAck): boolean {
+  return (
+    ack.aware_of_safety_measures &&
+    ack.reviewed_guidelines &&
+    ack.ack_job_start_code &&
+    ack.ack_ppe_on_site
+  );
+}
 
 function normalizeCodeInput(value: string): string {
   return value.trim().toUpperCase().replace(/\s+/g, "");
@@ -149,12 +167,18 @@ async function recordServiceOtpFailure(
   return { failCount, lockedUntil };
 }
 
-function buildPreStartChecklistPayload(ack: PreStartSafetyAck): Record<string, unknown> {
+function buildPreStartChecklistPayload(
+  ack: PreStartSafetyAck,
+  startSelfieUrl: string,
+): Record<string, unknown> {
   const confirmedAt = new Date().toISOString();
   return {
     pre_start: {
       aware_of_safety_measures: ack.aware_of_safety_measures,
       reviewed_guidelines: ack.reviewed_guidelines,
+      ack_job_start_code: ack.ack_job_start_code,
+      ack_ppe_on_site: ack.ack_ppe_on_site,
+      start_selfie_url: startSelfieUrl,
       confirmed_at: confirmedAt,
     },
     version: 2,
@@ -167,11 +191,14 @@ function buildPreStartChecklistPayload(ack: PreStartSafetyAck): Record<string, u
 export async function technicianStartJob(
   client: SupabaseClient<Database>,
   bookingId: string,
-  options: { preStartSafety: PreStartSafetyAck; startCode?: string | null },
+  options: { preStartSafety: PreStartSafetyAck; startCode?: string | null; startSelfieUrl: string },
 ): Promise<BookingRow> {
-  const { aware_of_safety_measures, reviewed_guidelines } = options.preStartSafety;
-  if (!aware_of_safety_measures || !reviewed_guidelines) {
+  if (!allPreStartSafetyAcked(options.preStartSafety)) {
     throw new SupabaseApiError("Confirm all safety items before starting.");
+  }
+  const startSelfieUrl = options.startSelfieUrl.trim();
+  if (!startSelfieUrl) {
+    throw new SupabaseApiError("A start-of-visit selfie is required before starting the job timer.");
   }
 
   const booking = await getBookingById(client, bookingId);
@@ -205,7 +232,7 @@ export async function technicianStartJob(
     technicianId,
     beforePhotoUrls: [],
     afterPhotoUrls: [],
-    checklist: buildPreStartChecklistPayload(options.preStartSafety),
+    checklist: buildPreStartChecklistPayload(options.preStartSafety, startSelfieUrl),
   });
 
   const now = new Date().toISOString();
@@ -233,20 +260,19 @@ export async function technicianStartJob(
         }
       : {}),
   });
-  const ref = updated.reference_code ?? updated.id.slice(0, 8);
+  const startedCopy = adminVisitStartedCopy(updated);
   await emitAdminBookingNotification(client, {
     booking: updated,
     eventType: "admin_booking_visit_started",
-    title: "Visit started",
-    body: `Technician started visit ${ref} on site.`,
+    ...startedCopy,
   });
   if (updated.vendor_id) {
+    const vendorStartedCopy = vendorVisitStartedCopy(updated);
     await emitVendorBookingNotification(client, {
       booking: updated,
       eventType: "vendor_booking_visit_started",
       recipientVendorId: updated.vendor_id,
-      title: "Visit started",
-      body: `Your technician started visit ${ref}.`,
+      ...vendorStartedCopy,
     });
   }
   return updated;
@@ -300,6 +326,15 @@ export function technicianIsFullyOnboarded(tech: TechnicianRow | null | undefine
       tech.is_verified &&
       tech.vendor_review_status === "approved",
   );
+}
+
+/** In-progress onboarding wizard (save & continue later), including draft saved on an otherwise verified row. */
+export function technicianHasActiveOnboardingDraft(tech: TechnicianRow | null | undefined): boolean {
+  if (!tech) return false;
+  if (tech.verification_status === "draft") return true;
+  const meta = tech.metadata;
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return false;
+  return Boolean((meta as Record<string, Json>).registration_draft);
 }
 
 /**
@@ -385,6 +420,10 @@ export type TechnicianOnboardingPayload = {
   preferred_work_locations?: string[] | null;
   declaration_information_accurate?: boolean;
   declaration_safety_commitment?: boolean;
+  safety_ack_pre_start_checklist?: boolean;
+  safety_ack_job_start_code?: boolean;
+  safety_ack_safety_measures?: boolean;
+  safety_ack_reviewed_guidelines?: boolean;
 };
 
 export type VendorTechnicianReviewDecision = "approved" | "rejected";
@@ -411,10 +450,14 @@ function mergeDeclarationIntoMetadata(
   input: TechnicianOnboardingPayload,
 ): Json {
   const stripped = stripTechnicianRegistrationDraft(existing);
-  if (
-    input.declaration_information_accurate == null &&
-    input.declaration_safety_commitment == null
-  ) {
+  const hasDecl =
+    input.declaration_information_accurate != null || input.declaration_safety_commitment != null;
+  const hasSafetyAck =
+    input.safety_ack_pre_start_checklist != null ||
+    input.safety_ack_job_start_code != null ||
+    input.safety_ack_safety_measures != null ||
+    input.safety_ack_reviewed_guidelines != null;
+  if (!hasDecl && !hasSafetyAck) {
     return stripped;
   }
   const o =
@@ -431,6 +474,15 @@ function mergeDeclarationIntoMetadata(
   }
   if (input.declaration_safety_commitment != null) {
     decl.safety_commitment = input.declaration_safety_commitment as unknown as Json;
+  }
+  if (hasSafetyAck) {
+    decl.safety_acknowledgements = {
+      pre_start_checklist: Boolean(input.safety_ack_pre_start_checklist),
+      job_start_code: Boolean(input.safety_ack_job_start_code),
+      safety_measures: Boolean(input.safety_ack_safety_measures),
+      reviewed_guidelines: Boolean(input.safety_ack_reviewed_guidelines),
+      recorded_at: new Date().toISOString(),
+    } as unknown as Json;
   }
   decl.recorded_at = new Date().toISOString() as unknown as Json;
   return { ...o, declarations: decl as Json } as Json;
@@ -586,7 +638,9 @@ export async function submitTechnicianOnboarding(
   if (!existing) {
     const row = payloadToInsert(userId, input);
     const { data, error } = await client.from("technicians").insert(row).select().single();
-    return takeSingleRow(data, error);
+    const created = takeSingleRow(data, error);
+    await syncUserDisplayNameFromTechnician(client, created);
+    return created;
   }
 
   if (existing.verification_status === "verified") {
@@ -610,6 +664,7 @@ export async function submitTechnicianOnboarding(
 
   const { data, error } = await client.from("technicians").update(patch).eq("id", existing.id).select().single();
   const upserted = takeSingleRow(data, error);
+  await syncUserDisplayNameFromTechnician(client, upserted);
   await markInviteCompletedForCurrentUser(client);
   return upserted;
 }
@@ -969,22 +1024,22 @@ export async function technicianFinalizeJobReport(
         }
       : {}),
   });
-  const ref = completed.reference_code ?? completed.id.slice(0, 8);
+  const completedCopy = adminVisitCompletedCopy(completed);
   await emitAdminBookingNotification(client, {
     booking: completed,
     eventType: "admin_booking_visit_completed",
-    title: "Visit completed",
-    body: `Visit ${ref} was marked complete.`,
+    ...completedCopy,
   });
   if (completed.vendor_id) {
+    const vendorCompletedCopy = vendorVisitCompletedCopy(completed);
     await emitVendorBookingNotification(client, {
       booking: completed,
       eventType: "vendor_booking_visit_completed",
       recipientVendorId: completed.vendor_id,
-      title: "Visit completed",
-      body: `Visit ${ref} was marked complete by your technician.`,
+      ...vendorCompletedCopy,
     });
   }
+  await ensureVisitPayoutSettlement(client, completed);
   return { booking: completed, report };
 }
 
@@ -1130,8 +1185,11 @@ export async function customerUpdateJobReportFeedback(
     if (existingErr) throw new SupabaseApiError(existingErr.message, existingErr);
     if (!existingNudge?.length) {
       const booking = await getBookingById(client, bookingId);
+      const ref = booking.reference_code?.trim() || bookingId.slice(0, 8).toUpperCase();
+      const inAppCopy = lowRatingFollowupInAppCopy(ref, rating);
       const { error: queueErr } = await client.from("notification_events").insert({
         booking_id: bookingId,
+        recipient_audience: "admin",
         recipient_vendor_id: booking.vendor_id,
         event_type: "low_rating_followup",
         channels: ["in_app", "email", "sms", "whatsapp"] as unknown as Json,
@@ -1139,10 +1197,13 @@ export async function customerUpdateJobReportFeedback(
         payload: {
           booking_id: bookingId,
           reference_code: booking.reference_code,
+          title: inAppCopy.title,
+          body: inAppCopy.body,
+          href: `/dashboard/bookings?highlight=${bookingId}`,
           customer_id: booking.customer_id,
           vendor_id: booking.vendor_id,
           rating,
-          feedback: safePatch.customer_feedback,
+          feedback: safePatch.customer_feedback ?? "",
           queued_at: new Date().toISOString(),
         } as Json,
         demo_mode: true,

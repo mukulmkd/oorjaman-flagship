@@ -17,6 +17,7 @@ import { PricingManagementPage } from "./pages/PricingManagementPage";
 import { ServiceCapacityPricingPage } from "./pages/ServiceCapacityPricingPage";
 import { AnalyticsDashboardPage } from "./pages/AnalyticsDashboardPage";
 import { FeatureManagementPage } from "./pages/FeatureManagementPage";
+import { FinanceSettlementsPage } from "./pages/FinanceSettlementsPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 
 export default function App() {
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="support" element={<Navigate to="/dashboard/analytics" replace />} />
         <Route path="pricing" element={<PricingManagementPage />} />
         <Route path="service-pricing" element={<ServiceCapacityPricingPage />} />
+        <Route path="finance" element={<FinanceSettlementsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard/analytics" replace />} />
     </Routes>

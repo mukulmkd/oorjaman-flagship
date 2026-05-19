@@ -49,19 +49,46 @@ function backoffMinutes(attempt: number): number {
   return 60;
 }
 
+function renderTemplateText(text: string, context: Record<string, unknown>): string {
+  return text.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key: string) => {
+    const value = context[key];
+    return value == null ? "" : String(value);
+  });
+}
+
+function templateContextFromPayload(payload: Record<string, unknown> | null): Record<string, unknown> {
+  if (!payload) return {};
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(payload)) {
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean" || value === null) {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
 type ChannelResult = {
   channel: string;
   ok: boolean;
   provider: string;
   detail: string;
+  rendered_subject?: string | null;
+  rendered_body?: string | null;
 };
 
 async function deliverChannelDemo(args: {
   channel: string;
   providerMode: string;
   template: TemplateRow | null;
+  context: Record<string, unknown>;
 }): Promise<ChannelResult> {
   const provider = args.providerMode === "demo" ? "demo" : `${args.channel}-adapter`;
+  const renderedSubject = args.template?.subject
+    ? renderTemplateText(args.template.subject, args.context)
+    : null;
+  const renderedBody = args.template?.body
+    ? renderTemplateText(args.template.body, args.context)
+    : null;
   const detail = args.template
     ? `template:${args.template.id}`
     : "template:fallback";
@@ -70,35 +97,61 @@ async function deliverChannelDemo(args: {
     ok: true,
     provider,
     detail,
+    rendered_subject: renderedSubject,
+    rendered_body: renderedBody,
   };
 }
 
 async function deliverInAppAdapter(args: {
   providerMode: string;
   template: TemplateRow | null;
+  context: Record<string, unknown>;
 }): Promise<ChannelResult> {
-  return deliverChannelDemo({ channel: "in_app", providerMode: args.providerMode, template: args.template });
+  return deliverChannelDemo({
+    channel: "in_app",
+    providerMode: args.providerMode,
+    template: args.template,
+    context: args.context,
+  });
 }
 
 async function deliverEmailAdapter(args: {
   providerMode: string;
   template: TemplateRow | null;
+  context: Record<string, unknown>;
 }): Promise<ChannelResult> {
-  return deliverChannelDemo({ channel: "email", providerMode: args.providerMode, template: args.template });
+  return deliverChannelDemo({
+    channel: "email",
+    providerMode: args.providerMode,
+    template: args.template,
+    context: args.context,
+  });
 }
 
 async function deliverSmsAdapter(args: {
   providerMode: string;
   template: TemplateRow | null;
+  context: Record<string, unknown>;
 }): Promise<ChannelResult> {
-  return deliverChannelDemo({ channel: "sms", providerMode: args.providerMode, template: args.template });
+  return deliverChannelDemo({
+    channel: "sms",
+    providerMode: args.providerMode,
+    template: args.template,
+    context: args.context,
+  });
 }
 
 async function deliverWhatsappAdapter(args: {
   providerMode: string;
   template: TemplateRow | null;
+  context: Record<string, unknown>;
 }): Promise<ChannelResult> {
-  return deliverChannelDemo({ channel: "whatsapp", providerMode: args.providerMode, template: args.template });
+  return deliverChannelDemo({
+    channel: "whatsapp",
+    providerMode: args.providerMode,
+    template: args.template,
+    context: args.context,
+  });
 }
 
 Deno.serve(async (req: Request) => {
@@ -135,13 +188,15 @@ Deno.serve(async (req: Request) => {
   const { data: adminRow } = await adminClient.from("users").select("role").eq("id", user.id).maybeSingle();
   if (!adminRow || adminRow.role !== "admin") return json({ ok: false, error: "Forbidden" }, 403);
 
-  let body: { limit?: number } = {};
+  let body: { limit?: number; event_type?: string } = {};
   try {
-    body = (await req.json()) as { limit?: number };
+    body = (await req.json()) as { limit?: number; event_type?: string };
   } catch {
     body = {};
   }
   const limit = Math.max(1, Math.min(200, Math.round(Number(body.limit ?? 50))));
+  const eventTypeFilter =
+    typeof body.event_type === "string" && body.event_type.trim() ? body.event_type.trim() : null;
   const providerMode = String(Deno.env.get("NOTIFICATION_DELIVERY_MODE") ?? "demo").toLowerCase();
   const failChannels = new Set(
     String(Deno.env.get("NOTIFICATION_DEMO_FAIL_CHANNELS") ?? "")
@@ -170,13 +225,17 @@ Deno.serve(async (req: Request) => {
   }
 
   const nowIso = new Date().toISOString();
-  const { data: rows, error: fetchErr } = await adminClient
+  let queueQuery = adminClient
     .from("notification_events")
     .select("id, channels, event_type, status, payload, attempt_count")
     .eq("status", "queued")
     .lte("next_attempt_at", nowIso)
     .order("created_at", { ascending: true })
     .limit(limit);
+  if (eventTypeFilter) {
+    queueQuery = queueQuery.eq("event_type", eventTypeFilter);
+  }
+  const { data: rows, error: fetchErr } = await queueQuery;
   if (fetchErr) return json({ ok: false, error: fetchErr.message }, 500);
 
   let sent = 0;
@@ -185,6 +244,11 @@ Deno.serve(async (req: Request) => {
   for (const row of events) {
     const channels = asChannels(row.channels);
     const attempt = (row.attempt_count ?? 0) + 1;
+    const templateContext = templateContextFromPayload(
+      row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
+        ? (row.payload as Record<string, unknown>)
+        : null,
+    );
     const channelResults = await Promise.all(
       channels.map(async (channel) => {
         const setting = settingsMap.get(`${row.event_type}__${channel}`);
@@ -208,10 +272,10 @@ Deno.serve(async (req: Request) => {
           } satisfies ChannelResult;
         }
         const template = templateMap.get(`${row.event_type}__${channel}`) ?? null;
-        if (channel === "in_app") return deliverInAppAdapter({ providerMode, template });
-        if (channel === "email") return deliverEmailAdapter({ providerMode, template });
-        if (channel === "sms") return deliverSmsAdapter({ providerMode, template });
-        if (channel === "whatsapp") return deliverWhatsappAdapter({ providerMode, template });
+        if (channel === "in_app") return deliverInAppAdapter({ providerMode, template, context: templateContext });
+        if (channel === "email") return deliverEmailAdapter({ providerMode, template, context: templateContext });
+        if (channel === "sms") return deliverSmsAdapter({ providerMode, template, context: templateContext });
+        if (channel === "whatsapp") return deliverWhatsappAdapter({ providerMode, template, context: templateContext });
         return {
           channel,
           ok: true,

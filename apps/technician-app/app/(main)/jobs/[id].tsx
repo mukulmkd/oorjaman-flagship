@@ -26,6 +26,7 @@ import {
   SkeletonStack,
   useModalStackHeader,
 } from "@oorjaman/ui";
+import { ModalHeaderSupportTrailing } from "../../../components/modal-header-support-trailing";
 import { fontFamily, fontSize, fontWeight } from "../../../constants/fonts";
 import { BookingSitePhotos } from "../../../components/booking-site-photos";
 import { supabase } from "../../../lib/supabase";
@@ -123,6 +124,13 @@ export default function JobDetailScreen() {
     subtitle: statusNote,
     onClose: () => router.back(),
     closeAccessibilityLabel: "Close job details",
+    showClose: false,
+    trailing: (
+      <ModalHeaderSupportTrailing
+        onClose={() => router.back()}
+        closeAccessibilityLabel="Close job details"
+      />
+    ),
   });
 
   if (!supabase || !bookingId) {

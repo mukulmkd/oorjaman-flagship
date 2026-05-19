@@ -10,6 +10,7 @@ import type {
 import { emitVendorApprovalNotificationPlaceholder } from "../notifications/vendor-approval-notifications";
 import { offsetRangeForPage, type PagedParams, type PagedResult } from "../page-range";
 import { requireSessionUserId, SupabaseApiError, takeRows, takeSingleRow } from "../result";
+import { syncUserDisplayNameFromVendor } from "../users/user-display-name";
 
 /** Full vendor registration payload (insert / update while editable). */
 export type VendorRegistrationPayload = {
@@ -213,7 +214,9 @@ export async function registerVendor(
 
   const { data, error } = await client.from("vendors").insert(row).select().single();
 
-  return takeSingleRow(data, error);
+  const vendor = takeSingleRow(data, error);
+  await syncUserDisplayNameFromVendor(client, vendor);
+  return vendor;
 }
 
 /**
@@ -465,7 +468,11 @@ export async function updateMyVendorProfile(
     .select()
     .single();
 
-  return takeSingleRow(data, error);
+  const vendor = takeSingleRow(data, error);
+  if (patch.business_name !== undefined || patch.trade_name !== undefined) {
+    await syncUserDisplayNameFromVendor(client, vendor);
+  }
+  return vendor;
 }
 
 /**

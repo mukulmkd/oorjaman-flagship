@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useLayoutEffect, useMemo } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigation } from "@react-navigation/native";
 import { router } from "expo-router";
 import { bookingApi, queryKeys, technicianApi } from "@oorjaman/api";
 import type { BookingRow } from "@oorjaman/api";
@@ -11,16 +12,19 @@ import {
   EmptyStateCard,
   ErrorStateCard,
   Screen,
+  SCREEN_EDGES_BENEATH_NATIVE_HEADER,
   SkeletonBar,
 } from "@oorjaman/ui";
 import { colors, spacing } from "@oorjaman/config";
 import { fontFamily, fontSize } from "../../constants/fonts";
 import { JobListCard } from "../../components/job-list-card";
+import { SupportChatHeaderButton } from "../../components/help-header-button";
+import { TabNavTitle } from "../../components/tab-nav-title";
 import { TabScreenHeader } from "../../components/tab-screen-header";
 import { completedBookings } from "../../lib/job-list-filters";
 import { supabase } from "../../lib/supabase";
 
-function HistoryRowSkeleton() {
+function FeedbackRowSkeleton() {
   return (
     <Card variant="muted" padded>
       <SkeletonBar variant="dense" />
@@ -28,7 +32,18 @@ function HistoryRowSkeleton() {
   );
 }
 
-export default function HistoryTab() {
+export default function FeedbackTab() {
+  const navigation = useNavigation();
+
+  useLayoutEffect(() => {
+    const tab = navigation.getParent();
+    tab?.setOptions({
+      headerTitle: "",
+      headerLeft: () => <TabNavTitle title="Feedback" />,
+      headerRight: () => <SupportChatHeaderButton />,
+    });
+  }, [navigation]);
+
   const techQ = useQuery({
     queryKey: queryKeys.technicians.me(),
     queryFn: () => technicianApi.getMyTechnicianProfile(supabase!),
@@ -84,8 +99,7 @@ export default function HistoryTab() {
   const header = (
     <View style={styles.headerBlock}>
       <TabScreenHeader
-        kicker="Visit history"
-        lede="Completed jobs and customer ratings. Sorted by visit date, newest first."
+        lede="Completed visits and customer ratings. Sorted by visit date, newest first."
         style={styles.headerInScaffold}
       />
       <View style={styles.statsRow}>
@@ -105,26 +119,31 @@ export default function HistoryTab() {
 
   if (!supabase) {
     return (
-      <Screen padded>
-        <TabScreenHeader kicker="Visit history" lede="Configure Supabase to load history." />
+      <Screen padded edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+        <TabScreenHeader lede="Configure Supabase to load feedback." />
       </Screen>
     );
   }
 
   return (
-    <AppScaffold scrollable={false} header={header} contentContainerStyle={styles.scaffoldBody}>
+    <AppScaffold
+      scrollable={false}
+      edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}
+      header={header}
+      contentContainerStyle={styles.scaffoldBody}
+    >
       {bookingsQ.isPending ? (
         <View style={styles.bodyTop}>
           {[0, 1, 2].map((i) => (
             <View key={i} style={styles.skelGap}>
-              <HistoryRowSkeleton />
+              <FeedbackRowSkeleton />
             </View>
           ))}
         </View>
       ) : bookingsQ.isError ? (
         <View style={styles.bodyTop}>
           <ErrorStateCard
-            title="Couldn't load history"
+            title="Couldn't load feedback"
             message={(bookingsQ.error as Error).message}
             onRetry={() => void bookingsQ.refetch()}
             retryLabel="Retry"
@@ -138,7 +157,7 @@ export default function HistoryTab() {
           showsVerticalScrollIndicator={false}
         >
           <EmptyStateCard
-            title="No completed visits yet"
+            title="No customer feedback yet"
             description="Finished jobs will appear here with ratings when customers leave feedback."
           />
         </ScrollView>

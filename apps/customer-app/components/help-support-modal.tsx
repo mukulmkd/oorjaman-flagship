@@ -30,12 +30,14 @@ import { colors, spacing } from "@oorjaman/config";
 import { Button, ModalSheetHeader } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { supabase } from "../lib/supabase";
-import type { HelpSupportContext } from "./help-support-provider";
+import type { HelpSupportOpenContext } from "./help-support-context";
 
 type Props = {
   visible: boolean;
-  context?: HelpSupportContext;
+  context?: HelpSupportOpenContext;
   onClose: () => void;
+  setFocusedThreadId: (id: string | null) => void;
+  refreshUnreadCount: () => void;
 };
 
 type IntakeStep = "category" | "subcategory" | "details";
@@ -77,10 +79,18 @@ function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function HelpSupportModalBody({ visible, context, onClose }: Props) {
+function HelpSupportModalBody({
+  visible,
+  context,
+  onClose,
+  setFocusedThreadId,
+  refreshUnreadCount,
+}: Props) {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const listRef = useRef<FlatList<SupportMessageRow | LocalBubble>>(null);
+  const modalOpenSessionRef = useRef(false);
+  const markThreadReadRef = useRef<(convId: string) => Promise<void>>(async () => {});
 
   const [intakeStep, setIntakeStep] = useState<IntakeStep>("category");
   const [categorySlug, setCategorySlug] = useState<string | null>(context?.category_slug ?? null);
@@ -153,9 +163,11 @@ function HelpSupportModalBody({ visible, context, onClose }: Props) {
     onSuccess: async (conv) => {
       setConversationId(conv.id);
       setModalView("thread");
+      setFocusedThreadId(conv.id);
       setActiveChats((prev) => [conv, ...prev.filter((c) => c.id !== conv.id)]);
       await qc.invalidateQueries({ queryKey: queryKeys.support.myConversations() });
       await qc.invalidateQueries({ queryKey: queryKeys.support.messages(conv.id) });
+      await markThreadRead(conv.id);
     },
   });
 
@@ -189,16 +201,64 @@ function HelpSupportModalBody({ visible, context, onClose }: Props) {
     setComposerText("");
   }, [context?.category_slug]);
 
+  const markThreadRead = useCallback(
+    async (convId: string) => {
+      if (!supabase) return;
+      await supportApi.markSupportConversationReadByCustomer(supabase, convId);
+      await qc.invalidateQueries({ queryKey: queryKeys.support.unreadCount() });
+      refreshUnreadCount();
+    },
+    [qc, refreshUnreadCount, supabase],
+  );
+
+  markThreadReadRef.current = markThreadRead;
+
   useEffect(() => {
-    if (!visible || !supabase) return;
+    if (!visible) {
+      modalOpenSessionRef.current = false;
+      return;
+    }
+    if (!supabase || modalOpenSessionRef.current) return;
+    modalOpenSessionRef.current = true;
+
     let cancelled = false;
     setModalView("loading");
     setConversationId(null);
+    setFocusedThreadId(null);
+    const deepLinkConversationId = context?.conversation_id?.trim() ?? null;
+    const focusActiveThread = Boolean(context?.focus_active_thread);
+
     void (async () => {
       try {
         const active = await supportApi.listActiveSupportConversationsForCustomer(supabase);
         if (cancelled) return;
         setActiveChats(active);
+
+        const openConversationThread = async (convId: string) => {
+          const fromActive = active.find((c) => c.id === convId);
+          const conv =
+            fromActive ??
+            (await supportApi.getSupportConversationById(supabase, convId).catch(() => null));
+          if (cancelled || !conv) return false;
+          setConversationId(conv.id);
+          setModalView("thread");
+          setFocusedThreadId(conv.id);
+          void markThreadReadRef.current(conv.id);
+          return true;
+        };
+
+        if (deepLinkConversationId) {
+          const opened = await openConversationThread(deepLinkConversationId);
+          if (cancelled) return;
+          if (opened) return;
+        }
+
+        if (focusActiveThread && active.length > 0) {
+          const opened = await openConversationThread(active[0]!.id);
+          if (cancelled) return;
+          if (opened) return;
+        }
+
         if (active.length > 0) {
           setModalView("inbox");
           return;
@@ -215,30 +275,47 @@ function HelpSupportModalBody({ visible, context, onClose }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [visible, resetIntake]);
+  }, [
+    visible,
+    supabase,
+    resetIntake,
+    setFocusedThreadId,
+    context?.conversation_id,
+    context?.focus_active_thread,
+  ]);
 
-  const openThread = useCallback((conv: SupportConversationRow) => {
-    setConversationId(conv.id);
-    setModalView("thread");
-  }, []);
+  const openThread = useCallback(
+    (conv: SupportConversationRow) => {
+      setConversationId(conv.id);
+      setModalView("thread");
+      setFocusedThreadId(conv.id);
+      void markThreadReadRef.current(conv.id);
+    },
+    [setFocusedThreadId],
+  );
 
   const backToInbox = useCallback(() => {
     setConversationId(null);
     setComposerText("");
+    setFocusedThreadId(null);
     setModalView(activeChats.length > 0 ? "inbox" : "intake");
-  }, [activeChats.length]);
+  }, [activeChats.length, setFocusedThreadId]);
 
   const startNewConversation = useCallback(() => {
     resetIntake();
     setConversationId(null);
+    setFocusedThreadId(null);
     setModalView("intake");
-  }, [resetIntake]);
+  }, [resetIntake, setFocusedThreadId]);
 
   useEffect(() => {
     if (!visible || !conversationId || !supabase) return;
     const sb = supabase;
     const messagesChannel = supportApi.subscribeSupportMessages(sb, conversationId, () => {
       void messagesQ.refetch();
+      if (modalView === "thread") {
+        void markThreadReadRef.current(conversationId);
+      }
     });
     const conversationChannel = supportApi.subscribeSupportConversation(sb, conversationId, () => {
       void conversationQ.refetch();
@@ -248,7 +325,12 @@ function HelpSupportModalBody({ visible, context, onClose }: Props) {
       supportApi.unsubscribeSupportChannel(sb, messagesChannel);
       supportApi.unsubscribeSupportChannel(sb, conversationChannel);
     };
-  }, [visible, conversationId, messagesQ, conversationQ]);
+  }, [visible, conversationId, messagesQ, conversationQ, modalView]);
+
+  useEffect(() => {
+    if (!visible || !conversationId || modalView !== "thread" || !supabase) return;
+    void markThreadReadRef.current(conversationId);
+  }, [visible, conversationId, modalView, supabase]);
 
   const pickCategory = (cat: SupportCategory) => {
     setCategorySlug(cat.slug);

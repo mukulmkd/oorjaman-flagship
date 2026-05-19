@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import {
+  MutationCache,
   QueryCache,
   QueryClient,
   QueryClientProvider,
@@ -27,6 +28,12 @@ export function QueryProvider({ children }: { children: ReactNode }) {
           },
         },
         queryCache: new QueryCache({
+          onError: (error) => {
+            if (!supabase) return;
+            void handleAuthFailureFromError(supabase, error);
+          },
+        }),
+        mutationCache: new MutationCache({
           onError: (error) => {
             if (!supabase) return;
             void handleAuthFailureFromError(supabase, error);

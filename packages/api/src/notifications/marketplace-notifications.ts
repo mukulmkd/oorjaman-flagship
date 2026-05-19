@@ -6,6 +6,7 @@ import {
   customerLocationSignalsFromServiceSiteAddress,
   splitVendorsByServiceArea,
 } from "../vendors/vendor-service-area";
+import { marketplaceBroadcastCopy, marketplaceClaimWonCopy } from "./notification-copy";
 
 export type MarketplaceNotificationChannel = "in_app" | "email" | "sms" | "whatsapp";
 export type MarketplaceNotificationEventType = "marketplace_broadcast" | "marketplace_claim_won";
@@ -90,6 +91,11 @@ export async function emitMarketplaceNotificationEvents(
         : [];
   if (recipients.length === 0) return 0;
 
+  const copy =
+    input.eventType === "marketplace_broadcast"
+      ? marketplaceBroadcastCopy(input.booking)
+      : marketplaceClaimWonCopy(input.booking);
+
   const rows: Database["public"]["Tables"]["notification_events"]["Insert"][] = recipients.map((vendor) => ({
     booking_id: input.booking.id,
     recipient_audience: "vendor",
@@ -100,6 +106,9 @@ export async function emitMarketplaceNotificationEvents(
     payload: {
       reference_code: input.booking.reference_code,
       booking_id: input.booking.id,
+      title: copy.title,
+      body: copy.body,
+      href: "/dashboard/operations",
       note: input.note ?? null,
       emitted_at: nowIso,
     } as Json,

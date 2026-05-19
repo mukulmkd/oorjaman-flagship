@@ -5,6 +5,11 @@ import { SupabaseApiError, takeRows } from "../result";
 
 const IN_APP_CHANNEL = "in_app";
 
+/** PostgREST `cs` on jsonb columns requires JSON array syntax (`["in_app"]`), not `{in_app}`. */
+function jsonbChannelsContain(channel: string): string {
+  return JSON.stringify([channel]);
+}
+
 export function parseInAppNotificationPayload(payload: unknown): InAppNotificationPayload | null {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
   const p = payload as Record<string, unknown>;
@@ -46,7 +51,7 @@ export async function listInAppNotifications(
     .from("notification_events")
     .select("*")
     .eq("recipient_audience", input.audience)
-    .contains("channels", [IN_APP_CHANNEL])
+    .filter("channels", "cs", jsonbChannelsContain(IN_APP_CHANNEL))
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -67,7 +72,7 @@ export async function countUnreadInAppNotifications(
     .from("notification_events")
     .select("id", { head: true, count: "exact" })
     .eq("recipient_audience", audience)
-    .contains("channels", [IN_APP_CHANNEL])
+    .filter("channels", "cs", jsonbChannelsContain(IN_APP_CHANNEL))
     .is("read_at", null);
   if (error) throw new SupabaseApiError(error.message, error);
   return count ?? 0;

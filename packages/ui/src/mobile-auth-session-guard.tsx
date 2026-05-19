@@ -1,5 +1,20 @@
 import { useEffect, useRef } from "react";
 import { Alert, AppState, LogBox, type AppStateStatus } from "react-native";
+
+const MOBILE_AUTH_LOG_IGNORES = [
+  /Invalid Refresh Token/i,
+  /Refresh Token Not Found/i,
+  /Auto refresh tick failed with error/i,
+];
+
+let mobileAuthLogFiltersInstalled = false;
+
+/** Call once at app entry (before Supabase client use) to avoid red LogBox noise for stale tokens. */
+export function installMobileAuthConsoleFilters(): void {
+  if (mobileAuthLogFiltersInstalled) return;
+  mobileAuthLogFiltersInstalled = true;
+  LogBox.ignoreLogs(MOBILE_AUTH_LOG_IGNORES);
+}
 import { useRouter, useSegments } from "expo-router";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -9,12 +24,6 @@ import {
   registerMobileSessionExpiredHandler,
 } from "@oorjaman/api";
 import type { Database } from "@oorjaman/api";
-
-LogBox.ignoreLogs([
-  /Invalid Refresh Token/i,
-  /Refresh Token Not Found/i,
-  /Auto refresh tick failed with error/i,
-]);
 
 type Props = {
   client: SupabaseClient<Database> | null;
@@ -43,6 +52,7 @@ export function MobileAuthSessionGuard({
 
   useEffect(() => {
     if (!client) return;
+    installMobileAuthConsoleFilters();
 
     const isProtectedRoute = () => segmentsRef.current[0] === protectedSegment;
 

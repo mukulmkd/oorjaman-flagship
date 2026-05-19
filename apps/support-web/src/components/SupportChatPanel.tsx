@@ -5,12 +5,12 @@ import {
   queryKeys,
   supportApi,
   SUPPORT_ATTACHMENTS_BUCKET,
-  type SupportConversationWithCustomer,
+  type SupportConversationWithParticipant,
   type SupportMessageRow,
   type SupportResolutionTag,
 } from "@oorjaman/api";
 import { ResolveConversationDialog } from "./ResolveConversationDialog";
-import { SupportMacrosPicker } from "./SupportMacrosPicker";
+import { SupportComposer } from "./SupportComposer";
 import { SupportThreadToolbar } from "./SupportThreadToolbar";
 import { playNotificationChime } from "../lib/notification-sound";
 import { useSupabase } from "../lib/supabase-context";
@@ -32,9 +32,16 @@ type Props = {
   conversationId: string;
   onRefreshInbox?: () => void;
   playSoundOnMessage?: boolean;
+  /** Floating dock: hide duplicate header and use compact chrome. */
+  compact?: boolean;
 };
 
-export function SupportChatPanel({ conversationId, onRefreshInbox, playSoundOnMessage }: Props) {
+export function SupportChatPanel({
+  conversationId,
+  onRefreshInbox,
+  playSoundOnMessage,
+  compact = false,
+}: Props) {
   const supabase = useSupabase();
   const queryClient = useQueryClient();
   const [composer, setComposer] = useState("");
@@ -53,7 +60,7 @@ export function SupportChatPanel({ conversationId, onRefreshInbox, playSoundOnMe
 
   const conversationQ = useQuery({
     queryKey: queryKeys.support.conversation(conversationId),
-    queryFn: () => supportApi.getSupportConversationForDeskWithCustomer(supabase!, conversationId),
+    queryFn: () => supportApi.getSupportConversationForDeskWithParticipant(supabase!, conversationId),
     enabled: Boolean(supabase && conversationId),
   });
 
@@ -63,7 +70,7 @@ export function SupportChatPanel({ conversationId, onRefreshInbox, playSoundOnMe
     enabled: Boolean(supabase && conversationId),
   });
 
-  const selected: SupportConversationWithCustomer | null = conversationQ.data ?? null;
+  const selected: SupportConversationWithParticipant | null = conversationQ.data ?? null;
 
   const refresh = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.support.all() });
@@ -157,59 +164,64 @@ export function SupportChatPanel({ conversationId, onRefreshInbox, playSoundOnMe
 
   const readOnly = selected.status === "resolved";
 
-  return (
+  const actionButtons = readOnly ? (
+    <button
+      type="button"
+      className="support-inbox-btn-outline"
+      disabled={reopenMut.isPending}
+      onClick={() => reopenMut.mutate()}
+    >
+      Reopen
+    </button>
+  ) : (
     <>
-      <header className="support-inbox-thread-header support-chat-panel-header">
-        <div className="support-chat-panel-header-text">
-          <h2>{selected.customer?.display_name ?? "Customer"}</h2>
-          <p className="support-inbox-muted">{selected.subject ?? selected.category_slug}</p>
-          {selected.status === "resolved" && selected.csat_rating != null ? (
-            <span className="support-thread-csat-badge">
-              {formatSupportCsatStars(selected.csat_rating)} {selected.csat_rating}/5
-            </span>
-          ) : null}
-        </div>
-        <div className="support-inbox-thread-actions">
-          {readOnly ? (
-            <button
-              type="button"
-              className="support-inbox-btn-outline"
-              disabled={reopenMut.isPending}
-              onClick={() => reopenMut.mutate()}
-            >
-              Reopen
-            </button>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="support-inbox-btn-outline"
-                disabled={escalateMut.isPending}
-                onClick={() => {
-                  const note = window.prompt("Note for operations (optional)") ?? "";
-                  escalateMut.mutate(note);
-                }}
-              >
-                Escalate
-              </button>
-              <button
-                type="button"
-                className="support-inbox-btn-outline"
-                disabled={resolveMut.isPending}
-                onClick={() => setResolveOpen(true)}
-              >
-                Resolve
-              </button>
-            </>
-          )}
-        </div>
-      </header>
+      <button
+        type="button"
+        className="support-inbox-btn-outline"
+        disabled={escalateMut.isPending}
+        onClick={() => {
+          const note = window.prompt("Note for operations (optional)") ?? "";
+          escalateMut.mutate(note);
+        }}
+      >
+        Escalate
+      </button>
+      <button
+        type="button"
+        className="support-inbox-btn-outline"
+        disabled={resolveMut.isPending}
+        onClick={() => setResolveOpen(true)}
+      >
+        Resolve
+      </button>
+    </>
+  );
+
+  return (
+    <div className={`support-chat-panel${compact ? " support-chat-panel-compact" : ""}`}>
+      {!compact ? (
+        <header className="support-inbox-thread-header support-chat-panel-header">
+          <div className="support-chat-panel-header-text">
+            <h2>{supportApi.supportParticipantDisplayName(selected)}</h2>
+            <p className="support-inbox-muted">{selected.subject ?? selected.category_slug}</p>
+            {selected.status === "resolved" && selected.csat_rating != null ? (
+              <span className="support-thread-csat-badge">
+                {formatSupportCsatStars(selected.csat_rating)} {selected.csat_rating}/5
+              </span>
+            ) : null}
+          </div>
+          <div className="support-inbox-thread-actions">{actionButtons}</div>
+        </header>
+      ) : (
+        <div className="support-chat-panel-dock-actions">{actionButtons}</div>
+      )}
 
       {!readOnly ? (
         <SupportThreadToolbar
           conversation={selected}
           agentUserId={agentUserId}
           onUpdated={refresh}
+          compact={compact}
         />
       ) : null}
 
@@ -217,7 +229,7 @@ export function SupportChatPanel({ conversationId, onRefreshInbox, playSoundOnMe
         {messagesQ.isPending ? <p className="support-inbox-muted">Loading messages…</p> : null}
         {(messagesQ.data ?? []).map((m: SupportMessageRow) => {
           const roleClass =
-            m.sender_role === "customer"
+            m.sender_role === "customer" || m.sender_role === "technician"
               ? "support-msg-customer"
               : m.sender_role === "admin"
                 ? "support-msg-admin"
@@ -241,57 +253,19 @@ export function SupportChatPanel({ conversationId, onRefreshInbox, playSoundOnMe
         <div ref={threadEndRef} />
       </div>
 
-      <footer className="support-inbox-composer support-chat-panel-composer">
-        {!readOnly ? (
-          <SupportMacrosPicker
-            categorySlug={selected.category_slug}
-            onInsert={(body) => setComposer((prev) => (prev ? `${prev}\n${body}` : body))}
-          />
-        ) : null}
-        {!readOnly ? (
-          <label className="support-attach-file">
-            <span className="support-inbox-muted">Attachment</span>
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
-              onChange={(e) => setPendingFile(e.target.files?.[0] ?? null)}
-            />
-            {pendingFile ? <span>{pendingFile.name}</span> : null}
-          </label>
-        ) : null}
-        <label className="support-internal-toggle">
-          <input
-            type="checkbox"
-            checked={internalNote}
-            disabled={readOnly}
-            onChange={(e) => setInternalNote(e.target.checked)}
-          />
-          Internal note
-        </label>
-        <textarea
-          className="support-inbox-composer-input"
-          rows={2}
-          placeholder={readOnly ? "Reopen to reply…" : internalNote ? "Internal note…" : "Reply…"}
-          value={composer}
-          disabled={readOnly}
-          onChange={(e) => setComposer(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              const t = composer.trim();
-              if (t && !readOnly) sendMut.mutate(t);
-            }
-          }}
-        />
-        <button
-          type="button"
-          className="support-inbox-btn-primary"
-          disabled={(!composer.trim() && !pendingFile) || sendMut.isPending || readOnly}
-          onClick={() => sendMut.mutate(composer.trim())}
-        >
-          {internalNote ? "Add note" : "Send"}
-        </button>
-      </footer>
+      <SupportComposer
+        compact={compact}
+        composer={composer}
+        onComposerChange={setComposer}
+        onSend={() => sendMut.mutate(composer.trim())}
+        sendPending={sendMut.isPending}
+        readOnly={readOnly}
+        internalNote={internalNote}
+        onInternalNoteChange={setInternalNote}
+        pendingFile={pendingFile}
+        onPendingFileChange={setPendingFile}
+        categorySlug={selected.category_slug}
+      />
 
       <ResolveConversationDialog
         open={resolveOpen}
@@ -299,6 +273,6 @@ export function SupportChatPanel({ conversationId, onRefreshInbox, playSoundOnMe
         onClose={() => setResolveOpen(false)}
         onConfirm={(tag) => resolveMut.mutate(tag)}
       />
-    </>
+    </div>
   );
 }

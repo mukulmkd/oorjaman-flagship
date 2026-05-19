@@ -49,9 +49,20 @@ type EmitInAppInput = {
   extraChannels?: ("email" | "sms" | "whatsapp")[];
 };
 
-function bookingRef(booking: Pick<BookingRow, "reference_code" | "id">): string {
-  return booking.reference_code?.trim() || booking.id.slice(0, 8).toUpperCase();
-}
+export {
+  adminBookingCancelledCopy,
+  adminMarketplaceFloatedCopy,
+  adminReassignmentNeededCopy,
+  adminTechnicianReassignedCopy,
+  adminVendorAcceptedCopy,
+  adminVendorClaimedCopy,
+  adminVendorDeclinedCopy,
+  adminVisitCompletedCopy,
+  adminVisitStartedCopy,
+  vendorBookingAssignedCopy,
+  vendorVisitCompletedCopy,
+  vendorVisitStartedCopy,
+} from "./notification-copy";
 
 function adminBookingsHref(bookingId: string): string {
   return `/dashboard/bookings?highlight=${bookingId}`;
@@ -126,42 +137,3 @@ export async function emitVendorBookingNotification(
   });
 }
 
-export function adminMarketplaceFloatedCopy(
-  booking: Pick<BookingRow, "reference_code" | "id">,
-  vendorCount: number,
-): { title: string; body: string } {
-  const ref = bookingRef(booking);
-  return {
-    title: "Marketplace opened",
-    body:
-      vendorCount > 0
-        ? `Booking ${ref} is live for ${vendorCount} partner${vendorCount === 1 ? "" : "s"} to claim.`
-        : `Booking ${ref} was floated (no eligible partners in slot/area).`,
-  };
-}
-
-export function adminVendorClaimedCopy(
-  booking: Pick<BookingRow, "reference_code" | "id">,
-  vendorName: string | null,
-): { title: string; body: string } {
-  const ref = bookingRef(booking);
-  const who = vendorName?.trim() || "A partner";
-  return {
-    title: "Vendor claimed booking",
-    body: `${who} claimed marketplace booking ${ref}. Assign or wait for acceptance.`,
-  };
-}
-
-export function adminVendorAcceptedCopy(
-  booking: Pick<BookingRow, "reference_code" | "id">,
-  vendorName: string | null,
-  technicianName: string | null,
-): { title: string; body: string } {
-  const ref = bookingRef(booking);
-  const tech = technicianName?.trim() || "a technician";
-  const vendor = vendorName?.trim() || "Partner";
-  return {
-    title: "Technician assigned",
-    body: `${vendor} accepted ${ref} and assigned ${tech}.`,
-  };
-}

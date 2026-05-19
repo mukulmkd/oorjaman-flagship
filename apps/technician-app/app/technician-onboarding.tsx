@@ -28,6 +28,12 @@ import type { Json, TechnicianDocKind, TechnicianRow, VendorRow } from "@oorjama
 import { colors, spacing } from "@oorjaman/config";
 import { AppScaffold, Button, Input, Screen, SCREEN_EDGES_FULL_SCREEN } from "@oorjaman/ui";
 import { fontFamily, fontSize, fontWeight } from "../constants/fonts";
+import {
+  allOnboardingSafetyAcksChecked,
+  emptyOnboardingSafetyAcks,
+  ONBOARDING_SAFETY_ACKS,
+  type OnboardingSafetyAckKey,
+} from "../lib/onboarding-safety-acks";
 import { supabase } from "../lib/supabase";
 
 type PickedDoc = { uri: string; name: string; mime: string | null };
@@ -65,6 +71,10 @@ type FormFields = {
   bank_ifsc: string;
   declaration_information_accurate: boolean;
   declaration_safety_commitment: boolean;
+  safety_ack_pre_start_checklist: boolean;
+  safety_ack_job_start_code: boolean;
+  safety_ack_safety_measures: boolean;
+  safety_ack_reviewed_guidelines: boolean;
 };
 
 const STEPS = ["Employer & you", "Identity", "Skills", "Safety", "Bank"] as const;
@@ -126,10 +136,8 @@ function readEmployerDisplayName(
   return "";
 }
 
-function stepSafetyCanProceed(form: FormFields, safetyCertReady: boolean): boolean {
-  if (!form.flag_safety_training) return false;
-  if (!form.safety_training_org.trim()) return false;
-  if (!safetyCertReady) return false;
+function stepSafetyCanProceed(form: FormFields): boolean {
+  if (!allOnboardingSafetyAcksChecked(form)) return false;
   if (!form.declaration_information_accurate || !form.declaration_safety_commitment) return false;
   return true;
 }
@@ -211,7 +219,32 @@ const emptyForm = (): FormFields => ({
   bank_ifsc: "",
   declaration_information_accurate: false,
   declaration_safety_commitment: false,
+  ...emptyOnboardingSafetyAcks(),
 });
+
+/** Sign-in / invite phone for the read-only personal phone field. */
+function resolveOnboardingPersonalPhone(
+  techPhone: string | null | undefined,
+  userPhone: string | null | undefined,
+  invitePhone: string | null | undefined,
+): string {
+  return (
+    techPhone?.trim() ||
+    userPhone?.trim() ||
+    invitePhone?.trim() ||
+    ""
+  );
+}
+
+function withOnboardingPersonalPhone(
+  form: FormFields,
+  techPhone: string | null | undefined,
+  userPhone: string | null | undefined,
+  invitePhone: string | null | undefined,
+): FormFields {
+  const personal_phone = resolveOnboardingPersonalPhone(techPhone, userPhone, invitePhone) || form.personal_phone;
+  return personal_phone === form.personal_phone ? form : { ...form, personal_phone };
+}
 
 function techToForm(t: TechnicianRow): FormFields {
   const a = readHome(t);
@@ -254,6 +287,18 @@ function techToForm(t: TechnicianRow): FormFields {
     bank_ifsc: t.bank_ifsc ?? "",
     declaration_information_accurate: Boolean(decl["information_accurate"]),
     declaration_safety_commitment: Boolean(decl["safety_commitment"]),
+    safety_ack_pre_start_checklist: Boolean(
+      (decl.safety_acknowledgements as Record<string, unknown> | undefined)?.pre_start_checklist,
+    ),
+    safety_ack_job_start_code: Boolean(
+      (decl.safety_acknowledgements as Record<string, unknown> | undefined)?.job_start_code,
+    ),
+    safety_ack_safety_measures: Boolean(
+      (decl.safety_acknowledgements as Record<string, unknown> | undefined)?.safety_measures,
+    ),
+    safety_ack_reviewed_guidelines: Boolean(
+      (decl.safety_acknowledgements as Record<string, unknown> | undefined)?.reviewed_guidelines,
+    ),
   };
 }
 
@@ -280,7 +325,10 @@ export default function TechnicianOnboardingScreen() {
 
   const userQuery = useQuery({
     queryKey: queryKeys.users.me(),
-    queryFn: () => userApi.getMyUserRecord(supabase!),
+    queryFn: async () => {
+      await userApi.syncMyUserFromAuth(supabase!);
+      return userApi.getMyUserRecord(supabase!);
+    },
     enabled: Boolean(supabase),
   });
 
@@ -326,7 +374,14 @@ export default function TechnicianOnboardingScreen() {
         const formRaw = (raw as { form?: unknown }).form;
         const stepRaw = (raw as { step?: unknown }).step;
         if (formRaw && typeof formRaw === "object" && !Array.isArray(formRaw)) {
-          setForm({ ...emptyForm(), ...(formRaw as FormFields) });
+          setForm(
+            withOnboardingPersonalPhone(
+              { ...emptyForm(), ...(formRaw as FormFields) },
+              tech.personal_phone,
+              userQuery.data?.phone,
+              invite?.invite_phone_e164,
+            ),
+          );
         }
         if (typeof stepRaw === "number" && stepRaw >= 0) {
           setStep(Math.min(stepRaw, STEPS.length - 1));
@@ -334,8 +389,22 @@ export default function TechnicianOnboardingScreen() {
         return;
       }
     }
-    setForm(techToForm(tech));
-  }, [tech?.id, tech?.verification_status, tech?.metadata]);
+    setForm(
+      withOnboardingPersonalPhone(
+        techToForm(tech),
+        tech.personal_phone,
+        userQuery.data?.phone,
+        invite?.invite_phone_e164,
+      ),
+    );
+  }, [
+    tech?.id,
+    tech?.verification_status,
+    tech?.metadata,
+    tech?.personal_phone,
+    userQuery.data?.phone,
+    invite?.invite_phone_e164,
+  ]);
 
   useEffect(() => {
     if (!lockedVendorId) return;
@@ -343,9 +412,14 @@ export default function TechnicianOnboardingScreen() {
   }, [lockedVendorId]);
 
   useEffect(() => {
-    const ph = userQuery.data?.phone?.trim();
-    if (ph) setForm((f) => ({ ...f, personal_phone: ph }));
-  }, [userQuery.data?.phone]);
+    const personal_phone = resolveOnboardingPersonalPhone(
+      tech?.personal_phone,
+      userQuery.data?.phone,
+      invite?.invite_phone_e164,
+    );
+    if (!personal_phone) return;
+    setForm((f) => (f.personal_phone === personal_phone ? f : { ...f, personal_phone }));
+  }, [tech?.personal_phone, userQuery.data?.phone, invite?.invite_phone_e164]);
 
   const employerVendorId = form.vendor_id.trim() || lockedVendorId || tech?.vendor_id?.trim() || "";
   const employerVendor = useMemo(
@@ -356,15 +430,6 @@ export default function TechnicianOnboardingScreen() {
     () => readEmployerDisplayName(employerVendor, invite?.metadata),
     [employerVendor, invite?.metadata],
   );
-
-  useEffect(() => {
-    if (!employerDisplayName) return;
-    setForm((f) => ({
-      ...f,
-      flag_safety_training: true,
-      safety_training_org: employerDisplayName,
-    }));
-  }, [employerDisplayName]);
 
   const pickDoc = useCallback(async (kind: TechnicianDocKind) => {
     const res = await DocumentPicker.getDocumentAsync({
@@ -414,6 +479,9 @@ export default function TechnicianOnboardingScreen() {
       if (!dobRaw) throw new Error("Date of birth is required.");
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dobRaw)) throw new Error("Enter a valid date of birth.");
       if (!form.gender) throw new Error("Select gender.");
+      if (!allOnboardingSafetyAcksChecked(form)) {
+        throw new Error("Confirm all safety awareness items on the Safety step.");
+      }
       if (!form.declaration_information_accurate || !form.declaration_safety_commitment) {
         throw new Error("Confirm both declarations on the Safety step.");
       }
@@ -437,15 +505,6 @@ export default function TechnicianOnboardingScreen() {
       }
       for (const kind of ["aadhaar", "pan", "bank_proof", "passport_photo"] as TechnicianDocKind[]) {
         if (!paths[kind]) throw new Error(`Attach ${kind.replace(/_/g, " ")}.`);
-      }
-      if (!form.flag_safety_training) {
-        throw new Error("Safety training completed is required.");
-      }
-      if (!form.safety_training_org.trim()) {
-        throw new Error("Safety training organisation is required (from your employer vendor).");
-      }
-      if (!paths.safety_certificate) {
-        throw new Error("Attach your safety training certificate.");
       }
 
       const skills = splitCsv(form.skills_text);
@@ -503,6 +562,10 @@ export default function TechnicianOnboardingScreen() {
         bank_ifsc: bankIfsc,
         declaration_information_accurate: form.declaration_information_accurate,
         declaration_safety_commitment: form.declaration_safety_commitment,
+        safety_ack_pre_start_checklist: form.safety_ack_pre_start_checklist,
+        safety_ack_job_start_code: form.safety_ack_job_start_code,
+        safety_ack_safety_measures: form.safety_ack_safety_measures,
+        safety_ack_reviewed_guidelines: form.safety_ack_reviewed_guidelines,
       });
     },
     onSuccess: async () => {
@@ -519,14 +582,14 @@ export default function TechnicianOnboardingScreen() {
     mutationFn: async () => {
       if (!supabase) throw new Error("Missing Supabase");
       const formJson = JSON.parse(JSON.stringify(form)) as Json;
-      await technicianApi.saveTechnicianOnboardingDraft(supabase, {
+      return technicianApi.saveTechnicianOnboardingDraft(supabase, {
         form: formJson,
         stepIndex: step,
         vendorId: form.vendor_id.trim() || null,
       });
     },
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: queryKeys.technicians.me() });
+    onSuccess: (row) => {
+      qc.setQueryData(queryKeys.technicians.me(), row);
       Alert.alert("Draft saved", "You can sign out and continue registration later.");
     },
     onError: (e: unknown) => {
@@ -580,10 +643,10 @@ export default function TechnicianOnboardingScreen() {
             size="lg"
             onPress={async () => {
               await authApi.signOut(supabase!);
-              router.replace("/technician-login");
+              router.replace("/login");
             }}
           >
-            Technician onboarding sign-in
+            Back to sign in
           </Button>
         </View>
       </Screen>
@@ -595,7 +658,9 @@ export default function TechnicianOnboardingScreen() {
   }
 
   /** Must match `(main)/_layout.tsx` and `resolveTechnicianAppPostAuthPath` — platform + employer approval. */
-  const canAccessMainApp = technicianApi.technicianIsFullyOnboarded(tech);
+  const hasActiveDraft = technicianApi.technicianHasActiveOnboardingDraft(tech);
+  const canAccessMainApp =
+    technicianApi.technicianIsFullyOnboarded(tech) && !hasActiveDraft;
 
   if (canAccessMainApp) {
     return (
@@ -622,8 +687,6 @@ export default function TechnicianOnboardingScreen() {
   const panCopyReady = Boolean(docs.pan) || Boolean(existingDocPath(tech, "pan"));
   const passportReady =
     Boolean(docs.passport_photo) || Boolean(existingDocPath(tech, "passport_photo"));
-  const safetyCertReady =
-    Boolean(docs.safety_certificate) || Boolean(existingDocPath(tech, "safety_certificate"));
   const bankProofReady =
     Boolean(docs.bank_proof) || Boolean(existingDocPath(tech, "bank_proof"));
   const bankStepReady = stepBankCanProceed(form, bankProofReady);
@@ -650,7 +713,7 @@ export default function TechnicianOnboardingScreen() {
         : step === 2
           ? stepSkillsCanProceed(form)
           : step === 3
-            ? stepSafetyCanProceed(form, safetyCertReady)
+            ? stepSafetyCanProceed(form)
             : step === 4
               ? bankStepReady
               : true;
@@ -895,35 +958,19 @@ export default function TechnicianOnboardingScreen() {
 
         {step === 3 ? (
           <>
-            <ToggleRow
-              label="Safety training completed *"
-              value={form.flag_safety_training}
-              onValueChange={(v) => setField("flag_safety_training", v ? true : false)}
-              disabled
-            />
-            <Field
-              label="Safety training organisation *"
-              helperText={
-                employerDisplayName
-                  ? "Filled automatically from your employer vendor."
-                  : "Select your employer on step 1 to fill this field."
-              }
-              value={form.safety_training_org}
-              editable={false}
-            />
-            <View style={styles.docRow}>
-              <View style={styles.flexFill}>
-                <Text style={styles.docTitle}>Safety training certificate *</Text>
-                <Text style={styles.docMeta}>
-                  {docs.safety_certificate?.name ?? existingDocPath(tech, "safety_certificate") ?? "No file"}
-                </Text>
-              </View>
-              <Button variant="outline" size="sm" onPress={() => void pickDoc("safety_certificate")}>
-                Choose
-              </Button>
-            </View>
-            <ToggleRow label="Height / rope-work certification" value={form.flag_height_work_cert} onValueChange={(v) => setField("flag_height_work_cert", v)} />
-            <Text style={[styles.hint, { marginTop: spacing.sm }]}>Declarations *</Text>
+            <Text style={styles.sectionTitle}>Safety awareness *</Text>
+            <Text style={styles.hint}>
+              These match how you start jobs in the OorjaMan app — confirm each item to continue.
+            </Text>
+            {ONBOARDING_SAFETY_ACKS.map((item) => (
+              <ToggleRow
+                key={item.key}
+                label={item.label}
+                value={form[item.key as OnboardingSafetyAckKey]}
+                onValueChange={(v) => setField(item.key as OnboardingSafetyAckKey, v)}
+              />
+            ))}
+            <Text style={[styles.sectionTitle, { marginTop: spacing.md }]}>Declarations *</Text>
             <ToggleRow
               label="I confirm my information is accurate"
               value={form.declaration_information_accurate}
@@ -933,6 +980,50 @@ export default function TechnicianOnboardingScreen() {
               label="I will follow on-site safety protocols"
               value={form.declaration_safety_commitment}
               onValueChange={(v) => setField("declaration_safety_commitment", v)}
+            />
+            <Text style={[styles.sectionTitle, { marginTop: spacing.md }]}>Certifications (optional)</Text>
+            <Text style={styles.hint}>
+              Add training details if you have them. Your employer may request certificates later.
+            </Text>
+            <ToggleRow
+              label="I have completed formal safety training"
+              value={form.flag_safety_training}
+              onValueChange={(v) => {
+                setField("flag_safety_training", v);
+                if (!v) {
+                  setField("safety_training_org", "");
+                } else if (employerDisplayName && !form.safety_training_org.trim()) {
+                  setField("safety_training_org", employerDisplayName);
+                }
+              }}
+            />
+            {form.flag_safety_training ? (
+              <>
+                <Field
+                  label="Safety training organisation (optional)"
+                  helperText="e.g. your employer or training provider"
+                  value={form.safety_training_org}
+                  onChangeText={(t) => setField("safety_training_org", t)}
+                />
+                <View style={styles.docRow}>
+                  <View style={styles.flexFill}>
+                    <Text style={styles.docTitle}>Safety training certificate (optional)</Text>
+                    <Text style={styles.docMeta}>
+                      {docs.safety_certificate?.name ??
+                        existingDocPath(tech, "safety_certificate") ??
+                        "No file attached"}
+                    </Text>
+                  </View>
+                  <Button variant="outline" size="sm" onPress={() => void pickDoc("safety_certificate")}>
+                    Choose
+                  </Button>
+                </View>
+              </>
+            ) : null}
+            <ToggleRow
+              label="Height / rope-work certification"
+              value={form.flag_height_work_cert}
+              onValueChange={(v) => setField("flag_height_work_cert", v)}
             />
           </>
         ) : null}
@@ -988,7 +1079,7 @@ export default function TechnicianOnboardingScreen() {
           <Button
             variant="primary"
             size="md"
-            onPress={() => void authApi.signOut(supabase!).then(() => router.replace("/technician-login"))}
+            onPress={() => void authApi.signOut(supabase!).then(() => router.replace("/login"))}
           >
             Sign out
           </Button>
@@ -1263,6 +1354,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     marginBottom: spacing.md,
+  },
+  sectionTitle: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: fontSize.md,
+    color: colors.foreground,
+    marginBottom: spacing.xs,
   },
   docTitle: {
     fontFamily: fontFamily.semiBold,

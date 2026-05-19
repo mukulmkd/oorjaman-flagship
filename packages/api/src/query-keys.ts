@@ -53,6 +53,8 @@ export const queryKeys = {
     /** Technicians employed by the signed-in vendor (RLS). */
     myTechnicians: () => [...queryKeys.vendors.all(), "my-technicians"] as const,
     dashboardPayments: () => [...queryKeys.vendors.all(), "dashboard-payments"] as const,
+    dashboardSettlements: (filtersKey?: string) =>
+      [...queryKeys.vendors.all(), "dashboard-settlements", filtersKey ?? "all"] as const,
     dashboardSubscriptions: () => [...queryKeys.vendors.all(), "dashboard-subscriptions"] as const,
     dashboardJobReports: (limit?: number) =>
       [...queryKeys.vendors.all(), "dashboard-job-reports", limit ?? "default"] as const,
@@ -174,6 +176,14 @@ export const queryKeys = {
       [...queryKeys.subscriptions.all(), "visit-slots", subscriptionId] as const,
     renewalCandidates: (daysAhead: number) =>
       [...queryKeys.subscriptions.all(), "renewal-candidates", daysAhead] as const,
+    renewalCandidatesLapsed: (daysSinceEnded: number) =>
+      [...queryKeys.subscriptions.all(), "renewal-candidates-lapsed", daysSinceEnded] as const,
+    renewalQueueStats: () => [...queryKeys.subscriptions.all(), "renewal-queue-stats"] as const,
+    renewalChannelSummary: () => [...queryKeys.subscriptions.all(), "renewal-channel-summary"] as const,
+  },
+
+  technicianActivity: {
+    all: () => [...queryKeys.root, "technician-activity"] as const,
   },
 
   technicians: {
@@ -194,14 +204,18 @@ export const queryKeys = {
 
   support: {
     all: () => [...queryKeys.root, "support"] as const,
-    catalog: () => [...queryKeys.support.all(), "catalog"] as const,
-    myConversations: () => [...queryKeys.support.all(), "my-conversations"] as const,
+    catalog: (audience: "customer" | "technician" = "customer") =>
+      [...queryKeys.support.all(), "catalog", audience] as const,
+    myConversations: (audience: "customer" | "technician" = "customer") =>
+      [...queryKeys.support.all(), "my-conversations", audience] as const,
+    unreadCount: (audience: "customer" | "technician" = "customer") =>
+      [...queryKeys.support.all(), "unread-count", audience] as const,
     conversation: (id: string) => [...queryKeys.support.all(), "conversation", id] as const,
     messages: (conversationId: string) =>
       [...queryKeys.support.conversation(conversationId), "messages"] as const,
     adminInbox: (statusKey: string) => [...queryKeys.support.all(), "admin-inbox", statusKey] as const,
-    deskInbox: (filter: string, agentId: string) =>
-      [...queryKeys.support.all(), "desk-inbox", filter, agentId] as const,
+    deskInbox: (filter: string, agentId: string, audience: string) =>
+      [...queryKeys.support.all(), "desk-inbox", filter, agentId, audience] as const,
     context: (conversationId: string) => [...queryKeys.support.all(), "context", conversationId] as const,
     deskContext: (conversationId: string) =>
       [...queryKeys.support.all(), "desk-context", conversationId] as const,
@@ -209,8 +223,11 @@ export const queryKeys = {
     agents: () => [...queryKeys.support.all(), "agents"] as const,
     search: (q: string) => [...queryKeys.support.all(), "search", q] as const,
     customerSearch: (q: string) => [...queryKeys.support.all(), "customer-search", q] as const,
+    technicianSearch: (q: string) => [...queryKeys.support.all(), "technician-search", q] as const,
     customerProfile: (customerId: string) =>
       [...queryKeys.support.all(), "customer-profile", customerId] as const,
+    technicianProfile: (technicianId: string) =>
+      [...queryKeys.support.all(), "technician-profile", technicianId] as const,
     insights: () => [...queryKeys.support.all(), "insights"] as const,
     events: (conversationId: string) =>
       [...queryKeys.support.conversation(conversationId), "events"] as const,
@@ -238,6 +255,11 @@ export const queryKeys = {
   payments: {
     all: () => [...queryKeys.root, "payments"] as const,
     forBooking: (bookingId: string) => [...queryKeys.payments.all(), "booking", bookingId] as const,
+  },
+
+  finance: {
+    all: () => [...queryKeys.root, "finance"] as const,
+    adminSettlements: (filtersKey: string) => [...queryKeys.finance.all(), "admin-settlements", filtersKey] as const,
   },
 
   health: {

@@ -23,6 +23,49 @@ export function isActivityMapTrackable(event: CustomerSiteActivityEventRow): boo
   );
 }
 
+export type CustomerSiteActivityPage = {
+  items: CustomerSiteActivityEventRow[];
+  hasMore: boolean;
+  nextOffset: number;
+};
+
+const DEFAULT_ACTIVITY_PAGE_SIZE = 10;
+
+/** Paginated timeline for one service address (newest first). */
+export async function listCustomerSiteActivityPageForAddress(
+  client: SupabaseClient<Database>,
+  params: {
+    service_address_id: string;
+    offset?: number;
+    limit?: number;
+  },
+): Promise<CustomerSiteActivityPage> {
+  const addressId = params.service_address_id.trim();
+  if (!addressId) return { items: [], hasMore: false, nextOffset: 0 };
+
+  const offset = Math.max(params.offset ?? 0, 0);
+  const limit = Math.min(Math.max(params.limit ?? DEFAULT_ACTIVITY_PAGE_SIZE, 1), 50);
+  const fetchLimit = limit + 1;
+
+  const { data, error } = await client
+    .from("customer_site_activity_events")
+    .select("*")
+    .eq("service_address_id", addressId)
+    .order("occurred_at", { ascending: false })
+    .range(offset, offset + fetchLimit - 1);
+
+  const rows = takeRows(data, error);
+  const hasMore = rows.length > limit;
+  const pageRows = rows.slice(0, limit);
+
+  return {
+    items: pageRows,
+    hasMore,
+    nextOffset: offset + pageRows.length,
+  };
+}
+
+/** @deprecated Prefer {@link listCustomerSiteActivityPageForAddress} for mobile timelines. */
 export async function listCustomerSiteActivityForAddress(
   client: SupabaseClient<Database>,
   params: {
@@ -30,19 +73,12 @@ export async function listCustomerSiteActivityForAddress(
     limit?: number;
   },
 ): Promise<CustomerSiteActivityEventRow[]> {
-  const addressId = params.service_address_id.trim();
-  if (!addressId) return [];
-
-  const limit = Math.min(Math.max(params.limit ?? 80, 1), 200);
-
-  const { data, error } = await client
-    .from("customer_site_activity_events")
-    .select("*")
-    .eq("service_address_id", addressId)
-    .order("occurred_at", { ascending: false })
-    .limit(limit);
-
-  return takeRows(data, error);
+  const page = await listCustomerSiteActivityPageForAddress(client, {
+    service_address_id: params.service_address_id,
+    offset: 0,
+    limit: Math.min(Math.max(params.limit ?? 80, 1), 200),
+  });
+  return page.items;
 }
 
 export function bookingMatchesServiceAddress(booking: BookingRow, serviceAddressId: string): boolean {

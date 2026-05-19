@@ -78,8 +78,8 @@
 }
 
 .support-chat-dock-expanded {
-  width: min(420px, calc(100vw - 2rem));
-  height: min(560px, calc(100vh - 6rem));
+  width: min(440px, calc(100vw - 2rem));
+  height: min(720px, calc(100vh - 4.5rem));
   display: flex;
   flex-direction: column;
   border-radius: 16px;
@@ -132,6 +132,20 @@
   color: #166534;
 }
 
+.support-chat-dock-audience {
+  display: inline-block;
+  align-self: flex-start;
+  margin-top: 0.1rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #9a3412;
+  background: #ffedd5;
+}
+
 .support-chat-dock-bar-actions {
   display: flex;
   gap: 0.2rem;
@@ -161,30 +175,13 @@
   overflow: hidden;
 }
 
-.support-chat-dock-body .support-chat-panel-header {
-  flex-shrink: 0;
-  padding: 0.65rem 0.75rem 0;
-}
-
-.support-chat-dock-body .support-chat-panel-header h2 {
-  font-size: 1rem;
-  margin: 0;
-}
-
 .support-chat-dock-body .support-inbox-thread-actions {
   flex-wrap: wrap;
 }
 
-.support-chat-panel-messages {
+.support-chat-dock-body .support-chat-panel-messages {
   flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  max-height: none;
-}
-
-.support-chat-panel-composer {
-  flex-shrink: 0;
-  border-top: 1px solid #e2e8f0;
+  min-height: 8rem;
 }
 
 .support-chat-dock-hint {
@@ -206,6 +203,55 @@
   align-items: start;
 }
 
+.support-desk-toast {
+  position: fixed;
+  z-index: 1300;
+  right: 1.25rem;
+  bottom: 5.5rem;
+  width: min(360px, calc(100vw - 2.5rem));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid #86efac;
+  background: #f0fdf4;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+  cursor: pointer;
+  text-align: left;
+  animation: support-desk-toast-in 0.2s ease-out;
+}
+
+.support-desk-toast-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #14532d;
+}
+
+.support-desk-toast-body {
+  font-size: 0.84rem;
+  color: #166534;
+  line-height: 1.35;
+}
+
+.support-desk-toast-hint {
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-top: 0.15rem;
+}
+
+@keyframes support-desk-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 960px) {
   .support-search-layout {
     grid-template-columns: 1fr;
@@ -215,5 +261,10 @@
     width: calc(100vw - 1.5rem);
     right: 0.75rem;
     bottom: 0.75rem;
+  }
+
+  .support-desk-toast {
+    bottom: 1rem;
+    right: 0.75rem;
   }
 }

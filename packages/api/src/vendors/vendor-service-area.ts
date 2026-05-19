@@ -1,4 +1,5 @@
 import type { CustomerRow, Json, VendorRow } from "../database.types";
+import { parseVendorCoverageZones } from "./vendor-coverage";
 
 /** Signals extracted from the customer's saved site (address + optional GPS for future use). */
 export type CustomerLocationSignals = {
@@ -77,8 +78,14 @@ function extractVendorAreaTokens(vendor: VendorRow): string[] {
   const metaPins = metaPinsRaw
     .map((x) => (typeof x === "string" ? x.replace(/\D/g, "").slice(0, 6) : ""))
     .filter((x) => x.length === 6);
+  const zoneTokens = parseVendorCoverageZones(vendor).flatMap((z) => [
+    ...z.pincodes,
+    z.city_name,
+    z.state_name,
+  ]);
   return [
     ...metaPins,
+    ...zoneTokens,
     ...(vendor.service_areas ?? []),
     ...(vendor.operating_regions ?? []),
     regPin,

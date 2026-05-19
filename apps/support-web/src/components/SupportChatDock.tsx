@@ -11,7 +11,7 @@ export function SupportChatDock() {
 
   const conversationQ = useQuery({
     queryKey: conversationId ? queryKeys.support.conversation(conversationId) : [],
-    queryFn: () => supportApi.getSupportConversationForDeskWithCustomer(supabase!, conversationId!),
+    queryFn: () => supportApi.getSupportConversationForDeskWithParticipant(supabase!, conversationId!),
     enabled: Boolean(supabase && conversationId),
   });
 
@@ -20,7 +20,10 @@ export function SupportChatDock() {
   }
 
   const conv = conversationQ.data;
-  const name = conv?.customer?.display_name?.trim() || "Customer";
+  const name = conv ? supportApi.supportParticipantDisplayName(conv) : "Support chat";
+  const audienceLabel = conv
+    ? supportApi.supportParticipantAudienceLabel(conv.participant_audience)
+    : null;
   const subject = conv?.subject ?? conv?.category_slug ?? "Support chat";
   const isLive = conv?.status === "queued" || conv?.status === "active";
 
@@ -36,6 +39,9 @@ export function SupportChatDock() {
           <span className="support-chat-dock-launcher-dot" aria-hidden />
           <span className="support-chat-dock-launcher-text">
             <strong>{name}</strong>
+            {audienceLabel ? (
+              <span className="support-chat-dock-audience">{audienceLabel}</span>
+            ) : null}
             <span>{subject}</span>
           </span>
         </button>
@@ -58,6 +64,9 @@ export function SupportChatDock() {
           <span className="support-chat-dock-launcher-dot" aria-hidden />
           <span className="support-chat-dock-bar-title">
             <strong>{name}</strong>
+            {audienceLabel ? (
+              <span className="support-chat-dock-audience">{audienceLabel}</span>
+            ) : null}
             <span>{isLive ? "Live chat" : conv?.status ?? "Chat"}</span>
           </span>
         </button>
@@ -71,7 +80,7 @@ export function SupportChatDock() {
         </div>
       </header>
       <div className="support-chat-dock-body">
-        <SupportChatPanel conversationId={conversationId} playSoundOnMessage />
+        <SupportChatPanel conversationId={conversationId} playSoundOnMessage={false} compact />
       </div>
     </div>
   );

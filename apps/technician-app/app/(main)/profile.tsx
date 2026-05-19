@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-nat
 import { router } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authApi, markUserInitiatedSignOut, queryKeys, technicianApi } from "@oorjaman/api";
-import { Button, Card, Screen, SkeletonBar } from "@oorjaman/ui";
+import { Button, Card, Screen, SCREEN_EDGES_BENEATH_NATIVE_HEADER, SkeletonBar } from "@oorjaman/ui";
 import { colors, spacing } from "@oorjaman/config";
 import { fontFamily, fontSize } from "../../constants/fonts";
 import { preferredWorkCity, stringifyAddress } from "../../lib/booking-display";
@@ -96,9 +96,8 @@ export default function ProfileTab() {
     tech?.is_verified && tech.verification_status === "verified" && tech.vendor_review_status === "approved";
 
   return (
-    <Screen padded={false}>
+    <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={styles.kicker}>Your profile</Text>
         <Text style={styles.lede}>OorjaMan field identity, employer, documents, and account.</Text>
 
         <ProfileSection title="Identity">
@@ -193,14 +192,6 @@ const styles = StyleSheet.create({
   scroll: {
     padding: spacing.md,
     paddingBottom: spacing.xxl,
-  },
-  kicker: {
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.sm,
-    color: colors.primary,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-    marginBottom: spacing.xs,
   },
   lede: {
     fontFamily: fontFamily.regular,

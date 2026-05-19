@@ -37,7 +37,8 @@ export function createSupabaseMobileClient(options: {
     auth: {
       storage: options.storage,
       persistSession: true,
-      autoRefreshToken: true,
+      // MobileAuthSessionGuard calls startAutoRefresh after bootstrap clears stale tokens.
+      autoRefreshToken: false,
       detectSessionInUrl: false,
     },
   });

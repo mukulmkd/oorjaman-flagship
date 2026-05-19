@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json, SubscriptionRow, SubscriptionStatus } from "../database.types";
-import { isDummyAuthEmail } from "../auth/auth-api";
 import { getMyCustomer } from "../customers/customer-api";
 import { SupabaseApiError, takeRows, takeSingleRow } from "../result";
 import { computeContractEndsAtIso } from "./amc-presets";
@@ -314,180 +313,20 @@ export async function customerConvertUpcomingBookingToAmc(
   );
 }
 
-export type RenewalNudgeChannel = "email" | "sms" | "whatsapp";
-
-export type SubscriptionRenewalNudgeCandidate = {
-  subscription_id: string;
-  customer_id: string;
-  customer_name: string | null;
-  customer_email: string | null;
-  customer_phone: string | null;
-  plan_name: string;
-  ends_at: string;
-  days_to_expiry: number;
-};
-
-export async function adminListSubscriptionRenewalNudgeCandidates(
-  client: SupabaseClient<Database>,
-  options?: { daysAhead?: number; limit?: number },
-): Promise<SubscriptionRenewalNudgeCandidate[]> {
-  const daysAhead = Math.max(1, Math.min(60, Math.round(Number(options?.daysAhead ?? 14))));
-  const limit = Math.max(1, Math.min(500, Math.round(Number(options?.limit ?? 200))));
-  const upperIso = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000).toISOString();
-
-  const { data: subs, error: subErr } = await client
-    .from("subscriptions")
-    .select("id, customer_id, plan_name, ends_at, status")
-    .in("status", ["active", "trialing"])
-    .gte("ends_at", new Date().toISOString())
-    .lte("ends_at", upperIso)
-    .order("ends_at", { ascending: true })
-    .limit(limit);
-  if (subErr) throw new SupabaseApiError(subErr.message, subErr);
-  const rows = subs ?? [];
-  if (rows.length === 0) return [];
-
-  const customerIds = [...new Set(rows.map((r) => r.customer_id))];
-  const { data: customers, error: custErr } = await client
-    .from("customers")
-    .select("id, user_id, display_name, contact_email")
-    .in("id", customerIds);
-  if (custErr) throw new SupabaseApiError(custErr.message, custErr);
-  const customerById = new Map((customers ?? []).map((c) => [c.id, c] as const));
-
-  const userIds = [...new Set((customers ?? []).map((c) => c.user_id))];
-  const { data: users, error: userErr } = await client
-    .from("users")
-    .select("id, email, phone")
-    .in("id", userIds);
-  if (userErr) throw new SupabaseApiError(userErr.message, userErr);
-  const userById = new Map((users ?? []).map((u) => [u.id, u] as const));
-
-  return rows.map((s) => {
-    const c = customerById.get(s.customer_id);
-    const u = c ? userById.get(c.user_id) : null;
-    const days = Math.max(
-      0,
-      Math.ceil((new Date(s.ends_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
-    );
-    return {
-      subscription_id: s.id,
-      customer_id: s.customer_id,
-      customer_name: c?.display_name ?? null,
-      customer_email:
-        c?.contact_email ??
-        (u?.email && !isDummyAuthEmail(u.email) ? u.email : null),
-      customer_phone: u?.phone ?? null,
-      plan_name: s.plan_name,
-      ends_at: s.ends_at,
-      days_to_expiry: days,
-    };
-  });
-}
-
-export async function adminQueueSubscriptionRenewalNudges(
-  client: SupabaseClient<Database>,
-  input: {
-    subscriptionIds: string[];
-    channels: RenewalNudgeChannel[];
-    daysAhead?: number;
-    cooldownDays?: number;
-  },
-): Promise<number> {
-  const channels = [...new Set(input.channels)].filter(Boolean);
-  if (channels.length === 0) throw new SupabaseApiError("Select at least one channel.");
-  const idSet = new Set(input.subscriptionIds.map((x) => x.trim()).filter(Boolean));
-  if (idSet.size === 0) return 0;
-  const candidates = await adminListSubscriptionRenewalNudgeCandidates(client, {
-    daysAhead: input.daysAhead ?? 14,
-    limit: 500,
-  });
-  const selected = candidates.filter((c) => idSet.has(c.subscription_id));
-  if (selected.length === 0) return 0;
-  const cooldownDays = Math.max(0, Math.min(30, Math.round(Number(input.cooldownDays ?? 3))));
-  const cutoffIso = new Date(Date.now() - cooldownDays * 24 * 60 * 60 * 1000).toISOString();
-  const { data: recentRows, error: recentErr } = await client
-    .from("notification_events")
-    .select("payload, created_at")
-    .eq("event_type", "subscription_renewal_nudge")
-    .gte("created_at", cutoffIso);
-  if (recentErr) throw new SupabaseApiError(recentErr.message, recentErr);
-  const recentlyNudgedIds = new Set<string>();
-  for (const row of recentRows ?? []) {
-    const payload = row.payload;
-    if (payload && typeof payload === "object" && !Array.isArray(payload)) {
-      const subId = (payload as Record<string, unknown>).subscription_id;
-      if (typeof subId === "string" && subId.trim()) recentlyNudgedIds.add(subId.trim());
-    }
-  }
-  const filtered = selected.filter((c) => !recentlyNudgedIds.has(c.subscription_id));
-  if (filtered.length === 0) return 0;
-
-  const rows: Database["public"]["Tables"]["notification_events"]["Insert"][] = filtered.map((c) => ({
-    booking_id: null,
-    recipient_vendor_id: null,
-    event_type: "subscription_renewal_nudge",
-    channels: channels as unknown as Json,
-    status: "queued",
-    payload: {
-      subscription_id: c.subscription_id,
-      customer_id: c.customer_id,
-      customer_name: c.customer_name,
-      customer_email: c.customer_email,
-      customer_phone: c.customer_phone,
-      plan_name: c.plan_name,
-      ends_at: c.ends_at,
-      days_to_expiry: c.days_to_expiry,
-    } as Json,
-    attempt_count: 0,
-    next_attempt_at: new Date().toISOString(),
-    demo_mode: true,
-  }));
-
-  const { error } = await client.from("notification_events").insert(rows);
-  if (error) throw new SupabaseApiError(error.message, error);
-  return rows.length;
-}
-
-function renderTemplateText(
-  text: string,
-  context: Record<string, string | number | boolean | null | undefined>,
-): string {
-  return text.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key: string) => String(context[key] ?? ""));
-}
-
-export async function adminPreviewSubscriptionRenewalNudge(
-  client: SupabaseClient<Database>,
-  input: { subscriptionId: string; channels?: RenewalNudgeChannel[] },
-): Promise<Array<{ channel: RenewalNudgeChannel; subject: string | null; body: string }>> {
-  const candidates = await adminListSubscriptionRenewalNudgeCandidates(client, { daysAhead: 60, limit: 500 });
-  const candidate = candidates.find((c) => c.subscription_id === input.subscriptionId);
-  if (!candidate) throw new SupabaseApiError("Subscription not found in upcoming renewal window.");
-  const channels = [...new Set((input.channels ?? ["email", "sms", "whatsapp"]).filter(Boolean))];
-
-  const { data: templates, error } = await client
-    .from("notification_templates")
-    .select("channel, subject, body")
-    .eq("event_type", "subscription_renewal_nudge")
-    .eq("is_active", true)
-    .in("channel", channels);
-  if (error) throw new SupabaseApiError(error.message, error);
-
-  const context: Record<string, string | number | boolean | null | undefined> = {
-    customer_name: candidate.customer_name ?? "Customer",
-    plan_name: candidate.plan_name,
-    ends_at: new Date(candidate.ends_at).toLocaleDateString("en-IN"),
-    days_to_expiry: candidate.days_to_expiry,
-  };
-  const out: Array<{ channel: RenewalNudgeChannel; subject: string | null; body: string }> = [];
-  for (const channel of channels) {
-    const row = (templates ?? []).find((t) => t.channel === channel);
-    if (!row) continue;
-    out.push({
-      channel: channel as RenewalNudgeChannel,
-      subject: row.subject ? renderTemplateText(row.subject, context) : null,
-      body: renderTemplateText(row.body, context),
-    });
-  }
-  return out;
-}
+export {
+  RENEWAL_NUDGE_EVENT_TYPE,
+  adminGetRenewalNudgeChannelSummary,
+  adminGetRenewalNudgeQueueStats,
+  adminListLapsedSubscriptionRenewalNudgeCandidates,
+  adminListSubscriptionRenewalNudgeCandidates,
+  adminPreviewSubscriptionRenewalNudge,
+  adminQueueSubscriptionRenewalNudges,
+  adminResolveRenewalNudgeCandidatesByIds,
+  adminScheduleAndSendSubscriptionRenewalNudges,
+  type RenewalNudgeAudience,
+  type RenewalNudgeChannel,
+  type RenewalNudgeChannelSummary,
+  type RenewalNudgeQueueStats,
+  type ScheduleAndSendRenewalNudgesResult,
+  type SubscriptionRenewalNudgeCandidate,
+} from "./subscription-renewal-nudges-api";

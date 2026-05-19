@@ -45,6 +45,9 @@ export type VendorTechnicianInviteStatus =
 
 export type PaymentStatus = "pending" | "success" | "failed";
 
+export type VendorSettlementKind = "visit_payout" | "cancellation_penalty";
+export type VendorSettlementStatus = "pending_review" | "approved" | "settled" | "waived";
+
 export type UserRow = {
   id: string;
   email: string | null;
@@ -243,6 +246,30 @@ export type VendorSlotAvailabilityRow = {
 
 export type NotificationAudience = "admin" | "vendor";
 
+export type CustomerPushTokenRow = {
+  id: string;
+  user_id: string;
+  customer_id: string;
+  expo_push_token: string;
+  platform: "ios" | "android" | "unknown";
+  app_slug: string;
+  last_seen_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TechnicianPushTokenRow = {
+  id: string;
+  user_id: string;
+  technician_id: string;
+  expo_push_token: string;
+  platform: "ios" | "android" | "unknown";
+  app_slug: string;
+  last_seen_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type NotificationEventRow = {
   id: string;
   booking_id: string | null;
@@ -288,6 +315,8 @@ export type PlatformSettingsRow = {
   default_vendor_id: string | null;
   /** INR paise billed or netted against refund for customer late cancellation. */
   customer_late_cancel_fee_paise: number;
+  /** Commission % on partner visit gross when creating visit_payout settlements. */
+  vendor_platform_fee_percent: number;
   support_desk_config: Json;
   updated_at: string;
   updated_by: string | null;
@@ -305,6 +334,29 @@ export type PaymentRow = {
   /** When payment succeeded; null until success. */
   paid_at: string | null;
   created_at: string;
+};
+
+export type VendorSettlementRow = {
+  id: string;
+  booking_id: string;
+  vendor_id: string;
+  kind: VendorSettlementKind;
+  status: VendorSettlementStatus;
+  currency: string;
+  reference_code: string | null;
+  visit_gross_paise: number | null;
+  platform_fee_paise: number | null;
+  net_payout_paise: number | null;
+  penalty_assessed_paise: number | null;
+  penalty_final_paise: number | null;
+  admin_notes: string | null;
+  metadata: Json;
+  approved_at: string | null;
+  settled_at: string | null;
+  approved_by: string | null;
+  settled_by: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 /** Country-scoped tier label (e.g. metro band). */
@@ -441,9 +493,13 @@ export type SupportConversationPriority = "normal" | "high" | "urgent";
 
 export type SupportResolutionTag = "resolved" | "escalated" | "duplicate" | "policy_limitation";
 
+export type SupportParticipantAudience = "customer" | "technician";
+
 export type SupportConversationRow = {
   id: string;
-  customer_id: string;
+  participant_audience: SupportParticipantAudience;
+  customer_id: string | null;
+  technician_id: string | null;
   category_slug: string;
   subcategory_slug: string;
   status: SupportConversationStatus;
@@ -456,6 +512,7 @@ export type SupportConversationRow = {
   assigned_admin_user_id: string | null;
   last_message_at: string;
   last_customer_message_at: string | null;
+  last_technician_message_at: string | null;
   first_admin_reply_at: string | null;
   close_reason: string | null;
   resolution_tag: SupportResolutionTag | null;
@@ -466,6 +523,8 @@ export type SupportConversationRow = {
   csat_submitted_at: string | null;
   escalated_at: string | null;
   escalation_note: string | null;
+  customer_last_read_at: string | null;
+  technician_last_read_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -493,7 +552,7 @@ export type SupportMessageRow = {
   id: string;
   conversation_id: string;
   sender_user_id: string | null;
-  sender_role: "customer" | "admin" | "system" | "internal";
+  sender_role: "customer" | "technician" | "admin" | "system" | "internal";
   body: string;
   metadata: Json;
   created_at: string;
@@ -530,9 +589,36 @@ export type CustomerSiteActivityKind =
   | "booking_status_completed"
   | "booking_status_cancelled"
   | "booking_technician_assigned"
+  | "booking_rescheduled"
+  | "customer_rating_submitted"
   | "amc_subscribed"
   | "amc_upgraded"
   | "amc_visit_scheduled";
+
+export type TechnicianActivityKind =
+  | "job_assigned"
+  | "job_unassigned"
+  | "job_status_pending_payment"
+  | "job_status_confirmed"
+  | "job_status_accepted"
+  | "job_status_in_progress"
+  | "job_status_completed"
+  | "job_status_cancelled"
+  | "job_rescheduled"
+  | "customer_rating_received";
+
+export type TechnicianActivityEventRow = {
+  id: string;
+  technician_id: string;
+  kind: string;
+  title: string;
+  summary: string | null;
+  occurred_at: string;
+  booking_id: string | null;
+  dedupe_key: string;
+  payload: Json;
+  created_at: string;
+};
 
 export type CustomerSiteActivityEventRow = {
   id: string;
@@ -903,6 +989,7 @@ export type Database = {
           id?: number;
           default_vendor_id?: string | null;
           customer_late_cancel_fee_paise?: number;
+          vendor_platform_fee_percent?: number;
           updated_at?: string;
           updated_by?: string | null;
         };
@@ -1020,11 +1107,38 @@ export type Database = {
         Update: Partial<Pick<PaymentRow, "booking_id" | "status" | "payment_method" | "paid_at">>;
         Relationships: [];
       };
+      vendor_settlements: {
+        Row: VendorSettlementRow;
+        Insert: {
+          id?: string;
+          booking_id: string;
+          vendor_id: string;
+          kind: VendorSettlementKind;
+          status?: VendorSettlementStatus;
+          currency?: string;
+          reference_code?: string | null;
+          visit_gross_paise?: number | null;
+          platform_fee_paise?: number | null;
+          net_payout_paise?: number | null;
+          penalty_assessed_paise?: number | null;
+          penalty_final_paise?: number | null;
+          admin_notes?: string | null;
+          metadata?: Json;
+          approved_at?: string | null;
+          settled_at?: string | null;
+          approved_by?: string | null;
+          settled_by?: string | null;
+        };
+        Update: Partial<Omit<VendorSettlementRow, "id" | "booking_id" | "vendor_id" | "kind" | "created_at">>;
+        Relationships: [];
+      };
       support_conversations: {
         Row: SupportConversationRow;
         Insert: {
           id?: string;
-          customer_id: string;
+          participant_audience?: SupportParticipantAudience;
+          customer_id?: string | null;
+          technician_id?: string | null;
           category_slug: string;
           subcategory_slug: string;
           status?: SupportConversationStatus;
@@ -1035,7 +1149,7 @@ export type Database = {
           service_address_id?: string | null;
           priority?: SupportConversationPriority;
         };
-        Update: Partial<Omit<SupportConversationRow, "id" | "customer_id" | "created_at">>;
+        Update: Partial<Omit<SupportConversationRow, "id" | "created_at">>;
         Relationships: [];
       };
       support_messages: {
@@ -1044,11 +1158,37 @@ export type Database = {
           id?: string;
           conversation_id: string;
           sender_user_id?: string | null;
-          sender_role: "customer" | "admin" | "system" | "internal";
+          sender_role: "customer" | "technician" | "admin" | "system" | "internal";
           body: string;
           metadata?: Json;
         };
         Update: never;
+        Relationships: [];
+      };
+      customer_push_tokens: {
+        Row: CustomerPushTokenRow;
+        Insert: {
+          id?: string;
+          user_id: string;
+          customer_id: string;
+          expo_push_token: string;
+          platform?: "ios" | "android" | "unknown";
+          app_slug?: string;
+        };
+        Update: Partial<Omit<CustomerPushTokenRow, "id" | "user_id" | "created_at">>;
+        Relationships: [];
+      };
+      technician_push_tokens: {
+        Row: TechnicianPushTokenRow;
+        Insert: {
+          id?: string;
+          user_id: string;
+          technician_id: string;
+          expo_push_token: string;
+          platform?: "ios" | "android" | "unknown";
+          app_slug?: string;
+        };
+        Update: Partial<Omit<TechnicianPushTokenRow, "id" | "user_id" | "created_at">>;
         Relationships: [];
       };
       support_macros: {
@@ -1118,6 +1258,22 @@ export type Database = {
           payload?: Json;
         };
         Update: Partial<Omit<CustomerSiteActivityEventRow, "id" | "customer_id" | "dedupe_key" | "created_at">>;
+        Relationships: [];
+      };
+      technician_activity_events: {
+        Row: TechnicianActivityEventRow;
+        Insert: {
+          id?: string;
+          technician_id: string;
+          kind: string;
+          title: string;
+          summary?: string | null;
+          occurred_at?: string;
+          booking_id?: string | null;
+          dedupe_key: string;
+          payload?: Json;
+        };
+        Update: Partial<Omit<TechnicianActivityEventRow, "id" | "technician_id" | "dedupe_key" | "created_at">>;
         Relationships: [];
       };
       subscription_visit_slots: {
@@ -1327,6 +1483,34 @@ export type Database = {
       close_inactive_support_chats_for_customer: {
         Args: { p_customer_id: string };
         Returns: number;
+      };
+      count_unread_support_messages_for_customer: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
+      mark_support_conversation_read_by_customer: {
+        Args: { p_conversation_id: string };
+        Returns: SupportConversationRow;
+      };
+      count_unread_support_messages_for_technician: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
+      mark_support_conversation_read_by_technician: {
+        Args: { p_conversation_id: string };
+        Returns: SupportConversationRow;
+      };
+      close_inactive_support_chats_for_technician: {
+        Args: { p_technician_id: string };
+        Returns: number;
+      };
+      upsert_technician_push_token: {
+        Args: { p_expo_push_token: string; p_platform?: string };
+        Returns: TechnicianPushTokenRow;
+      };
+      upsert_customer_push_token: {
+        Args: { p_expo_push_token: string; p_platform?: string };
+        Returns: CustomerPushTokenRow;
       };
       get_support_desk_insights: {
         Args: Record<string, never>;

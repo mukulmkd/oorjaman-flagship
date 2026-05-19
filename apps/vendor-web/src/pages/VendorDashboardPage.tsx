@@ -23,10 +23,9 @@ import { formatDayChip, listSelectableDayKeys, slotsForDay, type BookingSlotOpti
 import { DocumentViewButton } from "../components/DocumentViewer";
 import { bookingValueCents } from "./vendor-dashboard/metrics";
 import { formatInr, formatScheduleRange } from "./vendor-dashboard/formatters";
-import { VendorCommunicationTab } from "./vendor-dashboard/VendorCommunicationTab";
 import { VendorFinanceTab } from "./vendor-dashboard/VendorFinanceTab";
 import { VendorInsightsTab } from "./vendor-dashboard/VendorInsightsTab";
-import { VendorSettingsTab } from "./vendor-dashboard/VendorSettingsTab";
+import { VendorCoverageTab } from "./vendor-dashboard/VendorCoverageTab";
 import {
   isVendorDashTabId,
   VENDOR_DASH_DEFAULT_TAB,
@@ -208,6 +207,10 @@ export default function VendorDashboardPage() {
   const dashTab: VendorDashTabId = isVendorDashTabId(tab) ? tab : VENDOR_DASH_DEFAULT_TAB;
 
   useEffect(() => {
+    if (tab === "settings") {
+      navigate("/dashboard/coverage", { replace: true });
+      return;
+    }
     if (tab !== undefined && !isVendorDashTabId(tab)) {
       navigate(`/dashboard/${VENDOR_DASH_DEFAULT_TAB}`, { replace: true });
     }
@@ -663,7 +666,7 @@ export default function VendorDashboardPage() {
                   Finance
                 </h3>
                 <p style={{ margin: 0, fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)", lineHeight: 1.45 }}>
-                  See gross value, payments, exports, and net estimate in the <strong>Finance</strong> tab.
+                  See OorjaMan payouts, penalties, and settlement status in the <strong>Finance</strong> tab.
                 </p>
               </Card>
               <Card padded style={{ marginTop: "1rem" }}>
@@ -930,12 +933,7 @@ export default function VendorDashboardPage() {
           ) : null}
 
           {dashTab === "finance" ? (
-            <VendorFinanceTab
-              payments={vendorPaymentsQuery.data}
-              bookings={allBookingsQuery.data ?? []}
-              isLoading={vendorPaymentsQuery.isLoading}
-              error={vendorPaymentsQuery.isError ? (vendorPaymentsQuery.error as Error) : null}
-            />
+            <VendorFinanceTab bookings={allBookingsQuery.data ?? []} />
           ) : null}
 
           {dashTab === "team" ? (
@@ -1172,10 +1170,8 @@ export default function VendorDashboardPage() {
             </Card>
           ) : null}
 
-          {dashTab === "communication" ? <VendorCommunicationTab /> : null}
-
-          {dashTab === "settings" && supabase ? (
-            <VendorSettingsTab
+          {dashTab === "coverage" && supabase ? (
+            <VendorCoverageTab
               supabase={supabase}
               vendor={vendorMineQuery.data}
               onSaved={onVendorSettingsSaved}

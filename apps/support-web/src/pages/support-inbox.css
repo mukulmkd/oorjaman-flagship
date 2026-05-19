@@ -106,7 +106,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.35rem;
+  flex-wrap: wrap;
 }
 
 .support-inbox-row-name {
@@ -147,8 +148,9 @@
   background: #fff;
   display: flex;
   flex-direction: column;
-  min-height: 520px;
-  max-height: 70vh;
+  min-height: min(520px, calc(100vh - 11rem));
+  max-height: calc(100vh - 8rem);
+  overflow: hidden;
 }
 
 .support-inbox-thread-header {
@@ -156,8 +158,9 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
-  padding: 1rem;
+  padding: 0.75rem 1rem;
   border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
 }
 
 .support-inbox-thread-header h2 {
@@ -167,8 +170,9 @@
 
 .support-inbox-messages {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 1rem;
+  padding: 0.75rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
@@ -221,6 +225,7 @@
   gap: 0.5rem;
   padding: 0.75rem 1rem;
   border-top: 1px solid #e2e8f0;
+  flex-shrink: 0;
 }
 
 .support-inbox-composer-input {
@@ -467,9 +472,175 @@
   max-width: 88%;
 }
 
+/* Legacy alias — use .support-composer */
 .support-inbox-composer {
   flex-direction: column;
   align-items: stretch;
+}
+
+.support-chat-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+.support-chat-panel-compact .support-chat-panel-header {
+  display: none;
+}
+
+.support-chat-panel-dock-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+  background: #fafafa;
+}
+
+.support-chat-panel-dock-btn {
+  padding: 0.3rem 0.55rem;
+  font-size: 0.78rem;
+}
+
+.support-thread-toolbar-compact {
+  padding: 0.35rem 0.5rem;
+  gap: 0.35rem;
+}
+
+.support-thread-toolbar-compact .support-thread-toolbar-label {
+  display: none;
+}
+
+.support-thread-toolbar-compact .support-thread-toolbar-select {
+  font-size: 0.78rem;
+  padding: 0.25rem 0.4rem;
+  max-width: 7.5rem;
+}
+
+.support-thread-toolbar-compact .support-inbox-btn-outline {
+  padding: 0.3rem 0.55rem;
+  font-size: 0.78rem;
+}
+
+.support-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem 0.65rem;
+  border-top: 1px solid #e2e8f0;
+  flex-shrink: 0;
+  background: #fff;
+}
+
+.support-composer-main {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+
+.support-composer-input {
+  flex: 1;
+  resize: none;
+  min-height: 2.5rem;
+  max-height: 6rem;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  padding: 0.45rem 0.65rem;
+  font-family: inherit;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.support-composer-send {
+  flex-shrink: 0;
+  padding: 0.45rem 0.85rem;
+}
+
+.support-composer-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.65rem;
+}
+
+.support-composer-details {
+  font-size: 0.8rem;
+}
+
+.support-composer-details-summary {
+  cursor: pointer;
+  color: #1f8660;
+  font-weight: 600;
+  list-style: none;
+  user-select: none;
+}
+
+.support-composer-details-summary::-webkit-details-marker {
+  display: none;
+}
+
+.support-composer-details-body {
+  margin-top: 0.35rem;
+  max-width: 100%;
+}
+
+.support-composer-details-body .support-macros-label {
+  display: none;
+}
+
+.support-composer-attach {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.support-composer-attach-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.support-composer-attach-label {
+  font-weight: 600;
+  color: #475569;
+}
+
+.support-composer-attach-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #1f8660;
+}
+
+.support-composer-clear-file {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.75rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.support-composer-internal {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-left: auto;
+}
+
+.support-composer-compact .support-composer-input {
+  min-height: 2.25rem;
+  font-size: 0.85rem;
 }
 
 .support-search-page {
@@ -969,4 +1140,54 @@
   margin-top: 0.15rem;
   font-size: 0.72rem;
   color: #64748b;
+}
+
+.support-inbox-audience-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.support-inbox-audience-tab {
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 8px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+}
+
+.support-inbox-audience-tab-active {
+  background: #fff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.support-inbox-audience-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.support-inbox-audience-badge-customer {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.support-inbox-audience-badge-technician {
+  background: #ffedd5;
+  color: #c2410c;
 }

@@ -32,6 +32,7 @@ export function DashboardLayout() {
     location.pathname.startsWith("/dashboard/service-pricing");
   const analyticsNavActive = location.pathname.startsWith("/dashboard/analytics");
   const featureMgmtNavActive = location.pathname.startsWith("/dashboard/feature-management");
+  const financeNavActive = location.pathname.startsWith("/dashboard/finance");
   useEffect(() => {
     if (!supabase) {
       setSessionHint("Configure VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY");
@@ -95,6 +96,9 @@ export function DashboardLayout() {
           <Link to="/dashboard/bookings" className={bookingsNavActive ? "dash-nav-active" : ""}>
             Bookings
           </Link>
+          <Link to="/dashboard/finance" className={financeNavActive ? "dash-nav-active" : ""}>
+            Finance
+          </Link>
           <a href={supportPortalUrl("/inbox")} target="_blank" rel="noreferrer">
             Support desk ↗
           </a>
@@ -105,7 +109,7 @@ export function DashboardLayout() {
             Feature management
           </Link>
           <Link to="/dashboard/subscription-renewals" className={renewalNavActive ? "dash-nav-active" : ""}>
-            Renewal nudges
+            Renewal reminders
           </Link>
           <Link to="/dashboard/service-pricing" className={pricingNavActive ? "dash-nav-active" : ""}>
             Service pricing

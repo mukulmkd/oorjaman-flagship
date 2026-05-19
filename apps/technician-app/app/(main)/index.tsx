@@ -1,13 +1,14 @@
 import { useLayoutEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { bookingApi, queryKeys, technicianApi } from "@oorjaman/api";
-import { Button, Card, Screen } from "@oorjaman/ui";
+import { Button, Card, Screen, SCREEN_EDGES_BENEATH_NATIVE_HEADER } from "@oorjaman/ui";
 import { colors, spacing } from "@oorjaman/config";
 import { fontFamily, fontSize, fontWeight } from "../../constants/fonts";
+import { SupportChatHeaderButton } from "../../components/help-header-button";
 import { JobListCard } from "../../components/job-list-card";
 import { formatJobWhen, preferredWorkCity, stringifyAddress } from "../../lib/booking-display";
 import { pickNextJob } from "../../lib/job-list-filters";
@@ -69,7 +70,9 @@ export default function HomeTab() {
       headerShadowVisible: false,
       headerStyle: { backgroundColor: colors.background },
       headerTintColor: colors.foreground,
-      headerLeftContainerStyle: { paddingLeft: 4, maxWidth: "88%" },
+      headerRight: () => <SupportChatHeaderButton />,
+      headerRightContainerStyle: { paddingRight: 8 },
+      headerLeftContainerStyle: { paddingLeft: 4, maxWidth: "72%" },
       headerLeft: () => (
         <Pressable
           accessibilityRole="button"
@@ -89,7 +92,8 @@ export default function HomeTab() {
   }, [navigation, headerLine, employerOpen]);
 
   return (
-    <Screen padded edges={["left", "right"]}>
+    <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
       {employerOpen ? (
         <Card variant="muted" padded>
           <View style={styles.employerCard}>
@@ -193,11 +197,17 @@ export default function HomeTab() {
           </Card>
         </View>
       ) : null}
+      </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  scroll: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xxl,
+  },
   navEmployer: {
     flexDirection: "row",
     alignItems: "center",

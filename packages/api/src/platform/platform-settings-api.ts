@@ -2,6 +2,31 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, PlatformSettingsRow } from "../database.types";
 import { SupabaseApiError, takeSingleRow } from "../result";
 
+/** Fallback when platform_settings row or column is unavailable. */
+export const DEFAULT_VENDOR_PLATFORM_FEE_PERCENT = 10;
+
+export function normalizeVendorPlatformFeePercent(value: unknown): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return DEFAULT_VENDOR_PLATFORM_FEE_PERCENT;
+  return Math.min(100, Math.max(0, Math.round(n * 100) / 100));
+}
+
+export async function getVendorPlatformFeePercent(client: SupabaseClient<Database>): Promise<number> {
+  const { data, error } = await client
+    .from("platform_settings")
+    .select("vendor_platform_fee_percent")
+    .eq("id", 1)
+    .maybeSingle();
+
+  if (error) {
+    if (error.code === "42703" || error.message.includes("vendor_platform_fee_percent")) {
+      return DEFAULT_VENDOR_PLATFORM_FEE_PERCENT;
+    }
+    throw new SupabaseApiError(error.message, error);
+  }
+  return normalizeVendorPlatformFeePercent(data?.vendor_platform_fee_percent);
+}
+
 /**
  * Public defaults for customer booking (requires authenticated session; RLS select all).
  */
@@ -10,10 +35,11 @@ export async function getBookingRoutingDefaults(
 ): Promise<{
   defaultVendorId: string | null;
   customerLateCancelFeePaise: number;
+  vendorPlatformFeePercent: number;
 }> {
   const { data, error } = await client
     .from("platform_settings")
-    .select("default_vendor_id, customer_late_cancel_fee_paise")
+    .select("default_vendor_id, customer_late_cancel_fee_paise, vendor_platform_fee_percent")
     .eq("id", 1)
     .maybeSingle();
 
@@ -22,6 +48,7 @@ export async function getBookingRoutingDefaults(
   return {
     defaultVendorId: data?.default_vendor_id ?? null,
     customerLateCancelFeePaise: Number.isFinite(fee) ? fee : 0,
+    vendorPlatformFeePercent: normalizeVendorPlatformFeePercent(data?.vendor_platform_fee_percent),
   };
 }
 
@@ -55,7 +82,9 @@ export async function adminSetDefaultVendor(
 
 export async function adminUpdatePlatformSettings(
   client: SupabaseClient<Database>,
-  input: Partial<Pick<PlatformSettingsRow, "default_vendor_id" | "customer_late_cancel_fee_paise">>,
+  input: Partial<
+    Pick<PlatformSettingsRow, "default_vendor_id" | "customer_late_cancel_fee_paise" | "vendor_platform_fee_percent">
+  >,
 ): Promise<PlatformSettingsRow> {
   const { data: userData } = await client.auth.getUser();
   const uid = userData.user?.id ?? null;
@@ -69,6 +98,9 @@ export async function adminUpdatePlatformSettings(
       0,
       Math.round(Number(input.customer_late_cancel_fee_paise) || 0),
     );
+  }
+  if (input.vendor_platform_fee_percent !== undefined) {
+    row.vendor_platform_fee_percent = normalizeVendorPlatformFeePercent(input.vendor_platform_fee_percent);
   }
 
   const { data, error } = await client

@@ -25,14 +25,17 @@
     "seed:dummy-users": "node scripts/seed-dummy-test-users.mjs",
     "repair:public-users": "node scripts/repair-public-users.mjs",
     "db:push": "node scripts/supabase-db-push.mjs",
-    "db:push:yes": "npx supabase db push --yes",
+    "db:push:yes": "supabase db push --yes",
     "db:push:include-all": "node scripts/supabase-db-push.mjs --include-all --yes",
-    "db:status": "npx supabase status",
+    "db:status": "supabase status",
+    "supabase": "supabase",
+    "functions:deploy": "node scripts/supabase-function-deploy.mjs",
     "typecheck:edge-functions": "tsc -p supabase/functions/tsconfig.json --pretty false"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.49.1",
     "dotenv": "^16.4.5",
+    "supabase": "2.100.0",
     "typescript": "~5.7.2"
   }
 }

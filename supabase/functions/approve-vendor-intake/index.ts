@@ -236,7 +236,28 @@ Deno.serve(async (req: Request) => {
     if (vErr) throw vErr;
     vendorInsertId = vendorRow.id;
 
-    await adminClient.from("users").update({ role: "vendor", is_active: true }).eq("id", newUserId);
+    const tradeTrim = form.trade_name ? String(form.trade_name).trim() : "";
+    const businessTrim = String(form.business_name ?? "").trim();
+    const displayName = tradeTrim || businessTrim || null;
+
+    await adminClient
+      .from("users")
+      .update({
+        role: "vendor",
+        is_active: true,
+        ...(displayName ? { full_name: displayName } : {}),
+      })
+      .eq("id", newUserId);
+
+    if (displayName) {
+      try {
+        await adminClient.auth.admin.updateUserById(newUserId, {
+          user_metadata: { full_name: displayName },
+        });
+      } catch {
+        /* auth metadata is best-effort; public.users is source for desk */
+      }
+    }
 
     const { error: upErr } = await adminClient
       .from("vendor_registration_intake")

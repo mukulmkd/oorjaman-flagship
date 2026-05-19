@@ -3,14 +3,14 @@ import { Animated, StyleSheet, Text, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Href } from "expo-router";
 import { router } from "expo-router";
-import { authApi, resolveTechnicianAppPostAuthPath } from "@oorjaman/api";
+import { resolveTechnicianAppPostAuthPath } from "@oorjaman/api";
 import { colors } from "@oorjaman/config";
 import { fontFamily, fontSize, fontWeight } from "../constants/fonts";
 import {
   STORAGE_KEY_LOCATION_PROMPT_DONE,
   STORAGE_KEY_ONBOARDING,
 } from "../constants/storage";
-import { supabase } from "../lib/supabase";
+import { supabase, supabaseAuthReady } from "../lib/supabase";
 
 const MIN_SPLASH_MS = 1200;
 
@@ -32,7 +32,7 @@ export default function SplashRoute() {
       let signedIn = false;
       if (supabase) {
         try {
-          const session = await authApi.recoverStoredSupabaseSession(supabase);
+          const session = await supabaseAuthReady;
           signedIn = Boolean(session?.user);
         } catch {
           signedIn = false;

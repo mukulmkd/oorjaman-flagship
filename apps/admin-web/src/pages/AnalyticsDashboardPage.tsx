@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Area,
@@ -17,10 +17,13 @@ import {
   adminFetchRevenueStats,
   adminFetchSubscriptionStats,
   adminFetchVendorPerformance,
-  analyticsPadBookingDailySeries,
-  analyticsPadRevenueDailySeries,
+  ANALYTICS_BUSINESS_PERIOD_LABELS,
+  ANALYTICS_MAX_DAILY_FETCH_DAYS,
+  analyticsBuildBusinessPeriodSeries,
+  analyticsFormatPeriodAxisLabel,
+  analyticsPeriodChartSubtitle,
   queryKeys,
-  type RevenueDayPoint,
+  type AnalyticsBusinessPeriod,
 } from "@oorjaman/api";
 import { colors } from "@oorjaman/config";
 import { Button, Card, DashboardSkeleton, PageHeader } from "@oorjaman/web-ui";
@@ -28,11 +31,10 @@ import { useSupabase } from "../lib/supabase-context";
 import { webTypography } from "../styles/typography";
 import "./analytics-dashboard.css";
 
-const CHART_DAYS = 90;
 const VENDOR_TOP_N = 10;
+const PERIOD_ORDER: AnalyticsBusinessPeriod[] = ["daily", "monthly", "quarterly"];
 
 const CHART_PRIMARY = colors.primary;
-/** Navy-adjacent series contrast (brand “Man” side) */
 const CHART_SECONDARY = "#246488";
 
 function formatInrFromPaise(paise: number): string {
@@ -68,10 +70,11 @@ function escapeCsvCell(v: string | number | null | undefined): string {
 }
 
 function downloadAnalyticsSnapshotCsv(payload: {
+  period: AnalyticsBusinessPeriod;
   bookingStats: { total_bookings: number; completed_bookings: number; pending_bookings: number };
   revenue: { total_revenue_cents: number };
   subscriptionStats: { active_subscriptions: number; upcoming_services: number };
-  dailyBookings: { day: string; booking_count: number }[];
+  periodSeries: { period: string; bookings: number; revenue_cents: number }[];
   vendorPerformance: {
     business_name: string;
     total_jobs: number;
@@ -81,6 +84,7 @@ function downloadAnalyticsSnapshotCsv(payload: {
 }): void {
   const lines: string[] = [];
   lines.push("section,metric,value");
+  lines.push(`summary,chart_period,${payload.period}`);
   lines.push(`summary,total_bookings,${payload.bookingStats.total_bookings}`);
   lines.push(`summary,completed_bookings,${payload.bookingStats.completed_bookings}`);
   lines.push(`summary,pending_bookings,${payload.bookingStats.pending_bookings}`);
@@ -88,9 +92,13 @@ function downloadAnalyticsSnapshotCsv(payload: {
   lines.push(`summary,active_subscriptions,${payload.subscriptionStats.active_subscriptions}`);
   lines.push(`summary,upcoming_subscription_visits,${payload.subscriptionStats.upcoming_services}`);
   lines.push("");
-  lines.push("bookings_by_day,day,count");
-  for (const d of payload.dailyBookings) {
-    lines.push(["bookings_by_day", escapeCsvCell(d.day), escapeCsvCell(d.booking_count)].join(","));
+  lines.push("business_series,period,bookings,revenue_paise");
+  for (const row of payload.periodSeries) {
+    lines.push(
+      ["business_series", escapeCsvCell(row.period), escapeCsvCell(row.bookings), escapeCsvCell(row.revenue_cents)].join(
+        ",",
+      ),
+    );
   }
   lines.push("");
   lines.push("vendor_performance,business_name,total_jobs,acceptance_rate,completion_rate");
@@ -109,23 +117,24 @@ function downloadAnalyticsSnapshotCsv(payload: {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `oorjaman-analytics-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `oorjaman-analytics-${payload.period}-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
 export function AnalyticsDashboardPage() {
   const supabase = useSupabase();
+  const [chartPeriod, setChartPeriod] = useState<AnalyticsBusinessPeriod>("daily");
 
   const dashboardQuery = useQuery({
-    queryKey: queryKeys.admin.analytics(),
+    queryKey: queryKeys.admin.bookingsDaily(ANALYTICS_MAX_DAILY_FETCH_DAYS),
     queryFn: async () => {
       if (!supabase) throw new Error("Supabase not configured");
       const [bookingStats, revenue, subscriptionStats, dailyBookings, vendorPerformance] = await Promise.all([
         adminFetchBookingStats(supabase),
         adminFetchRevenueStats(supabase),
         adminFetchSubscriptionStats(supabase),
-        adminFetchBookingsCreatedDaily(supabase, { days: CHART_DAYS }),
+        adminFetchBookingsCreatedDaily(supabase, { days: ANALYTICS_MAX_DAILY_FETCH_DAYS }),
         adminFetchVendorPerformance(supabase, { limit: VENDOR_TOP_N }),
       ]);
       return { bookingStats, revenue, subscriptionStats, dailyBookings, vendorPerformance };
@@ -133,38 +142,53 @@ export function AnalyticsDashboardPage() {
     enabled: Boolean(supabase),
   });
 
-  const paddedDailyBookings = useMemo(() => {
-    const raw = dashboardQuery.data?.dailyBookings ?? [];
-    return analyticsPadBookingDailySeries(CHART_DAYS, raw);
-  }, [dashboardQuery.data?.dailyBookings]);
+  const periodSeries = useMemo(() => {
+    if (!dashboardQuery.data) return [];
+    return analyticsBuildBusinessPeriodSeries(
+      chartPeriod,
+      dashboardQuery.data.dailyBookings,
+      dashboardQuery.data.revenue.revenue_per_day,
+    );
+  }, [chartPeriod, dashboardQuery.data]);
 
-  const paddedRevenue = useMemo((): RevenueDayPoint[] => {
-    const raw = dashboardQuery.data?.revenue.revenue_per_day ?? [];
-    return analyticsPadRevenueDailySeries(CHART_DAYS, raw);
-  }, [dashboardQuery.data?.revenue.revenue_per_day]);
+  const bookingsChartData = useMemo(
+    () =>
+      periodSeries.map((row) => ({
+        period: row.period,
+        label: analyticsFormatPeriodAxisLabel(chartPeriod, row.period),
+        bookings: row.bookings,
+      })),
+    [periodSeries, chartPeriod],
+  );
 
-  const revenueSeries = useMemo(() => {
-    return paddedRevenue.map((p) => ({
-      day: p.day,
-      revenueRupees: p.revenue_cents / 100,
-    }));
-  }, [paddedRevenue]);
+  const revenueChartData = useMemo(
+    () =>
+      periodSeries.map((row) => ({
+        period: row.period,
+        label: analyticsFormatPeriodAxisLabel(chartPeriod, row.period),
+        revenueRupees: row.revenue_cents / 100,
+      })),
+    [periodSeries, chartPeriod],
+  );
 
-  const bookingsSeries = useMemo(() => {
-    return paddedDailyBookings.map((r) => ({
-      day: r.day,
-      bookings: Number(r.booking_count),
-    }));
-  }, [paddedDailyBookings]);
+  const windowTotals = useMemo(() => {
+    let bookings = 0;
+    let revenue_cents = 0;
+    for (const row of periodSeries) {
+      bookings += row.bookings;
+      revenue_cents += row.revenue_cents;
+    }
+    return { bookings, revenue_cents };
+  }, [periodSeries]);
 
-  /** CSV snapshots use the dense IST series so inactive days export as zeros. */
   const snapshotCsvData = useMemo(() => {
     if (!dashboardQuery.data) return null;
     return {
+      period: chartPeriod,
       ...dashboardQuery.data,
-      dailyBookings: paddedDailyBookings,
+      periodSeries,
     };
-  }, [dashboardQuery.data, paddedDailyBookings]);
+  }, [dashboardQuery.data, chartPeriod, periodSeries]);
 
   const vendorBars = useMemo(() => {
     const rows = [...(dashboardQuery.data?.vendorPerformance ?? [])].sort(
@@ -179,6 +203,8 @@ export function AnalyticsDashboardPage() {
   }, [dashboardQuery.data?.vendorPerformance]);
 
   const axisTickStyle = { fill: "var(--wb-muted-fg, #78716c)", fontSize: webTypography.size.xs };
+  const chartSubtitle = analyticsPeriodChartSubtitle(chartPeriod);
+  const useBarCharts = chartPeriod !== "daily";
 
   return (
     <>
@@ -246,99 +272,167 @@ export function AnalyticsDashboardPage() {
             </article>
           </section>
 
+          <section className="analytics-period-toolbar" aria-label="Chart period">
+            <div className="analytics-period-copy">
+              <h2 className="analytics-section-title">Business trends</h2>
+              <p className="analytics-chart-sub">{chartSubtitle}</p>
+            </div>
+            <div className="analytics-period-toggle" role="tablist" aria-label="Chart granularity">
+              {PERIOD_ORDER.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  role="tab"
+                  aria-selected={chartPeriod === p}
+                  className={chartPeriod === p ? "analytics-period-btn analytics-period-btn--active" : "analytics-period-btn"}
+                  onClick={() => setChartPeriod(p)}
+                >
+                  {ANALYTICS_BUSINESS_PERIOD_LABELS[p]}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="analytics-window-kpis" aria-label="Selected period totals">
+            <article className="analytics-window-kpi">
+              <p className="analytics-window-kpi-label">Bookings in view</p>
+              <p className="analytics-window-kpi-value">{formatCompact(windowTotals.bookings)}</p>
+            </article>
+            <article className="analytics-window-kpi">
+              <p className="analytics-window-kpi-label">Revenue in view</p>
+              <p className="analytics-window-kpi-value">{formatInrFromPaise(windowTotals.revenue_cents)}</p>
+            </article>
+          </section>
+
           <div className="analytics-charts">
             <Card padded className="analytics-chart-card">
-              <h2 className="analytics-chart-title">Bookings over time</h2>
-              <p className="analytics-chart-sub">New bookings per day (IST), last {CHART_DAYS} days.</p>
+              <h2 className="analytics-chart-title">Bookings</h2>
+              <p className="analytics-chart-sub">{ANALYTICS_BUSINESS_PERIOD_LABELS[chartPeriod]} volume (IST).</p>
               <div className="analytics-chart-wrap">
                 <ResponsiveContainer width="100%" height={280}>
-                  <AreaChart data={bookingsSeries} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="fillBookings" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={CHART_PRIMARY} stopOpacity={0.35} />
-                        <stop offset="100%" stopColor={CHART_PRIMARY} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--wb-border, #e7e5e4)" vertical={false} />
-                    <XAxis
-                      dataKey="day"
-                      tick={axisTickStyle}
-                      tickFormatter={(v) => (typeof v === "string" ? v.slice(5) : v)}
-                      minTickGap={24}
-                    />
-                    <YAxis tick={axisTickStyle} width={36} allowDecimals={false} />
-                    <Tooltip
-                      content={({ active, payload, label }) => {
-                        if (!active || !payload?.[0]) return null;
-                        const v = payload[0].value;
-                        const n = typeof v === "number" ? v : Number(v);
-                        return (
-                          <div className="analytics-tooltip">
-                            <div className="analytics-tooltip-title">{label != null ? String(label) : ""}</div>
-                            <div className="analytics-tooltip-line">Bookings · {Number.isFinite(n) ? n : "-"}</div>
-                          </div>
-                        );
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="bookings"
-                      stroke={CHART_PRIMARY}
-                      strokeWidth={2}
-                      fill="url(#fillBookings)"
-                    />
-                  </AreaChart>
+                  {useBarCharts ? (
+                    <BarChart data={bookingsChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--wb-border, #e7e5e4)" vertical={false} />
+                      <XAxis dataKey="label" tick={axisTickStyle} minTickGap={chartPeriod === "monthly" ? 8 : 4} />
+                      <YAxis tick={axisTickStyle} width={36} allowDecimals={false} />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.[0]) return null;
+                          const row = payload[0].payload as { period: string; bookings: number };
+                          return (
+                            <div className="analytics-tooltip">
+                              <div className="analytics-tooltip-title">{row.period}</div>
+                              <div className="analytics-tooltip-line">Bookings · {row.bookings}</div>
+                            </div>
+                          );
+                        }}
+                      />
+                      <Bar dataKey="bookings" fill={CHART_PRIMARY} radius={[6, 6, 0, 0]} maxBarSize={40} />
+                    </BarChart>
+                  ) : (
+                    <AreaChart data={bookingsChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="fillBookings" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={CHART_PRIMARY} stopOpacity={0.35} />
+                          <stop offset="100%" stopColor={CHART_PRIMARY} stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--wb-border, #e7e5e4)" vertical={false} />
+                      <XAxis dataKey="label" tick={axisTickStyle} minTickGap={24} />
+                      <YAxis tick={axisTickStyle} width={36} allowDecimals={false} />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.[0]) return null;
+                          const row = payload[0].payload as { period: string; bookings: number };
+                          return (
+                            <div className="analytics-tooltip">
+                              <div className="analytics-tooltip-title">{row.period}</div>
+                              <div className="analytics-tooltip-line">Bookings · {row.bookings}</div>
+                            </div>
+                          );
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="bookings"
+                        stroke={CHART_PRIMARY}
+                        strokeWidth={2}
+                        fill="url(#fillBookings)"
+                      />
+                    </AreaChart>
+                  )}
                 </ResponsiveContainer>
               </div>
             </Card>
 
             <Card padded className="analytics-chart-card">
-              <h2 className="analytics-chart-title">Revenue trend</h2>
-              <p className="analytics-chart-sub">Successful payment volume per day (IST), last {CHART_DAYS} days.</p>
+              <h2 className="analytics-chart-title">Revenue</h2>
+              <p className="analytics-chart-sub">Successful payments · {ANALYTICS_BUSINESS_PERIOD_LABELS[chartPeriod]} (IST).</p>
               <div className="analytics-chart-wrap">
                 <ResponsiveContainer width="100%" height={280}>
-                  <AreaChart data={revenueSeries} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={CHART_SECONDARY} stopOpacity={0.3} />
-                        <stop offset="100%" stopColor={CHART_SECONDARY} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--wb-border, #e7e5e4)" vertical={false} />
-                    <XAxis
-                      dataKey="day"
-                      tick={axisTickStyle}
-                      tickFormatter={(v) => (typeof v === "string" ? v.slice(5) : v)}
-                      minTickGap={24}
-                    />
-                    <YAxis
-                      tick={axisTickStyle}
-                      width={44}
-                      tickFormatter={(v) => `₹${formatCompact(Number(v))}`}
-                    />
-                    <Tooltip
-                      content={({ active, payload, label }) => {
-                        if (!active || !payload?.[0]) return null;
-                        const v = payload[0].value;
-                        const rupees = typeof v === "number" ? v : Number(v);
-                        return (
-                          <div className="analytics-tooltip">
-                            <div className="analytics-tooltip-title">{label != null ? String(label) : ""}</div>
-                            <div className="analytics-tooltip-line">
-                              Revenue · {Number.isFinite(rupees) ? formatInrFromPaise(rupees * 100) : "-"}
+                  {useBarCharts ? (
+                    <BarChart data={revenueChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--wb-border, #e7e5e4)" vertical={false} />
+                      <XAxis dataKey="label" tick={axisTickStyle} minTickGap={chartPeriod === "monthly" ? 8 : 4} />
+                      <YAxis
+                        tick={axisTickStyle}
+                        width={44}
+                        tickFormatter={(v) => `₹${formatCompact(Number(v))}`}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.[0]) return null;
+                          const row = payload[0].payload as { period: string; revenueRupees: number };
+                          return (
+                            <div className="analytics-tooltip">
+                              <div className="analytics-tooltip-title">{row.period}</div>
+                              <div className="analytics-tooltip-line">
+                                Revenue · {formatInrFromPaise(row.revenueRupees * 100)}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="revenueRupees"
-                      stroke={CHART_SECONDARY}
-                      strokeWidth={2}
-                      fill="url(#fillRevenue)"
-                    />
-                  </AreaChart>
+                          );
+                        }}
+                      />
+                      <Bar dataKey="revenueRupees" fill={CHART_SECONDARY} radius={[6, 6, 0, 0]} maxBarSize={40} />
+                    </BarChart>
+                  ) : (
+                    <AreaChart data={revenueChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={CHART_SECONDARY} stopOpacity={0.3} />
+                          <stop offset="100%" stopColor={CHART_SECONDARY} stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--wb-border, #e7e5e4)" vertical={false} />
+                      <XAxis dataKey="label" tick={axisTickStyle} minTickGap={24} />
+                      <YAxis
+                        tick={axisTickStyle}
+                        width={44}
+                        tickFormatter={(v) => `₹${formatCompact(Number(v))}`}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.[0]) return null;
+                          const row = payload[0].payload as { period: string; revenueRupees: number };
+                          return (
+                            <div className="analytics-tooltip">
+                              <div className="analytics-tooltip-title">{row.period}</div>
+                              <div className="analytics-tooltip-line">
+                                Revenue · {formatInrFromPaise(row.revenueRupees * 100)}
+                              </div>
+                            </div>
+                          );
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="revenueRupees"
+                        stroke={CHART_SECONDARY}
+                        strokeWidth={2}
+                        fill="url(#fillRevenue)"
+                      />
+                    </AreaChart>
+                  )}
                 </ResponsiveContainer>
               </div>
             </Card>

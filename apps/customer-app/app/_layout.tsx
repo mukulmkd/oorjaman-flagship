@@ -16,10 +16,13 @@ import { colors } from "@oorjaman/config";
 import { QueryProvider } from "../providers/query-provider";
 import {
   hideNativeSplashScreenOnce,
+  installMobileAuthConsoleFilters,
   keepNativeSplashScreenVisible,
   MobileAuthSessionGuard,
   MobileOfflineGate,
 } from "@oorjaman/ui";
+
+installMobileAuthConsoleFilters();
 import { SupportChatHeaderButton } from "../components/help-header-button";
 import { supabase } from "../lib/supabase";
 import { HelpSupportProvider } from "../components/help-support-provider";

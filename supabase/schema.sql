@@ -384,6 +384,8 @@ create table if not exists public.platform_settings (
   default_vendor_id uuid references public.vendors (id) on delete set null,
   customer_late_cancel_fee_paise int not null default 9900
     check (customer_late_cancel_fee_paise >= 0 and customer_late_cancel_fee_paise <= 1000000000),
+  vendor_platform_fee_percent numeric(5, 2) not null default 10
+    check (vendor_platform_fee_percent >= 0 and vendor_platform_fee_percent <= 100),
   updated_at timestamptz not null default now(),
   updated_by uuid references public.users (id) on delete set null
 );

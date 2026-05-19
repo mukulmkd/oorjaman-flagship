@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { useNavigation } from "@react-navigation/native";
 import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { useQuery } from "@tanstack/react-query";
@@ -11,11 +12,14 @@ import {
   EmptyStateCard,
   ErrorStateCard,
   Screen,
+  SCREEN_EDGES_BENEATH_NATIVE_HEADER,
   SkeletonBar,
 } from "@oorjaman/ui";
 import { spacing } from "@oorjaman/config";
+import { SupportChatHeaderButton } from "../../../components/help-header-button";
 import { JobListCard } from "../../../components/job-list-card";
 import { JobSegmentBar } from "../../../components/job-segment-bar";
+import { TabNavTitle } from "../../../components/tab-nav-title";
 import { TabScreenHeader } from "../../../components/tab-screen-header";
 import {
   filterBookingsBySegment,
@@ -33,7 +37,17 @@ function JobRowSkeleton() {
 }
 
 export default function AssignedJobsScreen() {
+  const navigation = useNavigation();
   const [segment, setSegment] = useState<JobListSegment>("today");
+
+  useLayoutEffect(() => {
+    const tab = navigation.getParent();
+    tab?.setOptions({
+      headerTitle: "",
+      headerLeft: () => <TabNavTitle title="Jobs" />,
+      headerRight: () => <SupportChatHeaderButton />,
+    });
+  }, [navigation]);
 
   const query = useQuery({
     queryKey: queryKeys.bookings.list({ scope: "technician-assigned" }),
@@ -81,7 +95,6 @@ export default function AssignedJobsScreen() {
   const header = (
     <View style={styles.headerBlock}>
       <TabScreenHeader
-        kicker="Assigned jobs"
         lede="Filtered by visit timing. Open a job to start with the customer's Job Start Code."
         style={styles.headerInScaffold}
       />
@@ -93,14 +106,19 @@ export default function AssignedJobsScreen() {
 
   if (!supabase) {
     return (
-      <Screen padded>
-        <TabScreenHeader kicker="Assigned jobs" lede="Sign in to load your roster." />
+      <Screen padded edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+        <TabScreenHeader lede="Sign in to load your roster." />
       </Screen>
     );
   }
 
   return (
-    <AppScaffold scrollable={false} header={header} contentContainerStyle={styles.scaffoldBody}>
+    <AppScaffold
+      scrollable={false}
+      edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}
+      header={header}
+      contentContainerStyle={styles.scaffoldBody}
+    >
       {query.isPending ? (
         <View style={styles.bodyTop}>
           {[0, 1, 2].map((i) => (

@@ -35,7 +35,8 @@ oorjaman-flagship/
 │   ├── functions/         # Edge functions (e.g. notifications, vendor intake)
 │   └── schema.sql         # Reference / bootstrap schema
 ├── scripts/               # DB seed, repair, push helpers
-├── .env.example           # Env template (copy per app — see below)
+├── .env.example           # Env templates (copy per app)
+├── ENVIRONMENT.md         # Dev vs production env & build settings (all apps)
 └── BILLING.md             # Third-party services & API keys checklist
 ```
 
@@ -59,14 +60,11 @@ npm install
 
 ### 2. Configure environment
 
-Do **not** commit real `.env` files. Use templates:
+Do **not** commit real `.env` files.
 
-- Root: copy [`.env.example`](.env.example) → `.env` (mainly for `npm run seed:dummy-users`)
-- Mobile: `apps/customer-app/.env`, `apps/technician-app/.env` — `EXPO_PUBLIC_SUPABASE_*` and optional dummy-auth flags
-- Web: `apps/admin-web/.env`, `apps/vendor-web/.env`, `apps/support-web/.env` — `VITE_SUPABASE_*`
-- Admin also has `apps/admin-web/.env.example`
-
-See `.env.example` for dummy OTP/password QA settings and support seed phone numbers.
+- **Full guide (dev vs production, all apps):** [**ENVIRONMENT.md**](ENVIRONMENT.md)
+- **Templates:** [`.env.example`](.env.example) → per-app `.env` and optional repo-root `.env` for seed scripts
+- **Paid APIs (maps, etc.):** [BILLING.md](BILLING.md)
 
 ### 3. Database
 
@@ -108,6 +106,7 @@ npm run expo:types
 | `npm run lint` | Lint where configured per workspace |
 | `npm run build` | Production build for all three web apps |
 | `npm run db:status` | Local Supabase CLI status |
+| `npm run functions:deploy -- <name>` | Deploy one edge function from `supabase/functions/<name>` |
 | `npm run repair:public-users` | Repair script for auth/public user sync issues |
 | `npm run typecheck:edge-functions` | Typecheck `supabase/functions` |
 
@@ -123,7 +122,10 @@ Import from workspace packages in apps (no publish step in dev):
 
 ## Documentation
 
+- [**ENVIRONMENT.md**](ENVIRONMENT.md) — environment variables and settings for **development** vs **production** builds (mobile, web, Supabase, push)
 - [**BILLING.md**](BILLING.md) — paid third-party services (e.g. Google Maps), env vars, and setup notes
+- [**docs/customer-push-setup.md**](docs/customer-push-setup.md) — customer support chat remote push (Expo + edge function)
+- [**docs/technician-push-setup.md**](docs/technician-push-setup.md) — technician support chat remote push (Expo + edge function)
 - Per-app READMEs under `apps/*` are mostly upstream templates; this file is the project overview
 
 ## License

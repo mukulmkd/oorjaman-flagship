@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, NotificationTemplateRow } from "../database.types";
 import { SupabaseApiError, takeRows, takeSingleRow } from "../result";
+import { renderNotificationTemplate } from "./render-notification-template";
 
 export async function adminListNotificationTemplates(
   client: SupabaseClient<Database>,
@@ -40,8 +41,7 @@ export async function adminPreviewNotificationTemplate(
   if (error) throw new SupabaseApiError(error.message, error);
   const subject = data.subject;
   const body = data.body;
-  const render = (text: string) =>
-    text.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key: string) => String(context[key] ?? ""));
+  const render = (text: string) => renderNotificationTemplate(text, context);
   return {
     subject: subject ? render(subject) : null,
     body: render(body),

@@ -5,8 +5,7 @@ export const VENDOR_DASH_TABS = [
   { id: "finance", label: "Finance" },
   { id: "team", label: "Team" },
   { id: "history", label: "Bookings" },
-  { id: "communication", label: "Messages" },
-  { id: "settings", label: "Settings" },
+  { id: "coverage", label: "Service coverage" },
 ] as const;
 
 export type VendorDashTabId = (typeof VENDOR_DASH_TABS)[number]["id"];

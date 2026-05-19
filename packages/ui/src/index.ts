@@ -17,3 +17,4 @@ export * from "./Screen";
 export * from "./SkeletonLoader";
 export * from "./TabShellSkeleton";
 export * from "./booking-notifications";
+export * from "./support-chat-notifications";

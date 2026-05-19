@@ -9,6 +9,8 @@ import { fontFamily, fontSize } from "../../constants/fonts";
 import { supabase } from "../../lib/supabase";
 import { TechnicianLocationTracker } from "../../components/technician-location-tracker";
 import { TechnicianBookingRealtime } from "../../components/technician-booking-realtime";
+import { SupportChatHeaderButton } from "../../components/help-header-button";
+import { TabNavTitle } from "../../components/tab-nav-title";
 
 export default function MainTabsLayout() {
   const insets = useSafeAreaInsets();
@@ -19,7 +21,7 @@ export default function MainTabsLayout() {
   });
 
   if (!supabase || q.isPending) {
-    return <TabShellSkeleton tabSlots={4} />;
+    return <TabShellSkeleton tabSlots={5} />;
   }
 
   const tech = q.data;
@@ -36,17 +38,19 @@ export default function MainTabsLayout() {
       <TechnicianBookingRealtime technicianId={tech?.id} />
       <Tabs
         screenOptions={{
-          headerShown: false,
-          headerShadowVisible: false,
+          headerShown: true,
           headerTitle: "",
+          headerShadowVisible: false,
           headerTitleStyle: {
-            fontFamily: fontFamily.semiBold,
-            fontSize: fontSize.lg,
-            color: colors.foreground,
+            fontFamily: fontFamily.medium,
+            fontSize: fontSize.sm,
+            color: colors.primary,
           },
           headerStyle: {
             backgroundColor: colors.background,
           },
+          headerRightContainerStyle: { paddingRight: 8 },
+          headerLeftContainerStyle: { paddingLeft: 8, flexGrow: 1, flexShrink: 1 },
           headerTintColor: colors.foreground,
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.mutedForeground,
@@ -78,26 +82,45 @@ export default function MainTabsLayout() {
           name="jobs"
           options={{
             title: "",
-            headerShown: false,
+            headerShown: true,
+            headerLeft: () => <TabNavTitle title="Jobs" />,
+            headerRight: () => <SupportChatHeaderButton />,
             tabBarLabel: "Jobs",
             tabBarAccessibilityLabel: "Assigned jobs tab",
             tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" size={size} color={color} />,
           }}
         />
         <Tabs.Screen
-          name="history"
+          name="feedback"
           options={{
             title: "",
-            headerShown: false,
-            tabBarLabel: "History",
-            tabBarAccessibilityLabel: "Completed jobs and ratings tab",
-            tabBarIcon: ({ color, size }) => <Ionicons name="checkmark-done-outline" size={size} color={color} />,
+            headerShown: true,
+            headerLeft: () => <TabNavTitle title="Feedback" />,
+            headerRight: () => <SupportChatHeaderButton />,
+            tabBarLabel: "Feedback",
+            tabBarAccessibilityLabel: "Customer feedback and ratings tab",
+            tabBarIcon: ({ color, size }) => <Ionicons name="star-outline" size={size} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="activity"
+          options={{
+            title: "",
+            headerShown: true,
+            headerLeft: () => <TabNavTitle title="Activity" />,
+            headerRight: () => <SupportChatHeaderButton />,
+            tabBarLabel: "Activity",
+            tabBarAccessibilityLabel: "Job activity timeline tab",
+            tabBarIcon: ({ color, size }) => <Ionicons name="pulse-outline" size={size} color={color} />,
           }}
         />
         <Tabs.Screen
           name="profile"
           options={{
             title: "",
+            headerShown: true,
+            headerLeft: () => <TabNavTitle title="Profile" />,
+            headerRight: () => <SupportChatHeaderButton />,
             tabBarLabel: "Profile",
             tabBarAccessibilityLabel: "Profile tab",
             tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,

@@ -146,7 +146,7 @@ async function main() {
 
   const { error: ins1 } = await admin.from("vendors").insert({
     user_id: v1,
-    business_name: "Test Vendor Solar One",
+    business_name: "Gamusa Green Energy",
     approval_status: "approved",
     reviewed_at: now,
     approved_at: now,
@@ -156,7 +156,7 @@ async function main() {
 
   const { error: ins2 } = await admin.from("vendors").insert({
     user_id: v2,
-    business_name: "Test Vendor Solar Two",
+    business_name: "Bharat Sun Systems",
     approval_status: "approved",
     reviewed_at: now,
     approved_at: now,
