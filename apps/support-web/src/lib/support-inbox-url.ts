@@ -1,6 +1,12 @@
 import type { SupportInboxFilter } from "@oorjaman/api";
 
-const VALID_FILTERS: SupportInboxFilter[] = ["queued", "mine", "open", "unassigned", "resolved"];
+const VALID_FILTERS: SupportInboxFilter[] = [
+  "queued",
+  "mine",
+  "open",
+  "unassigned",
+  "resolved",
+];
 
 export type InboxDrillDown = {
   filter: SupportInboxFilter;
@@ -60,7 +66,10 @@ export function inboxPathFromInsightCard(key: InsightCardKey): string {
     case "queued":
       return inboxDrillDownPath({ filter: "queued", label: "Queued chats" });
     case "unassigned":
-      return inboxDrillDownPath({ filter: "unassigned", label: "Unassigned chats" });
+      return inboxDrillDownPath({
+        filter: "unassigned",
+        label: "Unassigned chats",
+      });
     case "resolved_24h":
       return inboxDrillDownPath({
         filter: "resolved",
@@ -71,18 +80,21 @@ export function inboxPathFromInsightCard(key: InsightCardKey): string {
       return inboxDrillDownPath({
         filter: "resolved",
         highlight: "first-reply",
-        label: "Resolved chats — first reply performance (7d)",
+        label: "Resolved chats - first reply performance (7d)",
       });
     case "csat":
       return inboxDrillDownPath({
         filter: "resolved",
         highlight: "csat",
-        label: "Resolved chats — customer ratings (7d)",
+        label: "Resolved chats - customer ratings (7d)",
       });
   }
 }
 
-export function inboxPathFromCategoryInsight(categorySlug: string, categoryLabel: string): string {
+export function inboxPathFromCategoryInsight(
+  categorySlug: string,
+  categoryLabel: string,
+): string {
   return inboxDrillDownPath({
     filter: "open",
     category: categorySlug,

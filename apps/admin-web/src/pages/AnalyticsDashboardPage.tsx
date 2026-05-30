@@ -14,8 +14,11 @@ import {
 import {
   adminFetchBookingStats,
   adminFetchBookingsCreatedDaily,
-  adminFetchRevenueStats,
+  adminFetchPaymentStats,
+  adminFetchRecognizedRevenueStats,
+  adminGetPlatformSettings,
   adminFetchSubscriptionStats,
+  normalizeVendorPlatformFeePercent,
   adminFetchVendorPerformance,
   ANALYTICS_BUSINESS_PERIOD_LABELS,
   ANALYTICS_MAX_DAILY_FETCH_DAYS,
@@ -72,7 +75,8 @@ function escapeCsvCell(v: string | number | null | undefined): string {
 function downloadAnalyticsSnapshotCsv(payload: {
   period: AnalyticsBusinessPeriod;
   bookingStats: { total_bookings: number; completed_bookings: number; pending_bookings: number };
-  revenue: { total_revenue_cents: number };
+  recognizedRevenue: { total_revenue_cents: number };
+  payments: { total_payments_cents: number };
   subscriptionStats: { active_subscriptions: number; upcoming_services: number };
   periodSeries: { period: string; bookings: number; revenue_cents: number }[];
   vendorPerformance: {
@@ -88,7 +92,8 @@ function downloadAnalyticsSnapshotCsv(payload: {
   lines.push(`summary,total_bookings,${payload.bookingStats.total_bookings}`);
   lines.push(`summary,completed_bookings,${payload.bookingStats.completed_bookings}`);
   lines.push(`summary,pending_bookings,${payload.bookingStats.pending_bookings}`);
-  lines.push(`summary,total_revenue_paise,${payload.revenue.total_revenue_cents}`);
+  lines.push(`summary,recognized_revenue_paise,${payload.recognizedRevenue.total_revenue_cents}`);
+  lines.push(`summary,total_payments_paise,${payload.payments.total_payments_cents}`);
   lines.push(`summary,active_subscriptions,${payload.subscriptionStats.active_subscriptions}`);
   lines.push(`summary,upcoming_subscription_visits,${payload.subscriptionStats.upcoming_services}`);
   lines.push("");
@@ -130,14 +135,25 @@ export function AnalyticsDashboardPage() {
     queryKey: queryKeys.admin.bookingsDaily(ANALYTICS_MAX_DAILY_FETCH_DAYS),
     queryFn: async () => {
       if (!supabase) throw new Error("Supabase not configured");
-      const [bookingStats, revenue, subscriptionStats, dailyBookings, vendorPerformance] = await Promise.all([
-        adminFetchBookingStats(supabase),
-        adminFetchRevenueStats(supabase),
-        adminFetchSubscriptionStats(supabase),
-        adminFetchBookingsCreatedDaily(supabase, { days: ANALYTICS_MAX_DAILY_FETCH_DAYS }),
-        adminFetchVendorPerformance(supabase, { limit: VENDOR_TOP_N }),
-      ]);
-      return { bookingStats, revenue, subscriptionStats, dailyBookings, vendorPerformance };
+      const [bookingStats, recognizedRevenue, payments, platformSettings, subscriptionStats, dailyBookings, vendorPerformance] =
+        await Promise.all([
+          adminFetchBookingStats(supabase),
+          adminFetchRecognizedRevenueStats(supabase),
+          adminFetchPaymentStats(supabase),
+          adminGetPlatformSettings(supabase),
+          adminFetchSubscriptionStats(supabase),
+          adminFetchBookingsCreatedDaily(supabase, { days: ANALYTICS_MAX_DAILY_FETCH_DAYS }),
+          adminFetchVendorPerformance(supabase, { limit: VENDOR_TOP_N }),
+        ]);
+      return {
+        bookingStats,
+        recognizedRevenue,
+        payments,
+        platformFeePercent: normalizeVendorPlatformFeePercent(platformSettings.vendor_platform_fee_percent),
+        subscriptionStats,
+        dailyBookings,
+        vendorPerformance,
+      };
     },
     enabled: Boolean(supabase),
   });
@@ -147,7 +163,7 @@ export function AnalyticsDashboardPage() {
     return analyticsBuildBusinessPeriodSeries(
       chartPeriod,
       dashboardQuery.data.dailyBookings,
-      dashboardQuery.data.revenue.revenue_per_day,
+      dashboardQuery.data.recognizedRevenue.revenue_per_day,
     );
   }, [chartPeriod, dashboardQuery.data]);
 
@@ -236,7 +252,7 @@ export function AnalyticsDashboardPage() {
           <p className="analytics-muted">Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.</p>
         </Card>
       ) : dashboardQuery.isPending ? (
-        <DashboardSkeleton kpiCount={3} />
+        <DashboardSkeleton kpiCount={4} />
       ) : dashboardQuery.isError ? (
         <Card padded>
           <p className="analytics-error-title">Could not load analytics</p>
@@ -258,8 +274,19 @@ export function AnalyticsDashboardPage() {
             </article>
             <article className="analytics-kpi">
               <p className="analytics-kpi-label">Revenue</p>
-              <p className="analytics-kpi-value">{formatInrFromPaise(dashboardQuery.data.revenue.total_revenue_cents)}</p>
-              <p className="analytics-kpi-hint">Successful payments (all time)</p>
+              <p className="analytics-kpi-value">
+                {formatInrFromPaise(dashboardQuery.data.recognizedRevenue.total_revenue_cents)}
+              </p>
+              <p className="analytics-kpi-hint">
+                {dashboardQuery.data.platformFeePercent}% of customer payments on completed visits + cancellation fees
+              </p>
+            </article>
+            <article className="analytics-kpi">
+              <p className="analytics-kpi-label">Total payments</p>
+              <p className="analytics-kpi-value">
+                {formatInrFromPaise(dashboardQuery.data.payments.total_payments_cents)}
+              </p>
+              <p className="analytics-kpi-hint">Successful gateway payments (all time)</p>
             </article>
             <article className="analytics-kpi">
               <p className="analytics-kpi-label">Active subscriptions</p>
@@ -299,7 +326,7 @@ export function AnalyticsDashboardPage() {
               <p className="analytics-window-kpi-value">{formatCompact(windowTotals.bookings)}</p>
             </article>
             <article className="analytics-window-kpi">
-              <p className="analytics-window-kpi-label">Revenue in view</p>
+              <p className="analytics-window-kpi-label">Recognized revenue in view</p>
               <p className="analytics-window-kpi-value">{formatInrFromPaise(windowTotals.revenue_cents)}</p>
             </article>
           </section>
@@ -366,7 +393,7 @@ export function AnalyticsDashboardPage() {
             </Card>
 
             <Card padded className="analytics-chart-card">
-              <h2 className="analytics-chart-title">Revenue</h2>
+              <h2 className="analytics-chart-title">Recognized revenue</h2>
               <p className="analytics-chart-sub">Successful payments · {ANALYTICS_BUSINESS_PERIOD_LABELS[chartPeriod]} (IST).</p>
               <div className="analytics-chart-wrap">
                 <ResponsiveContainer width="100%" height={280}>

@@ -8,6 +8,7 @@ import {
   settlementKindLabel,
   settlementStatusLabel,
   vendorListMySettlements,
+  vendorSyncCompletedVisitPayoutSettlements,
 } from "@oorjaman/api";
 import { Badge, Button, Card } from "@oorjaman/web-ui";
 import { useQuery } from "@tanstack/react-query";
@@ -44,7 +45,10 @@ export function VendorFinanceTab({ bookings }: Props) {
 
   const settlementsQuery = useQuery({
     queryKey: queryKeys.vendors.dashboardSettlements("all"),
-    queryFn: () => vendorListMySettlements(supabase!, { limit: 200 }),
+    queryFn: async () => {
+      await vendorSyncCompletedVisitPayoutSettlements(supabase!, { limit: 200 });
+      return vendorListMySettlements(supabase!, { limit: 200 });
+    },
     enabled: Boolean(supabase),
   });
 

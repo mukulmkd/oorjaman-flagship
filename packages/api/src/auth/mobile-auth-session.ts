@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../database.types";
 import { isAuthSessionMissingError } from "../result";
-import { clearInvalidStoredSession, isInvalidRefreshTokenError } from "./auth-api";
+import {
+  clearInvalidStoredSession,
+  isInvalidRefreshTokenError,
+} from "./auth-api";
 
 export const AUTH_SIGN_IN_AGAIN_TITLE = "Session expired";
 export const AUTH_SIGN_IN_AGAIN_MESSAGE =
@@ -20,16 +23,21 @@ export function requiresSignInAgain(error: unknown): boolean {
   if (/session.*expired/i.test(message)) return true;
 
   if (error && typeof error === "object") {
-    const name = "name" in error ? String((error as { name: unknown }).name) : "";
-    if (name === "AuthApiError" && isInvalidRefreshTokenError(error)) return true;
+    const name =
+      "name" in error ? String((error as { name: unknown }).name) : "";
+    if (name === "AuthApiError" && isInvalidRefreshTokenError(error))
+      return true;
   }
 
   return false;
 }
 
-/** Offline / flaky connectivity — not an auth logout. */
+/** Offline / flaky connectivity - not an auth logout. */
 export function isTransientNetworkError(error: unknown): boolean {
-  if (error instanceof TypeError && /network request failed/i.test(error.message)) {
+  if (
+    error instanceof TypeError &&
+    /network request failed/i.test(error.message)
+  ) {
     return true;
   }
   const message = errorMessage(error);
@@ -53,7 +61,9 @@ let skipNextSignedOutGuard = false;
 let sessionExpiredHandler: (() => void) | null = null;
 
 /** UI layer registers a single handler (alert + navigate to login). */
-export function registerMobileSessionExpiredHandler(handler: (() => void) | null): void {
+export function registerMobileSessionExpiredHandler(
+  handler: (() => void) | null,
+): void {
   sessionExpiredHandler = handler;
 }
 
@@ -67,7 +77,7 @@ export function markUserInitiatedSignOut(): void {
 }
 
 export type MobileAuthSessionGuardHandlers = {
-  /** Called after local auth storage is cleared — navigate to login / show alert. */
+  /** Called after local auth storage is cleared - navigate to login / show alert. */
   onRequireSignIn: (reason: "session-expired" | "signed-out") => void;
   /**
    * Return true when the user is on a screen that requires auth (e.g. main tabs).
@@ -86,7 +96,9 @@ export function attachMobileAuthSessionGuard(
 ): () => void {
   let handling = false;
 
-  const maybeRequireSignIn = async (reason: "session-expired" | "signed-out") => {
+  const maybeRequireSignIn = async (
+    reason: "session-expired" | "signed-out",
+  ) => {
     if (handling || !handlers.isProtectedRoute()) return;
     handling = true;
     try {
@@ -99,19 +111,25 @@ export function attachMobileAuthSessionGuard(
     }
   };
 
-  const { data: authListener } = client.auth.onAuthStateChange((event, session) => {
-    if (event === "SIGNED_OUT" && !session) {
-      if (skipNextSignedOutGuard) {
-        skipNextSignedOutGuard = false;
+  const { data: authListener } = client.auth.onAuthStateChange(
+    (event, session) => {
+      if (event === "SIGNED_OUT" && !session) {
+        if (skipNextSignedOutGuard) {
+          skipNextSignedOutGuard = false;
+          return;
+        }
+        void maybeRequireSignIn("session-expired");
         return;
       }
-      void maybeRequireSignIn("session-expired");
-      return;
-    }
-    if (event === "INITIAL_SESSION" && !session && handlers.isProtectedRoute()) {
-      void maybeRequireSignIn("session-expired");
-    }
-  });
+      if (
+        event === "INITIAL_SESSION" &&
+        !session &&
+        handlers.isProtectedRoute()
+      ) {
+        void maybeRequireSignIn("session-expired");
+      }
+    },
+  );
 
   return () => {
     authListener.subscription.unsubscribe();

@@ -12,7 +12,7 @@ export function parseIsoLike(value: string | null | undefined): Date | null {
 /** Human-readable fallback when parsing fails (never show raw `T…Z` in UI). */
 export function formatIsoFallback(raw: string): string {
   const t = raw.trim();
-  if (!t) return "—";
+  if (!t) return "-";
   return t
     .replace(/\.\d{3}Z?$/i, "")
     .replace(/Z$/i, "")
@@ -58,7 +58,10 @@ export function formatDisplayDate(iso: string): string {
 }
 
 /** Visit window: date+time start, time-only end (same day assumed). */
-export function formatDisplayDateTimeRange(startIso: string, endIso: string): string {
+export function formatDisplayDateTimeRange(
+  startIso: string,
+  endIso: string,
+): string {
   const start = parseIsoLike(startIso);
   const end = parseIsoLike(endIso);
   if (!start || !end) {
@@ -68,6 +71,8 @@ export function formatDisplayDateTimeRange(startIso: string, endIso: string): st
     ...DATE_PARTS,
     ...TIME_PARTS,
   }).format(start);
-  const endFmt = new Intl.DateTimeFormat(DISPLAY_LOCALE, TIME_PARTS).format(end);
+  const endFmt = new Intl.DateTimeFormat(DISPLAY_LOCALE, TIME_PARTS).format(
+    end,
+  );
   return `${startFmt} – ${endFmt} IST`;
 }

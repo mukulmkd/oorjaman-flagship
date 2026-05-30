@@ -133,7 +133,7 @@ export default function ProfileDocumentsScreen() {
                         ? busy
                           ? "Opening…"
                           : filename ?? "Tap to preview"
-                        : "Not uploaded — complete onboarding to add"}
+                        : "Not uploaded - complete onboarding to add"}
                     </Text>
                   </View>
 

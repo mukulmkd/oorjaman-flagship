@@ -6,12 +6,18 @@ import { SupportChatHeaderButton } from "./help-header-button";
 type Props = {
   onClose: () => void;
   closeAccessibilityLabel: string;
+  /** When false, only close - use on Jobs stack screens where the tab header already has chat. */
+  showSupportChat?: boolean;
 };
 
-export function ModalHeaderSupportTrailing({ onClose, closeAccessibilityLabel }: Props) {
+export function ModalHeaderSupportTrailing({
+  onClose,
+  closeAccessibilityLabel,
+  showSupportChat = true,
+}: Props) {
   return (
     <View style={styles.row}>
-      <SupportChatHeaderButton />
+      {showSupportChat ? <SupportChatHeaderButton /> : null}
       <ModalCloseButton onPress={onClose} accessibilityLabel={closeAccessibilityLabel} />
     </View>
   );

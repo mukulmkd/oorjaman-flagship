@@ -1,26 +1,17 @@
 import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
+import { initMobileNotificationHandler } from "./mobile-notification-handler";
 
 const CHANNEL_ID = "booking-events";
 const BRAND = "OorjaMan";
 
-let handlerInstalled = false;
 let androidChannelReady = false;
 
 /**
- * Call once at app root. Required so local notifications show while the app is in the foreground.
+ * Call once at app root. Installs shared handler (support chat plays sound; booking updates are silent).
  */
 export function initBookingNotificationHandler(): void {
-  if (Platform.OS === "web" || handlerInstalled) return;
-  handlerInstalled = true;
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: false,
-      shouldSetBadge: false,
-    }),
-  });
+  initMobileNotificationHandler();
 }
 
 async function ensureAndroidChannel(): Promise<void> {
@@ -61,21 +52,27 @@ async function presentImmediate(
       title,
       body,
       data,
-      ...(Platform.OS === "android" ? { android: { channelId: CHANNEL_ID } } : {}),
+      ...(Platform.OS === "android"
+        ? { android: { channelId: CHANNEL_ID } }
+        : {}),
     },
     trigger: null,
   });
 }
 
-export async function notifyCustomerBookingCreated(bookingId: string): Promise<void> {
+export async function notifyCustomerBookingCreated(
+  bookingId: string,
+): Promise<void> {
   await presentImmediate(
-    `${BRAND} — visit confirmed`,
+    `${BRAND} - visit confirmed`,
     "Thank you. Your payment went through and your solar care visit is booked. We will keep you posted as your partner and technician are assigned.",
     { kind: "booking_created", bookingId },
   );
 }
 
-export async function notifyCustomerBookingAccepted(bookingId: string): Promise<void> {
+export async function notifyCustomerBookingAccepted(
+  bookingId: string,
+): Promise<void> {
   await presentImmediate(
     "Your partner is on it",
     "Your OorjaMan partner accepted this visit. You can track progress anytime in the app.",
@@ -83,15 +80,19 @@ export async function notifyCustomerBookingAccepted(bookingId: string): Promise<
   );
 }
 
-export async function notifyCustomerPartnerAcknowledged(bookingId: string): Promise<void> {
+export async function notifyCustomerPartnerAcknowledged(
+  bookingId: string,
+): Promise<void> {
   await presentImmediate(
     "Partner confirmed",
-    "Your partner accepted the visit. Our operations team will assign a technician shortly — we appreciate your patience.",
+    "Your partner accepted the visit. Our operations team will assign a technician shortly - we appreciate your patience.",
     { kind: "partner_acknowledged", bookingId },
   );
 }
 
-export async function notifyCustomerTechnicianAssigned(bookingId: string): Promise<void> {
+export async function notifyCustomerTechnicianAssigned(
+  bookingId: string,
+): Promise<void> {
   await presentImmediate(
     "Technician assigned",
     "A qualified technician is assigned to your visit. You will see their details in the app before they arrive on site.",
@@ -99,35 +100,43 @@ export async function notifyCustomerTechnicianAssigned(bookingId: string): Promi
   );
 }
 
-export async function notifyCustomerJobCompleted(bookingId: string): Promise<void> {
+export async function notifyCustomerJobCompleted(
+  bookingId: string,
+): Promise<void> {
   await presentImmediate(
-    "Visit complete — thank you",
-    "Your panel care visit is done. If anything felt less than perfect, please tell us in the app — your feedback helps us serve your home better.",
+    "Visit complete - thank you",
+    "Your panel care visit is done. If anything felt less than perfect, please tell us in the app - your feedback helps us serve your home better.",
     { kind: "job_completed", bookingId },
   );
 }
 
 /** Vendor confirms acceptance from the partner inbox (same app binary as customer). */
-export async function notifyVendorBookingAccepted(bookingId: string): Promise<void> {
+export async function notifyVendorBookingAccepted(
+  bookingId: string,
+): Promise<void> {
   await presentImmediate(
     "Visit accepted",
-    "You accepted this OorjaMan request and assigned your crew. The homeowner will be notified — thank you for showing up for them.",
+    "You accepted this OorjaMan request and assigned your crew. The homeowner will be notified - thank you for showing up for them.",
     { kind: "booking_accepted_vendor", bookingId },
   );
 }
 
 /** Partner accepted without assigning crew - admin assigns technician. */
-export async function notifyVendorBookingAcknowledged(bookingId: string): Promise<void> {
+export async function notifyVendorBookingAcknowledged(
+  bookingId: string,
+): Promise<void> {
   await presentImmediate(
-    "Accepted — crew assignment pending",
+    "Accepted - crew assignment pending",
     "You accepted this visit. OorjaMan operations will assign a technician and confirm timing with the customer.",
     { kind: "booking_acknowledged_vendor", bookingId },
   );
 }
 
-export async function notifyTechnicianJobCompleted(bookingId: string): Promise<void> {
+export async function notifyTechnicianJobCompleted(
+  bookingId: string,
+): Promise<void> {
   await presentImmediate(
-    "Report saved — well done",
+    "Report saved - well done",
     "The visit is marked complete on OorjaMan. Thank you for the care you brought to this home.",
     { kind: "job_completed_technician", bookingId },
   );

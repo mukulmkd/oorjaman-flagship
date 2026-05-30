@@ -16,11 +16,11 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useNavigation } from "@react-navigation/native";
 import * as Clipboard from "expo-clipboard";
 import {
   bookingApi,
   customerBookingDisplayTitle,
+  customerBookingRefModalSubtitle,
   customerBookingVisitDateVisible,
   formatInrFromCents,
   isAmcSubscriptionBooking,
@@ -113,7 +113,7 @@ function buildServiceTaxInvoiceText(b: BookingRow): string {
   const visitWhen = formatDisplayDate(visitEnd);
   const bookingLabel = customerBookingDisplayTitle(b);
   return [
-    "Oorjaman — Service receipt (tax invoice summary)",
+    "Oorjaman - Service receipt (tax invoice summary)",
     `Booking: ${bookingLabel}`,
     `Service date: ${visitWhen}`,
     `Amount (incl. taxes as applicable): ${money}`,
@@ -183,9 +183,10 @@ function hasInstallationProfile(c: CustomerRow): boolean {
   return false;
 }
 
-function DetailChip({ status }: { status: BookingStatus }) {
-  const bucket = bookingUiBucket(status);
-  const label = bookingStatusLabel(status);
+function DetailChip({ row }: { row: BookingRow }) {
+  if (!row?.status) return null;
+  const bucket = bookingUiBucket(row.status);
+  const label = bookingStatusLabel(row.status, row);
   const chipStyles =
     bucket === "pending"
       ? styles.chipPending
@@ -227,7 +228,6 @@ const CUSTOMER_CANCELLABLE: BookingStatus[] = ["pending_payment", "confirmed", "
 
 export default function BookingDetailScreen() {
   const router = useRouter();
-  const navigation = useNavigation();
   const qc = useQueryClient();
   const { id } = useLocalSearchParams<{ id: string | string[] }>();
   const bookingId = Array.isArray(id) ? id[0] : id;
@@ -247,7 +247,7 @@ export default function BookingDetailScreen() {
   const navTitle = query.data ? customerBookingDisplayTitle(query.data) : "Booking";
   const modalHeader = useModalStackHeader({
     title: navTitle,
-    subtitle: query.data?.reference_code ? `Ref ${query.data.reference_code}` : undefined,
+    subtitle: query.data ? customerBookingRefModalSubtitle(query.data) : undefined,
     onClose: () => router.back(),
     closeAccessibilityLabel: "Close booking details",
   });
@@ -386,7 +386,7 @@ export default function BookingDetailScreen() {
       const cc = readBookingCustomerCancellationMeta(data.metadata);
       const feeSentence =
         cc && !cc.withinGraceWindow && cc.lateFeePaise > 0
-          ? ` A late cancellation of up to ${formatInrFromCents(cc.lateFeePaise)} was recorded — final charges or refunds follow OorjaMan policy.`
+          ? ` A late cancellation of up to ${formatInrFromCents(cc.lateFeePaise)} was recorded - final charges or refunds follow OorjaMan policy.`
           : "";
       Alert.alert("Booking cancelled", `We’ve recorded your cancellation.${feeSentence}`);
       setCancelModalOpen(false);
@@ -420,10 +420,10 @@ export default function BookingDetailScreen() {
       if (b.status === "pending_payment") {
         return "Complete payment to confirm your visit request.";
       }
-      return "We’ve notified your service partner — they’ll confirm when ready.";
+      return "We’ve notified your service partner - they’ll confirm when ready.";
     }
-    if (bucket === "accepted") return "Your slot is locked in — watch here for technician assignment and arrival.";
-    if (bucket === "completed") return "Visit finished — thanks for choosing OorjaMan.";
+    if (bucket === "accepted") return "Your slot is locked in - watch here for technician assignment and arrival.";
+    if (bucket === "completed") return "Visit finished - thanks for choosing OorjaMan.";
     if (b.status === "cancelled") return "This booking was cancelled.";
     return "";
   }, [b]);
@@ -477,20 +477,7 @@ export default function BookingDetailScreen() {
     }
   }, [b, tick]);
 
-  const ratingRequired = Boolean(
-    b?.status === "completed" && ((reportQuery.data?.customer_rating ?? 0) < 1),
-  );
-  useEffect(() => {
-    if (!ratingRequired) return;
-    const unsub = navigation.addListener("beforeRemove", (e) => {
-      e.preventDefault();
-      Alert.alert(
-        "Rating required",
-        "Please submit your service rating before leaving this completed booking.",
-      );
-    });
-    return unsub;
-  }, [navigation, ratingRequired]);
+  const hasSubmittedRating = (reportQuery.data?.customer_rating ?? 0) >= 1;
 
   const openSupport = () => {
     const url = bookingSupportMailto({
@@ -580,7 +567,7 @@ export default function BookingDetailScreen() {
           accessibilityLabel="Download or share tax invoice"
           onPress={() => {
             void Share.share({
-              title: `Tax invoice — ${customerBookingDisplayTitle(b)}`,
+              title: `Tax invoice - ${customerBookingDisplayTitle(b)}`,
               message: buildServiceTaxInvoiceText(b),
             }).catch(() =>
               Alert.alert("Could not open share", "Try again, or copy the booking reference for your records."),
@@ -590,7 +577,7 @@ export default function BookingDetailScreen() {
           Download / share tax invoice
         </Button>
         <Text style={[styles.meta, styles.invoiceHint]}>
-          Opens your phone’s share sheet so you can save to Files, send by email, or message — same flow as other
+          Opens your phone’s share sheet so you can save to Files, send by email, or message - same flow as other
           service apps.
         </Text>
       </View>
@@ -603,7 +590,7 @@ export default function BookingDetailScreen() {
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.pageIntro}>
             <View style={styles.statusRow}>
-              <DetailChip status={b.status} />
+              <DetailChip row={b} />
             </View>
             {statusHelp ? <Text style={styles.lede}>{statusHelp}</Text> : null}
           </View>
@@ -615,7 +602,7 @@ export default function BookingDetailScreen() {
                 {vendorSla.within ? (
                   <>
                     <Text style={styles.body}>
-                      Your assigned partner will confirm your visit shortly — about{" "}
+                      Your assigned partner will confirm your visit shortly - about{" "}
                       <Text style={styles.em}>{vendorSla.remMin}</Text> minute
                       {vendorSla.remMin === 1 ? "" : "s"} remaining in the confirmation window.
                     </Text>
@@ -749,7 +736,7 @@ export default function BookingDetailScreen() {
               </>
             ) : b.subscription_id != null && b.estimated_price_cents === 0 ? (
               <Text style={styles.body}>
-                No separate advance for this visit — it is covered under your AMC plan. Any add-ons on site, if
+                No separate advance for this visit - it is covered under your AMC plan. Any add-ons on site, if
                 applicable, will be confirmed by your partner.
               </Text>
             ) : b.estimated_price_cents > 0 ? (
@@ -843,17 +830,18 @@ export default function BookingDetailScreen() {
             </DetailSection>
           ) : null}
           {b.status === "completed" ? (
-            <DetailSection title="Rate service">
+            <DetailSection title={hasSubmittedRating ? "Your rating" : "Rate this visit (optional)"}>
               <Text style={styles.body}>
-                {ratingRequired
-                  ? "Please rate this visit to close the booking flow."
-                  : "Your feedback improves both vendor and technician quality."}
+                {hasSubmittedRating
+                  ? "Thanks for your feedback. You can update your rating anytime from this booking."
+                  : "How was your visit? Rating is optional - you can skip now and come back whenever you like."}
               </Text>
               <View style={styles.ratingRow}>
                 {[1, 2, 3, 4, 5].map((n) => (
                   <Pressable
                     key={`r-${n}`}
                     accessibilityRole="button"
+                    accessibilityLabel={`Rate ${n} out of 5`}
                     onPress={() => setRatingValue(n)}
                     style={[styles.ratingChip, ratingValue === n && styles.ratingChipOn]}
                   >
@@ -882,7 +870,7 @@ export default function BookingDetailScreen() {
                 disabled={saveRatingMut.isPending || ratingValue < 1}
                 onPress={() => void saveRatingMut.mutateAsync()}
               >
-                {ratingRequired ? "Submit & continue" : "Submit rating"}
+                {hasSubmittedRating ? "Update rating" : "Submit rating"}
               </Button>
             </DetailSection>
           ) : null}
@@ -905,7 +893,7 @@ export default function BookingDetailScreen() {
                           ? "Late cancellation fees load from platform settings."
                           : lateFeePaise > 0
                             ? `The 1-hour fee-free window after technician assignment has passed. Late cancellation fee (up to ${formatInrFromCents(lateFeePaise)}): you will confirm before we record the cancellation.`
-                            : `The fee-free window after technician assignment has passed. You can still cancel below — OorjaMan may assess a fee.`}
+                            : `The fee-free window after technician assignment has passed. You can still cancel below - OorjaMan may assess a fee.`}
                   </Text>
                 ) : null}
                 <Button
@@ -941,15 +929,6 @@ export default function BookingDetailScreen() {
                 <Button variant="outline" size="md" onPress={openSupport}>
                   Email support
                 </Button>
-              </Card>
-            </View>
-          ) : b.status === "completed" && ratingRequired ? (
-            <View style={styles.section}>
-              <Card variant="elevated" padded>
-                <Text style={styles.sectionTitle}>Rating required</Text>
-                <Text style={[styles.body, styles.helpSpaced]}>
-                  Submit your rating above to finish this completed booking.
-                </Text>
               </Card>
             </View>
           ) : (
@@ -1000,7 +979,7 @@ export default function BookingDetailScreen() {
               </Text>
             ) : cancelSla && cancelSla.penaltyEligible && !cancelSla.within ? (
               <Text style={[styles.meta, styles.cancelModalFee]}>
-                The fee-free hour after technician assignment has passed. OorjaMan may still assess a cancellation fee —
+                The fee-free hour after technician assignment has passed. OorjaMan may still assess a cancellation fee -
                 you will confirm on the next step if applicable.
               </Text>
             ) : null}

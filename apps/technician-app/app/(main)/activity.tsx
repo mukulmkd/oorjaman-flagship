@@ -181,7 +181,7 @@ export default function ActivityTab() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.lede}>
-          Assignments, job started, job finished, ratings, and other updates on your visits — newest first.
+          Assignments, job started, job finished, ratings, and other updates on your visits - newest first.
         </Text>
 
         {activityQ.isPending ? (

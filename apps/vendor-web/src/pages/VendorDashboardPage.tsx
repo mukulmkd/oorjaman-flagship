@@ -123,6 +123,27 @@ function statusTone(
   }
 }
 
+function vendorBookingStatusLabel(s: BookingRow["status"]): string {
+  switch (s) {
+    case "pending_payment":
+      return "Pending payment";
+    case "confirmed":
+      return "Awaiting response";
+    case "vendor_acknowledged":
+      return "Acknowledged";
+    case "accepted":
+      return "Accepted";
+    case "in_progress":
+      return "In progress";
+    case "completed":
+      return "Completed";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return s;
+  }
+}
+
 function responseSlaTone(ratePercent: number): "success" | "warning" | "danger" {
   if (ratePercent <= 10) return "success";
   if (ratePercent <= 25) return "warning";
@@ -357,7 +378,7 @@ export default function VendorDashboardPage() {
     [allBookingsQuery.data],
   );
   const responseSlaTrend = useMemo(() => {
-    const rows = rowsForVendorUi;
+    const rows = allBookingsQuery.data ?? [];
     const now = Date.now();
     const ms7 = 7 * 24 * 60 * 60 * 1000;
     const ms30 = 30 * 24 * 60 * 60 * 1000;
@@ -372,7 +393,7 @@ export default function VendorDashboardPage() {
     const rate7 = confirmed7.length > 0 ? (missed7.length / confirmed7.length) * 100 : 0;
     const rate30 = confirmed30.length > 0 ? (missed30.length / confirmed30.length) * 100 : 0;
     return { confirmed7: confirmed7.length, confirmed30: confirmed30.length, missed7: missed7.length, missed30: missed30.length, rate7, rate30 };
-  }, [rowsForVendorUi]);
+  }, [allBookingsQuery.data]);
 
   const verifiedVendorTechnicians = useMemo(
     () =>
@@ -435,7 +456,7 @@ export default function VendorDashboardPage() {
   }, [allBookingsQuery.data]);
 
   const historyRows = useMemo(() => {
-    const rows = [...rowsForVendorUi].sort(
+    const rows = [...(allBookingsQuery.data ?? [])].sort(
       (a, b) => new Date(b.scheduled_start).getTime() - new Date(a.scheduled_start).getTime(),
     );
     if (historyFilter === "all") return rows;
@@ -444,7 +465,7 @@ export default function VendorDashboardPage() {
     return rows.filter(
       (b) => b.status !== "completed" && b.status !== "cancelled",
     );
-  }, [rowsForVendorUi, historyFilter]);
+  }, [allBookingsQuery.data, historyFilter]);
 
   const historyTotal = historyRows.length;
   const historyWindow = historyRows.slice(
@@ -475,6 +496,7 @@ export default function VendorDashboardPage() {
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
+      void qc.invalidateQueries({ queryKey: queryKeys.vendors.dashboardSettlements() });
       setAcceptForId(null);
       setAckTechnicianReady(false);
       setAckSafetyCompliance(false);
@@ -489,6 +511,7 @@ export default function VendorDashboardPage() {
       bookingApi.vendorRejectBookingRequest(supabase!, bookingId, reason),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
+      void qc.invalidateQueries({ queryKey: queryKeys.vendors.dashboardSettlements() });
       setRejectForId(null);
       setRejectReason("");
     },
@@ -498,6 +521,7 @@ export default function VendorDashboardPage() {
       bookingApi.vendorCancelAcceptedBooking(supabase!, bookingId, reason),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
+      void qc.invalidateQueries({ queryKey: queryKeys.vendors.dashboardSettlements() });
       setCancelAcceptedForId(null);
       setCancelAcceptedReason("");
     },
@@ -570,6 +594,7 @@ export default function VendorDashboardPage() {
     void vendorJobReportsQuery.refetch();
     void vendorTechRosterQuery.refetch();
     void vendorTechInvitesQuery.refetch();
+    void qc.invalidateQueries({ queryKey: queryKeys.vendors.dashboardSettlements() });
   };
 
   const onVendorSettingsSaved = () => {
@@ -712,213 +737,213 @@ export default function VendorDashboardPage() {
 
           {dashTab === "operations" ? (
             <>
-          <Card padded={false} style={{ marginBottom: "1.25rem" }}>
-            <div style={{ padding: "1rem 1rem 0" }}>
-              <h2 className="vd-section-title">Slot availability</h2>
-              <p style={{ margin: "0 0 0.75rem", fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)" }}>
-                Configure which slots your team can claim in the default vendor marketplace.
-              </p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.75rem" }}>
-                {availabilityDays.map((d: string) => (
-                  <Button key={d} size="sm" type="button" variant={availabilityDayKey === d ? "primary" : "outline"} onClick={() => setAvailabilityDayKey(d)}>
-                    {formatDayChip(d)}
-                  </Button>
-                ))}
-              </div>
-            </div>
-            {!availabilityDayKey ? (
-              <p className="vd-empty">Pick a day.</p>
-            ) : (
-              <div style={{ padding: "0 1rem 1rem" }}>
-                <div className="vd-table-wrap">
-                  <table className="vd-table">
-                    <thead>
-                      <tr>
-                        <th>Slot</th>
-                        <th>Availability</th>
-                        <th>Capacity</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {slotRows.map((s: BookingSlotOption) => {
-                        const key = `${availabilityDayKey}__${s.id}`;
-                        const rowAvail = slotAvailabilityMap.get(key);
-                        const isAvailable = rowAvail?.is_available ?? true;
-                        const capacity = rowAvail?.capacity ?? 1;
-                        return (
-                          <tr key={s.id}>
-                            <td>{s.label}</td>
-                            <td>{isAvailable ? "Open" : "Blocked"}</td>
-                            <td>{capacity}</td>
-                            <td>
-                              <Button size="sm" type="button" variant="outline" onClick={() => setVendorRowAction({ kind: "slot", slot: s })}>
-                                Action
-                              </Button>
-                            </td>
+              <Card padded={false} style={{ marginBottom: "1.25rem" }}>
+                <div style={{ padding: "1rem 1rem 0" }}>
+                  <h2 className="vd-section-title">Slot availability</h2>
+                  <p style={{ margin: "0 0 0.75rem", fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)" }}>
+                    Configure which slots your team can claim in the default vendor marketplace.
+                  </p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                    {availabilityDays.map((d: string) => (
+                      <Button key={d} size="sm" type="button" variant={availabilityDayKey === d ? "primary" : "outline"} onClick={() => setAvailabilityDayKey(d)}>
+                        {formatDayChip(d)}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                {!availabilityDayKey ? (
+                  <p className="vd-empty">Pick a day.</p>
+                ) : (
+                  <div style={{ padding: "0 1rem 1rem" }}>
+                    <div className="vd-table-wrap">
+                      <table className="vd-table">
+                        <thead>
+                          <tr>
+                            <th>Slot</th>
+                            <th>Availability</th>
+                            <th>Capacity</th>
+                            <th>Action</th>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </Card>
+                        </thead>
+                        <tbody>
+                          {slotRows.map((s: BookingSlotOption) => {
+                            const key = `${availabilityDayKey}__${s.id}`;
+                            const rowAvail = slotAvailabilityMap.get(key);
+                            const isAvailable = rowAvail?.is_available ?? true;
+                            const capacity = rowAvail?.capacity ?? 1;
+                            return (
+                              <tr key={s.id}>
+                                <td>{s.label}</td>
+                                <td>{isAvailable ? "Open" : "Blocked"}</td>
+                                <td>{capacity}</td>
+                                <td>
+                                  <Button size="sm" type="button" variant="outline" onClick={() => setVendorRowAction({ kind: "slot", slot: s })}>
+                                    Action
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </Card>
 
-          <Card padded={false} style={{ marginBottom: "1.25rem" }}>
-            <div style={{ padding: "1rem 1rem 0" }}>
-              <h2 className="vd-section-title">Default vendor marketplace</h2>
-              <p style={{ margin: "0 0 0.75rem", fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)" }}>
-                Open visits floated to the network ({marketplaceBookingsQuery.data?.length ?? 0}). You typically only see
-                jobs whose service PIN matches your configured coverage; ops can widen delivery in exceptional cases.
-              </p>
-            </div>
-            {marketplaceBookingsQuery.isLoading ? (
-              <p className="vd-empty">Loading marketplace bookings…</p>
-            ) : (marketplaceBookingsQuery.data?.length ?? 0) === 0 ? (
-              <p className="vd-empty">No open marketplace bookings.</p>
-            ) : (
-              <div style={{ padding: "0 1rem 1rem" }}>
-                <div className="vd-table-wrap">
-                  <table className="vd-table">
-                    <thead>
-                      <tr>
-                        <th>Reference</th>
-                        <th>Schedule</th>
-                        <th>Site</th>
-                        <th>Service for</th>
-                        <th>Value</th>
-                        <th>Notes</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(marketplaceBookingsQuery.data ?? []).map((b) => (
-                        <tr key={b.id}>
-                          <td className="vd-mono">{b.reference_code}</td>
-                          <td>{formatScheduleRange(b)}</td>
-                          <td>{vdEllipsis(formatSiteAddress(b.service_site_address), 44)}</td>
-                          <td>{serviceForLabel(b)}</td>
-                          <td>{formatInr(b.estimated_price_cents)}</td>
-                          <td>{opsWatchLabel(b) ?? "—"}</td>
-                          <td>
-                            <Button size="sm" type="button" variant="outline" onClick={() => setVendorRowAction({ kind: "marketplace", booking: b })}>
-                              Action
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              <Card padded={false} style={{ marginBottom: "1.25rem" }}>
+                <div style={{ padding: "1rem 1rem 0" }}>
+                  <h2 className="vd-section-title">Default vendor marketplace</h2>
+                  <p style={{ margin: "0 0 0.75rem", fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)" }}>
+                    Open visits floated to the network ({marketplaceBookingsQuery.data?.length ?? 0}). You typically only see
+                    jobs whose service PIN matches your configured coverage; ops can widen delivery in exceptional cases.
+                  </p>
                 </div>
-              </div>
-            )}
-          </Card>
-
-          <Card padded={false} style={{ marginBottom: "1.25rem" }}>
-            <div style={{ padding: "1rem 1rem 0" }}>
-              <h2 className="vd-section-title">Needs response</h2>
-              <p style={{ margin: "0 0 0.75rem", fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)" }}>
-                Paid bookings awaiting accept or reject ({incoming.length})
-              </p>
-            </div>
-            {incoming.length === 0 ? (
-              <p className="vd-empty">No incoming requests right now.</p>
-            ) : (
-              <div style={{ padding: "0 1rem 1rem" }}>
-                <div className="vd-table-wrap">
-                  <table className="vd-table">
-                    <thead>
-                      <tr>
-                        <th>Reference</th>
-                        <th>Schedule</th>
-                        <th>Site</th>
-                        <th>Service for</th>
-                        <th>Respond by</th>
-                        <th>Value</th>
-                        <th>Notes</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {incoming.map((b) => {
-                        const deadline = vendorResponseDeadline(b);
-                        const df = new Intl.DateTimeFormat(undefined, { timeStyle: "short", dateStyle: "short" });
-                        return (
-                          <tr key={b.id}>
-                            <td className="vd-mono">{b.reference_code}</td>
-                            <td>{formatScheduleRange(b)}</td>
-                            <td>{vdEllipsis(formatSiteAddress(b.service_site_address), 44)}</td>
-                            <td>{serviceForLabel(b)}</td>
-                            <td>{df.format(deadline)}</td>
-                            <td>{formatInr(b.estimated_price_cents)}</td>
-                            <td>{opsWatchLabel(b) ?? "—"}</td>
-                            <td>
-                              <Button size="sm" type="button" variant="outline" onClick={() => setVendorRowAction({ kind: "incoming", booking: b })}>
-                                Action
-                              </Button>
-                            </td>
+                {marketplaceBookingsQuery.isLoading ? (
+                  <p className="vd-empty">Loading marketplace bookings…</p>
+                ) : (marketplaceBookingsQuery.data?.length ?? 0) === 0 ? (
+                  <p className="vd-empty">No open marketplace bookings.</p>
+                ) : (
+                  <div style={{ padding: "0 1rem 1rem" }}>
+                    <div className="vd-table-wrap">
+                      <table className="vd-table">
+                        <thead>
+                          <tr>
+                            <th>Reference</th>
+                            <th>Schedule</th>
+                            <th>Site</th>
+                            <th>Service for</th>
+                            <th>Value</th>
+                            <th>Notes</th>
+                            <th>Action</th>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </Card>
+                        </thead>
+                        <tbody>
+                          {(marketplaceBookingsQuery.data ?? []).map((b) => (
+                            <tr key={b.id}>
+                              <td className="vd-mono">{b.reference_code}</td>
+                              <td>{formatScheduleRange(b)}</td>
+                              <td>{vdEllipsis(formatSiteAddress(b.service_site_address), 44)}</td>
+                              <td>{serviceForLabel(b)}</td>
+                              <td>{formatInr(b.estimated_price_cents)}</td>
+                              <td>{opsWatchLabel(b) ?? "-"}</td>
+                              <td>
+                                <Button size="sm" type="button" variant="outline" onClick={() => setVendorRowAction({ kind: "marketplace", booking: b })}>
+                                  Action
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </Card>
 
-          <Card padded={false} style={{ marginTop: "1.25rem" }}>
-            <div style={{ padding: "1rem 1rem 0" }}>
-              <h2 className="vd-section-title">Active visits</h2>
-              <p style={{ margin: "0 0 0.75rem", fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)" }}>
-                Assigned or on-site ({active.length})
-              </p>
-            </div>
-            {active.length === 0 ? (
-              <p className="vd-empty">No active visits.</p>
-            ) : (
-              <div style={{ padding: "0 1rem 1rem" }}>
-                <div className="vd-table-wrap">
-                  <table className="vd-table">
-                    <thead>
-                      <tr>
-                        <th>Reference</th>
-                        <th>Status</th>
-                        <th>Schedule</th>
-                        <th>Site</th>
-                        <th>Service for</th>
-                        <th>Technician</th>
-                        <th>Notes</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {active.map((b) => (
-                        <tr key={b.id}>
-                          <td className="vd-mono">{b.booking_code ?? b.reference_code}</td>
-                          <td>
-                            <Badge tone={statusTone(b.status)}>{b.status}</Badge>
-                          </td>
-                          <td>{formatScheduleRange(b)}</td>
-                          <td>{vdEllipsis(formatSiteAddress(b.service_site_address), 44)}</td>
-                          <td>{serviceForLabel(b)}</td>
-                          <td>{techDisplayLabel(techById, b.technician_id)}</td>
-                          <td>{opsWatchLabel(b) ?? "—"}</td>
-                          <td>
-                            <Button size="sm" type="button" variant="outline" onClick={() => setVendorRowAction({ kind: "active", booking: b })}>
-                              Action
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              <Card padded={false} style={{ marginBottom: "1.25rem" }}>
+                <div style={{ padding: "1rem 1rem 0" }}>
+                  <h2 className="vd-section-title">Needs response</h2>
+                  <p style={{ margin: "0 0 0.75rem", fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)" }}>
+                    Paid bookings awaiting accept or reject ({incoming.length})
+                  </p>
                 </div>
-              </div>
-            )}
-          </Card>
+                {incoming.length === 0 ? (
+                  <p className="vd-empty">No incoming requests right now.</p>
+                ) : (
+                  <div style={{ padding: "0 1rem 1rem" }}>
+                    <div className="vd-table-wrap">
+                      <table className="vd-table">
+                        <thead>
+                          <tr>
+                            <th>Reference</th>
+                            <th>Schedule</th>
+                            <th>Site</th>
+                            <th>Service for</th>
+                            <th>Respond by</th>
+                            <th>Value</th>
+                            <th>Notes</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {incoming.map((b) => {
+                            const deadline = vendorResponseDeadline(b);
+                            const df = new Intl.DateTimeFormat(undefined, { timeStyle: "short", dateStyle: "short" });
+                            return (
+                              <tr key={b.id}>
+                                <td className="vd-mono">{b.reference_code}</td>
+                                <td>{formatScheduleRange(b)}</td>
+                                <td>{vdEllipsis(formatSiteAddress(b.service_site_address), 44)}</td>
+                                <td>{serviceForLabel(b)}</td>
+                                <td>{df.format(deadline)}</td>
+                                <td>{formatInr(b.estimated_price_cents)}</td>
+                                <td>{opsWatchLabel(b) ?? "-"}</td>
+                                <td>
+                                  <Button size="sm" type="button" variant="outline" onClick={() => setVendorRowAction({ kind: "incoming", booking: b })}>
+                                    Action
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </Card>
+
+              <Card padded={false} style={{ marginTop: "1.25rem" }}>
+                <div style={{ padding: "1rem 1rem 0" }}>
+                  <h2 className="vd-section-title">Active visits</h2>
+                  <p style={{ margin: "0 0 0.75rem", fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)" }}>
+                    Assigned or on-site ({active.length})
+                  </p>
+                </div>
+                {active.length === 0 ? (
+                  <p className="vd-empty">No active visits.</p>
+                ) : (
+                  <div style={{ padding: "0 1rem 1rem" }}>
+                    <div className="vd-table-wrap">
+                      <table className="vd-table">
+                        <thead>
+                          <tr>
+                            <th>Reference</th>
+                            <th>Status</th>
+                            <th>Schedule</th>
+                            <th>Site</th>
+                            <th>Service for</th>
+                            <th>Technician</th>
+                            <th>Notes</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {active.map((b) => (
+                            <tr key={b.id}>
+                              <td className="vd-mono">{b.booking_code ?? b.reference_code}</td>
+                              <td>
+                                <Badge tone={statusTone(b.status)}>{vendorBookingStatusLabel(b.status)}</Badge>
+                              </td>
+                              <td>{formatScheduleRange(b)}</td>
+                              <td>{vdEllipsis(formatSiteAddress(b.service_site_address), 44)}</td>
+                              <td>{serviceForLabel(b)}</td>
+                              <td>{techDisplayLabel(techById, b.technician_id)}</td>
+                              <td>{opsWatchLabel(b) ?? "-"}</td>
+                              <td>
+                                <Button size="sm" type="button" variant="outline" onClick={() => setVendorRowAction({ kind: "active", booking: b })}>
+                                  Action
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </Card>
             </>
           ) : null}
 
@@ -985,7 +1010,7 @@ export default function VendorDashboardPage() {
                       <tbody>
                         {teamInvitesWindow.map((inv) => (
                           <tr key={inv.id}>
-                            <td>{inv.full_name || "—"}</td>
+                            <td>{inv.full_name || "-"}</td>
                             <td className="vd-mono">{inv.invite_phone_e164}</td>
                             <td>
                               <Badge tone={inv.status === "completed" ? "success" : inv.status === "opened" ? "warning" : "neutral"}>
@@ -1059,7 +1084,7 @@ export default function VendorDashboardPage() {
                               </Badge>
                             </td>
                             <td>{t.verification_status}</td>
-                            <td>{t.skills?.length ? t.skills.slice(0, 8).join(", ") : "—"}</td>
+                            <td>{t.skills?.length ? t.skills.slice(0, 8).join(", ") : "-"}</td>
                             <td>
                               <button
                                 type="button"
@@ -1138,9 +1163,9 @@ export default function VendorDashboardPage() {
                           const cancelNote =
                             b.status === "cancelled"
                               ? [b.cancellation_reason, cc && !cc.withinGraceWindow && cc.lateFeePaise > 0 ? "Late-cancel fee" : null]
-                                  .filter(Boolean)
-                                  .join(" · ") || "—"
-                              : "—";
+                                .filter(Boolean)
+                                .join(" · ") || "-"
+                              : "-";
                           return (
                             <tr key={b.id}>
                               <td className="vd-mono">{b.booking_code ?? b.reference_code}</td>
@@ -1152,7 +1177,7 @@ export default function VendorDashboardPage() {
                               <td>{serviceForLabel(b)}</td>
                               <td>{formatInr(bookingValueCents(b))}</td>
                               <td>{techDisplayLabel(techById, b.technician_id)}</td>
-                              <td>{vdEllipsis(cancelNote === "—" ? (opsWatchLabel(b) ?? "—") : cancelNote, 36)}</td>
+                              <td>{vdEllipsis(cancelNote === "-" ? (opsWatchLabel(b) ?? "-") : cancelNote, 36)}</td>
                               <td>
                                 <Button size="sm" type="button" variant="outline" onClick={() => setVendorRowAction({ kind: "history", booking: b })}>
                                   Action
@@ -1544,14 +1569,14 @@ export default function VendorDashboardPage() {
         description={
           teamTechnicianModal
             ? [
-                teamTechnicianModal.employee_code?.trim()
-                  ? `OorjaMan ID: ${teamTechnicianModal.employee_code.trim()}`
-                  : null,
-                `Status: ${teamTechnicianModal.verification_status}`,
-                `Employer review: ${teamTechnicianModal.vendor_review_status}`,
-              ]
-                .filter(Boolean)
-                .join(" · ")
+              teamTechnicianModal.employee_code?.trim()
+                ? `OorjaMan ID: ${teamTechnicianModal.employee_code.trim()}`
+                : null,
+              `Status: ${teamTechnicianModal.verification_status}`,
+              `Employer review: ${teamTechnicianModal.vendor_review_status}`,
+            ]
+              .filter(Boolean)
+              .join(" · ")
             : undefined
         }
       >
@@ -1590,27 +1615,27 @@ export default function VendorDashboardPage() {
                     </h4>
                     <dl className="dash-dl" style={{ fontSize: webTypography.size.sm, margin: 0 }}>
                       <dt>OorjaMan technician ID</dt>
-                      <dd>{tm.employee_code?.trim() ?? (tm.vendor_review_status === "approved" ? "Issuing…" : "—")}</dd>
+                      <dd>{tm.employee_code?.trim() ?? (tm.vendor_review_status === "approved" ? "Issuing…" : "-")}</dd>
                       <dt style={{ marginTop: "0.5rem" }}>Available for assignments</dt>
                       <dd>{tm.is_available ? "Yes" : "No (on leave / unavailable)"}</dd>
                       <dt style={{ marginTop: "0.5rem" }}>Name as per Aadhaar</dt>
-                      <dd>{tm.name_as_per_aadhaar ?? "—"}</dd>
+                      <dd>{tm.name_as_per_aadhaar ?? "-"}</dd>
                       <dt style={{ marginTop: "0.5rem" }}>Date of birth</dt>
-                      <dd>{tm.date_of_birth ?? "—"}</dd>
+                      <dd>{tm.date_of_birth ?? "-"}</dd>
                       <dt style={{ marginTop: "0.5rem" }}>Home base</dt>
                       <dd>{formatSiteAddress(tm.home_base_address)}</dd>
                       <dt style={{ marginTop: "0.5rem" }}>Personal phone</dt>
-                      <dd>{tm.personal_phone ?? "—"}</dd>
+                      <dd>{tm.personal_phone ?? "-"}</dd>
                       <dt style={{ marginTop: "0.5rem" }}>Contact email</dt>
-                      <dd>{tm.contact_email ?? "—"}</dd>
+                      <dd>{tm.contact_email ?? "-"}</dd>
                       <dt style={{ marginTop: "0.5rem" }}>Father / guardian</dt>
-                      <dd>{tm.father_guardian_name ?? "—"}</dd>
+                      <dd>{tm.father_guardian_name ?? "-"}</dd>
                       <dt style={{ marginTop: "0.5rem" }}>Gender</dt>
-                      <dd>{tm.gender ?? "—"}</dd>
+                      <dd>{tm.gender ?? "-"}</dd>
                       <dt style={{ marginTop: "0.5rem" }}>PAN</dt>
-                      <dd>{tm.pan_number ?? "—"}</dd>
+                      <dd>{tm.pan_number ?? "-"}</dd>
                       <dt style={{ marginTop: "0.5rem" }}>Aadhaar (last 4)</dt>
-                      <dd>{tm.aadhaar_last4 ?? "—"}</dd>
+                      <dd>{tm.aadhaar_last4 ?? "-"}</dd>
                     </dl>
                   </div>
                   <div>
@@ -1619,13 +1644,13 @@ export default function VendorDashboardPage() {
                     </h4>
                     <dl className="dash-dl" style={{ fontSize: webTypography.size.sm, margin: 0 }}>
                       <dt>Skills</dt>
-                      <dd>{tm.skills?.length ? tm.skills.join(", ") : "—"}</dd>
+                      <dd>{tm.skills?.length ? tm.skills.join(", ") : "-"}</dd>
                       <dt style={{ marginTop: "0.5rem" }}>Years</dt>
-                      <dd>{tm.years_experience != null ? String(tm.years_experience) : "—"}</dd>
+                      <dd>{tm.years_experience != null ? String(tm.years_experience) : "-"}</dd>
                       <dt style={{ marginTop: "0.5rem" }}>Solar cleaning</dt>
                       <dd>{tm.flag_solar_cleaning_experience ? "Yes" : "No"}</dd>
                       <dt style={{ marginTop: "0.5rem" }}>Other skills</dt>
-                      <dd>{tm.other_skills ?? "—"}</dd>
+                      <dd>{tm.other_skills ?? "-"}</dd>
                     </dl>
                   </div>
                   <div>
@@ -1634,7 +1659,7 @@ export default function VendorDashboardPage() {
                       <dt>Safety training</dt>
                       <dd>{tm.flag_safety_training ? "Yes" : "No"}</dd>
                       <dt style={{ marginTop: "0.5rem" }}>Training organisation</dt>
-                      <dd>{tm.safety_training_org ?? "—"}</dd>
+                      <dd>{tm.safety_training_org ?? "-"}</dd>
                       <dt style={{ marginTop: "0.5rem" }}>Height / rope cert</dt>
                       <dd>{tm.flag_height_work_cert ? "Yes" : "No"}</dd>
                     </dl>
@@ -1643,11 +1668,11 @@ export default function VendorDashboardPage() {
                     <h4 style={{ margin: "0 0 0.5rem", fontSize: webTypography.size.sm, fontWeight: webTypography.weight.semibold }}>Bank</h4>
                     <dl className="dash-dl" style={{ fontSize: webTypography.size.sm, margin: 0 }}>
                       <dt>Account holder</dt>
-                      <dd>{tm.bank_account_holder_name ?? "—"}</dd>
+                      <dd>{tm.bank_account_holder_name ?? "-"}</dd>
                       <dt style={{ marginTop: "0.5rem" }}>Account (last 4)</dt>
-                      <dd>{tm.bank_account_last4 ?? "—"}</dd>
+                      <dd>{tm.bank_account_last4 ?? "-"}</dd>
                       <dt style={{ marginTop: "0.5rem" }}>IFSC</dt>
-                      <dd>{tm.bank_ifsc ?? "—"}</dd>
+                      <dd>{tm.bank_ifsc ?? "-"}</dd>
                     </dl>
                   </div>
                   <div>
@@ -1685,7 +1710,7 @@ export default function VendorDashboardPage() {
                   />
                   {rejectReasonInvalid ? (
                     <p className="vd-error" style={{ margin: "0.35rem 0 0", fontSize: webTypography.size.sm }}>
-                      If you enter a custom reason, use at least 4 characters — or leave empty for the default.
+                      If you enter a custom reason, use at least 4 characters - or leave empty for the default.
                     </p>
                   ) : null}
                   {reviewMut.isError ? (

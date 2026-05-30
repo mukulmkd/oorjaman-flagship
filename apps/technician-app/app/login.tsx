@@ -191,7 +191,7 @@ export default function LoginScreen() {
         </View>
 
         <Text style={styles.otpSmsHint}>
-          After you send the code, tap the boxes — the cursor appears there as you type. On iPhone and many Android
+          After you send the code, tap the boxes - the cursor appears there as you type. On iPhone and many Android
           phones, the code can autofill from SMS when the message contains a 6-digit code.
         </Text>
 
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xl,
     color: colors.foreground,
   },
-  /** Covers the OTP cells; glyphs are invisible so digits show only in boxes — caret stays visible for feedback + SMS autofill. */
+  /** Covers the OTP cells; glyphs are invisible so digits show only in boxes - caret stays visible for feedback + SMS autofill. */
   otpOverlayInput: {
     ...StyleSheet.absoluteFillObject,
     fontFamily: fontFamily.semiBold,

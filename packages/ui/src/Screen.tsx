@@ -6,7 +6,7 @@ import { colors, spacing } from "@oorjaman/config";
 /** Tabs / nested stacks above a bottom tab bar - avoids double-padding with the tab bar safe area. */
 export const SCREEN_EDGES_ABOVE_TAB_BAR = ["top", "left", "right"] as const satisfies readonly Edge[];
 
-/** Tab screens that already use a native stack/tab header — skip top inset to avoid a gap under the header. */
+/** Tab screens that already use a native stack/tab header - skip top inset to avoid a gap under the header. */
 export const SCREEN_EDGES_BENEATH_NATIVE_HEADER = ["left", "right"] as const satisfies readonly Edge[];
 
 /** Login, onboarding, and other flows without a bottom tab bar. */

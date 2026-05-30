@@ -268,7 +268,7 @@ export function SitePhotoGallerySection({
         <Text style={styles.photoCount}>
           {visibleCount} photo{visibleCount === 1 ? "" : "s"} on this site
           {rawSitePhotoCount > visibleCount
-            ? ` (${rawSitePhotoCount} saved in profile — pull down to refresh if one is missing)`
+            ? ` (${rawSitePhotoCount} saved in profile - pull down to refresh if one is missing)`
             : ""}
         </Text>
       ) : null}

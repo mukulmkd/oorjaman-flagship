@@ -126,10 +126,10 @@ export function VendorApprovalPage() {
                       return (
                         <tr key={row.id}>
                           <td>{intakeDisplayName(row)}</td>
-                          <td>{row.business_name ?? "—"}</td>
+                          <td>{row.business_name ?? "-"}</td>
                           <td>{cityFromRegisteredAddress(addr)}</td>
                           <td>{formatIntakeExperienceLine(row.form_data)}</td>
-                          <td>{row.submitted_at ? formatSubmittedAt(row.submitted_at) : "—"}</td>
+                          <td>{row.submitted_at ? formatSubmittedAt(row.submitted_at) : "-"}</td>
                           <td>
                             <Badge tone="warning">{row.status}</Badge>
                           </td>

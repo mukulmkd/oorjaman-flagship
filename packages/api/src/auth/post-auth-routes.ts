@@ -5,7 +5,10 @@ import * as technicianApi from "../technicians/technician-api";
 import { getMyUserRecord, getMyUserRecordWithRetry } from "../users/user-api";
 
 /** Customer mobile app - partners must use the web portal, not this binary. */
-export type CustomerAppPostAuthPath = "/(main)" | "/customer-registration" | "/wrong-role";
+export type CustomerAppPostAuthPath =
+  | "/(main)"
+  | "/customer-registration"
+  | "/wrong-role";
 
 /** Technician field app. */
 export type TechnicianAppPostAuthPath =
@@ -25,14 +28,16 @@ export async function resolveCustomerAppPostAuthPath(
 ): Promise<CustomerAppPostAuthPath> {
   const user = await getMyUserRecordWithRetry(client);
   if (!user) {
-    // Signed in but no `public.users` row yet (or trigger lag) — treat as new customer.
+    // Signed in but no `public.users` row yet (or trigger lag) - treat as new customer.
     return "/customer-registration";
   }
 
   switch (user.role) {
     case "customer": {
       const cust = await customerApi.getMyCustomer(client);
-      return cust?.onboarding_completed_at ? "/(main)" : "/customer-registration";
+      return cust?.onboarding_completed_at
+        ? "/(main)"
+        : "/customer-registration";
     }
     case "vendor":
       return "/wrong-role";
@@ -56,10 +61,12 @@ export async function resolveTechnicianAppPostAuthPath(
   const tech = await technicianApi.getMyTechnicianProfile(client);
   if (technicianApi.technicianIsFullyOnboarded(tech)) return "/(main)";
 
-  const hasVendorLink = await technicianApi.technicianHasVendorOnboardingAccess(client);
+  const hasVendorLink =
+    await technicianApi.technicianHasVendorOnboardingAccess(client);
   if (!hasVendorLink) return "/vendor-not-onboarded";
 
-  if (technicianApi.technicianShowsPendingReviewScreen(tech)) return "/pending-vendor-review";
+  if (technicianApi.technicianShowsPendingReviewScreen(tech))
+    return "/pending-vendor-review";
 
   return "/technician-onboarding";
 }

@@ -36,6 +36,10 @@ export type AnalyticsPeriodSeriesPoint = {
 
 export type BookingStatsRow = Database["public"]["Views"]["booking_stats"]["Row"];
 export type RevenueStatsRow = Database["public"]["Views"]["revenue_stats"]["Row"];
+export type RecognizedRevenueStatsRow = {
+  total_revenue_cents: number;
+  revenue_per_day: Json | null;
+};
 export type SubscriptionStatsRow = Database["public"]["Views"]["subscription_stats"]["Row"];
 export type BookingsCreatedDailyRow = Database["public"]["Views"]["bookings_created_daily"]["Row"];
 export type RevenueDayPoint = { day: string; revenue_cents: number };
@@ -200,7 +204,7 @@ export function analyticsFormatPeriodAxisLabel(period: AnalyticsBusinessPeriod, 
 export function analyticsPeriodChartSubtitle(period: AnalyticsBusinessPeriod): string {
   switch (period) {
     case "daily":
-      return `New bookings and revenue per day (IST), last ${ANALYTICS_PERIOD_DAY_WINDOW.daily} days.`;
+      return `New bookings and recognized revenue per day (IST), last ${ANALYTICS_PERIOD_DAY_WINDOW.daily} days.`;
     case "monthly":
       return `Totals per calendar month (IST), last ${ANALYTICS_PERIOD_BUCKET_COUNT.monthly} months.`;
     case "quarterly":
@@ -245,16 +249,44 @@ export async function adminFetchBookingStats(client: SupabaseClient<Database>): 
   return takeSingleRow(data, error);
 }
 
+async function fetchRevenueStatsRow(
+  client: SupabaseClient<Database>,
+  view: "recognized_revenue_stats" | "revenue_stats",
+): Promise<{ total_revenue_cents: number; revenue_per_day: RevenueDayPoint[] }> {
+  const { data, error } = await client.from(view).select("*").single();
+  const row = takeSingleRow(data, error) as { total_revenue_cents: number; revenue_per_day: Json | null };
+  return {
+    total_revenue_cents: Number(row.total_revenue_cents) || 0,
+    revenue_per_day: parseRevenuePerDay(row.revenue_per_day),
+  };
+}
+
+/** Platform fee on customer payments (completed visits) + cancellation fees. */
+export async function adminFetchRecognizedRevenueStats(client: SupabaseClient<Database>): Promise<{
+  total_revenue_cents: number;
+  revenue_per_day: RevenueDayPoint[];
+}> {
+  return fetchRevenueStatsRow(client, "recognized_revenue_stats");
+}
+
+/** Successful payment gateway totals (all successful payments). */
+export async function adminFetchPaymentStats(client: SupabaseClient<Database>): Promise<{
+  total_payments_cents: number;
+  payments_per_day: RevenueDayPoint[];
+}> {
+  const row = await fetchRevenueStatsRow(client, "revenue_stats");
+  return {
+    total_payments_cents: row.total_revenue_cents,
+    payments_per_day: row.revenue_per_day,
+  };
+}
+
+/** @deprecated Use adminFetchRecognizedRevenueStats or adminFetchPaymentStats. */
 export async function adminFetchRevenueStats(client: SupabaseClient<Database>): Promise<{
   total_revenue_cents: number;
   revenue_per_day: RevenueDayPoint[];
 }> {
-  const { data, error } = await client.from("revenue_stats").select("*").single();
-  const row = takeSingleRow(data, error);
-  return {
-    total_revenue_cents: row.total_revenue_cents,
-    revenue_per_day: parseRevenuePerDay(row.revenue_per_day),
-  };
+  return adminFetchRecognizedRevenueStats(client);
 }
 
 export async function adminFetchSubscriptionStats(client: SupabaseClient<Database>): Promise<SubscriptionStatsRow> {

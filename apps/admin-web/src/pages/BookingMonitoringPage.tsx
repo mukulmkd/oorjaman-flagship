@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   adminAssignVendorToBooking,
+  adminNotifyOverdueVendorResponses,
   adminFloatDefaultVendorBooking,
   adminFlagBookingOpsIssue,
   adminGetBookingsMonitoringBySubscriptionBucket,
@@ -11,21 +13,26 @@ import {
   readBookingRecipientMeta,
   readBookingServiceOtpMeta,
   vendorApi,
+  type AdminBookingsStatusFilter,
   type AdminBookingsSubscriptionBucket,
+  type BookingStatus,
+  isWithinVendorResponseWindow,
+  readBookingVendorRoutingMeta,
   type BookingMonitoringEnriched,
   type OpsIssueType,
 } from "@oorjaman/api";
 import type { Json } from "@oorjaman/api";
 import { formatDisplayDateTime, formatDisplayDateTimeRange } from "@oorjaman/utils";
 import { Badge, Button, Card, Modal, PageHeader, TableRowsSkeleton } from "@oorjaman/web-ui";
+import {
+  formatRoutingDetailLines,
+  getRoutingDisplay,
+  OPS_ISSUE_LABELS,
+} from "../lib/booking-routing-display";
 import { webTypography } from "../styles/typography";
 import { useSupabase } from "../lib/supabase-context";
 import { TablePaginationBar } from "../components/TablePaginationBar";
 import "../layouts/dashboard-layout.css";
-
-/** Shown as tooltip / modal copy when `vendor_routing.used_fallback` is true */
-export const FALLBACK_ROUTING_HELP =
-  "The customer’s preferred partner could not cover this location (service area rules). The booking was routed using their backup partner choice or OorjaMan’s platform default partner instead.";
 
 const BUCKET_TABS: { id: AdminBookingsSubscriptionBucket; label: string; hint: string }[] = [
   {
@@ -43,6 +50,56 @@ const BUCKET_TABS: { id: AdminBookingsSubscriptionBucket; label: string; hint: s
 const PAGE_SIZE = 10;
 const RISK_SUMMARY_LIMIT = 800;
 
+const STATUS_FILTER_TABS: { id: AdminBookingsStatusFilter; label: string }[] = [
+  { id: "all", label: "All statuses" },
+  { id: "pending_payment", label: "Pending payment" },
+  { id: "confirmed", label: "Confirmed" },
+  { id: "vendor_acknowledged", label: "Acknowledged" },
+  { id: "accepted", label: "Accepted" },
+  { id: "in_progress", label: "In progress" },
+  { id: "completed", label: "Completed" },
+  { id: "cancelled", label: "Cancelled" },
+];
+
+function bookingStatusTone(
+  status: BookingStatus,
+): "neutral" | "warning" | "success" | "danger" {
+  switch (status) {
+    case "confirmed":
+    case "vendor_acknowledged":
+      return "warning";
+    case "accepted":
+    case "in_progress":
+    case "completed":
+      return "success";
+    case "cancelled":
+      return "danger";
+    default:
+      return "neutral";
+  }
+}
+
+function adminBookingStatusLabel(status: BookingStatus): string {
+  switch (status) {
+    case "pending_payment":
+      return "Pending payment";
+    case "confirmed":
+      return "Confirmed";
+    case "vendor_acknowledged":
+      return "Acknowledged";
+    case "accepted":
+      return "Accepted";
+    case "in_progress":
+      return "In progress";
+    case "completed":
+      return "Completed";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return status;
+  }
+}
+
 type OpsRisk = {
   level: "medium" | "high";
   type: OpsIssueType;
@@ -52,17 +109,9 @@ type OpsRisk = {
 type BookingActionState =
   | null
   | {
-      row: BookingMonitoringEnriched;
-      view: "menu" | "assign";
-    };
-
-function isFallbackBooking(row: BookingMonitoringEnriched): boolean {
-  const m = row.metadata;
-  if (!m || typeof m !== "object" || Array.isArray(m)) return false;
-  const vr = (m as Record<string, unknown>).vendor_routing;
-  if (!vr || typeof vr !== "object" || Array.isArray(vr)) return false;
-  return (vr as Record<string, unknown>).used_fallback === true;
-}
+    row: BookingMonitoringEnriched;
+    view: "menu" | "assign";
+  };
 
 function formatTiming(row: BookingMonitoringEnriched): { scheduled: string; actual?: string } {
   const scheduled = formatDisplayDateTimeRange(row.scheduled_start, row.scheduled_end);
@@ -76,13 +125,13 @@ function formatTiming(row: BookingMonitoringEnriched): { scheduled: string; actu
 }
 
 function formatSiteLine(addr: Json): string {
-  if (addr == null) return "—";
-  if (typeof addr === "string") return addr.trim() || "—";
+  if (addr == null) return "-";
+  if (typeof addr === "string") return addr.trim() || "-";
   if (typeof addr === "object" && !Array.isArray(addr)) {
     const o = addr as Record<string, unknown>;
     if (typeof o.formatted === "string" && o.formatted.trim()) return o.formatted.trim();
   }
-  return "—";
+  return "-";
 }
 
 function ellipsize(s: string, max: number): string {
@@ -161,6 +210,22 @@ function detectOpsRisks(row: BookingMonitoringEnriched, now = new Date()): OpsRi
   }
 
   if (row.status === "confirmed" && !row.vendor_id) {
+    const m = row.metadata;
+    const marketplace =
+      m && typeof m === "object" && !Array.isArray(m)
+        ? (m as Record<string, unknown>).marketplace
+        : null;
+    const mp =
+      marketplace && typeof marketplace === "object" && !Array.isArray(marketplace)
+        ? (marketplace as Record<string, unknown>)
+        : null;
+    if (mp?.mode === "default_vendor" && mp?.awaiting_admin_float === true) {
+      risks.push({
+        level: "high",
+        type: "awaiting_admin_float",
+        label: "Any-partner booking - float to marketplace from Actions",
+      });
+    }
     const { openUntil } = readMarketplaceWindow(row);
     if (openUntil && now.getTime() > openUntil.getTime()) {
       risks.push({
@@ -170,11 +235,20 @@ function detectOpsRisks(row: BookingMonitoringEnriched, now = new Date()): OpsRi
       });
     }
   }
-  if (row.status === "confirmed" && row.vendor_id && ageMs > 90 * 60 * 1000) {
+  if (
+    row.status === "confirmed" &&
+    row.vendor_id &&
+    !row.technician_id &&
+    !isWithinVendorResponseWindow(row, now)
+  ) {
+    const routing = readBookingVendorRoutingMeta(row.metadata);
+    const isPreferred = routing?.reason === "preferred_ok";
     risks.push({
-      level: "medium",
-      type: "vendor_slow_confirmation",
-      label: "Vendor has not progressed booking after confirmation",
+      level: isPreferred ? "high" : "medium",
+      type: isPreferred ? "preferred_vendor_no_response" : "vendor_slow_confirmation",
+      label: isPreferred
+        ? "Preferred partner missed 1-hour accept/assign window"
+        : "Partner missed 1-hour accept/assign window",
     });
   }
   if ((row.status === "accepted" || row.status === "in_progress") && !row.actual_start && sinceStartMs > 2 * 60 * 60 * 1000) {
@@ -214,20 +288,23 @@ export function BookingMonitoringPage() {
   const supabase = useSupabase();
   const qc = useQueryClient();
   const [bucketTab, setBucketTab] = useState<AdminBookingsSubscriptionBucket>("one_time");
+  const [statusFilter, setStatusFilter] = useState<AdminBookingsStatusFilter>("all");
   const [page, setPage] = useState(1);
   const [bookingAction, setBookingAction] = useState<BookingActionState>(null);
   const [assignVendorId, setAssignVendorId] = useState<string>("");
+  const [opsIssueType, setOpsIssueType] = useState<OpsIssueType | "">("");
 
   useEffect(() => {
     setPage(1);
-  }, [bucketTab]);
+  }, [bucketTab, statusFilter]);
 
   const query = useQuery({
-    queryKey: queryKeys.bookings.adminBookingsBucketPage(bucketTab, page, PAGE_SIZE),
+    queryKey: queryKeys.bookings.adminBookingsBucketPage(bucketTab, page, PAGE_SIZE, statusFilter),
     queryFn: () =>
       adminGetBookingsMonitoringBySubscriptionBucketPaged(supabase!, bucketTab, {
         page,
         pageSize: PAGE_SIZE,
+        status: statusFilter,
       }),
     enabled: Boolean(supabase),
     placeholderData: (prev) => prev,
@@ -312,9 +389,19 @@ export function BookingMonitoringPage() {
   };
 
   const openActionMenu = (row: BookingMonitoringEnriched) => {
+    const risks = detectOpsRisks(row);
     setBookingAction({ row, view: "menu" });
     setAssignVendorId("");
+    setOpsIssueType(risks[0]?.type ?? "");
   };
+
+  const vendorNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const v of approvedVendorsQuery.data ?? []) {
+      map.set(v.id, v.business_name);
+    }
+    return map;
+  }, [approvedVendorsQuery.data]);
 
   const actionRow = bookingAction?.row ?? null;
 
@@ -322,9 +409,20 @@ export function BookingMonitoringPage() {
     <>
       <PageHeader
         title="Bookings"
-        subtitle="Browse one-time and AMC bookings. Use Action to assign a partner, open or extend the marketplace window, or flag an ops issue."
+        subtitle="Browse one-time and AMC bookings. Routing shows how the partner was chosen; Alerts are automated ops signals."
         actions={
-          <Button variant="outline" size="sm" type="button" onClick={() => void query.refetch()}>
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            onClick={() => {
+              if (supabase) {
+                void adminNotifyOverdueVendorResponses(supabase, { limit: 200 }).then(() => query.refetch());
+              } else {
+                void query.refetch();
+              }
+            }}
+          >
             Refresh
           </Button>
         }
@@ -358,6 +456,20 @@ export function BookingMonitoringPage() {
                 </button>
               ))}
             </div>
+            <div className="bm-tabs bm-status-tabs" role="tablist" aria-label="Booking status">
+              {STATUS_FILTER_TABS.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={statusFilter === t.id}
+                  onClick={() => setStatusFilter(t.id)}
+                  className={`bm-tab-btn bm-status-tab-btn bm-status-tab-btn--${t.id} ${statusFilter === t.id ? "is-active" : ""}`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
             <p className="bm-hint">{tabHint}</p>
           </Card>
 
@@ -378,97 +490,118 @@ export function BookingMonitoringPage() {
               <p className="bm-empty">No bookings in this view.</p>
             ) : (
               <>
-              <div className="bm-table-wrap">
-                <table className="bm-table">
-                  <thead>
-                    <tr>
-                      <th>Reference</th>
-                      <th>Status</th>
-                      <th>Partner</th>
-                      <th>Scheduled</th>
-                      <th>Service for</th>
-                      <th>Site</th>
-                      <th>Notes</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tableRows.map(({ row, risks }) => {
-                      const timing = formatTiming(row);
-                      const fb = isFallbackBooking(row);
-                      const otp = readBookingServiceOtpMeta(row.metadata);
-                      const otpLine =
-                        row.status === "accepted" || row.status === "in_progress" || row.status === "completed"
-                          ? `Codes: ${otp.startCode ?? "—"} / ${otp.happyCode ?? "—"}`
-                          : "";
-                      const cancelLine =
-                        row.status === "cancelled" && row.cancellation_reason
-                          ? ellipsize(row.cancellation_reason, 80)
-                          : "";
-                      const riskLine = risks.length > 0 ? risks.map((r) => r.label).join("; ") : "";
-                      const extraNotes = [riskLine, cancelLine, otpLine].filter(Boolean).join(" · ");
-                      const showNotesCell = fb || Boolean(extraNotes);
+                <div className="bm-table-wrap">
+                  <table className="bm-table bm-table--bookings">
+                    <thead>
+                      <tr>
+                        <th>Reference</th>
+                        <th>Status</th>
+                        <th>Partner</th>
+                        <th>Scheduled</th>
+                        <th>Service for</th>
+                        <th>Site</th>
+                        <th className="bm-col-routing">Routing</th>
+                        <th className="bm-col-alerts">Alerts</th>
+                        <th className="bm-col-action">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tableRows.map(({ row, risks }) => {
+                        const timing = formatTiming(row);
+                        const routing = getRoutingDisplay(row.metadata);
+                        const routingChipClass =
+                          routing.kind === "marketplace"
+                            ? "bm-routing-chip bm-routing-chip--marketplace"
+                            : routing.kind === "partner_fallback"
+                              ? "bm-routing-chip bm-routing-chip--fallback"
+                              : routing.kind === "preferred"
+                                ? "bm-routing-chip bm-routing-chip--preferred"
+                                : "bm-routing-chip";
+                        const sortedRisks = [...risks].sort((a, b) =>
+                          a.level === "high" && b.level !== "high" ? -1 : b.level === "high" && a.level !== "high" ? 1 : 0,
+                        );
+                        const primaryRisk = sortedRisks[0];
+                        const extraRiskCount = Math.max(0, sortedRisks.length - 1);
+                        const hasAlerts = primaryRisk != null;
 
-                      return (
-                        <tr key={row.id}>
-                          <td className="bm-cell-mono">
-                            {row.reference_code}
-                            {bucketTab === "amc" ? (
-                              <Badge
-                                tone="neutral"
-                                style={{ marginLeft: "0.35rem", fontSize: webTypography.size.xs }}
-                              >
-                                AMC
-                              </Badge>
-                            ) : null}
-                          </td>
-                          <td>
-                            <Badge tone="neutral">{row.status}</Badge>
-                          </td>
-                          <td>
-                            {row.vendorDisplayName ??
-                              (row.vendor_id ? row.vendor_id.slice(0, 8) + "…" : "Unassigned")}
-                          </td>
-                          <td className="bm-timing">
-                            {timing.scheduled}
-                            {timing.actual ? (
-                              <div className="bm-timing-actual">{timing.actual}</div>
-                            ) : null}
-                          </td>
-                          <td>{bookingForLabel(row)}</td>
-                          <td className="bm-table-note">{ellipsize(formatSiteLine(row.service_site_address), 48)}</td>
-                          <td className="bm-table-note">
-                            {!showNotesCell ? (
-                              "—"
-                            ) : (
-                              <>
-                                {fb ? (
-                                  <abbr
-                                    title={FALLBACK_ROUTING_HELP}
-                                    style={{ cursor: "help", textDecoration: "underline dotted" }}
-                                  >
-                                    Fallback routing
-                                  </abbr>
-                                ) : null}
-                                {fb && extraNotes ? " · " : null}
-                                {extraNotes}
-                              </>
-                            )}
-                          </td>
-                          <td>
-                            <Button size="sm" type="button" variant="outline" onClick={() => openActionMenu(row)}>
-                              Action
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <div style={{ padding: "0.75rem 1rem" }}>
-                <TablePaginationBar page={page} pageSize={PAGE_SIZE} total={totalBookings} onPageChange={setPage} />
-              </div>
+                        return (
+                          <tr key={row.id}>
+                            <td className="bm-cell-mono">
+                              {row.reference_code}
+                              {bucketTab === "amc" ? (
+                                <Badge
+                                  tone="neutral"
+                                  style={{ marginLeft: "0.35rem", fontSize: webTypography.size.xs }}
+                                >
+                                  AMC
+                                </Badge>
+                              ) : null}
+                            </td>
+                            <td>
+                              <Badge tone={bookingStatusTone(row.status)}>{adminBookingStatusLabel(row.status)}</Badge>
+                            </td>
+                            <td>
+                              {row.vendorDisplayName ??
+                                (row.vendor_id ? row.vendor_id.slice(0, 8) + "…" : "Unassigned")}
+                            </td>
+                            <td className="bm-timing">
+                              {timing.scheduled}
+                              {timing.actual ? (
+                                <div className="bm-timing-actual">{timing.actual}</div>
+                              ) : null}
+                            </td>
+                            <td>{bookingForLabel(row)}</td>
+                            <td className="bm-table-note">{ellipsize(formatSiteLine(row.service_site_address), 48)}</td>
+                            <td className="bm-col-routing">
+                              <div className="bm-cell-stack">
+                                {routing.kind === "none" ? (
+                                  <span className="bm-muted-dash">-</span>
+                                ) : (
+                                  <span title={routing.detail ?? undefined} className={routingChipClass}>
+                                    {routing.shortLabel}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="bm-col-alerts">
+                              <div className="bm-cell-stack">
+                                {!hasAlerts ? (
+                                  <span className="bm-muted-dash">-</span>
+                                ) : (
+                                  <>
+                                    {primaryRisk ? (
+                                      <span
+                                        className={`bm-alert-chip bm-alert-chip--${primaryRisk.level}`}
+                                        title={primaryRisk.label}
+                                      >
+                                        {primaryRisk.label}
+                                      </span>
+                                    ) : null}
+                                    {extraRiskCount > 0 ? (
+                                      <span className="bm-alert-chip bm-alert-chip--more">
+                                        +{extraRiskCount} more in Action
+                                      </span>
+                                    ) : null}
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                            <td className="bm-col-action">
+                              <div className="bm-cell-stack bm-cell-stack--end">
+                                <Button size="sm" type="button" variant="outline" onClick={() => openActionMenu(row)}>
+                                  Action
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ padding: "0.75rem 1rem" }}>
+                  <TablePaginationBar page={page} pageSize={PAGE_SIZE} total={totalBookings} onPageChange={setPage} />
+                </div>
               </>
             )}
           </Card>
@@ -503,7 +636,9 @@ export function BookingMonitoringPage() {
               }}
             >
               <dt style={{ color: "var(--wb-muted-fg)" }}>Status</dt>
-              <dd style={{ margin: 0 }}>{actionRow.status}</dd>
+              <dd style={{ margin: 0 }}>
+                <Badge tone={bookingStatusTone(actionRow.status)}>{adminBookingStatusLabel(actionRow.status)}</Badge>
+              </dd>
               <dt style={{ color: "var(--wb-muted-fg)" }}>Partner</dt>
               <dd style={{ margin: 0 }}>
                 {actionRow.vendorDisplayName ??
@@ -521,13 +656,68 @@ export function BookingMonitoringPage() {
                   </dd>
                 </>
               ) : null}
-              {isFallbackBooking(actionRow) ? (
+              {getRoutingDisplay(actionRow.metadata).detail ? (
                 <>
-                  <dt style={{ color: "var(--wb-muted-fg)" }}>Routing</dt>
-                  <dd style={{ margin: 0 }}>{FALLBACK_ROUTING_HELP}</dd>
+                  <dt style={{ color: "var(--wb-muted-fg)" }}>Routing note</dt>
+                  <dd style={{ margin: 0, lineHeight: 1.45 }}>{getRoutingDisplay(actionRow.metadata).detail}</dd>
+                </>
+              ) : null}
+              {actionRow.customer_notes?.trim() ? (
+                <>
+                  <dt style={{ color: "var(--wb-muted-fg)" }}>Customer notes</dt>
+                  <dd style={{ margin: 0, lineHeight: 1.45 }}>{actionRow.customer_notes.trim()}</dd>
+                </>
+              ) : null}
+              {actionRow.status === "cancelled" && actionRow.cancellation_reason ? (
+                <>
+                  <dt style={{ color: "var(--wb-muted-fg)" }}>Cancellation</dt>
+                  <dd style={{ margin: 0, lineHeight: 1.45 }}>{actionRow.cancellation_reason}</dd>
+                </>
+              ) : null}
+              {actionRow.status === "accepted" ||
+                actionRow.status === "in_progress" ||
+                actionRow.status === "completed" ? (
+                <>
+                  <dt style={{ color: "var(--wb-muted-fg)" }}>Visit codes</dt>
+                  <dd style={{ margin: 0, fontFamily: "ui-monospace, monospace", fontSize: webTypography.size.xs }}>
+                    {(() => {
+                      const otp = readBookingServiceOtpMeta(actionRow.metadata);
+                      return `${otp.startCode ?? "-"} / ${otp.happyCode ?? "-"}`;
+                    })()}
+                  </dd>
                 </>
               ) : null}
             </dl>
+
+            {formatRoutingDetailLines(actionRow, vendorNameById).length > 0 ? (
+              <dl
+                style={{
+                  margin: 0,
+                  display: "grid",
+                  gridTemplateColumns: "auto 1fr",
+                  gap: "0.35rem 1rem",
+                  fontSize: webTypography.size.sm,
+                  padding: "0.65rem 0.75rem",
+                  borderRadius: 8,
+                  background: "var(--wb-muted)",
+                }}
+              >
+                {formatRoutingDetailLines(actionRow, vendorNameById).map((line) => (
+                  <Fragment key={line.label}>
+                    <dt style={{ color: "var(--wb-muted-fg)" }}>{line.label}</dt>
+                    <dd style={{ margin: 0 }}>{line.value}</dd>
+                  </Fragment>
+                ))}
+              </dl>
+            ) : null}
+
+            {(getRoutingDisplay(actionRow.metadata).kind === "partner_fallback" ||
+              getRoutingDisplay(actionRow.metadata).kind === "marketplace") && (
+                <p style={{ margin: 0, fontSize: webTypography.size.sm }}>
+                  <Link to="/dashboard/booking-routing">Open Booking routing</Link> for marketplace defaults and
+                  reassignment history.
+                </p>
+              )}
 
             {detectOpsRisks(actionRow).length > 0 ? (
               <p style={{ margin: 0, fontSize: webTypography.size.sm, color: "var(--wb-destructive, #b91c1c)" }}>
@@ -577,27 +767,50 @@ export function BookingMonitoringPage() {
               ) : null}
 
               {detectOpsRisks(actionRow).length > 0 ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  loading={opsFlagMut.isPending}
-                  disabled={mutating && !opsFlagMut.isPending}
-                  onClick={() =>
-                    void opsFlagMut.mutateAsync({
-                      bookingId: actionRow.id,
-                      type: detectOpsRisks(actionRow)[0]!.type,
-                    })
-                  }
-                >
-                  Flag ops issue on booking
-                </Button>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  <p style={{ margin: 0, fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)" }}>
+                    Record an ops alert on this booking for reporting (saved on the booking record).
+                  </p>
+                  {detectOpsRisks(actionRow).length > 1 ? (
+                    <label className="dash-card-label" htmlFor="ops-issue-type-select">
+                      Alert type
+                    </label>
+                  ) : null}
+                  {detectOpsRisks(actionRow).length > 1 ? (
+                    <select
+                      id="ops-issue-type-select"
+                      className="vd-select bm-select"
+                      value={opsIssueType}
+                      onChange={(e) => setOpsIssueType(e.target.value as OpsIssueType)}
+                    >
+                      {detectOpsRisks(actionRow).map((r) => (
+                        <option key={r.type} value={r.type}>
+                          {OPS_ISSUE_LABELS[r.type]} - {r.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    loading={opsFlagMut.isPending}
+                    disabled={mutating && !opsFlagMut.isPending}
+                    onClick={() => {
+                      const type = (opsIssueType || detectOpsRisks(actionRow)[0]?.type) as OpsIssueType;
+                      if (!type) return;
+                      void opsFlagMut.mutateAsync({ bookingId: actionRow.id, type });
+                    }}
+                  >
+                    Record ops alert on booking
+                  </Button>
+                </div>
               ) : null}
 
               {!hasAssignableAction(actionRow, detectOpsRisks(actionRow)) ? (
                 <p style={{ margin: 0, fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)" }}>
-                  No routing actions apply to this booking in its current state. Use Booking routing or messaging for
-                  other workflows.
+                  No assignment actions for this state. Use{" "}
+                  <Link to="/dashboard/booking-routing">Booking routing</Link> or support messaging if needed.
                 </p>
               ) : null}
             </div>
@@ -613,7 +826,7 @@ export function BookingMonitoringPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
             <p style={{ margin: 0, fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)", lineHeight: 1.5 }}>
               The partner&apos;s one-hour acceptance window starts when you confirm (unless a marketplace window is
-              already active—then timers follow <code style={{ fontSize: "0.85em" }}>open_at</code>).
+              already active-then timers follow <code style={{ fontSize: "0.85em" }}>open_at</code>).
             </p>
             <label className="dash-card-label" htmlFor="assign-vendor-modal-select">
               Approved partner

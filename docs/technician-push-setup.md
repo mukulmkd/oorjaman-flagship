@@ -1,4 +1,4 @@
-# Technician app — remote push (Expo)
+# Technician app - remote push (Expo)
 
 Field-support chat uses **Expo Push** for notifications when the technician app is killed or in the background.
 
@@ -30,11 +30,11 @@ supabase secrets set PUSH_DISPATCH_SECRET="<random-secret>"
 
 Optional (higher rate limits): `supabase secrets set EXPO_ACCESS_TOKEN="<expo-access-token>"`
 
-`PUSH_DISPATCH_SECRET` is shared with `send-customer-expo-push` on the same Supabase project—use one secret value for both functions.
+`PUSH_DISPATCH_SECRET` is shared with `send-customer-expo-push` on the same Supabase project-use one secret value for both functions.
 
 ## 4. Dispatch outbox → edge function
 
-**Option A — immediate (recommended for production)**
+**Option A - immediate (recommended for production)**
 
 In the Supabase SQL editor (once per project):
 
@@ -47,15 +47,19 @@ The `technician_push_outbox` insert trigger calls this URL via `pg_net`.
 
 If you already set `app.push_dispatch_secret` for the customer app, you only need to add `app.technician_push_function_url`.
 
-**Option B — scheduled fallback**
+**Option B - scheduled fallback**
 
 Supabase Dashboard → Edge Functions → `send-technician-expo-push` → Cron: every 1 minute, body `{}`, Authorization: `Bearer <service_role_key>`.
 
 Processes any queued rows if Option A is not configured.
 
-## 5. iOS / Android credentials
+## 5. Chat notification sound
 
-- **iOS**: APNs key in EAS (`eas credentials`) — requires Apple Developer Program.
+Same as customer app: **chat_message.wav** for support chat (foreground local + background Expo push). Rebuild native app after updating `assets/sounds/chat_message.wav` and the `expo-notifications` plugin entry in `app.json`.
+
+## 6. iOS / Android credentials
+
+- **iOS**: APNs key in EAS (`eas credentials`) - requires Apple Developer Program.
 - **Android**: FCM via EAS (handled when you run `eas build`).
 
 Development builds from Expo Go have limited push support; use a **development build** or **production build** for end-to-end testing.

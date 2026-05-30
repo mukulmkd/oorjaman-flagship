@@ -1,6 +1,6 @@
 import { webTypography } from "./../styles/typography";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   adminGetPlatformSettings,
   adminListFallbackBookingsPaged,
@@ -9,49 +9,47 @@ import {
   bookingUsedFallbackVendor,
   queryKeys,
   readBookingRecipientMeta,
+  readBookingVendorRoutingMeta,
   vendorApi,
+  type AdminFallbackRoutingFilter,
+  type BookingRow,
 } from "@oorjaman/api";
-import type { BookingRow } from "@oorjaman/api";
 import { formatDisplayDateTime } from "@oorjaman/utils";
 import { Badge, Button, Card, Modal, PageHeader, SkeletonBlock, TableRowsSkeleton } from "@oorjaman/web-ui";
+import {
+  formatRoutingDetailLines,
+  getRoutingDisplay,
+  ROUTING_REASON_LABELS,
+} from "../lib/booking-routing-display";
 import { useSupabase } from "../lib/supabase-context";
 import { TablePaginationBar } from "../components/TablePaginationBar";
 import "../layouts/dashboard-layout.css";
 
 const PAGE_SIZE = 10;
 
-const REASON_LABELS: Record<string, string> = {
-  preferred_ok: "Preferred served",
-  preferred_ineligible_customer_fallback: "Fallback: customer default",
-  preferred_ineligible_platform_default: "Fallback: platform default",
-  preferred_missing_customer_fallback: "Preferred missing - customer default",
-  preferred_missing_platform_default: "Preferred missing - platform default",
-};
+const ROUTING_TABS: { id: AdminFallbackRoutingFilter; label: string; hint: string }[] = [
+  {
+    id: "partner_fallback",
+    label: "Partner reassignment",
+    hint: "Customer picked a specific partner but was routed to backup or platform default.",
+  },
+  {
+    id: "marketplace",
+    label: "Any partner (marketplace)",
+    hint: "Customer chose any available partner, or AMC awaiting marketplace float.",
+  },
+  {
+    id: "all",
+    label: "All flagged",
+    hint: "Every booking with used_fallback in metadata (includes marketplace).",
+  },
+];
 
 function awaitingVendorReadiness(metadata: BookingRow["metadata"]): boolean {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return false;
   const vr = (metadata as Record<string, unknown>).vendor_routing;
   if (!vr || typeof vr !== "object" || Array.isArray(vr)) return false;
   return (vr as Record<string, unknown>).awaiting_vendor_readiness === true;
-}
-
-function routingMeta(row: BookingRow): {
-  requested?: string;
-  resolved?: string;
-  usedFallback?: boolean;
-  reason?: string;
-} {
-  const m = row.metadata;
-  if (!m || typeof m !== "object" || Array.isArray(m)) return {};
-  const vr = (m as Record<string, unknown>).vendor_routing;
-  if (!vr || typeof vr !== "object" || Array.isArray(vr)) return {};
-  const o = vr as Record<string, unknown>;
-  return {
-    requested: typeof o.requested_vendor_id === "string" ? o.requested_vendor_id : undefined,
-    resolved: typeof o.resolved_vendor_id === "string" ? o.resolved_vendor_id : undefined,
-    usedFallback: o.used_fallback === true,
-    reason: typeof o.reason === "string" ? o.reason : undefined,
-  };
 }
 
 function serviceForLabel(row: BookingRow): string {
@@ -64,8 +62,13 @@ export function BookingRoutingPage() {
   const supabase = useSupabase();
   const qc = useQueryClient();
   const [selectedVendorId, setSelectedVendorId] = useState<string>("");
+  const [routingTab, setRoutingTab] = useState<AdminFallbackRoutingFilter>("partner_fallback");
   const [page, setPage] = useState(1);
   const [actionRow, setActionRow] = useState<BookingRow | null>(null);
+
+  useEffect(() => {
+    setPage(1);
+  }, [routingTab]);
 
   const settingsQuery = useQuery({
     queryKey: queryKeys.platform.settings(),
@@ -80,8 +83,9 @@ export function BookingRoutingPage() {
   });
 
   const fallbackBookingsQuery = useQuery({
-    queryKey: queryKeys.bookings.adminFallbacksPage(page, PAGE_SIZE),
-    queryFn: () => adminListFallbackBookingsPaged(supabase!, { page, pageSize: PAGE_SIZE }),
+    queryKey: queryKeys.bookings.adminFallbacksPage(page, PAGE_SIZE, routingTab),
+    queryFn: () =>
+      adminListFallbackBookingsPaged(supabase!, { page, pageSize: PAGE_SIZE, routingFilter: routingTab }),
     enabled: Boolean(supabase),
     placeholderData: (prev) => prev,
   });
@@ -126,15 +130,18 @@ export function BookingRoutingPage() {
   });
 
   const fmtTime = (iso: string) => formatDisplayDateTime(iso);
+  const tabHint = ROUTING_TABS.find((t) => t.id === routingTab)?.hint ?? "";
 
   const canNudge =
-    actionRow && bookingUsedFallbackVendor(actionRow) && actionRow.status === "confirmed" ? actionRow : null;
+    actionRow && bookingUsedFallbackVendor(actionRow) && actionRow.status === "confirmed" && actionRow.vendor_id
+      ? actionRow
+      : null;
 
   return (
     <>
       <PageHeader
         title="Booking routing"
-        subtitle="Set the platform-wide fallback vendor when a customer’s preferred partner cannot serve their saved location. Monitor automatic reassignments."
+        subtitle="Platform default partner, partner reassignment when a preferred vendor cannot serve the location, and any-partner marketplace bookings."
         actions={
           <Button variant="outline" size="sm" type="button" onClick={() => void fallbackBookingsQuery.refetch()}>
             Refresh activity
@@ -149,30 +156,25 @@ export function BookingRoutingPage() {
       ) : (
         <>
           <Card padded style={{ marginBottom: "1.25rem" }}>
-            <h2 style={{ margin: "0 0 0.75rem", fontSize: webTypography.size.md, fontWeight: webTypography.weight.semibold }}>Platform default vendor</h2>
+            <h2 style={{ margin: "0 0 0.75rem", fontSize: webTypography.size.md, fontWeight: webTypography.weight.semibold }}>
+              Platform default vendor
+            </h2>
             <p style={{ margin: "0 0 1rem", fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)", lineHeight: 1.5 }}>
-              Used after the customer’s own fallback (Partners tab) when the selected vendor doesn’t cover the service
-              area.
+              Used when the customer&apos;s own backup (Partners tab) cannot serve the saved location after their
+              preferred partner is ineligible.
             </p>
             {settingsQuery.isLoading || approvedVendorsQuery.isLoading ? (
               <SkeletonBlock style={{ height: 48, maxWidth: "28rem" }} />
             ) : (
               <>
-                <label htmlFor="default-vendor" style={{ display: "block", fontSize: webTypography.size.sm, marginBottom: "0.5rem" }}>
+                <label className="dash-card-label" htmlFor="default-vendor">
                   Default vendor
                 </label>
                 <select
                   id="default-vendor"
+                  className="vd-select vd-select--wide"
                   value={selectedVendorId}
                   onChange={(e) => setSelectedVendorId(e.target.value)}
-                  style={{
-                    width: "100%",
-                    maxWidth: "28rem",
-                    padding: "0.5rem 0.75rem",
-                    borderRadius: "8px",
-                    border: "1px solid var(--wb-border, #e5e5e5)",
-                    fontSize: webTypography.size.sm,
-                  }}
                 >
                   <option value="">- None (no platform fallback) -</option>
                   {(approvedVendorsQuery.data ?? []).map((v) => (
@@ -204,10 +206,24 @@ export function BookingRoutingPage() {
 
           <Card padded={false}>
             <div className="vd-card-head">
-              <h2 style={{ margin: 0, fontSize: webTypography.size.md, fontWeight: webTypography.weight.semibold }}>Fallback assignments</h2>
-              <p className="vd-note vd-note-spaced">
-                Bookings where the assigned partner was chosen automatically (metadata.vendor_routing.used_fallback).
-              </p>
+              <h2 style={{ margin: 0, fontSize: webTypography.size.md, fontWeight: webTypography.weight.semibold }}>
+                Routing activity
+              </h2>
+              <div className="bm-tabs" role="tablist" aria-label="Routing type" style={{ marginTop: "0.75rem" }}>
+                {ROUTING_TABS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={routingTab === t.id}
+                    onClick={() => setRoutingTab(t.id)}
+                    className={`bm-tab-btn ${routingTab === t.id ? "is-active" : ""}`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              <p className="vd-note vd-note-spaced">{tabHint}</p>
             </div>
             {fallbackBookingsQuery.isLoading ? (
               <div className="dash-table-skeleton-wrap">
@@ -215,18 +231,14 @@ export function BookingRoutingPage() {
               </div>
             ) : fallbackBookingsQuery.isError ? (
               <div className="bm-block">
-                <p className="dash-empty-title">
-                  Couldn&apos;t load fallback bookings
-                </p>
-                <p className="dash-empty-error">
-                  {(fallbackBookingsQuery.error as Error).message}
-                </p>
+                <p className="dash-empty-title">Couldn&apos;t load routing bookings</p>
+                <p className="dash-empty-error">{(fallbackBookingsQuery.error as Error).message}</p>
                 <Button variant="primary" size="sm" type="button" onClick={() => void fallbackBookingsQuery.refetch()}>
                   Retry
                 </Button>
               </div>
             ) : fallbackTotal === 0 ? (
-              <p className="vd-empty">No fallback bookings yet.</p>
+              <p className="vd-empty">No bookings in this view.</p>
             ) : (
               <>
                 <div className="bm-table-wrap">
@@ -236,17 +248,21 @@ export function BookingRoutingPage() {
                         <th>Reference</th>
                         <th>Status</th>
                         <th>Created</th>
-                        <th>Assigned vendor</th>
-                        <th>Reason</th>
+                        <th>Assigned partner</th>
+                        <th>Routing</th>
                         <th>Service for</th>
                         <th>Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {fallbackRows.map((row) => {
-                        const rm = routingMeta(row);
-                        const reasonLabel = rm.reason ? REASON_LABELS[rm.reason] ?? rm.reason : "-";
-                        const assignedName = row.vendor_id ? vendorNameById.get(row.vendor_id) ?? row.vendor_id.slice(0, 8) : "-";
+                        const routing = getRoutingDisplay(row.metadata);
+                        const reasonKey = readBookingVendorRoutingMeta(row.metadata)?.reason;
+                        const reasonLabel =
+                          (reasonKey && ROUTING_REASON_LABELS[reasonKey]) || routing.shortLabel;
+                        const assignedName = row.vendor_id
+                          ? (vendorNameById.get(row.vendor_id) ?? row.vendor_id.slice(0, 8))
+                          : "Unassigned";
                         return (
                           <tr key={row.id}>
                             <td className="bm-cell-mono">
@@ -257,11 +273,18 @@ export function BookingRoutingPage() {
                             </td>
                             <td>{fmtTime(row.created_at)}</td>
                             <td>{assignedName}</td>
-                            <td>{reasonLabel}</td>
+                            <td className="bm-col-routing">
+                              <span
+                                title={routing.detail ?? undefined}
+                                className={`bm-routing-chip bm-routing-chip--${routing.kind === "marketplace" ? "marketplace" : routing.kind === "partner_fallback" ? "fallback" : "preferred"}`}
+                              >
+                                {reasonLabel}
+                              </span>
+                            </td>
                             <td>{serviceForLabel(row)}</td>
                             <td>
                               <Button size="sm" type="button" variant="outline" onClick={() => setActionRow(row)}>
-                                Action
+                                Details
                               </Button>
                             </td>
                           </tr>
@@ -284,7 +307,7 @@ export function BookingRoutingPage() {
 
           <Modal
             open={Boolean(actionRow)}
-            title={actionRow ? `Fallback · ${actionRow.reference_code}` : "Booking"}
+            title={actionRow ? `Routing · ${actionRow.reference_code}` : "Booking"}
             onClose={() => {
               if (nudgeVendorMut.isPending) return;
               setActionRow(null);
@@ -298,12 +321,29 @@ export function BookingRoutingPage() {
                 <p style={{ margin: 0 }}>
                   <strong>Service for:</strong> {serviceForLabel(actionRow)}
                 </p>
-                <p style={{ margin: 0 }}>
-                  <strong>Reason:</strong>{" "}
-                  {routingMeta(actionRow).reason
-                    ? REASON_LABELS[routingMeta(actionRow).reason!] ?? routingMeta(actionRow).reason
-                    : "—"}
-                </p>
+                {getRoutingDisplay(actionRow.metadata).detail ? (
+                  <p style={{ margin: 0, lineHeight: 1.45 }}>{getRoutingDisplay(actionRow.metadata).detail}</p>
+                ) : null}
+                <dl
+                  style={{
+                    margin: 0,
+                    display: "grid",
+                    gridTemplateColumns: "auto 1fr",
+                    gap: "0.35rem 1rem",
+                  }}
+                >
+                  {formatRoutingDetailLines(actionRow, vendorNameById).map((line) => (
+                    <Fragment key={line.label}>
+                      <dt style={{ color: "var(--wb-muted-fg)" }}>{line.label}</dt>
+                      <dd style={{ margin: 0 }}>{line.value}</dd>
+                    </Fragment>
+                  ))}
+                </dl>
+                {actionRow.customer_notes?.trim() ? (
+                  <p style={{ margin: 0 }}>
+                    <strong>Customer notes:</strong> {actionRow.customer_notes.trim()}
+                  </p>
+                ) : null}
                 {canNudge ? (
                   <Button
                     variant="outline"
@@ -313,10 +353,12 @@ export function BookingRoutingPage() {
                     disabled={nudgeVendorMut.isPending}
                     onClick={() => void nudgeVendorMut.mutateAsync(canNudge.id)}
                   >
-                    {awaitingVendorReadiness(canNudge.metadata) ? "Remind vendor" : "Notify vendor"}
+                    {awaitingVendorReadiness(canNudge.metadata) ? "Remind assigned partner" : "Notify assigned partner"}
                   </Button>
                 ) : (
-                  <p style={{ margin: 0, color: "var(--wb-muted-fg)" }}>No vendor notification applies for this row.</p>
+                  <p style={{ margin: 0, color: "var(--wb-muted-fg)" }}>
+                    Partner nudge applies only to confirmed bookings with an assigned partner.
+                  </p>
                 )}
                 <div className="web-modal-actions">
                   <Button variant="outline" type="button" disabled={nudgeVendorMut.isPending} onClick={() => setActionRow(null)}>

@@ -120,8 +120,8 @@ export const queryKeys = {
     vendorBookingsPage: (page: number, pageSize: number) =>
       [...queryKeys.bookings.all(), "vendor-all-paged", page, pageSize] as const,
     adminFallbacks: () => [...queryKeys.bookings.all(), "admin-fallbacks"] as const,
-    adminFallbacksPage: (page: number, pageSize: number) =>
-      [...queryKeys.bookings.all(), "admin-fallbacks-paged", page, pageSize] as const,
+    adminFallbacksPage: (page: number, pageSize: number, routingFilter?: string) =>
+      [...queryKeys.bookings.all(), "admin-fallbacks-paged", page, pageSize, routingFilter ?? "all"] as const,
     adminMonitoring: (tab: string, limit?: number) =>
       [...queryKeys.bookings.all(), "admin-monitoring", tab, limit ?? "default"] as const,
     adminMonitoringPage: (tab: string, page: number, pageSize: number) =>
@@ -129,12 +129,12 @@ export const queryKeys = {
     /** Admin bookings page: one_time vs AMC */
     adminBookingsBucket: (bucket: string, limit?: number) =>
       [...queryKeys.bookings.all(), "admin-bucket", bucket, limit ?? "default"] as const,
-    adminBookingsBucketPage: (bucket: string, page: number, pageSize: number) =>
-      [...queryKeys.bookings.all(), "admin-bucket-paged", bucket, page, pageSize] as const,
+    adminBookingsBucketPage: (bucket: string, page: number, pageSize: number, status?: string) =>
+      [...queryKeys.bookings.all(), "admin-bucket-paged", bucket, page, pageSize, status ?? "all"] as const,
     opsExceptions: (limit?: number) =>
       [...queryKeys.bookings.all(), "ops-exceptions", limit ?? "default"] as const,
-    opsExceptionsPage: (page: number, pageSize: number) =>
-      [...queryKeys.bookings.all(), "ops-exceptions-paged", page, pageSize] as const,
+    opsExceptionsPage: (page: number, pageSize: number, filter?: string) =>
+      [...queryKeys.bookings.all(), "ops-exceptions-paged", page, pageSize, filter ?? "actionable"] as const,
     notificationInbox: (audience: "admin" | "vendor", limit?: number) =>
       [...queryKeys.bookings.all(), "notification-inbox", audience, limit ?? 40] as const,
     notificationUnreadCount: (audience: "admin" | "vendor") =>

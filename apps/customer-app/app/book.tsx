@@ -262,7 +262,7 @@ function VisitPricingCard({ breakdown, profileCity }: VisitPricingCardProps) {
   const cityLine = profileCity?.trim() || null;
 
   const areaHint = breakdown.matched_tier_label
-    ? `${breakdown.matched_tier_label} — applies to visits in your area`
+    ? `${breakdown.matched_tier_label} - applies to visits in your area`
     : breakdown.matched_city
       ? `Rates for ${breakdown.matched_city.trim()}`
       : "Standard visit rates for your area";
@@ -427,11 +427,11 @@ function describeRoutingForCustomer(p: RoutingPreviewOk): string {
   }
   switch (routing.reason) {
     case "preferred_ineligible_customer_fallback":
-      return `${requestedName} does not cover your saved service area for this visit. OorjaMan will assign ${resolvedName} — the backup partner you saved in Profile.`;
+      return `${requestedName} does not cover your saved service area for this visit. OorjaMan will assign ${resolvedName} - the backup partner you saved in Profile.`;
     case "preferred_ineligible_platform_default":
       return `${requestedName} does not cover your saved service area. OorjaMan will assign ${resolvedName} as your service partner.`;
     case "preferred_missing_customer_fallback":
-      return `We could not match your choice to your saved area. OorjaMan will assign ${resolvedName} — the backup partner you saved in Profile.`;
+      return `We could not match your choice to your saved area. OorjaMan will assign ${resolvedName} - the backup partner you saved in Profile.`;
     case "preferred_missing_platform_default":
       return `We could not match your choice to your saved area. OorjaMan will assign ${resolvedName} as your service partner.`;
     default:
@@ -804,7 +804,7 @@ export default function BookVisitModal() {
     const count = preferredInAreaVendors.length;
     if (count === 0) {
       if (locationSignals.pincode?.trim() || locationSignals.city || locationSignals.state) {
-        return "No partners cover your selected location yet — call support or try a nearby PIN.";
+        return "No partners cover your selected location yet - call support or try a nearby PIN.";
       }
       return "Add your service address in Profile so we can match partners to your site.";
     }
@@ -1082,17 +1082,14 @@ export default function BookVisitModal() {
                   ? {
                     marketplace: {
                       mode: "default_vendor",
-                      floated: true,
-                      open_at: nowIso,
-                      open_until: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+                      floated: false,
+                      awaiting_admin_float: true,
                       accept_window_hours: 1,
                       post_7pm_admin_queue: true,
                       auto_routed_from_preferred_unavailable: vendorPick.mode === "preferred" && !preferredAvailable,
                       broadcast_filter: "customer_pin",
                       filter_pincode: filterPincode,
                       filter_city: signals.city?.trim() || null,
-                      broadcast_channels: ["in_app", "email", "sms", "whatsapp"] as unknown as Json,
-                      notified_at: nowIso,
                     } as Json,
                   }
                   : {}),
@@ -1317,12 +1314,12 @@ export default function BookVisitModal() {
       <View style={[styles.flex, { paddingBottom: insets.bottom }]}>
         {modalHeader}
         <View style={styles.root}>
-        <ErrorStateCard
-          title="Couldn't load AMC visit"
-          message={(amcSlotQuery.error as Error).message}
-          onRetry={() => void amcSlotQuery.refetch()}
-          retryLabel="Retry"
-        />
+          <ErrorStateCard
+            title="Couldn't load AMC visit"
+            message={(amcSlotQuery.error as Error).message}
+            onRetry={() => void amcSlotQuery.refetch()}
+            retryLabel="Retry"
+          />
         </View>
       </View>
     );
@@ -1407,7 +1404,7 @@ export default function BookVisitModal() {
                             </View>
                             {!inArea ? (
                               <Text style={styles.warnMuted}>
-                                May not cover your saved PIN — OorjaMan may assign another partner if needed.
+                                May not cover your saved PIN - OorjaMan may assign another partner if needed.
                               </Text>
                             ) : null}
                             {v.trade_name ? <Text style={styles.vendorTradeSmall}>{v.trade_name}</Text> : null}
@@ -1470,7 +1467,7 @@ export default function BookVisitModal() {
               <View style={styles.ruleBanner}>
                 <Card variant="muted" padded>
                   <Text style={styles.ruleBannerText}>
-                    It&apos;s after 7 PM IST — same-day booking isn&apos;t offered; afternoon slots apply on your first
+                    It&apos;s after 7 PM IST - same-day booking isn&apos;t offered; afternoon slots apply on your first
                     selectable day.
                   </Text>
                 </Card>
@@ -1568,7 +1565,7 @@ export default function BookVisitModal() {
               <Card variant="muted" padded>
                 <Text style={styles.muted}>
                   {vendorPick.mode === "preferred" && vendorId
-                    ? "No open slots from this partner on this day — try another date."
+                    ? "No open slots from this partner on this day - try another date."
                     : "No slots left on this date - pick another day."}
                 </Text>
               </Card>
@@ -1621,7 +1618,7 @@ export default function BookVisitModal() {
                   <Text style={styles.routingErrorTitle}>No partner available for this address</Text>
                   <Text style={styles.routingErrorBody}>
                     Update your saved service address, choose another partner here, or set your default partners in
-                    Profile — Preferred partners — then try again.
+                    Profile - Preferred partners - then try again.
                   </Text>
                   <Pressable
                     accessibilityRole="button"
@@ -1641,7 +1638,7 @@ export default function BookVisitModal() {
                   <Text style={styles.slaNoteText}>
                     {solarSizing.reason === "missing_details"
                       ? "Add installed capacity and panel count under Solar & site in Profile, then save. One-time pricing uses the same details as AMC."
-                      : `Your saved size is ${solarSizing.capacityKw} kW. We price 3, 4, 5, 6, 8, and 10 kW systems — update Profile to a supported band.`}
+                      : `Your saved size is ${solarSizing.capacityKw} kW. We price 3, 4, 5, 6, 8, and 10 kW systems - update Profile to a supported band.`}
                   </Text>
                   <Pressable
                     accessibilityRole="button"
@@ -1715,7 +1712,7 @@ export default function BookVisitModal() {
               <View style={styles.slaNote}>
                 <Card variant="muted" padded>
                   <Text style={styles.slaNoteText}>
-                    After payment, OorjaMan assigns your service partner. Once assigned, they confirm your slot — check My
+                    After payment, OorjaMan assigns your service partner. Once assigned, they confirm your slot - check My
                     bookings for updates.
                   </Text>
                 </Card>
@@ -1833,7 +1830,7 @@ export default function BookVisitModal() {
                   const e = addressBook.entries.find((x) => x.id === addressBook.defaultId);
                   if (!e) return "";
                   const body = serviceAddressFormatted(e.address);
-                  return e.label.trim() ? `${e.label} — ${body}` : body;
+                  return e.label.trim() ? `${e.label} - ${body}` : body;
                 })()}
               </Text>
             ) : null}

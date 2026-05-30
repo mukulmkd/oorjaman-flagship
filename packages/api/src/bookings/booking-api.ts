@@ -1,7 +1,23 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { BookingRow, BookingStatus, Database, Json, OpsBookingExceptionRow, TechnicianLocationRow } from "../database.types";
-import { offsetRangeForPage, type PagedParams, type PagedResult } from "../page-range";
-import { requireSessionUserId, SupabaseApiError, takeRows, takeSingleRow } from "../result";
+import type {
+  BookingRow,
+  BookingStatus,
+  Database,
+  Json,
+  OpsBookingExceptionRow,
+  TechnicianLocationRow,
+} from "../database.types";
+import {
+  offsetRangeForPage,
+  type PagedParams,
+  type PagedResult,
+} from "../page-range";
+import {
+  requireSessionUserId,
+  SupabaseApiError,
+  takeRows,
+  takeSingleRow,
+} from "../result";
 import {
   adminBookingCancelledCopy,
   adminMarketplaceFloatedCopy,
@@ -15,7 +31,10 @@ import {
   emitVendorBookingNotification,
 } from "../notifications/booking-notifications";
 import { ensureCancellationPenaltySettlement } from "../finance/vendor-settlement-api";
-import { emitMarketplaceNotificationEvents, readMarketplaceBroadcastFilter } from "../notifications/marketplace-notifications";
+import {
+  emitMarketplaceNotificationEvents,
+  readMarketplaceBroadcastFilter,
+} from "../notifications/marketplace-notifications";
 import * as vendorApi from "../vendors/vendor-api";
 import {
   customerLocationSignalsFromServiceSiteAddress,
@@ -38,9 +57,13 @@ export const VENDOR_CANCEL_REPEAT_LOOKBACK_MS = 30 * 24 * 60 * 60 * 1000;
  * 2. `metadata.marketplace.open_at` when default-vendor marketplace is floated (clock starts when ops opens the job)
  * 3. `booking.created_at` (legacy / one-off paid requests)
  */
-function resolveVendorResponseAnchorIso(booking: Pick<BookingRow, "created_at" | "metadata">): string | null {
+function resolveVendorResponseAnchorIso(
+  booking: Pick<BookingRow, "created_at" | "metadata">,
+): string | null {
   const m =
-    booking.metadata && typeof booking.metadata === "object" && !Array.isArray(booking.metadata)
+    booking.metadata &&
+    typeof booking.metadata === "object" &&
+    !Array.isArray(booking.metadata)
       ? (booking.metadata as Record<string, unknown>)
       : null;
   if (!m) return null;
@@ -50,16 +73,27 @@ function resolveVendorResponseAnchorIso(booking: Pick<BookingRow, "created_at" |
     if (typeof anchor === "string" && anchor.trim()) return anchor.trim();
   }
   const marketplace = m.marketplace;
-  if (marketplace && typeof marketplace === "object" && !Array.isArray(marketplace)) {
+  if (
+    marketplace &&
+    typeof marketplace === "object" &&
+    !Array.isArray(marketplace)
+  ) {
     const mp = marketplace as Record<string, unknown>;
-    if (mp.mode === "default_vendor" && mp.floated === true && typeof mp.open_at === "string" && mp.open_at.trim()) {
+    if (
+      mp.mode === "default_vendor" &&
+      mp.floated === true &&
+      typeof mp.open_at === "string" &&
+      mp.open_at.trim()
+    ) {
       return mp.open_at.trim();
     }
   }
   return null;
 }
 
-export function vendorResponseDeadline(booking: Pick<BookingRow, "created_at" | "metadata">): Date {
+export function vendorResponseDeadline(
+  booking: Pick<BookingRow, "created_at" | "metadata">,
+): Date {
   const anchorIso = resolveVendorResponseAnchorIso(booking);
   if (anchorIso) {
     const t = new Date(anchorIso).getTime();
@@ -67,7 +101,9 @@ export function vendorResponseDeadline(booking: Pick<BookingRow, "created_at" | 
       return new Date(t + VENDOR_BOOKING_RESPONSE_WINDOW_MS);
     }
   }
-  return new Date(new Date(booking.created_at).getTime() + VENDOR_BOOKING_RESPONSE_WINDOW_MS);
+  return new Date(
+    new Date(booking.created_at).getTime() + VENDOR_BOOKING_RESPONSE_WINDOW_MS,
+  );
 }
 
 export function isWithinVendorResponseWindow(
@@ -84,32 +120,48 @@ export function customerCancellationPenaltyEligible(
   return booking.status === "accepted" && Boolean(booking.technician_id);
 }
 
-function readBookingVendorAcceptanceAt(metadata: Json | null | undefined): string | null {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+function readBookingVendorAcceptanceAt(
+  metadata: Json | null | undefined,
+): string | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata))
+    return null;
   const raw = (metadata as Record<string, unknown>).vendor_acceptance;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const acceptedAt = (raw as Record<string, unknown>).accepted_at;
-  return typeof acceptedAt === "string" && acceptedAt.trim() ? acceptedAt : null;
+  return typeof acceptedAt === "string" && acceptedAt.trim()
+    ? acceptedAt
+    : null;
 }
 
 /** Anchor for the 1-hour fee-free window: vendor acceptance time once a technician is assigned. */
 export function customerCancellationPenaltyAnchorAt(
-  booking: Pick<BookingRow, "created_at" | "metadata" | "status" | "technician_id">,
+  booking: Pick<
+    BookingRow,
+    "created_at" | "metadata" | "status" | "technician_id"
+  >,
 ): string | null {
   if (!customerCancellationPenaltyEligible(booking)) return null;
   return readBookingVendorAcceptanceAt(booking.metadata) ?? booking.created_at;
 }
 
 export function customerCancellationDeadline(
-  booking: Pick<BookingRow, "created_at" | "metadata" | "status" | "technician_id">,
+  booking: Pick<
+    BookingRow,
+    "created_at" | "metadata" | "status" | "technician_id"
+  >,
 ): Date {
   const anchorIso = customerCancellationPenaltyAnchorAt(booking);
-  const anchorMs = anchorIso ? new Date(anchorIso).getTime() : new Date(booking.created_at).getTime();
+  const anchorMs = anchorIso
+    ? new Date(anchorIso).getTime()
+    : new Date(booking.created_at).getTime();
   return new Date(anchorMs + CUSTOMER_BOOKING_CANCELLATION_WINDOW_MS);
 }
 
 export function isWithinCustomerCancellationWindow(
-  booking: Pick<BookingRow, "created_at" | "metadata" | "status" | "technician_id">,
+  booking: Pick<
+    BookingRow,
+    "created_at" | "metadata" | "status" | "technician_id"
+  >,
   at: Date = new Date(),
 ): boolean {
   if (!customerCancellationPenaltyEligible(booking)) return true;
@@ -166,30 +218,10 @@ export async function createBookingAsCustomer(
     .single();
 
   const booking = takeSingleRow(data, error);
-  if (booking.vendor_id == null) {
-    const m =
-      booking.metadata && typeof booking.metadata === "object" && !Array.isArray(booking.metadata)
-        ? (booking.metadata as Record<string, unknown>)
-        : null;
-    const marketplace =
-      m?.marketplace && typeof m.marketplace === "object" && !Array.isArray(m.marketplace)
-        ? (m.marketplace as Record<string, unknown>)
-        : null;
-    if (marketplace?.mode === "default_vendor" && marketplace?.floated === true) {
-      const vendorCount = await emitMarketplaceNotificationEvents(client, {
-        booking,
-        eventType: "marketplace_broadcast",
-        channels: ["in_app", "email", "sms", "whatsapp"],
-        note: "Marketplace request broadcasted.",
-      });
-      const copy = adminMarketplaceFloatedCopy(booking, vendorCount);
-      await emitAdminBookingNotification(client, {
-        booking,
-        eventType: "admin_marketplace_floated",
-        ...copy,
-        note: "Auto-floated on booking create.",
-      });
-    }
+  if (booking.status === "confirmed") {
+    const { postBookingConfirmedNotifications } =
+      await import("./booking-confirm-notifications");
+    return postBookingConfirmedNotifications(client, booking);
   }
   return booking;
 }
@@ -241,10 +273,15 @@ export async function listVisibleBookings(
   client: SupabaseClient<Database>,
   filters?: BookingListFilters,
 ): Promise<BookingRow[]> {
-  let q = client.from("bookings").select("*").order("scheduled_start", { ascending: true });
+  let q = client
+    .from("bookings")
+    .select("*")
+    .order("scheduled_start", { ascending: true });
 
   if (filters?.status) {
-    const st = Array.isArray(filters.status) ? filters.status : [filters.status];
+    const st = Array.isArray(filters.status)
+      ? filters.status
+      : [filters.status];
     q = q.in("status", st);
   }
   if (filters?.from) {
@@ -265,12 +302,19 @@ export async function listVisibleBookings(
  * Vendor inbox: paid bookings awaiting action (`confirmed`), plus active visits.
  * Excludes `pending_payment` (unpaid checkout).
  */
-export async function listVendorBookingRequests(client: SupabaseClient<Database>): Promise<BookingRow[]> {
+export async function listVendorBookingRequests(
+  client: SupabaseClient<Database>,
+): Promise<BookingRow[]> {
   const rows = await listVisibleBookings(client, {
     status: ["confirmed", "accepted", "in_progress"],
   });
-  const filtered = rows.filter((r) => r.status !== "confirmed" || isWithinVendorResponseWindow(r));
-  return [...filtered].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  const filtered = rows.filter(
+    (r) => r.status !== "confirmed" || isWithinVendorResponseWindow(r),
+  );
+  return [...filtered].sort(
+    (a, b) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
 }
 
 const VENDOR_BOOKINGS_PAGE_LIMIT = 500;
@@ -310,7 +354,11 @@ export async function getBookingById(
   client: SupabaseClient<Database>,
   bookingId: string,
 ): Promise<BookingRow> {
-  const { data, error } = await client.from("bookings").select("*").eq("id", bookingId).single();
+  const { data, error } = await client
+    .from("bookings")
+    .select("*")
+    .eq("id", bookingId)
+    .single();
   return takeSingleRow(data, error);
 }
 
@@ -386,12 +434,21 @@ export async function getBookingByLookupCode(
   const code = normalizeBookingLookupCode(rawCode);
   if (!code) return null;
 
-  const byRef = await client.from("bookings").select("*").eq("reference_code", code).maybeSingle();
+  const byRef = await client
+    .from("bookings")
+    .select("*")
+    .eq("reference_code", code)
+    .maybeSingle();
   if (byRef.error) throw new SupabaseApiError(byRef.error.message, byRef.error);
   if (byRef.data) return byRef.data;
 
-  const byVisit = await client.from("bookings").select("*").eq("booking_code", code).maybeSingle();
-  if (byVisit.error) throw new SupabaseApiError(byVisit.error.message, byVisit.error);
+  const byVisit = await client
+    .from("bookings")
+    .select("*")
+    .eq("booking_code", code)
+    .maybeSingle();
+  if (byVisit.error)
+    throw new SupabaseApiError(byVisit.error.message, byVisit.error);
   return byVisit.data ?? null;
 }
 
@@ -480,22 +537,34 @@ async function resolveTechnicianDisplayName(
   return user?.full_name?.trim() || user?.email?.trim() || null;
 }
 
-async function getMyVendorId(client: SupabaseClient<Database>): Promise<string | null> {
+async function getMyVendorId(
+  client: SupabaseClient<Database>,
+): Promise<string | null> {
   const { data: userData } = await client.auth.getUser();
   const uid = userData.user?.id;
   if (!uid) return null;
-  const { data } = await client.from("vendors").select("id").eq("user_id", uid).maybeSingle();
+  const { data } = await client
+    .from("vendors")
+    .select("id")
+    .eq("user_id", uid)
+    .maybeSingle();
   return data?.id ?? null;
 }
 
-async function assertVendorOwnsBooking(client: SupabaseClient<Database>, booking: BookingRow): Promise<void> {
+async function assertVendorOwnsBooking(
+  client: SupabaseClient<Database>,
+  booking: BookingRow,
+): Promise<void> {
   const vid = await getMyVendorId(client);
   if (!vid || booking.vendor_id !== vid) {
     throw new SupabaseApiError("You cannot manage this booking.");
   }
 }
 
-function mergeBookingMetadata(existing: Json, patch: Record<string, Json>): Json {
+function mergeBookingMetadata(
+  existing: Json,
+  patch: Record<string, Json>,
+): Json {
   const base =
     existing && typeof existing === "object" && !Array.isArray(existing)
       ? { ...(existing as Record<string, Json>) }
@@ -559,7 +628,9 @@ export type BookingCustomerCompensationMeta = {
   reason: string | null;
 };
 
-export function readBookingServiceOtpMeta(metadata: Json | null | undefined): BookingServiceOtpMeta {
+export function readBookingServiceOtpMeta(
+  metadata: Json | null | undefined,
+): BookingServiceOtpMeta {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
     return {
       startCode: null,
@@ -589,19 +660,42 @@ export function readBookingServiceOtpMeta(metadata: Json | null | undefined): Bo
   }
   const o = otp as Record<string, unknown>;
   return {
-    startCode: typeof o.start_code === "string" ? normalizeCodeInput(o.start_code) : null,
-    happyCode: typeof o.happy_code === "string" ? normalizeCodeInput(o.happy_code) : null,
-    startVerifiedAt: typeof o.start_verified_at === "string" ? o.start_verified_at : null,
-    completedWithHappyCodeAt: typeof o.completed_with_happy_code_at === "string" ? o.completed_with_happy_code_at : null,
-    startFailCount: typeof o.start_fail_count === "number" ? Math.max(0, Math.round(o.start_fail_count)) : 0,
-    startLockedUntil: typeof o.start_locked_until === "string" ? o.start_locked_until : null,
-    happyFailCount: typeof o.happy_fail_count === "number" ? Math.max(0, Math.round(o.happy_fail_count)) : 0,
-    happyLockedUntil: typeof o.happy_locked_until === "string" ? o.happy_locked_until : null,
-    happyRegeneratedAt: typeof o.happy_regenerated_at === "string" ? o.happy_regenerated_at : null,
+    startCode:
+      typeof o.start_code === "string"
+        ? normalizeCodeInput(o.start_code)
+        : null,
+    happyCode:
+      typeof o.happy_code === "string"
+        ? normalizeCodeInput(o.happy_code)
+        : null,
+    startVerifiedAt:
+      typeof o.start_verified_at === "string" ? o.start_verified_at : null,
+    completedWithHappyCodeAt:
+      typeof o.completed_with_happy_code_at === "string"
+        ? o.completed_with_happy_code_at
+        : null,
+    startFailCount:
+      typeof o.start_fail_count === "number"
+        ? Math.max(0, Math.round(o.start_fail_count))
+        : 0,
+    startLockedUntil:
+      typeof o.start_locked_until === "string" ? o.start_locked_until : null,
+    happyFailCount:
+      typeof o.happy_fail_count === "number"
+        ? Math.max(0, Math.round(o.happy_fail_count))
+        : 0,
+    happyLockedUntil:
+      typeof o.happy_locked_until === "string" ? o.happy_locked_until : null,
+    happyRegeneratedAt:
+      typeof o.happy_regenerated_at === "string"
+        ? o.happy_regenerated_at
+        : null,
   };
 }
 
-export function readBookingVendorReassignmentMeta(metadata: Json | null | undefined): BookingVendorReassignmentMeta {
+export function readBookingVendorReassignmentMeta(
+  metadata: Json | null | undefined,
+): BookingVendorReassignmentMeta {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
     return {
       awaitingAdminAssignment: false,
@@ -624,9 +718,16 @@ export function readBookingVendorReassignmentMeta(metadata: Json | null | undefi
   const r = row as Record<string, unknown>;
   return {
     awaitingAdminAssignment: r.awaiting_admin_assignment === true,
-    cancelledByVendorAt: typeof r.cancelled_by_vendor_at === "string" ? r.cancelled_by_vendor_at : null,
-    previousVendorId: typeof r.previous_vendor_id === "string" ? r.previous_vendor_id : null,
-    previousTechnicianId: typeof r.previous_technician_id === "string" ? r.previous_technician_id : null,
+    cancelledByVendorAt:
+      typeof r.cancelled_by_vendor_at === "string"
+        ? r.cancelled_by_vendor_at
+        : null,
+    previousVendorId:
+      typeof r.previous_vendor_id === "string" ? r.previous_vendor_id : null,
+    previousTechnicianId:
+      typeof r.previous_technician_id === "string"
+        ? r.previous_technician_id
+        : null,
     reason: typeof r.reason === "string" ? r.reason : null,
   };
 }
@@ -634,13 +735,17 @@ export function readBookingVendorReassignmentMeta(metadata: Json | null | undefi
 export function readBookingCustomerCancellationMeta(
   metadata: Json | null | undefined,
 ): BookingCustomerCancellationMeta | null {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata))
+    return null;
   const row = (metadata as Record<string, unknown>).customer_cancellation;
   if (!row || typeof row !== "object" || Array.isArray(row)) return null;
   const r = row as Record<string, unknown>;
   return {
     withinGraceWindow: r.within_grace_window === true,
-    lateFeePaise: typeof r.late_fee_paise === "number" ? Math.max(0, Math.round(r.late_fee_paise)) : 0,
+    lateFeePaise:
+      typeof r.late_fee_paise === "number"
+        ? Math.max(0, Math.round(r.late_fee_paise))
+        : 0,
     acknowledgedLateFee: r.acknowledged_late_fee === true,
     assessedAt: typeof r.assessed_at === "string" ? r.assessed_at : null,
   };
@@ -677,15 +782,24 @@ export function readBookingVendorCancellationPenaltyMeta(
   const tier = tierRaw === "soft" || tierRaw === "hard" ? tierRaw : "none";
   return {
     tier,
-    penaltyPaise: typeof r.penalty_paise === "number" ? Math.max(0, Math.round(r.penalty_paise)) : 0,
+    penaltyPaise:
+      typeof r.penalty_paise === "number"
+        ? Math.max(0, Math.round(r.penalty_paise))
+        : 0,
     cancellationDelayMs:
-      typeof r.cancellation_delay_ms === "number" ? Math.max(0, Math.round(r.cancellation_delay_ms)) : 0,
+      typeof r.cancellation_delay_ms === "number"
+        ? Math.max(0, Math.round(r.cancellation_delay_ms))
+        : 0,
     reason: typeof r.reason === "string" ? r.reason : null,
     assessedAt: typeof r.assessed_at === "string" ? r.assessed_at : null,
     priorStrikeCount30d:
-      typeof r.prior_penalized_cancels_30d === "number" ? Math.max(0, Math.round(r.prior_penalized_cancels_30d)) : null,
+      typeof r.prior_penalized_cancels_30d === "number"
+        ? Math.max(0, Math.round(r.prior_penalized_cancels_30d))
+        : null,
     repeatEscalationStep:
-      typeof r.repeat_escalation_step === "number" ? Math.max(0, Math.round(r.repeat_escalation_step)) : null,
+      typeof r.repeat_escalation_step === "number"
+        ? Math.max(0, Math.round(r.repeat_escalation_step))
+        : null,
   };
 }
 
@@ -693,17 +807,34 @@ export function readBookingCustomerCompensationMeta(
   metadata: Json | null | undefined,
 ): BookingCustomerCompensationMeta {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
-    return { couponId: null, couponCode: null, amountPaise: 0, expiresAt: null, issuedAt: null, reason: null };
+    return {
+      couponId: null,
+      couponCode: null,
+      amountPaise: 0,
+      expiresAt: null,
+      issuedAt: null,
+      reason: null,
+    };
   }
   const row = (metadata as Record<string, unknown>).customer_compensation;
   if (!row || typeof row !== "object" || Array.isArray(row)) {
-    return { couponId: null, couponCode: null, amountPaise: 0, expiresAt: null, issuedAt: null, reason: null };
+    return {
+      couponId: null,
+      couponCode: null,
+      amountPaise: 0,
+      expiresAt: null,
+      issuedAt: null,
+      reason: null,
+    };
   }
   const r = row as Record<string, unknown>;
   return {
     couponId: typeof r.coupon_id === "string" ? r.coupon_id : null,
     couponCode: typeof r.coupon_code === "string" ? r.coupon_code : null,
-    amountPaise: typeof r.amount_paise === "number" ? Math.max(0, Math.round(r.amount_paise)) : 0,
+    amountPaise:
+      typeof r.amount_paise === "number"
+        ? Math.max(0, Math.round(r.amount_paise))
+        : 0,
     expiresAt: typeof r.expires_at === "string" ? r.expires_at : null,
     issuedAt: typeof r.issued_at === "string" ? r.issued_at : null,
     reason: typeof r.reason === "string" ? r.reason : null,
@@ -713,11 +844,15 @@ export function readBookingCustomerCompensationMeta(
 function randomToken(size = 6): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let out = "";
-  for (let i = 0; i < size; i++) out += chars[Math.floor(Math.random() * chars.length)]!;
+  for (let i = 0; i < size; i++)
+    out += chars[Math.floor(Math.random() * chars.length)]!;
   return out;
 }
 
-function buildCustomerCompensationCoupon(): { couponId: string; couponCode: string } {
+function buildCustomerCompensationCoupon(): {
+  couponId: string;
+  couponCode: string;
+} {
   const token = randomToken(6);
   return { couponId: `vc_${token.toLowerCase()}`, couponCode: `SORRY${token}` };
 }
@@ -735,19 +870,34 @@ function deriveVendorLateCancelConsequence(params: {
   const nowMs = Date.now();
   const acceptedMs = new Date(params.acceptedAtIso).getTime();
   const startMs = new Date(params.scheduledStartIso).getTime();
-  const delayMs = Number.isFinite(acceptedMs) ? Math.max(0, nowMs - acceptedMs) : VENDOR_CANCEL_SOFT_WINDOW_MS + 1;
-  const msToStart = Number.isFinite(startMs) ? startMs - nowMs : Number.POSITIVE_INFINITY;
+  const delayMs = Number.isFinite(acceptedMs)
+    ? Math.max(0, nowMs - acceptedMs)
+    : VENDOR_CANCEL_SOFT_WINDOW_MS + 1;
+  const msToStart = Number.isFinite(startMs)
+    ? startMs - nowMs
+    : Number.POSITIVE_INFINITY;
   if (delayMs <= VENDOR_CANCEL_GRACE_WINDOW_MS) {
-    return { tier: "none", penaltyPaise: 0, creditPaise: 0, cancellationDelayMs: delayMs, reason: "within_grace_window" };
+    return {
+      tier: "none",
+      penaltyPaise: 0,
+      creditPaise: 0,
+      cancellationDelayMs: delayMs,
+      reason: "within_grace_window",
+    };
   }
-  const hard = delayMs > VENDOR_CANCEL_SOFT_WINDOW_MS || msToStart <= VENDOR_CANCEL_NEAR_SLOT_MS;
+  const hard =
+    delayMs > VENDOR_CANCEL_SOFT_WINDOW_MS ||
+    msToStart <= VENDOR_CANCEL_NEAR_SLOT_MS;
   if (hard) {
     return {
       tier: "hard",
       penaltyPaise: 30000,
       creditPaise: 25000,
       cancellationDelayMs: delayMs,
-      reason: msToStart <= VENDOR_CANCEL_NEAR_SLOT_MS ? "late_cancel_near_slot" : "late_cancel_after_60m",
+      reason:
+        msToStart <= VENDOR_CANCEL_NEAR_SLOT_MS
+          ? "late_cancel_near_slot"
+          : "late_cancel_after_60m",
     };
   }
   return {
@@ -759,7 +909,9 @@ function deriveVendorLateCancelConsequence(params: {
   };
 }
 
-type VendorLateCancelConsequence = ReturnType<typeof deriveVendorLateCancelConsequence>;
+type VendorLateCancelConsequence = ReturnType<
+  typeof deriveVendorLateCancelConsequence
+>;
 
 function penaltyEventTimeMs(metadata: Json | null): number | null {
   const pen = readBookingVendorCancellationPenaltyMeta(metadata);
@@ -848,7 +1000,9 @@ function applyVendorLateCancelRepeatEscalation(
 }
 
 /** True when `metadata.vendor_routing.used_fallback` (automatic partner assignment). */
-export function bookingUsedFallbackVendor(booking: Pick<BookingRow, "metadata">): boolean {
+export function bookingUsedFallbackVendor(
+  booking: Pick<BookingRow, "metadata">,
+): boolean {
   const m = booking.metadata;
   if (!m || typeof m !== "object" || Array.isArray(m)) return false;
   const vr = (m as Record<string, unknown>).vendor_routing;
@@ -856,7 +1010,9 @@ export function bookingUsedFallbackVendor(booking: Pick<BookingRow, "metadata">)
   return (vr as Record<string, unknown>).used_fallback === true;
 }
 
-function getVendorRoutingRecord(booking: Pick<BookingRow, "metadata">): Record<string, Json> {
+function getVendorRoutingRecord(
+  booking: Pick<BookingRow, "metadata">,
+): Record<string, Json> {
   const m = booking.metadata;
   if (!m || typeof m !== "object" || Array.isArray(m)) return {};
   const vr = (m as Record<string, unknown>).vendor_routing;
@@ -877,7 +1033,9 @@ export async function adminNotifyVendorFallbackReadiness(
 
   const booking = await getBookingById(client, bookingId);
   if (!bookingUsedFallbackVendor(booking)) {
-    throw new SupabaseApiError("Only fallback-routed bookings use this workflow.");
+    throw new SupabaseApiError(
+      "Only fallback-routed bookings use this workflow.",
+    );
   }
   if (booking.status !== "confirmed") {
     throw new SupabaseApiError(
@@ -912,10 +1070,14 @@ export async function vendorConfirmTechnicianReadinessForFallback(
   const booking = await getBookingById(client, bookingId);
   await assertVendorOwnsBooking(client, booking);
   if (booking.status !== "confirmed") {
-    throw new SupabaseApiError("Confirm readiness only while the booking is confirmed (paid) and awaiting vendor action.");
+    throw new SupabaseApiError(
+      "Confirm readiness only while the booking is confirmed (paid) and awaiting vendor action.",
+    );
   }
   if (!bookingUsedFallbackVendor(booking)) {
-    throw new SupabaseApiError("This confirmation applies to fallback-routed bookings.");
+    throw new SupabaseApiError(
+      "This confirmation applies to fallback-routed bookings.",
+    );
   }
 
   const now = new Date().toISOString();
@@ -936,16 +1098,27 @@ export async function vendorConfirmTechnicianReadinessForFallback(
 const BOOKING_CODE_PREFIX = "VIS-";
 const BOOKING_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-async function allocateUniqueBookingCode(client: SupabaseClient<Database>): Promise<string> {
+async function allocateUniqueBookingCode(
+  client: SupabaseClient<Database>,
+): Promise<string> {
   for (let attempt = 0; attempt < 16; attempt++) {
     let code = BOOKING_CODE_PREFIX;
     for (let i = 0; i < 6; i++) {
-      code += BOOKING_CODE_ALPHABET[Math.floor(Math.random() * BOOKING_CODE_ALPHABET.length)]!;
+      code +=
+        BOOKING_CODE_ALPHABET[
+          Math.floor(Math.random() * BOOKING_CODE_ALPHABET.length)
+        ]!;
     }
-    const { data } = await client.from("bookings").select("id").eq("booking_code", code).maybeSingle();
+    const { data } = await client
+      .from("bookings")
+      .select("id")
+      .eq("booking_code", code)
+      .maybeSingle();
     if (!data) return code;
   }
-  throw new SupabaseApiError("Could not allocate a unique booking code. Try again.");
+  throw new SupabaseApiError(
+    "Could not allocate a unique booking code. Try again.",
+  );
 }
 
 export type VendorAcceptBookingInput = {
@@ -987,14 +1160,17 @@ export async function vendorAcceptBookingRequest(
   await assertVendorOwnsBooking(client, booking);
 
   if (booking.status !== "confirmed") {
-    throw new SupabaseApiError("Only confirmed (paid) bookings can be assigned.");
+    throw new SupabaseApiError(
+      "Only confirmed (paid) bookings can be assigned.",
+    );
   }
   if (!isWithinVendorResponseWindow(booking)) {
     throw new SupabaseApiError("The 1-hour response window has expired.");
   }
 
   const vendorId = await getMyVendorId(client);
-  if (!vendorId) throw new SupabaseApiError("No vendor profile for this account.");
+  if (!vendorId)
+    throw new SupabaseApiError("No vendor profile for this account.");
 
   const { data: tech, error: techErr } = await client
     .from("technicians")
@@ -1067,7 +1243,9 @@ export async function vendorRejectBookingRequest(
   await assertVendorOwnsBooking(client, booking);
 
   if (booking.status !== "confirmed") {
-    throw new SupabaseApiError("Only confirmed (paid) bookings awaiting vendor action can be rejected.");
+    throw new SupabaseApiError(
+      "Only confirmed (paid) bookings awaiting vendor action can be rejected.",
+    );
   }
   if (!isWithinVendorResponseWindow(booking)) {
     throw new SupabaseApiError("The 1-hour response window has expired.");
@@ -1123,30 +1301,48 @@ export async function vendorCancelAcceptedBooking(
   const booking = await getBookingById(client, bookingId);
   await assertVendorOwnsBooking(client, booking);
   if (booking.status !== "accepted") {
-    throw new SupabaseApiError("Only accepted bookings can be cancelled by vendor.");
+    throw new SupabaseApiError(
+      "Only accepted bookings can be cancelled by vendor.",
+    );
   }
   const { data: userData } = await client.auth.getUser();
   const uid = requireSessionUserId(userData.user?.id);
   const nowIso = new Date().toISOString();
   const acceptedAtIso =
-    booking.metadata && typeof booking.metadata === "object" && !Array.isArray(booking.metadata)
-      ? ((booking.metadata as Record<string, unknown>).vendor_acceptance as Record<string, unknown> | undefined)
-          ?.accepted_at
+    booking.metadata &&
+    typeof booking.metadata === "object" &&
+    !Array.isArray(booking.metadata)
+      ? (
+          (booking.metadata as Record<string, unknown>).vendor_acceptance as
+            | Record<string, unknown>
+            | undefined
+        )?.accepted_at
       : null;
-  const acceptedAt = typeof acceptedAtIso === "string" ? acceptedAtIso : booking.created_at;
+  const acceptedAt =
+    typeof acceptedAtIso === "string" ? acceptedAtIso : booking.created_at;
   const vid = booking.vendor_id;
   if (!vid) {
     throw new SupabaseApiError("Booking has no assigned vendor.");
   }
-  const priorStrikes = await countVendorPenalizedLateCancelsLast30Days(client, vid, bookingId);
+  const priorStrikes = await countVendorPenalizedLateCancelsLast30Days(
+    client,
+    vid,
+    bookingId,
+  );
   const baseConsequence = deriveVendorLateCancelConsequence({
     acceptedAtIso: acceptedAt,
     scheduledStartIso: booking.scheduled_start,
   });
-  const consequence = applyVendorLateCancelRepeatEscalation(baseConsequence, priorStrikes);
-  const coupon = consequence.creditPaise > 0 ? buildCustomerCompensationCoupon() : null;
+  const consequence = applyVendorLateCancelRepeatEscalation(
+    baseConsequence,
+    priorStrikes,
+  );
+  const coupon =
+    consequence.creditPaise > 0 ? buildCustomerCompensationCoupon() : null;
   const expiresAt =
-    consequence.creditPaise > 0 ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : null;
+    consequence.creditPaise > 0
+      ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      : null;
   const nextMeta = mergeBookingMetadata(booking.metadata, {
     marketplace: {
       mode: "default_vendor",
@@ -1231,7 +1427,8 @@ export async function vendorReassignBookingTechnician(
   }
 
   const vendorId = await getMyVendorId(client);
-  if (!vendorId) throw new SupabaseApiError("No vendor profile for this account.");
+  if (!vendorId)
+    throw new SupabaseApiError("No vendor profile for this account.");
 
   const { data: tech, error: techErr } = await client
     .from("technicians")
@@ -1253,7 +1450,11 @@ export async function vendorReassignBookingTechnician(
   });
   const technicianName = await resolveTechnicianDisplayName(client, techId);
   const vendorName = await resolveVendorDisplayName(client, vendorId);
-  const techReassignCopy = adminTechnicianReassignedCopy(updated, vendorName, technicianName);
+  const techReassignCopy = adminTechnicianReassignedCopy(
+    updated,
+    vendorName,
+    technicianName,
+  );
   await emitAdminBookingNotification(client, {
     booking: updated,
     eventType: "admin_booking_technician_reassigned",
@@ -1309,7 +1510,10 @@ export async function adminListBookingsForMonitoring(
   tab: AdminBookingMonitorTab,
   options?: { limit?: number },
 ): Promise<BookingRow[]> {
-  let q = client.from("bookings").select("*").order("scheduled_start", { ascending: false });
+  let q = client
+    .from("bookings")
+    .select("*")
+    .order("scheduled_start", { ascending: false });
 
   switch (tab) {
     case "pending":
@@ -1322,9 +1526,9 @@ export async function adminListBookingsForMonitoring(
         .contains("metadata", { marketplace: { mode: "default_vendor" } });
       break;
     case "awaiting_confirmation":
-      q = q
-        .eq("status", "confirmed")
-        .contains("metadata", { vendor_routing: { awaiting_vendor_readiness: true } });
+      q = q.eq("status", "confirmed").contains("metadata", {
+        vendor_routing: { awaiting_vendor_readiness: true },
+      });
       break;
     case "accepted":
       q = q.in("status", ["accepted", "in_progress"]);
@@ -1372,9 +1576,9 @@ export async function adminListBookingsForMonitoringPaged(
         .contains("metadata", { marketplace: { mode: "default_vendor" } });
       break;
     case "awaiting_confirmation":
-      q = q
-        .eq("status", "confirmed")
-        .contains("metadata", { vendor_routing: { awaiting_vendor_readiness: true } });
+      q = q.eq("status", "confirmed").contains("metadata", {
+        vendor_routing: { awaiting_vendor_readiness: true },
+      });
       break;
     case "accepted":
       q = q.in("status", ["accepted", "in_progress"]);
@@ -1401,7 +1605,11 @@ export async function adminGetBookingMonitoringRowsPaged(
   tab: AdminBookingMonitorTab,
   params: PagedParams,
 ): Promise<PagedResult<BookingMonitoringEnriched>> {
-  const { rows, total } = await adminListBookingsForMonitoringPaged(client, tab, params);
+  const { rows, total } = await adminListBookingsForMonitoringPaged(
+    client,
+    tab,
+    params,
+  );
   const enriched = await enrichBookingsWithVendorTechnicianLabels(client, rows);
   return { rows: enriched, total };
 }
@@ -1427,14 +1635,20 @@ export async function adminFloatDefaultVendorBooking(
 ): Promise<BookingRow> {
   const booking = await getBookingById(client, bookingId);
   if (booking.status !== "confirmed") {
-    throw new SupabaseApiError("Only confirmed bookings can be floated to vendors.");
+    throw new SupabaseApiError(
+      "Only confirmed bookings can be floated to vendors.",
+    );
   }
   const m =
-    booking.metadata && typeof booking.metadata === "object" && !Array.isArray(booking.metadata)
+    booking.metadata &&
+    typeof booking.metadata === "object" &&
+    !Array.isArray(booking.metadata)
       ? (booking.metadata as Record<string, Json>)
       : {};
   const marketplace =
-    m.marketplace && typeof m.marketplace === "object" && !Array.isArray(m.marketplace)
+    m.marketplace &&
+    typeof m.marketplace === "object" &&
+    !Array.isArray(m.marketplace)
       ? (m.marketplace as Record<string, Json>)
       : {};
   if (marketplace.mode !== "default_vendor") {
@@ -1443,9 +1657,14 @@ export async function adminFloatDefaultVendorBooking(
 
   const now = new Date();
   const istHour = Number(
-    new Intl.DateTimeFormat("en-IN", { hour: "2-digit", hour12: false, timeZone: "Asia/Kolkata" }).format(now),
+    new Intl.DateTimeFormat("en-IN", {
+      hour: "2-digit",
+      hour12: false,
+      timeZone: "Asia/Kolkata",
+    }).format(now),
   );
-  const openAt = istHour >= 19 ? nextMorningAtNineIstIso(now) : now.toISOString();
+  const openAt =
+    istHour >= 19 ? nextMorningAtNineIstIso(now) : now.toISOString();
   const openUntil = addHoursIso(openAt, 1);
   const nextMeta = mergeBookingMetadata(booking.metadata, {
     marketplace: {
@@ -1457,7 +1676,9 @@ export async function adminFloatDefaultVendorBooking(
       floated_at: now.toISOString(),
     } as Json,
   });
-  const updated = await updateBooking(client, bookingId, { metadata: nextMeta });
+  const updated = await updateBooking(client, bookingId, {
+    metadata: nextMeta,
+  });
   const vendorCount = await emitMarketplaceNotificationEvents(client, {
     booking: updated,
     eventType: "marketplace_broadcast",
@@ -1476,6 +1697,8 @@ export async function adminFloatDefaultVendorBooking(
 
 export type OpsIssueType =
   | "default_vendor_unclaimed"
+  | "awaiting_admin_float"
+  | "preferred_vendor_no_response"
   | "vendor_slow_confirmation"
   | "visit_not_started"
   | "visit_not_closed"
@@ -1506,15 +1729,21 @@ export async function adminRefloatMarketplaceBooking(
     throw new SupabaseApiError("Booking already has a vendor assigned.");
   }
   const m =
-    booking.metadata && typeof booking.metadata === "object" && !Array.isArray(booking.metadata)
+    booking.metadata &&
+    typeof booking.metadata === "object" &&
+    !Array.isArray(booking.metadata)
       ? (booking.metadata as Record<string, Json>)
       : {};
   const marketplace =
-    m.marketplace && typeof m.marketplace === "object" && !Array.isArray(m.marketplace)
+    m.marketplace &&
+    typeof m.marketplace === "object" &&
+    !Array.isArray(m.marketplace)
       ? (m.marketplace as Record<string, Json>)
       : {};
   if (marketplace.mode !== "default_vendor") {
-    throw new SupabaseApiError("Booking is not in default-vendor marketplace mode.");
+    throw new SupabaseApiError(
+      "Booking is not in default-vendor marketplace mode.",
+    );
   }
   const nowIso = new Date().toISOString();
   const openUntil = addHoursIso(nowIso, Math.max(1, hours));
@@ -1528,7 +1757,9 @@ export async function adminRefloatMarketplaceBooking(
       re_floated_at: nowIso,
     } as Json,
   });
-  const updated = await updateBooking(client, bookingId, { metadata: nextMeta });
+  const updated = await updateBooking(client, bookingId, {
+    metadata: nextMeta,
+  });
   const vendorCount = await emitMarketplaceNotificationEvents(client, {
     booking: updated,
     eventType: "marketplace_broadcast",
@@ -1553,7 +1784,9 @@ export async function adminAssignVendorToBooking(
 ): Promise<BookingRow> {
   const booking = await getBookingById(client, bookingId);
   if (booking.status !== "confirmed") {
-    throw new SupabaseApiError("Only confirmed bookings can be assigned by admin.");
+    throw new SupabaseApiError(
+      "Only confirmed bookings can be assigned by admin.",
+    );
   }
   const vid = vendorId.trim();
   if (!vid) throw new SupabaseApiError("Choose a vendor.");
@@ -1568,25 +1801,37 @@ export async function adminAssignVendorToBooking(
   }
   const nowIso = new Date().toISOString();
   const m =
-    booking.metadata && typeof booking.metadata === "object" && !Array.isArray(booking.metadata)
+    booking.metadata &&
+    typeof booking.metadata === "object" &&
+    !Array.isArray(booking.metadata)
       ? (booking.metadata as Record<string, Json>)
       : {};
   const marketplace =
-    m.marketplace && typeof m.marketplace === "object" && !Array.isArray(m.marketplace)
+    m.marketplace &&
+    typeof m.marketplace === "object" &&
+    !Array.isArray(m.marketplace)
       ? (m.marketplace as Record<string, Json>)
       : {};
   const reassignment =
-    m.vendor_reassignment && typeof m.vendor_reassignment === "object" && !Array.isArray(m.vendor_reassignment)
+    m.vendor_reassignment &&
+    typeof m.vendor_reassignment === "object" &&
+    !Array.isArray(m.vendor_reassignment)
       ? (m.vendor_reassignment as Record<string, Json>)
       : {};
   const existingVr =
-    m.vendor_response && typeof m.vendor_response === "object" && !Array.isArray(m.vendor_response)
+    m.vendor_response &&
+    typeof m.vendor_response === "object" &&
+    !Array.isArray(m.vendor_response)
       ? (m.vendor_response as Record<string, Json>)
       : {};
   /** Direct assign (no marketplace window): start vendor SLA from now. If already floated, keep deadline from open_at. */
   const setVendorResponseAnchor =
     !booking.vendor_id &&
-    !(marketplace.floated === true && typeof marketplace.open_at === "string" && String(marketplace.open_at).trim());
+    !(
+      marketplace.floated === true &&
+      typeof marketplace.open_at === "string" &&
+      String(marketplace.open_at).trim()
+    );
   const nextMeta = mergeBookingMetadata(booking.metadata, {
     marketplace: {
       ...marketplace,
@@ -1642,7 +1887,9 @@ export async function adminFlagBookingOpsIssue(
   const nowIso = new Date().toISOString();
   const trimmedNote = note?.trim() || null;
   const m =
-    booking.metadata && typeof booking.metadata === "object" && !Array.isArray(booking.metadata)
+    booking.metadata &&
+    typeof booking.metadata === "object" &&
+    !Array.isArray(booking.metadata)
       ? (booking.metadata as Record<string, Json>)
       : {};
   const ops =
@@ -1674,11 +1921,15 @@ export async function adminResetBookingOtpLock(
   const nowIso = new Date().toISOString();
   const otp = readBookingServiceOtpMeta(booking.metadata);
   const m =
-    booking.metadata && typeof booking.metadata === "object" && !Array.isArray(booking.metadata)
+    booking.metadata &&
+    typeof booking.metadata === "object" &&
+    !Array.isArray(booking.metadata)
       ? (booking.metadata as Record<string, Json>)
       : {};
   const rawOtp =
-    m.service_otp && typeof m.service_otp === "object" && !Array.isArray(m.service_otp)
+    m.service_otp &&
+    typeof m.service_otp === "object" &&
+    !Array.isArray(m.service_otp)
       ? (m.service_otp as Record<string, Json>)
       : {};
   const nextMeta = mergeBookingMetadata(booking.metadata, {
@@ -1716,11 +1967,16 @@ export async function listVendorMarketplaceBookings(
   const keep: BookingRow[] = [];
   for (const row of rows) {
     if (readMarketplaceBroadcastFilter(row) === "customer_pin" && myVendor) {
-      const sig = customerLocationSignalsFromServiceSiteAddress(row.service_site_address);
-      const hasSig = Boolean(sig.pincode?.trim() || sig.city?.trim() || sig.state?.trim());
+      const sig = customerLocationSignalsFromServiceSiteAddress(
+        row.service_site_address,
+      );
+      const hasSig = Boolean(
+        sig.pincode?.trim() || sig.city?.trim() || sig.state?.trim(),
+      );
       if (hasSig && !vendorCoversCustomerSignals(myVendor, sig)) continue;
     }
-    if (await isVendorAvailableForBookingSlot(client, vendorId, row)) keep.push(row);
+    if (await isVendorAvailableForBookingSlot(client, vendorId, row))
+      keep.push(row);
   }
   return keep;
 }
@@ -1740,24 +1996,37 @@ export async function vendorClaimMarketplaceBooking(
   if (!vid) throw new SupabaseApiError("No vendor profile for this account.");
   const myVendor = await vendorApi.getMyVendor(client);
   if (readMarketplaceBroadcastFilter(booking) === "customer_pin" && myVendor) {
-    const sig = customerLocationSignalsFromServiceSiteAddress(booking.service_site_address);
-    const hasSig = Boolean(sig.pincode?.trim() || sig.city?.trim() || sig.state?.trim());
+    const sig = customerLocationSignalsFromServiceSiteAddress(
+      booking.service_site_address,
+    );
+    const hasSig = Boolean(
+      sig.pincode?.trim() || sig.city?.trim() || sig.state?.trim(),
+    );
     if (hasSig && !vendorCoversCustomerSignals(myVendor, sig)) {
-      throw new SupabaseApiError("This booking is outside your declared service area for the customer location.");
+      throw new SupabaseApiError(
+        "This booking is outside your declared service area for the customer location.",
+      );
     }
   }
   if (!(await isVendorAvailableForBookingSlot(client, vid, booking))) {
-    throw new SupabaseApiError("Your configured slot capacity is full for this booking window.");
+    throw new SupabaseApiError(
+      "Your configured slot capacity is full for this booking window.",
+    );
   }
   const m =
-    booking.metadata && typeof booking.metadata === "object" && !Array.isArray(booking.metadata)
+    booking.metadata &&
+    typeof booking.metadata === "object" &&
+    !Array.isArray(booking.metadata)
       ? (booking.metadata as Record<string, Json>)
       : {};
   const marketplace =
-    m.marketplace && typeof m.marketplace === "object" && !Array.isArray(m.marketplace)
+    m.marketplace &&
+    typeof m.marketplace === "object" &&
+    !Array.isArray(m.marketplace)
       ? (m.marketplace as Record<string, Json>)
       : {};
-  const openUntil = typeof marketplace.open_until === "string" ? marketplace.open_until : null;
+  const openUntil =
+    typeof marketplace.open_until === "string" ? marketplace.open_until : null;
   if (openUntil && new Date() > new Date(openUntil)) {
     throw new SupabaseApiError("The one-hour acceptance window has closed.");
   }
@@ -1782,7 +2051,10 @@ export async function vendorClaimMarketplaceBooking(
     .select("*")
     .maybeSingle();
   if (error) throw new SupabaseApiError(error.message, error);
-  if (!data) throw new SupabaseApiError("This booking has already been claimed by another vendor.");
+  if (!data)
+    throw new SupabaseApiError(
+      "This booking has already been claimed by another vendor.",
+    );
   await emitMarketplaceNotificationEvents(client, {
     booking: data,
     eventType: "marketplace_claim_won",
@@ -1804,7 +2076,8 @@ export async function vendorClaimMarketplaceBooking(
 function readBookingScheduleSlot(
   metadata: Json | null | undefined,
 ): { dayKey: string; slotId: string } | null {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata))
+    return null;
   const slot = (metadata as Record<string, unknown>).schedule_slot;
   if (!slot || typeof slot !== "object" || Array.isArray(slot)) return null;
   const slotObj = slot as Record<string, unknown>;
@@ -1839,7 +2112,9 @@ async function isVendorAvailableForBookingSlot(
     .select("id", { head: true, count: "exact" })
     .eq("vendor_id", vendorId)
     .in("status", ["confirmed", "accepted", "in_progress"])
-    .contains("metadata", { schedule_slot: { day_key: dayKey, slot_id: slotId } });
+    .contains("metadata", {
+      schedule_slot: { day_key: dayKey, slot_id: slotId },
+    });
   if (countErr) throw new SupabaseApiError(countErr.message, countErr);
   return (count ?? 0) < capacity;
 }
@@ -1848,8 +2123,12 @@ async function enrichBookingsWithVendorTechnicianLabels(
   client: SupabaseClient<Database>,
   rows: BookingRow[],
 ): Promise<BookingMonitoringEnriched[]> {
-  const vendorIds = [...new Set(rows.map((r) => r.vendor_id).filter(Boolean))] as string[];
-  const techIds = [...new Set(rows.map((r) => r.technician_id).filter(Boolean))] as string[];
+  const vendorIds = [
+    ...new Set(rows.map((r) => r.vendor_id).filter(Boolean)),
+  ] as string[];
+  const techIds = [
+    ...new Set(rows.map((r) => r.technician_id).filter(Boolean)),
+  ] as string[];
 
   const vendorLabelById = new Map<string, string>();
   if (vendorIds.length > 0) {
@@ -1859,7 +2138,9 @@ async function enrichBookingsWithVendorTechnicianLabels(
       .in("id", vendorIds);
     if (error) throw new SupabaseApiError(error.message, error);
     for (const v of data ?? []) {
-      const label = v.trade_name ? `${v.business_name} (${v.trade_name})` : v.business_name;
+      const label = v.trade_name
+        ? `${v.business_name} (${v.trade_name})`
+        : v.business_name;
       vendorLabelById.set(v.id, label);
     }
   }
@@ -1890,14 +2171,21 @@ async function enrichBookingsWithVendorTechnicianLabels(
     }
 
     for (const t of techs ?? []) {
-      technicianLabelById.set(t.id, userLabelById.get(t.user_id) ?? t.id.slice(0, 8));
+      technicianLabelById.set(
+        t.id,
+        userLabelById.get(t.user_id) ?? t.id.slice(0, 8),
+      );
     }
   }
 
   return rows.map((row) => ({
     ...row,
-    vendorDisplayName: row.vendor_id ? vendorLabelById.get(row.vendor_id) ?? null : null,
-    technicianDisplayName: row.technician_id ? technicianLabelById.get(row.technician_id) ?? null : null,
+    vendorDisplayName: row.vendor_id
+      ? (vendorLabelById.get(row.vendor_id) ?? null)
+      : null,
+    technicianDisplayName: row.technician_id
+      ? (technicianLabelById.get(row.technician_id) ?? null)
+      : null,
   }));
 }
 
@@ -1909,7 +2197,10 @@ export async function adminListBookingsBySubscriptionBucket(
   bucket: AdminBookingsSubscriptionBucket,
   options?: { limit?: number },
 ): Promise<BookingRow[]> {
-  let q = client.from("bookings").select("*").order("scheduled_start", { ascending: false });
+  let q = client
+    .from("bookings")
+    .select("*")
+    .order("scheduled_start", { ascending: false });
   if (bucket === "one_time") {
     q = q.is("subscription_id", null);
   } else {
@@ -1928,14 +2219,20 @@ export async function adminGetBookingsMonitoringBySubscriptionBucket(
   bucket: AdminBookingsSubscriptionBucket,
   options?: { limit?: number },
 ): Promise<BookingMonitoringEnriched[]> {
-  const rows = await adminListBookingsBySubscriptionBucket(client, bucket, options);
+  const rows = await adminListBookingsBySubscriptionBucket(
+    client,
+    bucket,
+    options,
+  );
   return enrichBookingsWithVendorTechnicianLabels(client, rows);
 }
+
+export type AdminBookingsStatusFilter = BookingStatus | "all";
 
 export async function adminListBookingsBySubscriptionBucketPaged(
   client: SupabaseClient<Database>,
   bucket: AdminBookingsSubscriptionBucket,
-  params: PagedParams,
+  params: PagedParams & { status?: AdminBookingsStatusFilter },
 ): Promise<PagedResult<BookingRow>> {
   const { from, to } = offsetRangeForPage(params.page, params.pageSize);
   let q = client
@@ -1947,6 +2244,9 @@ export async function adminListBookingsBySubscriptionBucketPaged(
   } else {
     q = q.not("subscription_id", "is", null);
   }
+  if (params.status && params.status !== "all") {
+    q = q.eq("status", params.status);
+  }
   const { data, error, count } = await q.range(from, to);
   return { rows: takeRows(data, error), total: count ?? 0 };
 }
@@ -1954,36 +2254,82 @@ export async function adminListBookingsBySubscriptionBucketPaged(
 export async function adminGetBookingsMonitoringBySubscriptionBucketPaged(
   client: SupabaseClient<Database>,
   bucket: AdminBookingsSubscriptionBucket,
-  params: PagedParams,
+  params: PagedParams & { status?: AdminBookingsStatusFilter },
 ): Promise<PagedResult<BookingMonitoringEnriched>> {
-  const { rows, total } = await adminListBookingsBySubscriptionBucketPaged(client, bucket, params);
+  const { rows, total } = await adminListBookingsBySubscriptionBucketPaged(
+    client,
+    bucket,
+    params,
+  );
   const enriched = await enrichBookingsWithVendorTechnicianLabels(client, rows);
   return { rows: enriched, total };
 }
 
+/** Filter for admin Booking routing activity table. */
+export type AdminFallbackRoutingFilter =
+  | "all"
+  | "partner_fallback"
+  | "marketplace";
+
+const PARTNER_FALLBACK_ROUTING_REASONS = [
+  "preferred_ineligible_customer_fallback",
+  "preferred_ineligible_platform_default",
+  "preferred_missing_customer_fallback",
+  "preferred_missing_platform_default",
+] as const;
+
+const MARKETPLACE_ROUTING_REASONS = [
+  "default_vendor_marketplace",
+  "amc_awaiting_admin_marketplace",
+] as const;
+
 export async function adminListFallbackBookingsPaged(
   client: SupabaseClient<Database>,
-  params: PagedParams,
+  params: PagedParams & { routingFilter?: AdminFallbackRoutingFilter },
 ): Promise<PagedResult<BookingRow>> {
   const { from, to } = offsetRangeForPage(params.page, params.pageSize);
-  const { data, error, count } = await client
-    .from("bookings")
-    .select("*", { count: "exact" })
-    .contains("metadata", { vendor_routing: { used_fallback: true } })
+  const filter = params.routingFilter ?? "all";
+  let q = client.from("bookings").select("*", { count: "exact" });
+
+  if (filter === "marketplace") {
+    q = q.in("metadata->vendor_routing->>reason", [
+      ...MARKETPLACE_ROUTING_REASONS,
+    ]);
+  } else if (filter === "partner_fallback") {
+    q = q.in("metadata->vendor_routing->>reason", [
+      ...PARTNER_FALLBACK_ROUTING_REASONS,
+    ]);
+  } else {
+    q = q.contains("metadata", { vendor_routing: { used_fallback: true } });
+  }
+
+  const { data, error, count } = await q
     .order("created_at", { ascending: false })
     .range(from, to);
   return { rows: takeRows(data, error), total: count ?? 0 };
 }
 
+/** Admin ops queue: hide visits whose scheduled window already ended. */
+export type OpsExceptionsQueueFilter = "actionable" | "past_window" | "all";
+
 export async function adminListOpsBookingExceptionsPaged(
   client: SupabaseClient<Database>,
-  params: PagedParams,
+  params: PagedParams & { filter?: OpsExceptionsQueueFilter },
 ): Promise<PagedResult<OpsBookingExceptionRow>> {
   const { from, to } = offsetRangeForPage(params.page, params.pageSize);
-  const { data, error, count } = await client
-    .from("ops_booking_exceptions")
-    .select("*", { count: "exact" })
-    .order("scheduled_start", { ascending: true })
+  const filter = params.filter ?? "actionable";
+  const nowIso = new Date().toISOString();
+  let q = client.from("ops_booking_exceptions").select("*", { count: "exact" });
+  if (filter === "actionable") {
+    q = q.gte("scheduled_end", nowIso);
+  } else if (filter === "past_window") {
+    q = q.lt("scheduled_end", nowIso);
+  }
+  const orderAsc = filter !== "past_window";
+  const { data, error, count } = await q
+    .order(orderAsc ? "scheduled_start" : "scheduled_end", {
+      ascending: orderAsc,
+    })
     .range(from, to);
   return { rows: takeRows(data, error), total: count ?? 0 };
 }
@@ -2009,15 +2355,21 @@ export async function customerCancelBooking(
 ): Promise<BookingRow> {
   const trimmed = params.reason.trim();
   if (trimmed.length < 6) {
-    throw new SupabaseApiError("Please enter a cancellation reason (at least 6 characters).");
+    throw new SupabaseApiError(
+      "Please enter a cancellation reason (at least 6 characters).",
+    );
   }
   if (trimmed.length > 2000) {
-    throw new SupabaseApiError("Cancellation reason is too long (max 2000 characters).");
+    throw new SupabaseApiError(
+      "Cancellation reason is too long (max 2000 characters).",
+    );
   }
 
   const booking = await getBookingById(client, bookingId);
   if (!["pending_payment", "confirmed", "accepted"].includes(booking.status)) {
-    throw new SupabaseApiError("This booking can no longer be cancelled from the app.");
+    throw new SupabaseApiError(
+      "This booking can no longer be cancelled from the app.",
+    );
   }
 
   const grace = isWithinCustomerCancellationWindow(booking);
@@ -2025,7 +2377,7 @@ export async function customerCancelBooking(
   if (!grace) {
     if (!params.acceptLateCancellationFee) {
       throw new SupabaseApiError(
-        "Late cancellation requires acknowledgement — tap “Cancel anyway” after reviewing any applicable fee.",
+        "Late cancellation requires acknowledgement - tap “Cancel anyway” after reviewing any applicable fee.",
       );
     }
     lateFeePaise = await fetchCustomerLateCancelFeePaise(client);
@@ -2057,7 +2409,9 @@ export async function customerCancelBooking(
   });
 }
 
-async function fetchCustomerLateCancelFeePaise(client: SupabaseClient<Database>): Promise<number> {
+async function fetchCustomerLateCancelFeePaise(
+  client: SupabaseClient<Database>,
+): Promise<number> {
   const { data, error } = await client
     .from("platform_settings")
     .select("customer_late_cancel_fee_paise")
@@ -2099,7 +2453,9 @@ export async function customerRescheduleBooking(
 ): Promise<BookingRow> {
   const booking = await getBookingById(client, bookingId);
   if (!["pending_payment", "confirmed", "accepted"].includes(booking.status)) {
-    throw new SupabaseApiError("This booking can no longer be rescheduled from the app.");
+    throw new SupabaseApiError(
+      "This booking can no longer be rescheduled from the app.",
+    );
   }
 
   const start = new Date(nextScheduledStart);
@@ -2108,18 +2464,24 @@ export async function customerRescheduleBooking(
     throw new SupabaseApiError("Invalid schedule selected.");
   }
   if (end.getTime() <= start.getTime()) {
-    throw new SupabaseApiError("Rescheduled end time must be after start time.");
+    throw new SupabaseApiError(
+      "Rescheduled end time must be after start time.",
+    );
   }
   if (start.getTime() <= Date.now()) {
     throw new SupabaseApiError("Please choose a future slot.");
   }
 
   const m =
-    booking.metadata && typeof booking.metadata === "object" && !Array.isArray(booking.metadata)
+    booking.metadata &&
+    typeof booking.metadata === "object" &&
+    !Array.isArray(booking.metadata)
       ? (booking.metadata as Record<string, Json>)
       : {};
   const existing =
-    m.customer_reschedule && typeof m.customer_reschedule === "object" && !Array.isArray(m.customer_reschedule)
+    m.customer_reschedule &&
+    typeof m.customer_reschedule === "object" &&
+    !Array.isArray(m.customer_reschedule)
       ? (m.customer_reschedule as Record<string, Json>)
       : {};
   const nowIso = new Date().toISOString();
@@ -2147,17 +2509,31 @@ export async function customerRegenerateBookingHappyCode(
 ): Promise<BookingRow> {
   const booking = await getBookingById(client, bookingId);
   if (!["accepted", "in_progress"].includes(booking.status)) {
-    throw new SupabaseApiError("Happy Code can only be regenerated for accepted or in-progress visits.");
+    throw new SupabaseApiError(
+      "Happy Code can only be regenerated for accepted or in-progress visits.",
+    );
   }
   const otp = readBookingServiceOtpMeta(booking.metadata);
   if (!otp.startCode) {
-    throw new SupabaseApiError("Job Start Code is not initialized for this booking.");
+    throw new SupabaseApiError(
+      "Job Start Code is not initialized for this booking.",
+    );
   }
   const nowMs = Date.now();
-  const regenAtMs = otp.happyRegeneratedAt ? new Date(otp.happyRegeneratedAt).getTime() : 0;
-  if (Number.isFinite(regenAtMs) && regenAtMs > 0 && nowMs - regenAtMs < HAPPY_CODE_REGENERATE_COOLDOWN_MS) {
-    const remSec = Math.ceil((HAPPY_CODE_REGENERATE_COOLDOWN_MS - (nowMs - regenAtMs)) / 1000);
-    throw new SupabaseApiError(`Please wait ${remSec}s before regenerating again.`);
+  const regenAtMs = otp.happyRegeneratedAt
+    ? new Date(otp.happyRegeneratedAt).getTime()
+    : 0;
+  if (
+    Number.isFinite(regenAtMs) &&
+    regenAtMs > 0 &&
+    nowMs - regenAtMs < HAPPY_CODE_REGENERATE_COOLDOWN_MS
+  ) {
+    const remSec = Math.ceil(
+      (HAPPY_CODE_REGENERATE_COOLDOWN_MS - (nowMs - regenAtMs)) / 1000,
+    );
+    throw new SupabaseApiError(
+      `Please wait ${remSec}s before regenerating again.`,
+    );
   }
   const nowIso = new Date(nowMs).toISOString();
   const nextMeta = mergeBookingMetadata(booking.metadata, {

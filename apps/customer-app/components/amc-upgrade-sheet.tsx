@@ -78,7 +78,7 @@ function AmcUpgradeSheetBody({
       <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
         <ModalSheetHeader
           title="Upgrade AMC plan"
-          subtitle={`Current: ${subscription.plan_name}. All packages for your system size are listed below — select a higher plan to upgrade.`}
+          subtitle={`Current: ${subscription.plan_name}. All packages for your system size are listed below - select a higher plan to upgrade.`}
           onClose={onClose}
           closeAccessibilityLabel="Close upgrade plans"
         />
@@ -139,11 +139,11 @@ function AmcUpgradeSheetBody({
                     {isCurrent ? (
                       <Text style={styles.planStatusHint}>Your active package for this contract.</Text>
                     ) : !canUpgrade ? (
-                      <Text style={styles.planStatusHint}>Lower package — not available as an upgrade.</Text>
+                      <Text style={styles.planStatusHint}>Lower package - not available as an upgrade.</Text>
                     ) : null}
                   </View>
                   <Text style={[styles.planChevron, !canUpgrade && styles.planChevronMuted]}>
-                    {isCurrent ? "✓" : picked ? "●" : canUpgrade ? "○" : "—"}
+                    {isCurrent ? "✓" : picked ? "●" : canUpgrade ? "○" : "-"}
                   </Text>
                 </Pressable>
               );

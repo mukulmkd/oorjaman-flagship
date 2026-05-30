@@ -18,7 +18,9 @@ import {
   type CalculatedPriceResult,
 } from "./pricing-engine";
 
-export async function listPricingRules(client: SupabaseClient<Database>): Promise<PricingRuleRow[]> {
+export async function listPricingRules(
+  client: SupabaseClient<Database>,
+): Promise<PricingRuleRow[]> {
   const { data, error } = await client
     .from("pricing_rules")
     .select("*")
@@ -46,7 +48,11 @@ export async function listPricingCityTiers(
   client: SupabaseClient<Database>,
   countryCode?: string,
 ): Promise<PricingCityTierRow[]> {
-  let q = client.from("pricing_city_tiers").select("*").order("country_code").order("city_key");
+  let q = client
+    .from("pricing_city_tiers")
+    .select("*")
+    .order("country_code")
+    .order("city_key");
   const cc = countryCode ? normalizeCountryCode(countryCode) : null;
   if (cc) q = q.eq("country_code", cc);
   const { data, error } = await q;
@@ -74,11 +80,13 @@ export function calculatePriceFromRules(
   );
   if (!resolved) {
     const cc = normalizeCountryCode(input.location.country_code);
-    const hasAnyRuleForCountry = rules.some((r) => normalizeCountryCode(r.country_code) === cc);
+    const hasAnyRuleForCountry = rules.some(
+      (r) => normalizeCountryCode(r.country_code) === cc,
+    );
     throw new SupabaseApiError(
       hasAnyRuleForCountry
         ? `No matching pricing rule for country ${cc} and this location (tier map / city). Check city→tier and tier rate cards, or add a national default for ${cc} in admin.`
-        : `No pricing rules for country ${cc}. Admin rules use ISO alpha-2 (e.g. IN). If the customer address used "IND" or "India", it is normalized to IN — add a national default for ${cc} in Pricing.`,
+        : `No pricing rules for country ${cc}. Admin rules use ISO alpha-2 (e.g. IN). If the customer address used "IND" or "India", it is normalized to IN - add a national default for ${cc} in Pricing.`,
     );
   }
   return buildCalculatedResult(resolved.rule, resolved.match, input);
@@ -93,7 +101,10 @@ export async function calculatePrice(
     listPricingCityTiers(client, input.location.country_code ?? "IN"),
     listPricingTiers(client, input.location.country_code ?? "IN"),
   ]);
-  return calculatePriceFromRules(rules, input, { cityTierRows: cityTiers, tierCatalog: tiers });
+  return calculatePriceFromRules(rules, input, {
+    cityTierRows: cityTiers,
+    tierCatalog: tiers,
+  });
 }
 
 export type SavePricingRuleInput = {
@@ -113,12 +124,17 @@ export async function adminSavePricingRule(
   input: SavePricingRuleInput,
 ): Promise<PricingRuleRow> {
   const country = normalizeCountryCode(input.country_code ?? "IN");
-  const cityRaw = input.city == null || input.city.trim() === "" ? null : input.city.trim();
+  const cityRaw =
+    input.city == null || input.city.trim() === "" ? null : input.city.trim();
   const tierRaw =
-    input.tier_code == null || String(input.tier_code).trim() === "" ? null : String(input.tier_code).trim();
+    input.tier_code == null || String(input.tier_code).trim() === ""
+      ? null
+      : String(input.tier_code).trim();
 
   if (cityRaw && tierRaw) {
-    throw new SupabaseApiError("Choose either a tier rate card or a legacy city override, not both.");
+    throw new SupabaseApiError(
+      "Choose either a tier rate card or a legacy city override, not both.",
+    );
   }
 
   const row = {
@@ -132,10 +148,19 @@ export async function adminSavePricingRule(
   };
 
   if (input.id) {
-    const { data, error } = await client.from("pricing_rules").update(row).eq("id", input.id).select().single();
+    const { data, error } = await client
+      .from("pricing_rules")
+      .update(row)
+      .eq("id", input.id)
+      .select()
+      .single();
     return takeSingleRow(data, error);
   }
-  const { data, error } = await client.from("pricing_rules").insert(row).select().single();
+  const { data, error } = await client
+    .from("pricing_rules")
+    .insert(row)
+    .select()
+    .single();
   return takeSingleRow(data, error);
 }
 
@@ -155,15 +180,22 @@ export async function adminListPricingNationalDefaultAudit(
   return takeRows(data, error);
 }
 
-export async function adminDeletePricingRule(client: SupabaseClient<Database>, id: string): Promise<void> {
+export async function adminDeletePricingRule(
+  client: SupabaseClient<Database>,
+  id: string,
+): Promise<void> {
   const { data, error: fetchErr } = await client
     .from("pricing_rules")
     .select("city, tier_code, country_code")
     .eq("id", id)
     .maybeSingle();
   if (fetchErr) throw new SupabaseApiError(fetchErr.message, fetchErr);
-  const city = data?.city == null || String(data.city).trim() === "" ? null : data.city;
-  const tier = data?.tier_code == null || String(data.tier_code).trim() === "" ? null : data.tier_code;
+  const city =
+    data?.city == null || String(data.city).trim() === "" ? null : data.city;
+  const tier =
+    data?.tier_code == null || String(data.tier_code).trim() === ""
+      ? null
+      : data.tier_code;
   if (!city && !tier) {
     throw new SupabaseApiError(
       "Cannot delete the national default rule for this country. Create another default first or edit in place.",
@@ -188,21 +220,38 @@ export async function adminSavePricingTier(
   const country = normalizeCountryCode(input.country_code ?? "IN");
   const code = input.code.trim().replace(/\s+/g, "_").toLowerCase();
   if (!/^[a-z0-9][a-z0-9_]{0,62}$/.test(code)) {
-    throw new SupabaseApiError("Tier code: use letters, numbers, underscores (lowercase).");
+    throw new SupabaseApiError(
+      "Tier code: use letters, numbers, underscores (lowercase).",
+    );
   }
   const label = input.label.trim();
   if (!label) throw new SupabaseApiError("Tier label is required.");
-  const sort = typeof input.sort_order === "number" && Number.isFinite(input.sort_order) ? input.sort_order : 0;
+  const sort =
+    typeof input.sort_order === "number" && Number.isFinite(input.sort_order)
+      ? input.sort_order
+      : 0;
   const row = { country_code: country, code, label, sort_order: sort };
   if (input.id) {
-    const { data, error } = await client.from("pricing_tiers").update(row).eq("id", input.id).select().single();
+    const { data, error } = await client
+      .from("pricing_tiers")
+      .update(row)
+      .eq("id", input.id)
+      .select()
+      .single();
     return takeSingleRow(data, error);
   }
-  const { data, error } = await client.from("pricing_tiers").insert(row).select().single();
+  const { data, error } = await client
+    .from("pricing_tiers")
+    .insert(row)
+    .select()
+    .single();
   return takeSingleRow(data, error);
 }
 
-export async function adminDeletePricingTier(client: SupabaseClient<Database>, id: string): Promise<void> {
+export async function adminDeletePricingTier(
+  client: SupabaseClient<Database>,
+  id: string,
+): Promise<void> {
   const { error } = await client.from("pricing_tiers").delete().eq("id", id);
   if (error) throw new SupabaseApiError(error.message, error);
 }
@@ -230,7 +279,9 @@ export async function adminSavePricingCityTier(
     country_code: country,
     city_key: cityKey,
     state_key:
-      input.state_key == null || String(input.state_key).trim() === "" ? null : String(input.state_key).trim(),
+      input.state_key == null || String(input.state_key).trim() === ""
+        ? null
+        : String(input.state_key).trim(),
     tier_code: tier,
   };
 
@@ -244,12 +295,22 @@ export async function adminSavePricingCityTier(
     return takeSingleRow(data, error);
   }
 
-  const { data, error } = await client.from("pricing_city_tiers").upsert(row, { onConflict: "country_code,city_key" }).select().single();
+  const { data, error } = await client
+    .from("pricing_city_tiers")
+    .upsert(row, { onConflict: "country_code,city_key" })
+    .select()
+    .single();
   return takeSingleRow(data, error);
 }
 
-export async function adminDeletePricingCityTier(client: SupabaseClient<Database>, id: string): Promise<void> {
-  const { error } = await client.from("pricing_city_tiers").delete().eq("id", id);
+export async function adminDeletePricingCityTier(
+  client: SupabaseClient<Database>,
+  id: string,
+): Promise<void> {
+  const { error } = await client
+    .from("pricing_city_tiers")
+    .delete()
+    .eq("id", id);
   if (error) throw new SupabaseApiError(error.message, error);
 }
 
@@ -269,19 +330,38 @@ export async function resolveGeoPricingTierAddons(
 ): Promise<ResolvedGeoPricingTierAddons> {
   const cc = normalizeCountryCode(opts.countryCode);
   const cityKey =
-    opts.cityKey == null || opts.cityKey === "" ? null : normalizeCityKey(opts.cityKey.trim());
+    opts.cityKey == null || opts.cityKey === ""
+      ? null
+      : normalizeCityKey(opts.cityKey.trim());
   if (!cityKey) {
-    return { matched_tier_code: null, matched_tier_label: null, visit_addon_cents: 0, amc_addon_cents: 0 };
+    return {
+      matched_tier_code: null,
+      matched_tier_label: null,
+      visit_addon_cents: 0,
+      amc_addon_cents: 0,
+    };
   }
-  const [cityTiers, tierCatalog] = await Promise.all([listPricingCityTiers(client, cc), listPricingTiers(client, cc)]);
+  const [cityTiers, tierCatalog] = await Promise.all([
+    listPricingCityTiers(client, cc),
+    listPricingTiers(client, cc),
+  ]);
   const tierCodeFromMap = lookupTierCodeForCity(cityTiers, cc, cityKey);
   if (!tierCodeFromMap) {
-    return { matched_tier_code: null, matched_tier_label: null, visit_addon_cents: 0, amc_addon_cents: 0 };
+    return {
+      matched_tier_code: null,
+      matched_tier_label: null,
+      visit_addon_cents: 0,
+      amc_addon_cents: 0,
+    };
   }
   const want = normalizeTierKey(tierCodeFromMap);
   const tierRow =
     want &&
-    tierCatalog.find((t) => normalizeCountryCode(t.country_code) === cc && normalizeTierKey(t.code) === want);
+    tierCatalog.find(
+      (t) =>
+        normalizeCountryCode(t.country_code) === cc &&
+        normalizeTierKey(t.code) === want,
+    );
   if (!tierRow) {
     return {
       matched_tier_code: tierCodeFromMap,

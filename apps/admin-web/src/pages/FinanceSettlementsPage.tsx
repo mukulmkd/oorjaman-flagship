@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   adminBackfillVisitPayoutSettlements,
+  adminFetchRecognizedRevenueStats,
   adminGetPlatformSettings,
   adminListVendorSettlements,
   adminUpdatePlatformSettings,
@@ -72,6 +73,12 @@ export function FinanceSettlementsPage() {
       return adminUpdatePlatformSettings(supabase, { vendor_platform_fee_percent: n });
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.platform.settings() }),
+  });
+
+  const recognizedRevenueQ = useQuery({
+    queryKey: [...queryKeys.admin.analytics(), "recognized-revenue"] as const,
+    queryFn: () => adminFetchRecognizedRevenueStats(supabase!),
+    enabled: Boolean(supabase),
   });
 
   const settlementsQuery = useQuery({
@@ -219,7 +226,20 @@ export function FinanceSettlementsPage() {
             )}
           </Card>
 
-          <div className="fin-kpi-grid">
+          <div className="fin-kpi-grid" aria-label="Finance summary">
+            <div className="fin-kpi">
+              <span className="fin-kpi-label">Total revenue</span>
+              <span className="fin-kpi-value">
+                {recognizedRevenueQ.isPending
+                  ? "…"
+                  : recognizedRevenueQ.isError
+                    ? "-"
+                    : formatInrFromPaise(recognizedRevenueQ.data?.total_revenue_cents ?? 0)}
+              </span>
+              <span className="dash-muted-line" style={{ fontSize: "0.75rem", marginTop: "0.2rem" }}>
+                {platformFeePercent}% of customer payments on completed visits + cancellation fees
+              </span>
+            </div>
             <div className="fin-kpi">
               <span className="fin-kpi-label">Payouts to review</span>
               <span className="fin-kpi-value">{pendingPayouts}</span>
@@ -364,9 +384,8 @@ function SettlementRow({
       : null;
   const breakdown =
     row.kind === "visit_payout"
-      ? `Gross ${formatInrFromPaise(row.visit_gross_paise ?? 0)} · Fee ${formatInrFromPaise(row.platform_fee_paise ?? 0)}${
-          typeof feePercent === "number" ? ` (${feePercent}%)` : ""
-        }`
+      ? `Gross ${formatInrFromPaise(row.visit_gross_paise ?? 0)} · Fee ${formatInrFromPaise(row.platform_fee_paise ?? 0)}${typeof feePercent === "number" ? ` (${feePercent}%)` : ""
+      }`
       : `Assessed ${formatInrFromPaise(row.penalty_assessed_paise ?? 0)}`;
 
   return (

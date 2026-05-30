@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useMemo, useState } from "react";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import {
   Linking,
   Pressable,
@@ -25,7 +25,7 @@ import {
 } from "@oorjaman/api";
 import type { BookingRow, BookingStatus } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
-import { bookingStatusLabel, bookingUiBucket } from "../../../lib/booking-status";
+import { bookingStatusLabel, bookingUiBucket, isValidBookingRow } from "../../../lib/booking-status";
 import {
   AppScaffold,
   Button,
@@ -59,9 +59,11 @@ function sortBookingsByScheduledStartDesc(rows: BookingRow[]): BookingRow[] {
   });
 }
 
-function StatusChip({ status }: { status: BookingStatus }) {
+function StatusChip(props: { row?: BookingRow | null; status?: BookingStatus }) {
+  const status = props.row?.status ?? props.status;
+  if (!status) return null;
   const bucket = bookingUiBucket(status);
-  const label = bookingStatusLabel(status);
+  const label = bookingStatusLabel(status, props.row ?? undefined);
   const chipStyles =
     bucket === "pending"
       ? styles.chipPending
@@ -123,6 +125,12 @@ export default function MyBookingsScreen() {
     queryFn: () => bookingApi.listVisibleBookings(supabase!),
     enabled: Boolean(supabase),
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      if (supabase) void query.refetch();
+    }, [query, supabase]),
+  );
   const reportsQuery = useQuery({
     queryKey: queryKeys.jobReports.list({ limit: 400 }),
     queryFn: () => technicianApi.listVisibleJobReports(supabase!, { limit: 400 }),
@@ -133,7 +141,9 @@ export default function MyBookingsScreen() {
   const sortedBookings = useMemo(
     () =>
       sortBookingsByScheduledStartDesc(
-        (query.data ?? []).filter((b) => !shouldHideAmcBookingFromCustomerList(b)),
+        (query.data ?? [])
+          .filter(isValidBookingRow)
+          .filter((b) => !shouldHideAmcBookingFromCustomerList(b)),
       ),
     [query.data],
   );
@@ -159,18 +169,21 @@ export default function MyBookingsScreen() {
 
   const renderItem: ListRenderItem<BookingRow> = useCallback(
     ({ item }) => {
+      if (!isValidBookingRow(item)) return null;
       const forLabel = bookingForLabel(item);
       const opsLabel = bookingOpsLabel(item);
       const go = () => {
         if (!roleReady) return;
         router.push({ pathname: "/booking-detail", params: { id: item.id } });
       };
-      const needsRating = item.status === "completed" && !(ratingByBookingId.get(item.id) && Number(ratingByBookingId.get(item.id)) > 0);
+      const canRateVisit =
+        item.status === "completed" &&
+        !(ratingByBookingId.get(item.id) && Number(ratingByBookingId.get(item.id)) > 0);
       const title = customerBookingDisplayTitle(item);
       return (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${title}, ${bookingStatusLabel(item.status)}`}
+          accessibilityLabel={`${title}, ${bookingStatusLabel(item.status, item)}`}
           onPress={go}
           disabled={!roleReady}
           style={({ pressed }) => [styles.rowPress, pressed && styles.rowPressed, !roleReady && styles.rowDisabled]}
@@ -178,7 +191,7 @@ export default function MyBookingsScreen() {
           <Card variant="elevated" padded>
             <View style={styles.rowTop}>
               <Text style={styles.ref}>{title}</Text>
-              <StatusChip status={item.status} />
+              <StatusChip row={item} />
             </View>
             {customerBookingVisitDateVisible(item) ? (
               <Text style={styles.when}>{formatDisplayDateTime(item.scheduled_start)}</Text>
@@ -187,7 +200,9 @@ export default function MyBookingsScreen() {
               <Text style={styles.forChip}>For: {forLabel}</Text>
             ) : null}
             {opsLabel ? <Text style={styles.opsChip}>{opsLabel}</Text> : null}
-            {needsRating ? <Text style={styles.ratingPendingChip}>Rating pending · tap to rate</Text> : null}
+            {canRateVisit ? (
+              <Text style={styles.ratingPendingChip}>Rate this visit (optional)</Text>
+            ) : null}
             <Text style={styles.hint}>Tap for details</Text>
           </Card>
         </Pressable>

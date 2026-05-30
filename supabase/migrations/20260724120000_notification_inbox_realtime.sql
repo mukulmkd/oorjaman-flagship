@@ -155,7 +155,7 @@ values
   ('admin_booking_vendor_claimed', 'in_app', 'default', 'Vendor claimed booking', 'A partner claimed a marketplace booking.'),
   ('admin_booking_vendor_accepted', 'in_app', 'default', 'Technician assigned', 'A partner accepted a booking and assigned a technician.'),
   ('admin_booking_vendor_rejected', 'in_app', 'default', 'Vendor declined', 'A partner declined a booking request.'),
-  ('admin_booking_needs_reassignment', 'in_app', 'default', 'Reassignment needed', 'A partner cancelled an accepted visit — assign a new vendor.'),
+  ('admin_booking_needs_reassignment', 'in_app', 'default', 'Reassignment needed', 'A partner cancelled an accepted visit - assign a new vendor.'),
   ('admin_booking_technician_reassigned', 'in_app', 'default', 'Technician changed', 'A partner reassigned the technician on a visit.'),
   ('admin_booking_visit_started', 'in_app', 'default', 'Visit started', 'A field visit has started on site.'),
   ('admin_booking_visit_completed', 'in_app', 'default', 'Visit completed', 'A field visit was marked complete.'),

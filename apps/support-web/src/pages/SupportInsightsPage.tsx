@@ -36,43 +36,43 @@ export function SupportInsightsPage() {
 
   const metricCards: InsightMetricCard[] = data
     ? [
-        {
-          key: "open",
-          value: String(data.open_count),
-          label: "Open chats",
-          hint: "View all open conversations in the inbox",
-        },
-        {
-          key: "queued",
-          value: String(data.queued_count),
-          label: "In queue",
-          hint: "View chats waiting for an agent",
-        },
-        {
-          key: "unassigned",
-          value: String(data.unassigned_count),
-          label: "Unassigned",
-          hint: "View open chats with no assignee",
-        },
-        {
-          key: "resolved_24h",
-          value: String(data.resolved_24h),
-          label: "Resolved (24h)",
-          hint: "View chats resolved in the last 24 hours",
-        },
-        {
-          key: "first_reply",
-          value: data.avg_first_reply_minutes != null ? `${data.avg_first_reply_minutes}m` : "—",
-          label: "Avg first reply (7d)",
-          hint: "View resolved chats with first-reply timing (7d)",
-        },
-        {
-          key: "csat",
-          value: data.avg_csat_7d != null ? data.avg_csat_7d.toFixed(1) : "—",
-          label: "Avg CSAT (7d)",
-          hint: "View resolved chats with customer ratings (7d)",
-        },
-      ]
+      {
+        key: "open",
+        value: String(data.open_count),
+        label: "Open chats",
+        hint: "View all open conversations in the inbox",
+      },
+      {
+        key: "queued",
+        value: String(data.queued_count),
+        label: "In queue",
+        hint: "View chats waiting for an agent",
+      },
+      {
+        key: "unassigned",
+        value: String(data.unassigned_count),
+        label: "Unassigned",
+        hint: "View open chats with no assignee",
+      },
+      {
+        key: "resolved_24h",
+        value: String(data.resolved_24h),
+        label: "Resolved (24h)",
+        hint: "View chats resolved in the last 24 hours",
+      },
+      {
+        key: "first_reply",
+        value: data.avg_first_reply_minutes != null ? `${data.avg_first_reply_minutes}m` : "-",
+        label: "Avg first reply (7d)",
+        hint: "View resolved chats with first-reply timing (7d)",
+      },
+      {
+        key: "csat",
+        value: data.avg_csat_7d != null ? data.avg_csat_7d.toFixed(1) : "-",
+        label: "Avg CSAT (7d)",
+        hint: "View resolved chats with customer ratings (7d)",
+      },
+    ]
     : [];
 
   return (

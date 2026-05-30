@@ -1,0 +1,63 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgb(255 255 255 / 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--om-border);
+}
+
+.inner {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  min-height: 4rem;
+  flex-wrap: wrap;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--om-navy);
+  text-decoration: none;
+}
+
+.logoMark {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--om-primary) 0%, var(--om-accent) 100%);
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  flex: 1;
+}
+
+.navLink {
+  color: var(--om-muted);
+  text-decoration: none;
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.navLink:hover {
+  color: var(--om-primary);
+}
+
+.actions {
+  margin-left: auto;
+}
+
+@media (max-width: 720px) {
+  .nav {
+    order: 3;
+    width: 100%;
+    padding-bottom: 0.5rem;
+  }
+}

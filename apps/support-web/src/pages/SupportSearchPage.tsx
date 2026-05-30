@@ -176,7 +176,7 @@ export function SupportSearchPage() {
     <div className="support-search-page">
       <PageHeader
         title="Search"
-        subtitle="Look up customers, technicians, or chats — then review bookings, partner vendor, and support history."
+        subtitle="Look up customers, technicians, or chats - then review bookings, partner vendor, and support history."
       />
 
       <SupportSearchGuide mode={mode} />
@@ -246,7 +246,7 @@ export function SupportSearchPage() {
               {!canSearch ? (
                 <p className="support-inbox-muted">
                   Enter at least 2 characters and press Search. Matches profile name, login name,
-                  email, or phone — not chat subject (use Conversations for that).
+                  email, or phone - not chat subject (use Conversations for that).
                 </p>
               ) : null}
               {customerSearchLoading ? (
@@ -267,9 +267,8 @@ export function SupportSearchPage() {
                   <li key={c.id}>
                     <button
                       type="button"
-                      className={`support-search-result support-search-result-btn${
-                        selectedCustomerId === c.id ? " support-search-result-active" : ""
-                      }`}
+                      className={`support-search-result support-search-result-btn${selectedCustomerId === c.id ? " support-search-result-active" : ""
+                        }`}
                       onClick={() => {
                         setSelectedCustomerId(c.id);
                         setSelectedTechnicianId(null);
@@ -302,7 +301,7 @@ export function SupportSearchPage() {
               {!canSearch ? (
                 <p className="support-inbox-muted">
                   Enter at least 2 characters and press Search. Matches technician name, employee
-                  code, phone, email, or partner vendor — not chat subject (use Conversations for
+                  code, phone, email, or partner vendor - not chat subject (use Conversations for
                   that).
                 </p>
               ) : null}
@@ -323,9 +322,8 @@ export function SupportSearchPage() {
                   <li key={t.id}>
                     <button
                       type="button"
-                      className={`support-search-result support-search-result-btn${
-                        selectedTechnicianId === t.id ? " support-search-result-active" : ""
-                      }`}
+                      className={`support-search-result support-search-result-btn${selectedTechnicianId === t.id ? " support-search-result-active" : ""
+                        }`}
                       onClick={() => {
                         setSelectedTechnicianId(t.id);
                         setSelectedCustomerId(null);
@@ -385,9 +383,8 @@ export function SupportSearchPage() {
                     <li key={c.id}>
                       <button
                         type="button"
-                        className={`support-search-result support-search-result-btn${
-                          selectedConversationId === c.id ? " support-search-result-active" : ""
-                        }`}
+                        className={`support-search-result support-search-result-btn${selectedConversationId === c.id ? " support-search-result-active" : ""
+                          }`}
                         onClick={() => {
                           setSelectedConversationId(c.id);
                           setSelectedCustomerId(c.customer_id);
@@ -446,7 +443,7 @@ export function SupportSearchPage() {
                     {technicianProfile.technician.vendor_name
                       ? `${technicianProfile.technician.vendor_name} · `
                       : ""}
-                    {technicianProfile.technician.contact_email ?? "—"}
+                    {technicianProfile.technician.contact_email ?? "-"}
                     {technicianProfile.technician.personal_phone
                       ? ` · ${technicianProfile.technician.personal_phone}`
                       : ""}
@@ -476,11 +473,10 @@ export function SupportSearchPage() {
                   <li key={c.id}>
                     <button
                       type="button"
-                      className={`support-search-conv-pick${
-                        (selectedConversationId ?? technicianPrimaryConv?.id) === c.id
+                      className={`support-search-conv-pick${(selectedConversationId ?? technicianPrimaryConv?.id) === c.id
                           ? " support-search-conv-pick-active"
                           : ""
-                      }`}
+                        }`}
                       onClick={() => setSelectedConversationId(c.id)}
                     >
                       <span>{c.subject ?? c.category_slug}</span>
@@ -528,7 +524,7 @@ export function SupportSearchPage() {
                     {profile.customer.display_name?.trim() || "Customer"}
                   </h2>
                   <p className="support-inbox-muted">
-                    {profile.customer.contact_email ?? "—"}
+                    {profile.customer.contact_email ?? "-"}
                     {profile.customer.alternate_phone
                       ? ` · ${profile.customer.alternate_phone}`
                       : ""}
@@ -558,11 +554,10 @@ export function SupportSearchPage() {
                   <li key={c.id}>
                     <button
                       type="button"
-                      className={`support-search-conv-pick${
-                        (selectedConversationId ?? primaryConv?.id) === c.id
+                      className={`support-search-conv-pick${(selectedConversationId ?? primaryConv?.id) === c.id
                           ? " support-search-conv-pick-active"
                           : ""
-                      }`}
+                        }`}
                       onClick={() => setSelectedConversationId(c.id)}
                     >
                       <span>{c.subject ?? c.category_slug}</span>
@@ -599,9 +594,9 @@ export function SupportSearchPage() {
           ) : null}
 
           {mode === "conversations" &&
-          selectedConversationId &&
-          !selectedCustomerId &&
-          !selectedTechnicianId ? (
+            selectedConversationId &&
+            !selectedCustomerId &&
+            !selectedTechnicianId ? (
             <div className="support-chat-dock-hint">
               <p>Conversation selected.</p>
               <button

@@ -11,7 +11,12 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type UserRole = "customer" | "vendor" | "technician" | "admin" | "support";
+export type UserRole =
+  | "customer"
+  | "vendor"
+  | "technician"
+  | "admin"
+  | "support";
 export type VendorApprovalStatus =
   | "pending"
   | "under_review"
@@ -33,9 +38,17 @@ export type SubscriptionStatus =
   | "cancelled"
   | "expired"
   | "past_due";
-export type SubscriptionBillingPeriod = "monthly" | "quarterly" | "annual" | "custom";
+export type SubscriptionBillingPeriod =
+  | "monthly"
+  | "quarterly"
+  | "annual"
+  | "custom";
 export type JobReportWeather = "clear" | "cloudy" | "windy" | "rain" | "other";
-export type TechnicianVerificationStatus = "draft" | "pending_review" | "verified" | "rejected";
+export type TechnicianVerificationStatus =
+  | "draft"
+  | "pending_review"
+  | "verified"
+  | "rejected";
 export type VendorTechnicianInviteStatus =
   | "invited"
   | "opened"
@@ -46,7 +59,11 @@ export type VendorTechnicianInviteStatus =
 export type PaymentStatus = "pending" | "success" | "failed";
 
 export type VendorSettlementKind = "visit_payout" | "cancellation_penalty";
-export type VendorSettlementStatus = "pending_review" | "approved" | "settled" | "waived";
+export type VendorSettlementStatus =
+  | "pending_review"
+  | "approved"
+  | "settled"
+  | "waived";
 
 export type UserRow = {
   id: string;
@@ -94,7 +111,11 @@ export type CustomerRow = {
   updated_at: string;
 };
 
-export type VendorRegistrationIntakeStatus = "draft" | "submitted" | "approved" | "rejected";
+export type VendorRegistrationIntakeStatus =
+  | "draft"
+  | "submitted"
+  | "approved"
+  | "rejected";
 
 export type VendorRegistrationIntakeRow = {
   id: string;
@@ -407,7 +428,7 @@ export type PricingNationalDefaultAuditRow = {
   changed_at: string;
 };
 
-/** Fixed kW capacity band (3/4/5/6/8/10 — no 7 or 9). */
+/** Fixed kW capacity band (3/4/5/6/8/10 - no 7 or 9). */
 export type ServiceCapacityTierRow = {
   country_code: string;
   code: string;
@@ -485,13 +506,25 @@ export type SubscriptionRow = {
   updated_at: string;
 };
 
-export type SubscriptionVisitSlotStatus = "pending" | "scheduled" | "completed" | "cancelled";
+export type SubscriptionVisitSlotStatus =
+  | "pending"
+  | "scheduled"
+  | "completed"
+  | "cancelled";
 
-export type SupportConversationStatus = "intake" | "queued" | "active" | "resolved";
+export type SupportConversationStatus =
+  | "intake"
+  | "queued"
+  | "active"
+  | "resolved";
 
 export type SupportConversationPriority = "normal" | "high" | "urgent";
 
-export type SupportResolutionTag = "resolved" | "escalated" | "duplicate" | "policy_limitation";
+export type SupportResolutionTag =
+  | "resolved"
+  | "escalated"
+  | "duplicate"
+  | "policy_limitation";
 
 export type SupportParticipantAudience = "customer" | "technician";
 
@@ -842,7 +875,9 @@ export type Database = {
           lng: number;
           recorded_at?: string;
         };
-        Update: Partial<Pick<TechnicianLocationRow, "lat" | "lng" | "recorded_at">>;
+        Update: Partial<
+          Pick<TechnicianLocationRow, "lat" | "lng" | "recorded_at">
+        >;
         Relationships: [];
       };
       technicians: {
@@ -914,7 +949,12 @@ export type Database = {
           last_notified_at?: string | null;
           metadata?: Json;
         };
-        Update: Partial<Omit<VendorTechnicianInviteRow, "id" | "vendor_id" | "invited_by_user_id">>;
+        Update: Partial<
+          Omit<
+            VendorTechnicianInviteRow,
+            "id" | "vendor_id" | "invited_by_user_id"
+          >
+        >;
         Relationships: [];
       };
       vendor_slot_availability: {
@@ -928,7 +968,12 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
-        Update: Partial<Omit<VendorSlotAvailabilityRow, "vendor_id" | "day_key" | "slot_id" | "created_at">>;
+        Update: Partial<
+          Omit<
+            VendorSlotAvailabilityRow,
+            "vendor_id" | "day_key" | "slot_id" | "created_at"
+          >
+        >;
         Relationships: [];
       };
       notification_events: {
@@ -980,7 +1025,9 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
-        Update: Partial<Omit<NotificationChannelSettingRow, "id" | "created_at">>;
+        Update: Partial<
+          Omit<NotificationChannelSettingRow, "id" | "created_at">
+        >;
         Relationships: [];
       };
       platform_settings: {
@@ -1054,7 +1101,9 @@ export type Database = {
           sort_order?: number;
           is_active?: boolean;
         };
-        Update: Partial<Omit<ServiceCapacityTierRow, "country_code" | "code" | "created_at">>;
+        Update: Partial<
+          Omit<ServiceCapacityTierRow, "country_code" | "code" | "created_at">
+        >;
         Relationships: [];
       };
       pricing_one_time_rates: {
@@ -1104,7 +1153,12 @@ export type Database = {
           amount: number;
           status?: PaymentStatus;
         };
-        Update: Partial<Pick<PaymentRow, "booking_id" | "status" | "payment_method" | "paid_at">>;
+        Update: Partial<
+          Pick<
+            PaymentRow,
+            "booking_id" | "status" | "payment_method" | "paid_at"
+          >
+        >;
         Relationships: [];
       };
       vendor_settlements: {
@@ -1129,7 +1183,12 @@ export type Database = {
           approved_by?: string | null;
           settled_by?: string | null;
         };
-        Update: Partial<Omit<VendorSettlementRow, "id" | "booking_id" | "vendor_id" | "kind" | "created_at">>;
+        Update: Partial<
+          Omit<
+            VendorSettlementRow,
+            "id" | "booking_id" | "vendor_id" | "kind" | "created_at"
+          >
+        >;
         Relationships: [];
       };
       support_conversations: {
@@ -1158,7 +1217,12 @@ export type Database = {
           id?: string;
           conversation_id: string;
           sender_user_id?: string | null;
-          sender_role: "customer" | "technician" | "admin" | "system" | "internal";
+          sender_role:
+            | "customer"
+            | "technician"
+            | "admin"
+            | "system"
+            | "internal";
           body: string;
           metadata?: Json;
         };
@@ -1175,7 +1239,9 @@ export type Database = {
           platform?: "ios" | "android" | "unknown";
           app_slug?: string;
         };
-        Update: Partial<Omit<CustomerPushTokenRow, "id" | "user_id" | "created_at">>;
+        Update: Partial<
+          Omit<CustomerPushTokenRow, "id" | "user_id" | "created_at">
+        >;
         Relationships: [];
       };
       technician_push_tokens: {
@@ -1188,7 +1254,9 @@ export type Database = {
           platform?: "ios" | "android" | "unknown";
           app_slug?: string;
         };
-        Update: Partial<Omit<TechnicianPushTokenRow, "id" | "user_id" | "created_at">>;
+        Update: Partial<
+          Omit<TechnicianPushTokenRow, "id" | "user_id" | "created_at">
+        >;
         Relationships: [];
       };
       support_macros: {
@@ -1257,7 +1325,12 @@ export type Database = {
           dedupe_key: string;
           payload?: Json;
         };
-        Update: Partial<Omit<CustomerSiteActivityEventRow, "id" | "customer_id" | "dedupe_key" | "created_at">>;
+        Update: Partial<
+          Omit<
+            CustomerSiteActivityEventRow,
+            "id" | "customer_id" | "dedupe_key" | "created_at"
+          >
+        >;
         Relationships: [];
       };
       technician_activity_events: {
@@ -1273,7 +1346,12 @@ export type Database = {
           dedupe_key: string;
           payload?: Json;
         };
-        Update: Partial<Omit<TechnicianActivityEventRow, "id" | "technician_id" | "dedupe_key" | "created_at">>;
+        Update: Partial<
+          Omit<
+            TechnicianActivityEventRow,
+            "id" | "technician_id" | "dedupe_key" | "created_at"
+          >
+        >;
         Relationships: [];
       };
       subscription_visit_slots: {
@@ -1393,6 +1471,13 @@ export type Database = {
         Relationships: [];
       };
       revenue_stats: {
+        Row: {
+          total_revenue_cents: number;
+          revenue_per_day: Json | null;
+        };
+        Relationships: [];
+      };
+      recognized_revenue_stats: {
         Row: {
           total_revenue_cents: number;
           revenue_per_day: Json | null;

@@ -1,5 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useState } from "react";
-import { useNavigation } from "@react-navigation/native";
+import { useCallback, useMemo, useState } from "react";
 import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { useQuery } from "@tanstack/react-query";
@@ -16,10 +15,8 @@ import {
   SkeletonBar,
 } from "@oorjaman/ui";
 import { spacing } from "@oorjaman/config";
-import { SupportChatHeaderButton } from "../../../components/help-header-button";
 import { JobListCard } from "../../../components/job-list-card";
 import { JobSegmentBar } from "../../../components/job-segment-bar";
-import { TabNavTitle } from "../../../components/tab-nav-title";
 import { TabScreenHeader } from "../../../components/tab-screen-header";
 import {
   filterBookingsBySegment,
@@ -37,17 +34,7 @@ function JobRowSkeleton() {
 }
 
 export default function AssignedJobsScreen() {
-  const navigation = useNavigation();
   const [segment, setSegment] = useState<JobListSegment>("today");
-
-  useLayoutEffect(() => {
-    const tab = navigation.getParent();
-    tab?.setOptions({
-      headerTitle: "",
-      headerLeft: () => <TabNavTitle title="Jobs" />,
-      headerRight: () => <SupportChatHeaderButton />,
-    });
-  }, [navigation]);
 
   const query = useQuery({
     queryKey: queryKeys.bookings.list({ scope: "technician-assigned" }),

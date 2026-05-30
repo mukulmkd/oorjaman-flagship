@@ -229,7 +229,7 @@ export default function ActivityScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.lede}>
-            Bookings, visit status changes, reschedules, ratings, AMC updates, and more — grouped by service address.
+            Bookings, visit status changes, reschedules, ratings, AMC updates, and more - grouped by service address.
           </Text>
         </View>
 
@@ -302,7 +302,7 @@ export default function ActivityScreen() {
               ) : events.length === 0 ? (
                 <EmptyStateCard
                   title="No activity yet"
-                  description="Book a visit or subscribe to AMC for this address — updates will appear here."
+                  description="Book a visit or subscribe to AMC for this address - updates will appear here."
                 />
               ) : (
                 <>

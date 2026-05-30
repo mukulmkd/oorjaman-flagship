@@ -5,12 +5,15 @@ import {
   supportAgentNameFromMessage,
   type SupportMessageRow,
 } from "@oorjaman/api";
+import {
+  ensureSupportChatAndroidChannel,
+  initMobileNotificationHandler,
+  isSupportChatNotificationData,
+  SUPPORT_CHAT_CHANNEL_ID,
+  SUPPORT_CHAT_SOUND,
+} from "./mobile-notification-handler";
 
-const CHANNEL_ID = "support-messages";
 const BRAND = "OorjaMan";
-
-let handlerInstalled = false;
-let androidChannelReady = false;
 
 function snippetFromBody(body: string, max = 96): string {
   const trimmed = body.trim().replace(/\s+/g, " ");
@@ -18,14 +21,17 @@ function snippetFromBody(body: string, max = 96): string {
   return `${trimmed.slice(0, max - 1)}…`;
 }
 
-function previewForMessage(message: SupportMessageRow): { title: string; body: string } {
+function previewForMessage(message: SupportMessageRow): {
+  title: string;
+  body: string;
+} {
   const event = parseSupportMessageEvent(message);
   const name = supportAgentNameFromMessage(message) ?? "our team";
 
   if (event === "agent_joined") {
     return {
       title: `${BRAND} support`,
-      body: `${name} has joined your chat — we are here to help with your solar care question.`,
+      body: `${name} has joined your chat - we are here to help with your solar care question.`,
     };
   }
   if (event === "agent_transferred") {
@@ -37,37 +43,23 @@ function previewForMessage(message: SupportMessageRow): { title: string; body: s
   if (event === "agent_left_queue") {
     return {
       title: `${BRAND} support`,
-      body: "We are connecting you with the next available specialist — thank you for your patience.",
+      body: "We are connecting you with the next available specialist - thank you for your patience.",
     };
   }
 
   const snippet = snippetFromBody(message.body);
   return {
     title: `Message from ${BRAND}`,
-    body: snippet || "You have a new reply in support — tap to read when convenient.",
+    body:
+      snippet ||
+      "You have a new reply in support - tap to read when convenient.",
   };
 }
 
-function initHandler(): void {
-  if (Platform.OS === "web" || handlerInstalled) return;
-  handlerInstalled = true;
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: false,
-      shouldSetBadge: false,
-    }),
-  });
-}
-
-async function ensureAndroidChannel(): Promise<void> {
-  if (Platform.OS !== "android" || androidChannelReady) return;
-  await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-    name: "OorjaMan support",
-    importance: Notifications.AndroidImportance.DEFAULT,
-  });
-  androidChannelReady = true;
+/** Idempotent: notification handler + Android channel for audible support chat. */
+export function initSupportChatNotificationHandler(): void {
+  initMobileNotificationHandler();
+  void ensureSupportChatAndroidChannel();
 }
 
 async function presentSupportNotification(
@@ -75,15 +67,23 @@ async function presentSupportNotification(
   data: Record<string, unknown>,
 ): Promise<void> {
   if (Platform.OS === "web") return;
-  initHandler();
+  initSupportChatNotificationHandler();
+
   const existing = await Notifications.getPermissionsAsync();
   let granted = existing.status === "granted";
   if (!granted) {
-    const requested = await Notifications.requestPermissionsAsync();
+    const requested = await Notifications.requestPermissionsAsync({
+      ios: {
+        allowAlert: true,
+        allowBadge: true,
+        allowSound: true,
+      },
+    });
     granted = requested.status === "granted";
   }
   if (!granted) return;
-  await ensureAndroidChannel();
+
+  await ensureSupportChatAndroidChannel();
 
   const { title, body } = previewForMessage(message);
   await Notifications.scheduleNotificationAsync({
@@ -91,7 +91,15 @@ async function presentSupportNotification(
       title,
       body,
       data,
-      ...(Platform.OS === "android" ? { android: { channelId: CHANNEL_ID } } : {}),
+      sound: SUPPORT_CHAT_SOUND,
+      ...(Platform.OS === "android"
+        ? {
+            android: {
+              channelId: SUPPORT_CHAT_CHANNEL_ID,
+              priority: Notifications.AndroidNotificationPriority.HIGH,
+            },
+          }
+        : {}),
     },
     trigger: null,
   });
@@ -104,7 +112,9 @@ export function supportMessageNotificationPreview(message: SupportMessageRow): {
   return previewForMessage(message);
 }
 
-export async function notifyCustomerSupportMessage(message: SupportMessageRow): Promise<void> {
+export async function notifyCustomerSupportMessage(
+  message: SupportMessageRow,
+): Promise<void> {
   await presentSupportNotification(message, {
     kind: "support_message_customer",
     conversationId: message.conversation_id,
@@ -112,10 +122,15 @@ export async function notifyCustomerSupportMessage(message: SupportMessageRow): 
   });
 }
 
-export async function notifyTechnicianSupportMessage(message: SupportMessageRow): Promise<void> {
+export async function notifyTechnicianSupportMessage(
+  message: SupportMessageRow,
+): Promise<void> {
   await presentSupportNotification(message, {
     kind: "support_message_technician",
     conversationId: message.conversation_id,
     messageId: message.id,
   });
 }
+
+/** Re-export for push tap handling consistency. */
+export { isSupportChatNotificationData };

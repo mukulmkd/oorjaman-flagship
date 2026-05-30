@@ -59,7 +59,7 @@ export default function PermissionsScreen() {
         <View style={styles.expoNote}>
           <Text style={styles.expoNoteText}>
             You are using Expo Go for development. After you tap Allow location, iOS may show an extra
-            “Experience needs permissions” step — that is Expo Go only. Installed OorjaMan builds show your
+            “Experience needs permissions” step - that is Expo Go only. Installed OorjaMan builds show your
             app name and our custom message instead.
           </Text>
         </View>

@@ -94,109 +94,109 @@ export default function HomeTab() {
   return (
     <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-      {employerOpen ? (
-        <Card variant="muted" padded>
-          <View style={styles.employerCard}>
-          <Text style={styles.employerTitle}>{employerName}</Text>
-          {workCity ? <Text style={styles.employerMeta}>Preferred work city: {workCity}</Text> : null}
-          {tech?.employee_code?.trim() ? (
-            <Text style={styles.employerMeta}>OorjaMan ID: {tech.employee_code.trim()}</Text>
-          ) : null}
-          {tech?.personal_phone?.trim() ? (
-            <Text style={styles.employerMeta}>Sign-in phone: {tech.personal_phone.trim()}</Text>
-          ) : null}
-          </View>
-        </Card>
-      ) : null}
+        {employerOpen ? (
+          <Card variant="muted" padded>
+            <View style={styles.employerCard}>
+              <Text style={styles.employerTitle}>{employerName}</Text>
+              {workCity ? <Text style={styles.employerMeta}>Preferred work city: {workCity}</Text> : null}
+              {tech?.employee_code?.trim() ? (
+                <Text style={styles.employerMeta}>OorjaMan ID: {tech.employee_code.trim()}</Text>
+              ) : null}
+              {tech?.personal_phone?.trim() ? (
+                <Text style={styles.employerMeta}>Sign-in phone: {tech.personal_phone.trim()}</Text>
+              ) : null}
+            </View>
+          </Card>
+        ) : null}
 
-      <View style={styles.hero}>
-        <Text style={styles.hello}>Hello,</Text>
-        <Text style={styles.headline}>{displayName(tech)}</Text>
-        {tech?.employee_code?.trim() ? (
-          <View style={styles.idPill}>
-            <Text style={styles.idPillText}>{tech.employee_code.trim()}</Text>
+        <View style={styles.hero}>
+          <Text style={styles.hello}>Hello,</Text>
+          <Text style={styles.headline}>{displayName(tech)}</Text>
+          {tech?.employee_code?.trim() ? (
+            <View style={styles.idPill}>
+              <Text style={styles.idPillText}>{tech.employee_code.trim()}</Text>
+            </View>
+          ) : null}
+          <Text style={styles.sub}>
+            Complete visits safely and on time. Open an assigned job and use the Job Start Code from the customer app.
+          </Text>
+        </View>
+
+        {nextJob ? (
+          <View style={styles.sectionGap}>
+            <Text style={styles.sectionLabel}>Next visit</Text>
+            <JobListCard
+              item={nextJob}
+              cta={nextJob.status === "in_progress" ? "Continue visit" : "Open job"}
+              onPress={() => {
+                if (nextJob.status === "in_progress") {
+                  router.push(`/(main)/jobs/execute/${nextJob.id}`);
+                } else {
+                  router.push(`/(main)/jobs/${nextJob.id}`);
+                }
+              }}
+            />
+          </View>
+        ) : (
+          <View style={styles.sectionGap}>
+            <Card variant="muted" padded>
+              <Text style={styles.cardTitle}>No visits queued</Text>
+              <Text style={styles.cardBody}>When dispatch assigns you a job, it will show up here and under the Jobs tab.</Text>
+            </Card>
+          </View>
+        )}
+
+        <Button variant="primary" size="lg" onPress={() => router.push("/(main)/jobs")}>
+          View all jobs
+        </Button>
+
+        <View style={styles.availCard}>
+          <Card variant="muted" padded>
+            <View style={styles.availRow}>
+              <View style={styles.availText}>
+                <Text style={styles.cardTitle}>Available for assignments</Text>
+                <Text style={styles.cardBody}>
+                  Turn off when you are on leave so dispatch does not assign new visits.
+                </Text>
+              </View>
+              <Switch
+                accessibilityLabel="Available for new job assignments"
+                value={tech?.is_available ?? true}
+                disabled={availabilityMut.isPending || !tech}
+                onValueChange={(v) => availabilityMut.mutate(v)}
+                trackColor={{ false: colors.border, true: colors.primary }}
+              />
+            </View>
+          </Card>
+        </View>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statBox}>
+            <Text style={styles.statValue}>{stats?.total_jobs ?? 0}</Text>
+            <Text style={styles.statLabel}>Completed</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statValue}>
+              {stats?.avg_rating != null ? stats.avg_rating.toFixed(1) : "-"}
+            </Text>
+            <Text style={styles.statLabel}>Rating</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statValue}>{stats?.rating_count ?? 0}</Text>
+            <Text style={styles.statLabel}>Reviews</Text>
+          </View>
+        </View>
+
+        {nextJob ? (
+          <View style={styles.tipCard}>
+            <Card variant="outline" padded>
+              <Text style={styles.cardTitle}>Quick tip</Text>
+              <Text style={styles.cardBody}>
+                {nextJob.reference_code} · {formatJobWhen(nextJob.scheduled_start)} · {stringifyAddress(nextJob.service_site_address)}
+              </Text>
+            </Card>
           </View>
         ) : null}
-        <Text style={styles.sub}>
-          Complete visits safely and on time. Open an assigned job and use the Job Start Code from the customer app.
-        </Text>
-      </View>
-
-      {nextJob ? (
-        <View style={styles.sectionGap}>
-          <Text style={styles.sectionLabel}>Next visit</Text>
-          <JobListCard
-            item={nextJob}
-            cta={nextJob.status === "in_progress" ? "Continue visit" : "Open job"}
-            onPress={() => {
-              if (nextJob.status === "in_progress") {
-                router.push(`/(main)/jobs/execute/${nextJob.id}`);
-              } else {
-                router.push(`/(main)/jobs/${nextJob.id}`);
-              }
-            }}
-          />
-        </View>
-      ) : (
-        <View style={styles.sectionGap}>
-          <Card variant="muted" padded>
-            <Text style={styles.cardTitle}>No visits queued</Text>
-            <Text style={styles.cardBody}>When dispatch assigns you a job, it will show up here and under the Jobs tab.</Text>
-          </Card>
-        </View>
-      )}
-
-      <Button variant="primary" size="lg" onPress={() => router.push("/(main)/jobs")}>
-        View all jobs
-      </Button>
-
-      <View style={styles.availCard}>
-        <Card variant="muted" padded>
-        <View style={styles.availRow}>
-          <View style={styles.availText}>
-            <Text style={styles.cardTitle}>Available for assignments</Text>
-            <Text style={styles.cardBody}>
-              Turn off when you are on leave so dispatch does not assign new visits.
-            </Text>
-          </View>
-          <Switch
-            accessibilityLabel="Available for new job assignments"
-            value={tech?.is_available ?? true}
-            disabled={availabilityMut.isPending || !tech}
-            onValueChange={(v) => availabilityMut.mutate(v)}
-            trackColor={{ false: colors.border, true: colors.primary }}
-          />
-        </View>
-        </Card>
-      </View>
-
-      <View style={styles.statsRow}>
-        <View style={styles.statBox}>
-          <Text style={styles.statValue}>{stats?.total_jobs ?? 0}</Text>
-          <Text style={styles.statLabel}>Completed</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statValue}>
-            {stats?.avg_rating != null ? stats.avg_rating.toFixed(1) : "—"}
-          </Text>
-          <Text style={styles.statLabel}>Rating</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statValue}>{stats?.rating_count ?? 0}</Text>
-          <Text style={styles.statLabel}>Reviews</Text>
-        </View>
-      </View>
-
-      {nextJob ? (
-        <View style={styles.tipCard}>
-          <Card variant="outline" padded>
-            <Text style={styles.cardTitle}>Quick tip</Text>
-            <Text style={styles.cardBody}>
-              {nextJob.reference_code} · {formatJobWhen(nextJob.scheduled_start)} · {stringifyAddress(nextJob.service_site_address)}
-            </Text>
-          </Card>
-        </View>
-      ) : null}
       </ScrollView>
     </Screen>
   );

@@ -62,7 +62,7 @@ export default function ProfileTab() {
   const tech = techQuery.data;
   const stats = statsQuery.data?.[0];
   const employer =
-    vendorQuery.data?.trade_name?.trim() || vendorQuery.data?.business_name?.trim() || "—";
+    vendorQuery.data?.trade_name?.trim() || vendorQuery.data?.business_name?.trim() || "-";
   const workCity = preferredWorkCity(tech?.home_base_address, tech?.preferred_work_locations);
 
   useEffect(() => {
@@ -105,17 +105,17 @@ export default function ProfileTab() {
             <SkeletonBar variant="dense" />
           ) : (
             <>
-              <Row label="Name (Aadhaar)" value={tech?.name_as_per_aadhaar?.trim() || "—"} />
-              <Row label="OorjaMan ID" value={tech?.employee_code?.trim() || "—"} />
-              <Row label="Phone" value={tech?.personal_phone?.trim() || identity || "—"} />
+              <Row label="Name (Aadhaar)" value={tech?.name_as_per_aadhaar?.trim() || "-"} />
+              <Row label="OorjaMan ID" value={tech?.employee_code?.trim() || "-"} />
+              <Row label="Phone" value={tech?.personal_phone?.trim() || identity || "-"} />
               <Row
                 label="Status"
                 value={
                   verified
-                    ? "Active — verified"
+                    ? "Active - verified"
                     : tech?.vendor_review_status === "pending"
                       ? "Awaiting employer review"
-                      : tech?.verification_status ?? "—"
+                      : tech?.verification_status ?? "-"
                 }
               />
             </>
@@ -124,17 +124,17 @@ export default function ProfileTab() {
 
         <ProfileSection title="Employer">
           <Row label="Vendor" value={employer} />
-          <Row label="Work city" value={workCity ?? "—"} />
+          <Row label="Work city" value={workCity ?? "-"} />
           {tech?.service_radius_km != null ? (
             <Row label="Service radius" value={`${tech.service_radius_km} km`} />
           ) : null}
         </ProfileSection>
 
         <ProfileSection title="Work profile">
-          <Row label="Skills" value={tech?.skills?.length ? tech.skills.join(", ") : "—"} />
+          <Row label="Skills" value={tech?.skills?.length ? tech.skills.join(", ") : "-"} />
           <Row
             label="Solar experience"
-            value={tech?.flag_solar_cleaning_experience ? `Yes · ${tech.years_experience ?? "—"} yrs` : "No"}
+            value={tech?.flag_solar_cleaning_experience ? `Yes · ${tech.years_experience ?? "-"} yrs` : "No"}
           />
           <Row label="Home base" value={stringifyAddress(tech?.home_base_address)} />
           <View style={styles.availRow}>
@@ -149,8 +149,8 @@ export default function ProfileTab() {
         </ProfileSection>
 
         <ProfileSection title="Safety & training">
-          <Row label="Safety training" value={tech?.flag_safety_training ? "Completed" : "—"} />
-          <Row label="Organisation" value={tech?.safety_training_org?.trim() || "—"} />
+          <Row label="Safety training" value={tech?.flag_safety_training ? "Completed" : "-"} />
+          <Row label="Organisation" value={tech?.safety_training_org?.trim() || "-"} />
           <Row label="Height / rope cert" value={tech?.flag_height_work_cert ? "Yes" : "No"} />
         </ProfileSection>
 

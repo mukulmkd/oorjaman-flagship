@@ -217,7 +217,7 @@ function NotificationCopyGuideCard() {
         <div>
           <p className="nt-copy-guide-title">OorjaMan copy guide</p>
           <p className="nt-copy-guide-lead">
-            Every notification should feel like it comes from a caring solar-care team — not a generic alert.
+            Every notification should feel like it comes from a caring solar-care team - not a generic alert.
             Use <code>{"{{variable}}"}</code> placeholders; the system fills them from each event&apos;s payload.{" "}
             <Link to="/dashboard/feature-management">Feature management</Link> controls which channels send (demo vs
             live).
@@ -232,23 +232,23 @@ function NotificationCopyGuideCard() {
           </h3>
           <ul className="nt-copy-list">
             <li>
-              <strong>Lead with value</strong> — what happens next, how it helps their home or panels, or what we&apos;re
+              <strong>Lead with value</strong> - what happens next, how it helps their home or panels, or what we&apos;re
               doing for them.
             </li>
             <li>
-              <strong>Sound human</strong> — &quot;Namaste&quot;, &quot;thank you&quot;, &quot;we&apos;re grateful&quot; where it fits; sign emails
-              &quot;— Team OorjaMan&quot;.
+              <strong>Sound human</strong> - &quot;Namaste&quot;, &quot;thank you&quot;, &quot;we&apos;re grateful&quot; where it fits; sign emails
+              &quot;- Team OorjaMan&quot;.
             </li>
             <li>
-              <strong>Be humble on hard news</strong> — declines, low ratings, lapses: acknowledge feelings, offer a
+              <strong>Be humble on hard news</strong> - declines, low ratings, lapses: acknowledge feelings, offer a
               clear next step.
             </li>
             <li>
-              <strong>Name the brand once</strong> — &quot;OorjaMan&quot; in subject or first line; avoid repeating it every
+              <strong>Name the brand once</strong> - &quot;OorjaMan&quot; in subject or first line; avoid repeating it every
               sentence.
             </li>
             <li>
-              <strong>Give an out</strong> — &quot;If you&apos;ve already renewed, thank you — no action needed&quot; reduces noise and
+              <strong>Give an out</strong> - &quot;If you&apos;ve already renewed, thank you - no action needed&quot; reduces noise and
               builds trust.
             </li>
           </ul>
@@ -263,7 +263,7 @@ function NotificationCopyGuideCard() {
             <li>Empty alerts (&quot;Booking updated&quot;) with no context or reference.</li>
             <li>Internal jargon (RLS, queue, marketplace float) in customer-facing copy.</li>
             <li>Over-promising (&quot;guaranteed same-day&quot;) unless ops has committed to it.</li>
-            <li>Long SMS — keep under ~160 characters when possible; put warmth in WhatsApp or email.</li>
+            <li>Long SMS - keep under ~160 characters when possible; put warmth in WhatsApp or email.</li>
           </ul>
         </section>
 
@@ -273,16 +273,16 @@ function NotificationCopyGuideCard() {
           </h3>
           <ul className="nt-copy-list">
             <li>
-              <strong>Email</strong> — warmest; short paragraphs; subject personalises with name or plan.
+              <strong>Email</strong> - warmest; short paragraphs; subject personalises with name or plan.
             </li>
             <li>
-              <strong>SMS</strong> — one idea + action; start with &quot;OorjaMan:&quot; for recognition.
+              <strong>SMS</strong> - one idea + action; start with &quot;OorjaMan:&quot; for recognition.
             </li>
             <li>
-              <strong>WhatsApp</strong> — conversational; still respectful; OK to use customer first name.
+              <strong>WhatsApp</strong> - conversational; still respectful; OK to use customer first name.
             </li>
             <li>
-              <strong>In-app</strong> — title + body in the event payload from API; DB templates are fallbacks for some
+              <strong>In-app</strong> - title + body in the event payload from API; DB templates are fallbacks for some
               flows.
             </li>
           </ul>

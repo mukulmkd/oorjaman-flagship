@@ -17,10 +17,14 @@ export function formatAmcVisitLabel(sequence: number): string {
   return `${n}${suffix} visit`;
 }
 
-export function readAmcVisitSequenceFromMetadata(metadata: Json | unknown): number | null {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+export function readAmcVisitSequenceFromMetadata(
+  metadata: Json | unknown,
+): number | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata))
+    return null;
   const seq = (metadata as Record<string, unknown>).sequence;
-  if (typeof seq === "number" && Number.isFinite(seq) && seq >= 1) return Math.floor(seq);
+  if (typeof seq === "number" && Number.isFinite(seq) && seq >= 1)
+    return Math.floor(seq);
   if (typeof seq === "string" && /^[0-9]+$/.test(seq.trim())) {
     const n = parseInt(seq.trim(), 10);
     return n >= 1 ? n : null;
@@ -29,8 +33,11 @@ export function readAmcVisitSequenceFromMetadata(metadata: Json | unknown): numb
 }
 
 /** True when the customer scheduled this AMC visit through the app (not legacy auto-generation). */
-export function isCustomerScheduledAmcMetadata(metadata: Json | unknown): boolean {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return false;
+export function isCustomerScheduledAmcMetadata(
+  metadata: Json | unknown,
+): boolean {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata))
+    return false;
   const o = metadata as Record<string, unknown>;
   if (o.customer_scheduled_amc === true) return true;
   const slot = o.schedule_slot;
@@ -46,15 +53,24 @@ export function isLegacyAutoScheduledAmcBooking(booking: {
 }): boolean {
   if (!booking.subscription_id) return false;
   if (isCustomerScheduledAmcMetadata(booking.metadata)) return false;
-  if (booking.status && !["confirmed", "pending_payment"].includes(booking.status)) {
+  if (
+    booking.status &&
+    !["confirmed", "pending_payment"].includes(booking.status)
+  ) {
     return false;
   }
   const notes = booking.customer_notes?.trim() ?? "";
   if (/auto-scheduled/i.test(notes)) return true;
-  if (!booking.metadata || typeof booking.metadata !== "object" || Array.isArray(booking.metadata)) {
+  if (
+    !booking.metadata ||
+    typeof booking.metadata !== "object" ||
+    Array.isArray(booking.metadata)
+  ) {
     return false;
   }
-  return (booking.metadata as Record<string, unknown>).source === "subscription_amc";
+  return (
+    (booking.metadata as Record<string, unknown>).source === "subscription_amc"
+  );
 }
 
 /** Slot is linked to a customer-created AMC booking (shows OM- reference, tappable). */
@@ -83,7 +99,22 @@ export function customerBookingDisplayTitle(booking: {
   return booking.reference_code;
 }
 
-export function isAmcSubscriptionBooking(booking: { subscription_id: string | null }): boolean {
+/** Modal subtitle for booking ref - omitted when {@link customerBookingDisplayTitle} already shows it. */
+export function customerBookingRefModalSubtitle(booking: {
+  reference_code: string;
+  subscription_id: string | null;
+  metadata: Json;
+}): string | undefined {
+  const ref = booking.reference_code?.trim();
+  if (!ref) return undefined;
+  const title = customerBookingDisplayTitle(booking);
+  if (title === ref || title.includes(ref)) return undefined;
+  return `Ref ${ref}`;
+}
+
+export function isAmcSubscriptionBooking(booking: {
+  subscription_id: string | null;
+}): boolean {
   return booking.subscription_id != null;
 }
 

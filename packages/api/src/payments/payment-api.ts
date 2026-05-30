@@ -156,5 +156,8 @@ export async function completeDummyPaymentSuccess(
     );
   }
 
-  return { booking, payment: payUpdated };
+  const { postBookingConfirmedNotifications } = await import("../bookings/booking-confirm-notifications");
+  const notifiedBooking = await postBookingConfirmedNotifications(client, booking);
+
+  return { booking: notifiedBooking, payment: payUpdated };
 }

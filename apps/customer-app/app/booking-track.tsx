@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { bookingApi, customerApi, queryKeys } from "@oorjaman/api";
+import { bookingApi, customerApi, customerBookingDisplayTitle, queryKeys } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
 import { formatDisplayDateTime } from "@oorjaman/utils";
 import {
@@ -68,9 +68,9 @@ export default function TrackTechnicianScreen() {
   });
 
   const modalHeader = useModalStackHeader({
-    title: "Track technician",
-    subtitle: bookingQ.data?.reference_code
-      ? `Booking ${bookingQ.data.reference_code}`
+    title: bookingQ.data ? customerBookingDisplayTitle(bookingQ.data) : "Track technician",
+    subtitle: bookingQ.data
+      ? formatDisplayDateTime(bookingQ.data.scheduled_start)
       : "Live map for your visit",
     onClose: () => router.back(),
     closeAccessibilityLabel: "Close tracking",

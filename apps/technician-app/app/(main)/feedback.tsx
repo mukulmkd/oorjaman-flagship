@@ -109,7 +109,7 @@ export default function FeedbackTab() {
         </View>
         <View style={styles.statBox}>
           <Text style={styles.statValue}>
-            {stats?.avg_rating != null ? stats.avg_rating.toFixed(1) : "—"}
+            {stats?.avg_rating != null ? stats.avg_rating.toFixed(1) : "-"}
           </Text>
           <Text style={styles.statLabel}>Avg rating</Text>
         </View>

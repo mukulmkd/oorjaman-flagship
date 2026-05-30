@@ -32,7 +32,7 @@ set
   cancelled_at = coalesce(b.cancelled_at, now()),
   cancellation_reason = coalesce(
     nullif(trim(b.cancellation_reason), ''),
-    'Legacy auto-scheduled AMC visit removed — schedule each visit from your AMC plan.'
+    'Legacy auto-scheduled AMC visit removed - schedule each visit from your AMC plan.'
   ),
   metadata = coalesce(b.metadata, '{}'::jsonb)
     || jsonb_build_object(

@@ -1,25 +1,43 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   adminAssignVendorToBooking,
+  adminNotifyOverdueVendorResponses,
+  adminFloatDefaultVendorBooking,
+  adminFlagBookingOpsIssue,
   adminGetBookingMonitoringRows,
   adminListNotificationEvents,
   adminListNotificationEventsPaged,
   adminListOpsBookingExceptions,
   adminListOpsBookingExceptionsPaged,
   adminProcessNotificationQueue,
+  adminRefloatMarketplaceBooking,
   adminResetBookingOtpLock,
   DEFAULT_TABLE_PAGE_SIZE,
+  getBookingById,
   queryKeys,
   readBookingServiceOtpMeta,
   technicianApi,
   vendorApi,
+  type OpsBookingExceptionRow,
+  type OpsExceptionsQueueFilter,
+  type OpsIssueType,
 } from "@oorjaman/api";
-import { formatDisplayDateTime } from "@oorjaman/utils";
-import { Button, Card, PageHeader } from "@oorjaman/web-ui";
+import { formatDisplayDateTime, formatDisplayDateTimeRange } from "@oorjaman/utils";
+import { Badge, Button, Card, Modal, PageHeader } from "@oorjaman/web-ui";
 import { TablePaginationBar } from "../components/TablePaginationBar";
 import { formatNotificationEventTypeLabel } from "../lib/notification-labels";
+import { OPS_ISSUE_LABELS } from "../lib/booking-routing-display";
+import {
+  canFloatToMarketplace,
+  canRefloatMarketplace,
+  formatOpsIssueLevel,
+  formatOpsIssueType,
+  isOpsExceptionPastWindow,
+  needsPartnerAssignment,
+} from "../lib/ops-exceptions-display";
+import { webTypography } from "../styles/typography";
 import { useSupabase } from "../lib/supabase-context";
 import "../layouts/dashboard-layout.css";
 
@@ -27,6 +45,33 @@ const OPS_KPI_SAMPLE = 3500;
 const NOTIF_KPI_SAMPLE = 2000;
 const MONITOR_SAMPLE = 1200;
 const REPORTS_SAMPLE = 500;
+
+const OPS_QUEUE_TABS: { id: OpsExceptionsQueueFilter; label: string; hint: string }[] = [
+  {
+    id: "actionable",
+    label: "Current window",
+    hint: "Scheduled end is still in the future - assign partner, float marketplace, or intervene here.",
+  },
+  {
+    id: "past_window",
+    label: "Past window",
+    hint: "Scheduled window already ended but booking is still open in the system. Use Bookings for closure; assignment is disabled.",
+  },
+  {
+    id: "all",
+    label: "All exceptions",
+    hint: "Full ops exception view (includes stale schedule-missed rows).",
+  },
+];
+
+type OpsModalState =
+  | null
+  | {
+    bookingId: string;
+    referenceCode: string;
+    issueType?: string | null;
+    view: "menu" | "assign";
+  };
 
 function readPenaltyPaise(metadata: unknown): number {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return 0;
@@ -50,11 +95,19 @@ export function OperationsOverviewPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
+  const [opsQueueFilter, setOpsQueueFilter] = useState<OpsExceptionsQueueFilter>("actionable");
   const [opsPage, setOpsPage] = useState(1);
   const [notifPage, setNotifPage] = useState(1);
   const [otpPage, setOtpPage] = useState(1);
   const [watchlistPage, setWatchlistPage] = useState(1);
   const [modPage, setModPage] = useState(1);
+
+  const [opsModal, setOpsModal] = useState<OpsModalState>(null);
+  const [assignVendorId, setAssignVendorId] = useState("");
+
+  useEffect(() => {
+    setOpsPage(1);
+  }, [opsQueueFilter]);
 
   const opsKpiQuery = useQuery({
     queryKey: queryKeys.bookings.opsExceptions(OPS_KPI_SAMPLE),
@@ -62,10 +115,19 @@ export function OperationsOverviewPage() {
     enabled: Boolean(supabase),
   });
   const opsPagedQuery = useQuery({
-    queryKey: queryKeys.bookings.opsExceptionsPage(opsPage, DEFAULT_TABLE_PAGE_SIZE),
+    queryKey: queryKeys.bookings.opsExceptionsPage(opsPage, DEFAULT_TABLE_PAGE_SIZE, opsQueueFilter),
     queryFn: () =>
-      adminListOpsBookingExceptionsPaged(supabase!, { page: opsPage, pageSize: DEFAULT_TABLE_PAGE_SIZE }),
+      adminListOpsBookingExceptionsPaged(supabase!, {
+        page: opsPage,
+        pageSize: DEFAULT_TABLE_PAGE_SIZE,
+        filter: opsQueueFilter,
+      }),
     enabled: Boolean(supabase),
+  });
+  const opsBookingQuery = useQuery({
+    queryKey: [...queryKeys.bookings.all(), "ops-intervention", opsModal?.bookingId] as const,
+    queryFn: () => getBookingById(supabase!, opsModal!.bookingId),
+    enabled: Boolean(supabase && opsModal?.bookingId),
   });
   const notificationsKpiQuery = useQuery({
     queryKey: queryKeys.bookings.notificationEvents(NOTIF_KPI_SAMPLE),
@@ -96,9 +158,6 @@ export function OperationsOverviewPage() {
     },
   });
   const [hideReasonByReportId, setHideReasonByReportId] = useState<Record<string, string>>({});
-  const [assignBookingId, setAssignBookingId] = useState<string | null>(null);
-  const [assignVendorId, setAssignVendorId] = useState<string>("");
-  const [assignSuccessMsg, setAssignSuccessMsg] = useState<string | null>(null);
   const vendorsQuery = useQuery({
     queryKey: queryKeys.vendors.adminList("approved"),
     queryFn: () => vendorApi.adminListVendors(supabase!, { approvalStatus: "approved" }),
@@ -134,27 +193,73 @@ export function OperationsOverviewPage() {
       await reportsQuery.refetch();
     },
   });
+
+  async function refreshOpsQueues() {
+    await Promise.all([opsKpiQuery.refetch(), opsPagedQuery.refetch()]);
+    if (opsModal?.bookingId) {
+      await opsBookingQuery.refetch();
+    }
+  }
+
   const assignMut = useMutation({
     mutationFn: async ({ bookingId, vendorId }: { bookingId: string; vendorId: string }) =>
       adminAssignVendorToBooking(supabase!, bookingId, vendorId),
-    onSuccess: async (_, vars) => {
-      const assignedVendor =
-        (vendorsQuery.data ?? []).find((v) => v.id === vars.vendorId)?.business_name ?? "selected vendor";
-      setAssignSuccessMsg(`Assigned to ${assignedVendor}.`);
-      setTimeout(() => setAssignSuccessMsg(null), 3500);
-      setAssignBookingId(null);
+    onSuccess: async () => {
+      setOpsModal(null);
       setAssignVendorId("");
+      await refreshOpsQueues();
       await bookingMonitorQuery.refetch();
-      await opsKpiQuery.refetch();
-      await opsPagedQuery.refetch();
+    },
+  });
+  const floatMut = useMutation({
+    mutationFn: async (bookingId: string) => adminFloatDefaultVendorBooking(supabase!, bookingId),
+    onSuccess: async () => {
+      await refreshOpsQueues();
+      await opsBookingQuery.refetch();
+    },
+  });
+  const refloatMut = useMutation({
+    mutationFn: async (bookingId: string) => adminRefloatMarketplaceBooking(supabase!, bookingId),
+    onSuccess: async () => {
+      await refreshOpsQueues();
+      await opsBookingQuery.refetch();
+    },
+  });
+  const opsFlagMut = useMutation({
+    mutationFn: async ({ bookingId, type }: { bookingId: string; type: OpsIssueType }) =>
+      adminFlagBookingOpsIssue(supabase!, bookingId, type),
+    onSuccess: async () => {
+      await opsBookingQuery.refetch();
     },
   });
 
+  const interventionBooking = opsBookingQuery.data ?? null;
+  const mutating =
+    floatMut.isPending || refloatMut.isPending || opsFlagMut.isPending || assignMut.isPending;
+
+  function openIntervention(input: {
+    bookingId: string;
+    referenceCode: string;
+    issueType?: string | null;
+    presetVendorId?: string | null;
+  }) {
+    setOpsModal({ bookingId: input.bookingId, referenceCode: input.referenceCode, issueType: input.issueType, view: "menu" });
+    setAssignVendorId(input.presetVendorId?.trim() ?? "");
+  }
+
+  function closeInterventionModal() {
+    setOpsModal(null);
+    setAssignVendorId("");
+  }
+
   const summary = useMemo(() => {
     const rows = opsKpiQuery.data ?? [];
-    const high = rows.filter((r) => r.issue_level === "high").length;
-    const medium = rows.filter((r) => r.issue_level === "medium").length;
-    return { total: rows.length, atRisk: rows.length, high, medium };
+    const now = new Date();
+    const actionable = rows.filter((r) => !isOpsExceptionPastWindow(r, now));
+    const past = rows.length - actionable.length;
+    const high = actionable.filter((r) => r.issue_level === "high").length;
+    const medium = actionable.filter((r) => r.issue_level === "medium").length;
+    return { total: rows.length, actionable: actionable.length, past, high, medium };
   }, [opsKpiQuery.data]);
   const notifSummary = useMemo(() => {
     const rows = notificationsKpiQuery.data ?? [];
@@ -190,10 +295,13 @@ export function OperationsOverviewPage() {
     [otpRiskAll, otpPage],
   );
 
-  const otpRiskAggregate = useMemo(() => ({
-    locked: otpRiskAll.filter((r) => r.locked).length,
-    mismatchHeavy: otpRiskAll.filter((r) => r.mismatches >= 2).length,
-  }), [otpRiskAll]);
+  const otpRiskAggregate = useMemo(
+    () => ({
+      locked: otpRiskAll.filter((r) => r.locked).length,
+      mismatchHeavy: otpRiskAll.filter((r) => r.mismatches >= 2).length,
+    }),
+    [otpRiskAll],
+  );
 
   const vendorPenaltySummary = useMemo(() => {
     const rows = bookingMonitorQuery.data ?? [];
@@ -205,14 +313,14 @@ export function OperationsOverviewPage() {
   type WatchRow =
     | { kind: "vendor"; id: string; name: string; rating: number; count: number; r30?: number | null; c30?: number | null }
     | {
-        kind: "technician";
-        id: string;
-        name: string;
-        rating: number;
-        count: number;
-        r30?: number | null;
-        c30?: number | null;
-      };
+      kind: "technician";
+      id: string;
+      name: string;
+      rating: number;
+      count: number;
+      r30?: number | null;
+      c30?: number | null;
+    };
 
   const watchlistRowsAll = useMemo(() => {
     const vendorNameById = new Map((vendorsQuery.data ?? []).map((v) => [v.id, v.business_name] as const));
@@ -276,13 +384,17 @@ export function OperationsOverviewPage() {
     [moderationAll, modPage],
   );
 
-  const assignRow = (bookingMonitorQuery.data ?? []).find((r) => r.id === assignBookingId) ?? null;
+  const vendorNameById = useMemo(
+    () => new Map((vendorsQuery.data ?? []).map((v) => [v.id, v.business_name] as const)),
+    [vendorsQuery.data],
+  );
 
   const kpisLeft: [string, string][] = [
-    ["Total ops exceptions (sample)", String(summary.total)],
-    ["Needs intervention (sample)", String(summary.atRisk)],
-    ["High risk", String(summary.high)],
-    ["Medium risk", String(summary.medium)],
+    ["Exceptions in sample", String(summary.total)],
+    ["Current window (sample)", String(summary.actionable)],
+    ["Past window (sample)", String(summary.past)],
+    ["High risk (current)", String(summary.high)],
+    ["Medium risk (current)", String(summary.medium)],
     ["Notifications queued (sample)", String(notifSummary.queued)],
     ["Notifications sent (sample)", String(notifSummary.sent)],
     ["Notifications failed (sample)", String(notifSummary.failed)],
@@ -296,9 +408,21 @@ export function OperationsOverviewPage() {
     ["Penalized cancellations", String(vendorPenaltySummary.count)],
     ["Moderation backlog", String(moderationTotal)],
     ["Low-rating watchlist", String(watchlistTotal)],
+    ["", ""],
   ];
 
+  const overdueScanMut = useMutation({
+    mutationFn: () => adminNotifyOverdueVendorResponses(supabase!, { limit: 200 }),
+    onSuccess: async () => {
+      await opsKpiQuery.refetch();
+      await opsPagedQuery.refetch();
+    },
+  });
+
   async function refreshAll() {
+    if (supabase) {
+      await overdueScanMut.mutateAsync().catch(() => undefined);
+    }
     await Promise.all([
       opsKpiQuery.refetch(),
       opsPagedQuery.refetch(),
@@ -318,11 +442,35 @@ export function OperationsOverviewPage() {
   const notifPagedRows = notificationsPagedQuery.data?.rows ?? [];
   const notifPagedTotal = notificationsPagedQuery.data?.total ?? 0;
 
+  const modalIssueType =
+    opsModal?.issueType && opsModal.issueType in OPS_ISSUE_LABELS
+      ? (opsModal.issueType as OpsIssueType)
+      : undefined;
+  const showAssignInModal =
+    Boolean(
+      interventionBooking &&
+      opsModal?.view === "menu" &&
+      needsPartnerAssignment(interventionBooking) &&
+      !isOpsExceptionPastWindow({
+        booking_id: interventionBooking.id,
+        reference_code: interventionBooking.reference_code,
+        status: interventionBooking.status,
+        vendor_id: interventionBooking.vendor_id,
+        technician_id: interventionBooking.technician_id,
+        scheduled_start: interventionBooking.scheduled_start,
+        scheduled_end: interventionBooking.scheduled_end,
+        created_at: interventionBooking.created_at,
+        issue_type: opsModal?.issueType ?? null,
+        issue_level: null,
+        issue_label: null,
+      }),
+    );
+
   return (
     <>
       <PageHeader
         title="Operations control"
-        subtitle="End-to-end operational oversight for exceptions, delays, and intervention workload."
+        subtitle="Exceptions, OTP risk, notifications, and partner intervention - use Intervene for assign, float, and alerts."
         actions={
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <Button
@@ -354,19 +502,12 @@ export function OperationsOverviewPage() {
         </Card>
       ) : (
         <div className="bm-stack">
-          {assignSuccessMsg ? (
-            <Card padded>
-              <p className="dash-card-body">{assignSuccessMsg}</p>
-            </Card>
-          ) : null}
-
           <Card padded={false}>
             <div style={{ padding: "1rem 1rem 0" }}>
               <h2 className="bm-title">Summary (from sampled KPI queries)</h2>
               <p className="bm-muted" style={{ margin: "0.25rem 0 0.75rem", fontSize: "0.875rem" }}>
-                KPIs use capped samples (exceptions {OPS_KPI_SAMPLE.toLocaleString()}, notifications{" "}
-                {NOTIF_KPI_SAMPLE.toLocaleString()}, bookings {MONITOR_SAMPLE.toLocaleString()}, reports{" "}
-                {REPORTS_SAMPLE}). Tables below use paging.
+                KPIs use capped samples. The exceptions table defaults to{" "}
+                <strong>Current window</strong> so past visits do not block assignment.
               </p>
             </div>
             <div className="bm-table-wrap">
@@ -399,6 +540,23 @@ export function OperationsOverviewPage() {
           <Card padded={false}>
             <div style={{ padding: "1rem 1rem 0" }}>
               <h2 className="bm-title">Operations exceptions</h2>
+              <p className="bm-muted" style={{ margin: "0.25rem 0 0.75rem", fontSize: "0.875rem" }}>
+                {OPS_QUEUE_TABS.find((t) => t.id === opsQueueFilter)?.hint}
+              </p>
+              <div className="bm-tabs" role="tablist" aria-label="Ops exception queue" style={{ marginBottom: "0.75rem" }}>
+                {OPS_QUEUE_TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={opsQueueFilter === tab.id}
+                    className={`bm-tab-btn ${opsQueueFilter === tab.id ? "is-active" : ""}`}
+                    onClick={() => setOpsQueueFilter(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
             </div>
             {opsPagedQuery.isLoading ? (
               <p className="dash-table-empty">Loading operations queue…</p>
@@ -408,49 +566,41 @@ export function OperationsOverviewPage() {
                 <p className="bm-error">{(opsPagedQuery.error as Error).message}</p>
               </div>
             ) : opsPagedTotal === 0 ? (
-              <p className="dash-table-empty">No operational exceptions right now.</p>
+              <p className="dash-table-empty">
+                {opsQueueFilter === "actionable"
+                  ? "No current-window exceptions - check Past window or Bookings."
+                  : "No exceptions in this filter."}
+              </p>
             ) : (
               <>
                 <div className="bm-table-wrap">
-                  <table className="bm-table">
+                  <table className="bm-table bm-table--bookings">
                     <thead>
                       <tr>
                         <th>Reference</th>
+                        <th>Status</th>
+                        <th>Scheduled</th>
+                        <th>Risk</th>
                         <th>Issue</th>
+                        <th>Partner</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {opsPagedRows.map((row) => (
-                        <tr key={row.booking_id}>
-                          <td>
-                            <code className="bm-ref">{row.reference_code ?? row.booking_id.slice(0, 8)}</code>
-                          </td>
-                          <td className="bm-risk-line">{row.issue_label ?? "Operational exception"}</td>
-                          <td>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                type="button"
-                                onClick={() => navigate("/dashboard/bookings?attention=1")}
-                              >
-                                Open board
-                              </Button>
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                type="button"
-                                onClick={() => {
-                                  setAssignBookingId(row.booking_id);
-                                  setAssignVendorId("");
-                                }}
-                              >
-                                Assign vendor
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
+                        <OpsExceptionRow
+                          key={row.booking_id}
+                          row={row}
+                          vendorNameById={vendorNameById}
+                          onIntervene={() =>
+                            openIntervention({
+                              bookingId: row.booking_id,
+                              referenceCode: row.reference_code ?? row.booking_id.slice(0, 8),
+                              issueType: row.issue_type,
+                              presetVendorId: row.vendor_id,
+                            })
+                          }
+                        />
                       ))}
                     </tbody>
                   </table>
@@ -520,23 +670,18 @@ export function OperationsOverviewPage() {
                                 Reset OTP
                               </Button>
                               <Button
-                                variant="outline"
-                                size="sm"
-                                type="button"
-                                onClick={() => navigate("/dashboard/bookings?attention=1")}
-                              >
-                                Open board
-                              </Button>
-                              <Button
                                 variant="primary"
                                 size="sm"
                                 type="button"
-                                onClick={() => {
-                                  setAssignBookingId(row.id);
-                                  setAssignVendorId(row.vendor_id ?? "");
-                                }}
+                                onClick={() =>
+                                  openIntervention({
+                                    bookingId: row.id,
+                                    referenceCode: row.reference_code,
+                                    presetVendorId: row.vendor_id,
+                                  })
+                                }
                               >
-                                Assign vendor
+                                Intervene
                               </Button>
                             </div>
                           </td>
@@ -551,51 +696,6 @@ export function OperationsOverviewPage() {
               </>
             )}
           </Card>
-
-          {assignRow ? (
-            <Card padded>
-              <p className="dash-card-title">Assign vendor now</p>
-              <p className="dash-card-sub">
-                <code className="bm-ref">{assignRow.reference_code}</code> ·{" "}
-                {formatDisplayDateTime(assignRow.scheduled_start)}
-              </p>
-              <label className="dash-card-label" htmlFor="ops-assign-vendor-select">
-                Approved vendor
-              </label>
-              <select
-                id="ops-assign-vendor-select"
-                className="vd-select"
-                value={assignVendorId}
-                onChange={(e) => setAssignVendorId(e.target.value)}
-              >
-                <option value="">Select vendor…</option>
-                {(vendorsQuery.data ?? []).map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.business_name}
-                    {v.trade_name ? ` (${v.trade_name})` : ""}
-                  </option>
-                ))}
-              </select>
-              <div className="dash-card-actions">
-                <Button variant="outline" size="sm" type="button" onClick={() => setAssignBookingId(null)}>
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  type="button"
-                  loading={assignMut.isPending}
-                  disabled={!assignVendorId}
-                  onClick={() => {
-                    if (!assignBookingId || !assignVendorId) return;
-                    void assignMut.mutateAsync({ bookingId: assignBookingId, vendorId: assignVendorId });
-                  }}
-                >
-                  Confirm assignment
-                </Button>
-              </div>
-              {assignMut.isError ? <p className="bm-error">{(assignMut.error as Error).message}</p> : null}
-            </Card>
-          ) : null}
 
           <Card padded={false}>
             <div style={{ padding: "1rem 1rem 0" }}>
@@ -675,7 +775,7 @@ export function OperationsOverviewPage() {
                           <td>{w.rating.toFixed(1)}</td>
                           <td>{w.count}</td>
                           <td>
-                            {w.r30 != null ? w.r30.toFixed(1) : "—"} ({w.c30 ?? 0})
+                            {w.r30 != null ? w.r30.toFixed(1) : "-"} ({w.c30 ?? 0})
                           </td>
                           <td>
                             <Button
@@ -730,13 +830,13 @@ export function OperationsOverviewPage() {
                       {moderationRows.map((r) => (
                         <tr key={`mod-${r.id}`}>
                           <td className="bm-cell-mono">{r.booking_id.slice(0, 8)}…</td>
-                          <td>{r.customer_rating ?? "—"}</td>
+                          <td>{r.customer_rating ?? "-"}</td>
                           <td>{new Date(r.completed_at).toLocaleString()}</td>
                           <td>{r.feedback_hidden ? "Hidden" : "Visible"}</td>
                           <td style={{ maxWidth: 280, fontSize: "0.85rem" }}>
                             {r.feedback_hidden
                               ? r.feedback_hidden_reason ?? "Hidden"
-                              : [r.customer_feedback, r.anomaly_notes].filter(Boolean).join(" · ") || "—"}
+                              : [r.customer_feedback, r.anomaly_notes].filter(Boolean).join(" · ") || "-"}
                           </td>
                           <td>
                             <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", minWidth: 200 }}>
@@ -789,6 +889,254 @@ export function OperationsOverviewPage() {
           </Card>
         </div>
       )}
+
+      <Modal
+        open={Boolean(opsModal)}
+        onClose={closeInterventionModal}
+        title={
+          opsModal?.view === "assign"
+            ? `Assign partner · ${opsModal.referenceCode}`
+            : `Intervene · ${opsModal?.referenceCode ?? ""}`
+        }
+      >
+        {opsModal?.view === "assign" && interventionBooking ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+            <p style={{ margin: 0, fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)", lineHeight: 1.5 }}>
+              Partner acceptance SLA starts on confirm (unless a marketplace window is already open).
+            </p>
+            <label className="dash-card-label" htmlFor="ops-assign-vendor-modal-select">
+              Approved partner
+            </label>
+            <select
+              id="ops-assign-vendor-modal-select"
+              className="vd-select bm-select"
+              value={assignVendorId}
+              onChange={(e) => setAssignVendorId(e.target.value)}
+            >
+              <option value="">Select partner…</option>
+              {(vendorsQuery.data ?? []).map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.business_name}
+                  {v.trade_name ? ` (${v.trade_name})` : ""}
+                </option>
+              ))}
+            </select>
+            <div className="dash-card-actions bm-modal-actions">
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                disabled={assignMut.isPending}
+                onClick={() => setOpsModal({ ...opsModal, view: "menu" })}
+              >
+                Back
+              </Button>
+              <Button variant="outline" size="sm" type="button" disabled={assignMut.isPending} onClick={closeInterventionModal}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                type="button"
+                loading={assignMut.isPending}
+                disabled={!assignVendorId}
+                onClick={() => {
+                  if (!assignVendorId || !opsModal) return;
+                  void assignMut.mutateAsync({ bookingId: opsModal.bookingId, vendorId: assignVendorId });
+                }}
+              >
+                Confirm assignment
+              </Button>
+            </div>
+            {assignMut.isError ? <p className="bm-error">{(assignMut.error as Error).message}</p> : null}
+          </div>
+        ) : opsModal ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+            {opsBookingQuery.isLoading ? (
+              <p className="bm-muted">Loading booking…</p>
+            ) : opsBookingQuery.isError ? (
+              <p className="bm-error">{(opsBookingQuery.error as Error).message}</p>
+            ) : interventionBooking ? (
+              <>
+                <dl
+                  style={{
+                    margin: 0,
+                    display: "grid",
+                    gridTemplateColumns: "auto 1fr",
+                    gap: "0.35rem 1rem",
+                    fontSize: webTypography.size.sm,
+                  }}
+                >
+                  <dt style={{ color: "var(--wb-muted-fg)" }}>Status</dt>
+                  <dd style={{ margin: 0 }}>{interventionBooking.status}</dd>
+                  <dt style={{ color: "var(--wb-muted-fg)" }}>Scheduled</dt>
+                  <dd style={{ margin: 0 }}>
+                    {formatDisplayDateTimeRange(interventionBooking.scheduled_start, interventionBooking.scheduled_end)}
+                  </dd>
+                  {opsModal.issueType ? (
+                    <>
+                      <dt style={{ color: "var(--wb-muted-fg)" }}>Exception</dt>
+                      <dd style={{ margin: 0 }}>{formatOpsIssueType(opsModal.issueType)}</dd>
+                    </>
+                  ) : null}
+                  <dt style={{ color: "var(--wb-muted-fg)" }}>Partner</dt>
+                  <dd style={{ margin: 0 }}>
+                    {interventionBooking.vendor_id
+                      ? (vendorNameById.get(interventionBooking.vendor_id) ??
+                        `${interventionBooking.vendor_id.slice(0, 8)}…`)
+                      : "Unassigned"}
+                  </dd>
+                </dl>
+
+                {isOpsExceptionPastWindow({
+                  booking_id: interventionBooking.id,
+                  reference_code: interventionBooking.reference_code,
+                  status: interventionBooking.status,
+                  vendor_id: interventionBooking.vendor_id,
+                  technician_id: interventionBooking.technician_id,
+                  scheduled_start: interventionBooking.scheduled_start,
+                  scheduled_end: interventionBooking.scheduled_end,
+                  created_at: interventionBooking.created_at,
+                  issue_type: opsModal.issueType ?? null,
+                  issue_level: null,
+                  issue_label: null,
+                }) ? (
+                  <p style={{ margin: 0, fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)" }}>
+                    Scheduled window has ended. Direct assignment is disabled - resolve on{" "}
+                    <Link to="/dashboard/bookings">Bookings</Link> or cancel if appropriate.
+                  </p>
+                ) : null}
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", alignItems: "stretch" }}>
+                  {showAssignInModal ? (
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      disabled={mutating}
+                      onClick={() => opsModal && setOpsModal({ ...opsModal, view: "assign" })}
+                    >
+                      Assign partner…
+                    </Button>
+                  ) : null}
+
+                  {interventionBooking.status === "confirmed" && canFloatToMarketplace(interventionBooking) ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      loading={floatMut.isPending}
+                      disabled={mutating && !floatMut.isPending}
+                      onClick={() => void floatMut.mutateAsync(interventionBooking.id)}
+                    >
+                      Float to partners (broadcast)
+                    </Button>
+                  ) : null}
+
+                  {interventionBooking.status === "confirmed" && canRefloatMarketplace(interventionBooking) ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      loading={refloatMut.isPending}
+                      disabled={mutating && !refloatMut.isPending}
+                      onClick={() => void refloatMut.mutateAsync(interventionBooking.id)}
+                    >
+                      Re-float window (+1 hour)
+                    </Button>
+                  ) : null}
+
+                  {modalIssueType && OPS_ISSUE_LABELS[modalIssueType] ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      loading={opsFlagMut.isPending}
+                      disabled={mutating && !opsFlagMut.isPending}
+                      onClick={() =>
+                        void opsFlagMut.mutateAsync({ bookingId: interventionBooking.id, type: modalIssueType })
+                      }
+                    >
+                      Record ops alert on booking
+                    </Button>
+                  ) : null}
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate("/dashboard/bookings")}
+                  >
+                    Open Bookings board
+                  </Button>
+                  <Link to="/dashboard/booking-routing" style={{ fontSize: webTypography.size.sm }}>
+                    Booking routing
+                  </Link>
+                </div>
+              </>
+            ) : null}
+            <div className="bm-modal-actions">
+              <Button variant="outline" size="sm" type="button" disabled={mutating} onClick={closeInterventionModal}>
+                Close
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
     </>
+  );
+}
+
+function OpsExceptionRow({
+  row,
+  vendorNameById,
+  onIntervene,
+}: {
+  row: OpsBookingExceptionRow;
+  vendorNameById: Map<string, string>;
+  onIntervene: () => void;
+}) {
+  const past = isOpsExceptionPastWindow(row);
+  const partnerLabel = row.vendor_id
+    ? (vendorNameById.get(row.vendor_id) ?? `${row.vendor_id.slice(0, 8)}…`)
+    : "Unassigned";
+
+  return (
+    <tr>
+      <td>
+        <code className="bm-ref">{row.reference_code ?? row.booking_id.slice(0, 8)}</code>
+      </td>
+      <td>{row.status}</td>
+      <td style={{ fontSize: "0.85rem", whiteSpace: "nowrap" }}>
+        {formatDisplayDateTimeRange(row.scheduled_start, row.scheduled_end)}
+        {past ? (
+          <div className="bm-muted" style={{ marginTop: "0.2rem" }}>
+            Past window
+          </div>
+        ) : null}
+      </td>
+      <td>
+        {row.issue_level ? (
+          <Badge tone={row.issue_level === "high" ? "danger" : "warning"}>
+            {formatOpsIssueLevel(row.issue_level)}
+          </Badge>
+        ) : (
+          "-"
+        )}
+      </td>
+      <td className="bm-risk-line">
+        <div>{formatOpsIssueType(row.issue_type)}</div>
+        {row.issue_label ? (
+          <div className="bm-muted" style={{ fontSize: "0.8rem", marginTop: "0.15rem" }}>
+            {row.issue_label}
+          </div>
+        ) : null}
+      </td>
+      <td>{partnerLabel}</td>
+      <td>
+        <Button variant="primary" size="sm" type="button" onClick={onIntervene}>
+          Intervene
+        </Button>
+      </td>
+    </tr>
   );
 }

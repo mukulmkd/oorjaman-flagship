@@ -68,7 +68,7 @@ export default function HomeTab() {
   const { entries, defaultId } = readServiceAddressBook(customerQ.data ?? null);
   const selected = defaultId ? entries.find((e) => e.id === defaultId) ?? null : entries[0] ?? null;
   const locationLine = selected
-    ? `${selected.label} — ${serviceAddressFormatted(selected.address)}`
+    ? `${selected.label} - ${serviceAddressFormatted(selected.address)}`
     : "Add service address";
 
   const greetingName = customerFirstName(customerQ.data?.display_name);

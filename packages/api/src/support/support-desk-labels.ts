@@ -1,6 +1,8 @@
 import type { SupportResolutionTag } from "../database.types";
 
-export function supportResolutionTagLabel(tag: SupportResolutionTag | null | undefined): string {
+export function supportResolutionTagLabel(
+  tag: SupportResolutionTag | null | undefined,
+): string {
   switch (tag) {
     case "resolved":
       return "Resolved";
@@ -11,11 +13,13 @@ export function supportResolutionTagLabel(tag: SupportResolutionTag | null | und
     case "policy_limitation":
       return "Policy limitation";
     default:
-      return "—";
+      return "-";
   }
 }
 
-export function supportCloseReasonLabel(reason: string | null | undefined): string | null {
+export function supportCloseReasonLabel(
+  reason: string | null | undefined,
+): string | null {
   if (!reason) return null;
   switch (reason) {
     case "resolved_by_admin":

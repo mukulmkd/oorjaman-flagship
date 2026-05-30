@@ -1,11 +1,13 @@
 import type { ExpoConfig } from "expo/config";
 
 const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
+const deployEnv = (process.env.EXPO_PUBLIC_DEPLOY_ENV ?? "").trim().toLowerCase();
+const isUat = deployEnv === "uat" || deployEnv === "staging";
 
 const config: ExpoConfig = {
-  name: "OorjaMan",
+  name: isUat ? "OorjaMan (UAT)" : "OorjaMan",
   slug: "customer-app",
-  scheme: "oorjaman-customer",
+  scheme: isUat ? "oorjaman-customer-uat" : "oorjaman-customer",
   version: "1.0.0",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
@@ -18,7 +20,7 @@ const config: ExpoConfig = {
   assetBundlePatterns: ["**/*"],
   ios: {
     supportsTablet: true,
-    bundleIdentifier: "com.oorjaman.customer",
+    bundleIdentifier: isUat ? "com.oorjaman.customer.uat" : "com.oorjaman.customer",
     ...(googleMapsApiKey ? { config: { googleMapsApiKey } } : {}),
   },
   android: {
@@ -26,7 +28,7 @@ const config: ExpoConfig = {
       foregroundImage: "./assets/images/adaptive-icon.png",
       backgroundColor: "#1f8660",
     },
-    package: "com.oorjaman.customer",
+    package: isUat ? "com.oorjaman.customer.uat" : "com.oorjaman.customer",
     ...(googleMapsApiKey
       ? {
           config: {
@@ -39,7 +41,12 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
-    "expo-notifications",
+    [
+      "expo-notifications",
+      {
+        sounds: ["./assets/sounds/chat_message.wav"],
+      },
+    ],
     "expo-font",
     [
       "expo-location",

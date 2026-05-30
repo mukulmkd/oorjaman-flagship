@@ -1,14 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import {
-  DEFAULT_TABLE_PAGE_SIZE,
   adminGetPlatformSettings,
-  adminListPricingCatalogAuditPaged,
+  adminListPricingCatalogAudit,
   adminPatchPricingTierCapacityAddons,
   adminSavePricingAmcPlan,
   adminSavePricingOneTimeRate,
   adminUpdatePlatformSettings,
-  formatInrFromCents,
   listPricingAmcPlans,
   listPricingOneTimeRates,
   listPricingTiers,
@@ -21,11 +19,8 @@ import {
   type ServiceCapacityTierRow,
 } from "@oorjaman/api";
 import { Button, Card, Input, PageHeader, TableRowsSkeleton } from "@oorjaman/web-ui";
-import {
-  formatPricingCatalogTableLabel,
-  formatSqlOperationLabel,
-} from "../lib/notification-labels";
-import { TablePaginationBar } from "../components/TablePaginationBar";
+import { CatalogueAuditHistoryButton } from "../components/CatalogueAuditHistory";
+import { filterCatalogAuditForScope } from "../lib/pricing-catalog-audit";
 import { useSupabase } from "../lib/supabase-context";
 import "../layouts/dashboard-layout.css";
 import "./service-capacity-pricing-page.css";
@@ -41,26 +36,10 @@ function parseRupeeToPaise(raw: string): number {
   return Math.round(n * 100);
 }
 
-function auditSummary(row: PricingCatalogAuditRow): string {
-  const snap = row.operation === "delete" ? row.old_snapshot : row.new_snapshot;
-  if (!snap || typeof snap !== "object" || Array.isArray(snap)) return "—";
-  const o = snap as Record<string, unknown>;
-  const amount = Number(o.amount_cents);
-  const plan =
-    typeof o.plan_name === "string"
-      ? o.plan_name
-      : typeof o.capacity_tier_code === "string"
-        ? o.capacity_tier_code
-        : "";
-  if (Number.isFinite(amount)) return `${plan} · ${formatInrFromCents(amount)}`;
-  return plan || row.table_name;
-}
-
 export function ServiceCapacityPricingPage() {
   const supabase = useSupabase();
   const qc = useQueryClient();
   const countryCode = "IN";
-  const [auditPage, setAuditPage] = useState(1);
 
   const tiersQ = useQuery({
     queryKey: [...queryKeys.pricing.capacityCatalog(countryCode), "tiers"],
@@ -78,15 +57,16 @@ export function ServiceCapacityPricingPage() {
     enabled: Boolean(supabase),
   });
   const auditQ = useQuery({
-    queryKey: queryKeys.pricing.catalogAuditPage(countryCode, auditPage, DEFAULT_TABLE_PAGE_SIZE),
-    queryFn: () =>
-      adminListPricingCatalogAuditPaged(
-        supabase!,
-        { countryCode },
-        { page: auditPage, pageSize: DEFAULT_TABLE_PAGE_SIZE },
-      ),
+    queryKey: queryKeys.pricing.catalogAudit(countryCode),
+    queryFn: () => adminListPricingCatalogAudit(supabase!, { countryCode, limit: 200 }),
     enabled: Boolean(supabase),
   });
+
+  const catalogAuditRows = auditQ.data ?? [];
+  const lateCancelAuditRows = useMemo(
+    () => filterCatalogAuditForScope(catalogAuditRows, { kind: "platform_settings" }),
+    [catalogAuditRows],
+  );
   const geoTiersQ = useQuery({
     queryKey: queryKeys.pricing.tiers(countryCode),
     queryFn: () => listPricingTiers(supabase!, countryCode),
@@ -117,17 +97,13 @@ export function ServiceCapacityPricingPage() {
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: queryKeys.platform.settings() });
+      await qc.invalidateQueries({ queryKey: queryKeys.pricing.catalogAudit(countryCode) });
     },
   });
 
   const invalidate = async () => {
     await qc.invalidateQueries({ queryKey: queryKeys.pricing.capacityCatalog(countryCode) });
-    await qc.invalidateQueries({
-      predicate: (q) =>
-        Array.isArray(q.queryKey) &&
-        (q.queryKey as string[]).includes("catalog-audit-paged") &&
-        (q.queryKey as string[]).includes(countryCode),
-    });
+    await qc.invalidateQueries({ queryKey: queryKeys.pricing.catalogAudit(countryCode) });
     await qc.invalidateQueries({ queryKey: queryKeys.pricing.tiers(countryCode) });
   };
 
@@ -184,7 +160,7 @@ export function ServiceCapacityPricingPage() {
       ) : (
         <>
           <p className="scp-intro">
-            Each kW band is a discrete package (no 7 kW / 9 kW). Pricing below is stacked with city→tier surcharges —
+            Each kW band is a discrete package (no 7 kW / 9 kW). Pricing below is stacked with city→tier surcharges -
             configured per geo tier in the grid at the bottom (also editable under Pricing management).
           </p>
 
@@ -207,33 +183,18 @@ export function ServiceCapacityPricingPage() {
                     <tr>
                       <th>Setting</th>
                       <th>Amount</th>
-                      <th>Action</th>
+                      <th className="scp-col-history" aria-label="History" />
+                      <th />
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td>Late-cancellation fee (after grace window)</td>
-                      <td>
-                        <Input
-                          label=""
-                          value={lateCancelFeeRupeeText}
-                          onChange={(e) => setLateCancelFeeRupeeText(e.target.value)}
-                          inputMode="decimal"
-                          autoComplete="off"
-                        />
-                      </td>
-                      <td>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          type="button"
-                          loading={saveLateCancelFeeMut.isPending}
-                          onClick={() => void saveLateCancelFeeMut.mutate()}
-                        >
-                          Save
-                        </Button>
-                      </td>
-                    </tr>
+                    <LateCancelFeeRow
+                      feeRupeeText={lateCancelFeeRupeeText}
+                      onFeeChange={setLateCancelFeeRupeeText}
+                      auditRows={lateCancelAuditRows}
+                      saving={saveLateCancelFeeMut.isPending}
+                      onSave={() => void saveLateCancelFeeMut.mutate()}
+                    />
                   </tbody>
                 </table>
               </div>
@@ -250,7 +211,7 @@ export function ServiceCapacityPricingPage() {
               <div className="scp-section-head">
                 <h2 className="scp-section-title">One-time visit</h2>
                 <span className="dash-help" style={{ margin: 0 }}>
-                  Reference ₹100/panel benchmark — package price drives checkout.
+                  Reference ₹100/panel benchmark - package price drives checkout.
                 </span>
               </div>
             </div>
@@ -263,6 +224,7 @@ export function ServiceCapacityPricingPage() {
                     <th>Typical system</th>
                     <th>Visit (₹)</th>
                     <th>Per panel ref (₹)</th>
+                    <th className="scp-col-history" aria-label="History" />
                     <th />
                   </tr>
                 </thead>
@@ -272,6 +234,11 @@ export function ServiceCapacityPricingPage() {
                       key={t.code}
                       tier={t}
                       rate={oneTimeByTier.get(t.code)}
+                      auditRows={filterCatalogAuditForScope(catalogAuditRows, {
+                        kind: "one_time",
+                        capacityTierCode: t.code,
+                        recordId: oneTimeByTier.get(t.code)?.id,
+                      })}
                       saving={saveOneTimeMut.isPending}
                       onSave={(amountPaise, perPanelPaise) =>
                         saveOneTimeMut.mutate({
@@ -305,6 +272,7 @@ export function ServiceCapacityPricingPage() {
                     <th>Plan name</th>
                     <th>Coverage</th>
                     <th>Price (₹)</th>
+                    <th className="scp-col-history" aria-label="History" />
                     <th />
                   </tr>
                 </thead>
@@ -315,6 +283,11 @@ export function ServiceCapacityPricingPage() {
                         key={p.id}
                         tier={t}
                         plan={p}
+                        auditRows={filterCatalogAuditForScope(catalogAuditRows, {
+                          kind: "amc",
+                          planCode: p.plan_code,
+                          recordId: p.id,
+                        })}
                         saving={saveAmcMut.isPending}
                         onSave={(patch) =>
                           saveAmcMut.mutate({
@@ -349,7 +322,7 @@ export function ServiceCapacityPricingPage() {
             </div>
             <div className="bm-table-wrap" style={{ padding: "0 1.25rem 1.25rem" }}>
               {(geoTiersQ.data ?? []).length === 0 ? (
-                <p className="dash-help">No geo tiers yet — define them under Pricing management.</p>
+                <p className="dash-help">No geo tiers yet - define them under Pricing management.</p>
               ) : (
                 <table className="bm-table">
                   <thead>
@@ -358,6 +331,7 @@ export function ServiceCapacityPricingPage() {
                       <th>Code</th>
                       <th>Visit add-on (₹)</th>
                       <th>AMC add-on (₹)</th>
+                      <th className="scp-col-history" aria-label="History" />
                       <th />
                     </tr>
                   </thead>
@@ -366,6 +340,11 @@ export function ServiceCapacityPricingPage() {
                       <TierAddonTableRow
                         key={pt.id}
                         tier={pt}
+                        auditRows={filterCatalogAuditForScope(catalogAuditRows, {
+                          kind: "geo_tier",
+                          tierCode: pt.code,
+                          recordId: pt.id,
+                        })}
                         saving={saveTierAddonMut.isPending}
                         onSave={(v, a) => saveTierAddonMut.mutate({ id: pt.id, visit_addon_cents: v, amc_addon_cents: a })}
                       />
@@ -375,75 +354,59 @@ export function ServiceCapacityPricingPage() {
               )}
             </div>
           </Card>
-
-          <Card padded={false}>
-            <div style={{ padding: "1rem 1.25rem" }}>
-              <div className="scp-section-head" style={{ marginBottom: "0.5rem" }}>
-                <h2 className="scp-section-title">Catalogue audit trail</h2>
-              </div>
-              <p className="dash-help" style={{ marginTop: 0 }}>
-                One-time rates &amp; AMC plan rows only.
-              </p>
-              {auditQ.isPending ? (
-                <TableRowsSkeleton rows={4} />
-              ) : auditQ.isError ? (
-                <p className="dash-empty-error">{(auditQ.error as Error).message}</p>
-              ) : (auditQ.data?.total ?? 0) === 0 ? (
-                <p className="dash-help">No audit rows yet.</p>
-              ) : (
-                <>
-                  <div className="bm-table-wrap">
-                    <table className="bm-table">
-                      <thead>
-                        <tr>
-                          <th>When</th>
-                          <th>Catalogue</th>
-                          <th>Change</th>
-                          <th>Summary</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(auditQ.data?.rows ?? []).map((row) => (
-                          <tr key={row.id}>
-                            <td>{new Date(row.changed_at).toLocaleString("en-IN")}</td>
-                            <td>
-                              <div>{formatPricingCatalogTableLabel(row.table_name)}</div>
-                              <div className="bm-muted bm-cell-mono" style={{ fontSize: "0.75rem" }}>
-                                {row.table_name}
-                              </div>
-                            </td>
-                            <td>{formatSqlOperationLabel(row.operation)}</td>
-                            <td style={{ fontSize: "0.85rem" }}>{auditSummary(row)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div style={{ padding: "0.75rem 0 0" }}>
-                    <TablePaginationBar
-                      page={auditPage}
-                      total={auditQ.data?.total ?? 0}
-                      onPageChange={setAuditPage}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-          </Card>
         </>
       )}
     </div>
   );
 }
 
+function LateCancelFeeRow({
+  feeRupeeText,
+  onFeeChange,
+  auditRows,
+  saving,
+  onSave,
+}: {
+  feeRupeeText: string;
+  onFeeChange: (value: string) => void;
+  auditRows: PricingCatalogAuditRow[];
+  saving: boolean;
+  onSave: () => void;
+}) {
+  return (
+    <tr>
+      <td>Late-cancellation fee (after grace window)</td>
+      <td>
+        <Input
+          label=""
+          value={feeRupeeText}
+          onChange={(e) => onFeeChange(e.target.value)}
+          inputMode="decimal"
+          autoComplete="off"
+        />
+      </td>
+      <td className="scp-col-history">
+        <CatalogueAuditHistoryButton rows={auditRows} />
+      </td>
+      <td>
+        <Button size="sm" variant="outline" type="button" loading={saving} onClick={onSave}>
+          Save
+        </Button>
+      </td>
+    </tr>
+  );
+}
+
 function OneTimeVisitRow({
   tier,
   rate,
+  auditRows,
   saving,
   onSave,
 }: {
   tier: ServiceCapacityTierRow;
   rate?: PricingOneTimeRateRow;
+  auditRows: PricingCatalogAuditRow[];
   saving: boolean;
   onSave: (amount: number, perPanel: number) => void;
 }) {
@@ -470,6 +433,9 @@ function OneTimeVisitRow({
       <td>
         <Input label="" value={perPanel} onChange={(e) => setPerPanel(e.target.value)} inputMode="decimal" />
       </td>
+      <td className="scp-col-history">
+        <CatalogueAuditHistoryButton rows={auditRows} />
+      </td>
       <td>
         <Button
           size="sm"
@@ -487,10 +453,12 @@ function OneTimeVisitRow({
 
 function TierAddonTableRow({
   tier,
+  auditRows,
   saving,
   onSave,
 }: {
   tier: PricingTierRow;
+  auditRows: PricingCatalogAuditRow[];
   saving: boolean;
   onSave: (visitAddon: number, amcAddon: number) => void;
 }) {
@@ -514,8 +482,17 @@ function TierAddonTableRow({
       <td>
         <Input label="" value={amc} onChange={(e) => setAmc(e.target.value)} inputMode="decimal" />
       </td>
+      <td className="scp-col-history">
+        <CatalogueAuditHistoryButton rows={auditRows} />
+      </td>
       <td>
-        <Button size="sm" variant="outline" type="button" loading={saving} onClick={() => onSave(parseRupeeToPaise(visit), parseRupeeToPaise(amc))}>
+        <Button
+          size="sm"
+          variant="outline"
+          type="button"
+          loading={saving}
+          onClick={() => onSave(parseRupeeToPaise(visit), parseRupeeToPaise(amc))}
+        >
           Save
         </Button>
       </td>
@@ -526,11 +503,13 @@ function TierAddonTableRow({
 function AmcPlanTableRow({
   tier,
   plan,
+  auditRows,
   saving,
   onSave,
 }: {
   tier: ServiceCapacityTierRow;
   plan: PricingAmcPlanRow;
+  auditRows: PricingCatalogAuditRow[];
   saving: boolean;
   onSave: (patch: { plan_name: string; amount_cents: number }) => void;
 }) {
@@ -563,6 +542,9 @@ function AmcPlanTableRow({
       <td style={{ fontSize: "0.85rem", maxWidth: 200 }}>{coverage}</td>
       <td style={{ minWidth: 120 }}>
         <Input label="" value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" />
+      </td>
+      <td className="scp-col-history">
+        <CatalogueAuditHistoryButton rows={auditRows} />
       </td>
       <td>
         <Button

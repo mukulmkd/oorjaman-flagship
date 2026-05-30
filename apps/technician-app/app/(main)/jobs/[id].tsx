@@ -112,7 +112,7 @@ export default function JobDetailScreen() {
 
   const statusNote = useMemo(() => {
     if (!b) return undefined;
-    if (b.status === "accepted") return "You are assigned — head to site for the scheduled window.";
+    if (b.status === "accepted") return "You are assigned - head to site for the scheduled window.";
     if (b.status === "in_progress") return "Job marked in progress.";
     if (b.status === "completed") return "This visit is completed.";
     if (b.status === "cancelled") return "This job was cancelled.";
@@ -129,6 +129,7 @@ export default function JobDetailScreen() {
       <ModalHeaderSupportTrailing
         onClose={() => router.back()}
         closeAccessibilityLabel="Close job details"
+        showSupportChat={false}
       />
     ),
   });
@@ -188,86 +189,86 @@ export default function JobDetailScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-        <View style={styles.hero}>
-          <DetailChip status={b.status} />
-        </View>
-
-        <DetailSection title="Schedule">
-          <Text style={styles.body}>{formatRange(b.scheduled_start, b.scheduled_end)}</Text>
-        </DetailSection>
-
-        {serviceOtp?.startCode || serviceOtp?.happyCode ? (
-          <DetailSection title="Customer codes">
-            <Text style={styles.bodyMuted}>
-              The customer sees these in their app. You will enter the Job Start Code when you begin the visit and the
-              Happy Code when you complete it.
-            </Text>
-            {serviceOtp.startCode ? (
-              <Text style={styles.meta}>Job Start Code is verified at visit start (not shown here).</Text>
-            ) : null}
-            {serviceOtp.happyCode ? (
-              <Text style={styles.meta}>Happy Code is required to submit completion.</Text>
-            ) : null}
-          </DetailSection>
-        ) : null}
-
-        <DetailSection title="Site">
-          <Text style={styles.body}>{stringifyAddress(b.service_site_address)}</Text>
-          <Text style={styles.meta}>Service: {b.service_type.replace(/_/g, " ")}</Text>
-          <BookingSitePhotos booking={b} />
-        </DetailSection>
-        <DetailSection title="Service for">
-          <Text style={styles.body}>{rec?.headline ?? "Customer"}</Text>
-          {rec?.detail ? (
-            <Text style={styles.meta}>{rec.detail}</Text>
-          ) : null}
-        </DetailSection>
-
-        {opsMeta && opsMeta.issue_count > 0 ? (
-          <DetailSection title="Operations watch">
-            <Text style={styles.body}>Operations team is monitoring this visit closely.</Text>
-            {opsMeta.last_issue_note ? <Text style={styles.meta}>{opsMeta.last_issue_note}</Text> : null}
-          </DetailSection>
-        ) : null}
-
-        {b.customer_notes ? (
-          <DetailSection title="Customer notes">
-            <Text style={styles.body}>{b.customer_notes}</Text>
-          </DetailSection>
-        ) : null}
-
-        {b.status === "cancelled" && (b.cancellation_reason || readBookingCustomerCancellationMeta(b.metadata)) ? (
-          <DetailSection title="Cancellation">
-            {b.cancellation_reason ? <Text style={styles.body}>{b.cancellation_reason}</Text> : null}
-            {(() => {
-              const cc = readBookingCustomerCancellationMeta(b.metadata);
-              if (
-                cc &&
-                !cc.withinGraceWindow &&
-                cc.lateFeePaise > 0
-              ) {
-                return (
-                  <Text style={styles.meta}>
-                    Late cancellation reference fee: up to {formatInrFromCents(cc.lateFeePaise)} (per platform policy).
-                  </Text>
-                );
-              }
-              return null;
-            })()}
-          </DetailSection>
-        ) : null}
-
-        <DetailSection title="Reference">
-          <Text style={styles.mono}>{b.id}</Text>
-        </DetailSection>
-
-        {b.status === "accepted" || b.status === "in_progress" ? (
-          <View style={styles.executeFooter}>
-            <Button size="lg" variant="primary" onPress={() => router.push(`/(main)/jobs/execute/${b.id}`)}>
-              {b.status === "in_progress" ? "Continue visit" : "Start visit"}
-            </Button>
+          <View style={styles.hero}>
+            <DetailChip status={b.status} />
           </View>
-        ) : null}
+
+          <DetailSection title="Schedule">
+            <Text style={styles.body}>{formatRange(b.scheduled_start, b.scheduled_end)}</Text>
+          </DetailSection>
+
+          {serviceOtp?.startCode || serviceOtp?.happyCode ? (
+            <DetailSection title="Customer codes">
+              <Text style={styles.bodyMuted}>
+                The customer sees these in their app. You will enter the Job Start Code when you begin the visit and the
+                Happy Code when you complete it.
+              </Text>
+              {serviceOtp.startCode ? (
+                <Text style={styles.meta}>Job Start Code is verified at visit start (not shown here).</Text>
+              ) : null}
+              {serviceOtp.happyCode ? (
+                <Text style={styles.meta}>Happy Code is required to submit completion.</Text>
+              ) : null}
+            </DetailSection>
+          ) : null}
+
+          <DetailSection title="Site">
+            <Text style={styles.body}>{stringifyAddress(b.service_site_address)}</Text>
+            <Text style={styles.meta}>Service: {b.service_type.replace(/_/g, " ")}</Text>
+            <BookingSitePhotos booking={b} />
+          </DetailSection>
+          <DetailSection title="Service for">
+            <Text style={styles.body}>{rec?.headline ?? "Customer"}</Text>
+            {rec?.detail ? (
+              <Text style={styles.meta}>{rec.detail}</Text>
+            ) : null}
+          </DetailSection>
+
+          {opsMeta && opsMeta.issue_count > 0 ? (
+            <DetailSection title="Operations watch">
+              <Text style={styles.body}>Operations team is monitoring this visit closely.</Text>
+              {opsMeta.last_issue_note ? <Text style={styles.meta}>{opsMeta.last_issue_note}</Text> : null}
+            </DetailSection>
+          ) : null}
+
+          {b.customer_notes ? (
+            <DetailSection title="Customer notes">
+              <Text style={styles.body}>{b.customer_notes}</Text>
+            </DetailSection>
+          ) : null}
+
+          {b.status === "cancelled" && (b.cancellation_reason || readBookingCustomerCancellationMeta(b.metadata)) ? (
+            <DetailSection title="Cancellation">
+              {b.cancellation_reason ? <Text style={styles.body}>{b.cancellation_reason}</Text> : null}
+              {(() => {
+                const cc = readBookingCustomerCancellationMeta(b.metadata);
+                if (
+                  cc &&
+                  !cc.withinGraceWindow &&
+                  cc.lateFeePaise > 0
+                ) {
+                  return (
+                    <Text style={styles.meta}>
+                      Late cancellation reference fee: up to {formatInrFromCents(cc.lateFeePaise)} (per platform policy).
+                    </Text>
+                  );
+                }
+                return null;
+              })()}
+            </DetailSection>
+          ) : null}
+
+          <DetailSection title="Reference">
+            <Text style={styles.mono}>{b.id}</Text>
+          </DetailSection>
+
+          {b.status === "accepted" || b.status === "in_progress" ? (
+            <View style={styles.executeFooter}>
+              <Button size="lg" variant="primary" onPress={() => router.push(`/(main)/jobs/execute/${b.id}`)}>
+                {b.status === "in_progress" ? "Continue visit" : "Start visit"}
+              </Button>
+            </View>
+          ) : null}
         </ScrollView>
       </FadeInView>
     </Screen>

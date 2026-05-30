@@ -45,7 +45,10 @@
 
 .support-inbox-shell {
   display: grid;
-  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr) minmax(220px, 280px);
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr) minmax(
+      220px,
+      280px
+    );
   gap: 1rem;
   min-height: 520px;
 }
@@ -472,7 +475,7 @@
   max-width: 88%;
 }
 
-/* Legacy alias — use .support-composer */
+/* Legacy alias - use .support-composer */
 .support-inbox-composer {
   flex-direction: column;
   align-items: stretch;

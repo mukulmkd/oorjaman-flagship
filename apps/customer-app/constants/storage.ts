@@ -16,7 +16,7 @@ export const STORAGE_KEY_VENDOR_PREFS = `${PREFIX}vendor_preferences`;
 export const STORAGE_KEY_VENDOR_INTAKE_ID = `${PREFIX}vendor_intake_id`;
 export const STORAGE_KEY_VENDOR_INTAKE_TOKEN = `${PREFIX}vendor_intake_token`;
 
-/** @deprecated Read only for one-time migration — preferences live on the customer row. */
+/** @deprecated Read only for one-time migration - preferences live on the customer row. */
 export type StoredVendorPreferences = {
   preferredVendorIds: string[];
   preferredVendorId: string | null;
@@ -34,15 +34,22 @@ export async function loadStoredVendorPreferences(): Promise<StoredVendorPrefere
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY_VENDOR_PREFS);
     if (!raw) return { ...DEFAULT_VENDOR_PREFS };
-    const j = JSON.parse(raw) as Partial<StoredVendorPreferences> & { preferredVendorId?: unknown };
+    const j = JSON.parse(raw) as Partial<StoredVendorPreferences> & {
+      preferredVendorId?: unknown;
+    };
 
     let ids: string[] = [];
     if (Array.isArray(j.preferredVendorIds)) {
-      ids = j.preferredVendorIds.filter((x): x is string => typeof x === "string" && x.trim().length > 0);
+      ids = j.preferredVendorIds.filter(
+        (x): x is string => typeof x === "string" && x.trim().length > 0,
+      );
     }
     ids = [...new Set(ids.map((x) => x.trim()).filter(Boolean))].slice(0, 32);
 
-    const legacy = typeof j.preferredVendorId === "string" && j.preferredVendorId.trim() ? j.preferredVendorId.trim() : null;
+    const legacy =
+      typeof j.preferredVendorId === "string" && j.preferredVendorId.trim()
+        ? j.preferredVendorId.trim()
+        : null;
     if (legacy && !ids.includes(legacy)) {
       ids = [legacy, ...ids];
     }
@@ -51,7 +58,8 @@ export async function loadStoredVendorPreferences(): Promise<StoredVendorPrefere
     return {
       preferredVendorIds: ids,
       preferredVendorId,
-      fallbackVendorId: typeof j.fallbackVendorId === "string" ? j.fallbackVendorId : null,
+      fallbackVendorId:
+        typeof j.fallbackVendorId === "string" ? j.fallbackVendorId : null,
     };
   } catch {
     return { ...DEFAULT_VENDOR_PREFS };

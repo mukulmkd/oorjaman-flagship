@@ -165,6 +165,11 @@ export {
   type OpsIssueType,
   type VendorAcceptBookingInput,
 } from "./bookings/booking-api";
+export {
+  adminNotifyOverdueVendorResponses,
+  isBookingAwaitingAdminFloat,
+  postBookingConfirmedNotifications,
+} from "./bookings/booking-confirm-notifications";
 export * from "./bookings/customer-booking-payload";
 export * from "./bookings/vendor-fallback";
 export {
@@ -187,18 +192,24 @@ export {
   adminListBookingsBySubscriptionBucketPaged,
   adminListFallbackBookings,
   adminListFallbackBookingsPaged,
+  type AdminFallbackRoutingFilter,
   adminListOpsBookingExceptionsPaged,
+  type OpsExceptionsQueueFilter,
+  getBookingById,
   adminNotifyVendorFallbackReadiness,
   bookingUsedFallbackVendor,
   vendorConfirmTechnicianReadinessForFallback,
   type AdminBookingMonitorTab,
   type AdminBookingsSubscriptionBucket,
+  type AdminBookingsStatusFilter,
   type BookingMonitoringEnriched,
 } from "./bookings/booking-api";
 export {
   adminFetchBookingStats,
   adminFetchBookingsCreatedDaily,
   adminFetchRevenueStats,
+  adminFetchRecognizedRevenueStats,
+  adminFetchPaymentStats,
   adminFetchSubscriptionStats,
   adminFetchVendorPerformance,
   ANALYTICS_BUSINESS_PERIOD_LABELS,
@@ -312,6 +323,7 @@ export {
 } from "./subscriptions/amc-visit-slots";
 export {
   customerBookingDisplayTitle,
+  customerBookingRefModalSubtitle,
   customerBookingVisitDateVisible,
   formatAmcVisitLabel,
   isAmcSubscriptionBooking,
@@ -417,6 +429,7 @@ export {
   settlementKindLabel,
   settlementStatusLabel,
   vendorListMySettlements,
+  vendorSyncCompletedVisitPayoutSettlements,
   type AdminUpdateVendorSettlementInput,
   type VendorSettlementKind,
   type VendorSettlementStatus,

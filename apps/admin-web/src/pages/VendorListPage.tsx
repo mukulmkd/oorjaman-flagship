@@ -159,9 +159,9 @@ export function VendorListPage() {
                             <Badge tone={approvalBadgeTone(v.approval_status)}>{v.approval_status}</Badge>
                           </td>
                           <td>
-                            <div>{v.contact_email ?? "—"}</div>
+                            <div>{v.contact_email ?? "-"}</div>
                             <div className="dash-mono" style={{ fontSize: "var(--type-xs)" }}>
-                              {v.contact_phone ?? "—"}
+                              {v.contact_phone ?? "-"}
                             </div>
                           </td>
                           <td>{formatSubmittedAt(v.submitted_at)}</td>

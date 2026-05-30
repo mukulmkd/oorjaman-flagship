@@ -26,7 +26,7 @@ function vendorPortalOrigin(): string {
 }
 
 /**
- * After successful OTP: staff only — vendors are sent to the partner portal app.
+ * After successful OTP: staff only - vendors are sent to the partner portal app.
  */
 async function routeAfterAdminLogin(
   supabase: SupabaseClient,

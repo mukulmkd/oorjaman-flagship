@@ -17,16 +17,19 @@ import { HelpSupportProvider } from "../components/help-support-provider";
 import {
   hideNativeSplashScreenOnce,
   initBookingNotificationHandler,
+  initSupportChatNotificationHandler,
   installMobileAuthConsoleFilters,
   keepNativeSplashScreenVisible,
   MobileAuthSessionGuard,
   MobileOfflineGate,
+  MobileUatEnvironmentBanner,
 } from "@oorjaman/ui";
 
 installMobileAuthConsoleFilters();
 import { supabase } from "../lib/supabase";
 
 initBookingNotificationHandler();
+initSupportChatNotificationHandler();
 
 keepNativeSplashScreenVisible();
 
@@ -64,6 +67,7 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
+      <MobileUatEnvironmentBanner />
       <QueryProvider>
         <HelpSupportProvider>
         <MobileOfflineGate>

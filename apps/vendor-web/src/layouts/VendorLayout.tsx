@@ -4,6 +4,8 @@ import { authApi, vendorApi } from "@oorjaman/api";
 import { DropdownMenu, DropdownMenuItem } from "@oorjaman/web-ui";
 import { VENDOR_DASH_TABS } from "../pages/vendor-dashboard/vendor-dash-tabs";
 import { NotificationCenterBell } from "../components/NotificationCenterBell";
+import { VendorBookingRealtime } from "../components/vendor-booking-realtime";
+import { VendorSettlementRealtime } from "../components/vendor-settlement-realtime";
 import { useSupabase } from "../lib/supabase-context";
 import "./dashboard-layout.css";
 
@@ -58,6 +60,12 @@ export function VendorLayout() {
 
   return (
     <div className="dash-root">
+      {vendorId && dashboardAllowed ? (
+        <>
+          <VendorBookingRealtime vendorId={vendorId} />
+          <VendorSettlementRealtime vendorId={vendorId} />
+        </>
+      ) : null}
       <aside className="dash-sidebar">
         <div className="dash-brand">
           Oorjaman

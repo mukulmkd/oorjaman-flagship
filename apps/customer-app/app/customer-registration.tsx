@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -28,6 +29,7 @@ import {
   addrToJson,
   customerRowToProfileForm,
 } from "../lib/customer-site-profile";
+import { customerLegalUrls } from "../lib/legal-urls";
 import { supabase } from "../lib/supabase";
 
 const STEPS = ["About you", "Address", "Location", "Solar & site", "Safety & terms"] as const;
@@ -515,19 +517,35 @@ export default function CustomerRegistrationScreen() {
                   />
                   <Text style={styles.checkLabel}>My site information is accurate to the best of my knowledge.</Text>
                 </Pressable>
-                <Pressable
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: consentTerms }}
-                  onPress={() => setConsentTerms((v) => !v)}
-                  style={({ pressed }) => [styles.checkRow, pressed && styles.checkRowPressed]}
-                >
-                  <Ionicons
-                    name={consentTerms ? "checkbox" : "square-outline"}
-                    size={24}
-                    color={consentTerms ? colors.primary : colors.mutedForeground}
-                  />
-                  <Text style={styles.checkLabel}>I agree to service terms, safety guidance, and privacy practices.</Text>
-                </Pressable>
+                <View style={styles.checkRow}>
+                  <Pressable
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: consentTerms }}
+                    onPress={() => setConsentTerms((v) => !v)}
+                    hitSlop={8}
+                  >
+                    <Ionicons
+                      name={consentTerms ? "checkbox" : "square-outline"}
+                      size={24}
+                      color={consentTerms ? colors.primary : colors.mutedForeground}
+                    />
+                  </Pressable>
+                  <Text style={styles.checkLabel}>
+                    I agree to the{" "}
+                    <Text style={styles.checkLink} onPress={() => void Linking.openURL(customerLegalUrls.terms())}>
+                      Terms of Service
+                    </Text>
+                    ,{" "}
+                    <Text style={styles.checkLink} onPress={() => void Linking.openURL(customerLegalUrls.safety())}>
+                      safety guidance
+                    </Text>
+                    , and{" "}
+                    <Text style={styles.checkLink} onPress={() => void Linking.openURL(customerLegalUrls.privacy())}>
+                      Privacy Policy
+                    </Text>
+                    .
+                  </Text>
+                </View>
                 <Pressable
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: consentContact }}
@@ -756,6 +774,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     lineHeight: 22,
     color: colors.foreground,
+  },
+  checkLink: {
+    color: colors.primary,
+    textDecorationLine: "underline",
   },
   fieldWrap: {
     marginBottom: spacing.sm,

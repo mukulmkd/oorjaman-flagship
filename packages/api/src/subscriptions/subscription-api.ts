@@ -1,9 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, Json, SubscriptionRow, SubscriptionStatus } from "../database.types";
+import type {
+  Database,
+  Json,
+  SubscriptionRow,
+  SubscriptionStatus,
+} from "../database.types";
 import { getMyCustomer } from "../customers/customer-api";
 import { SupabaseApiError, takeRows, takeSingleRow } from "../result";
 import { computeContractEndsAtIso } from "./amc-presets";
-import { getServiceAddressEntry, buildServiceSiteAddressFromEntry } from "../customers/service-address-book";
+import {
+  getServiceAddressEntry,
+  buildServiceSiteAddressFromEntry,
+} from "../customers/service-address-book";
 import { getPricingAmcPlanByCode } from "../pricing/capacity-pricing-api";
 import { resolveGeoPricingTierAddons } from "../pricing/pricing-api";
 import { normalizeCountryCode } from "../pricing/pricing-engine";
@@ -35,7 +43,10 @@ export {
   realignActiveAmcSubscriptionsForCustomerCapacity,
   type AmcTierRealignmentSummary,
 } from "./amc-tier-realignment";
-export { AMC_PLAN_UPGRADE_DISCLAIMER, upgradeAmcSubscriptionAsCustomer } from "./amc-plan-upgrade";
+export {
+  AMC_PLAN_UPGRADE_DISCLAIMER,
+  upgradeAmcSubscriptionAsCustomer,
+} from "./amc-plan-upgrade";
 
 export type { AmcPlanFromCatalog, AmcSelectablePeriod } from "./amc-presets";
 export {
@@ -69,12 +80,20 @@ export type CreateSubscriptionInput = Pick<
  */
 export async function listVisibleSubscriptions(
   client: SupabaseClient<Database>,
-  options?: { status?: SubscriptionStatus | SubscriptionStatus[]; limit?: number },
+  options?: {
+    status?: SubscriptionStatus | SubscriptionStatus[];
+    limit?: number;
+  },
 ): Promise<SubscriptionRow[]> {
-  let q = client.from("subscriptions").select("*").order("starts_at", { ascending: false });
+  let q = client
+    .from("subscriptions")
+    .select("*")
+    .order("starts_at", { ascending: false });
 
   if (options?.status) {
-    const st = Array.isArray(options.status) ? options.status : [options.status];
+    const st = Array.isArray(options.status)
+      ? options.status
+      : [options.status];
     q = q.in("status", st);
   }
   if (options?.limit != null) {
@@ -127,10 +146,14 @@ export async function createAmcSubscriptionAsCustomer(
 
   const addressEntry = getServiceAddressEntry(customer, addressId);
   if (!addressEntry) {
-    throw new SupabaseApiError("That saved address was not found. Refresh Profile and try again.");
+    throw new SupabaseApiError(
+      "That saved address was not found. Refresh Profile and try again.",
+    );
   }
 
-  const existing = await listVisibleSubscriptions(client, { status: ["active", "trialing"] });
+  const existing = await listVisibleSubscriptions(client, {
+    status: ["active", "trialing"],
+  });
   if (getActiveSubscriptionForAddress(existing, addressId)) {
     throw new SupabaseApiError("This address already has an active AMC plan.");
   }
@@ -147,12 +170,19 @@ export async function createAmcSubscriptionAsCustomer(
     );
   }
 
-  const catalogPlan = await getPricingAmcPlanByCode(client, input.plan_code.trim());
+  const catalogPlan = await getPricingAmcPlanByCode(
+    client,
+    input.plan_code.trim(),
+  );
   if (catalogPlan.capacity_tier_code !== sizing.tierCode) {
-    throw new SupabaseApiError("This AMC plan does not match your system size in Profile.");
+    throw new SupabaseApiError(
+      "This AMC plan does not match your system size in Profile.",
+    );
   }
 
-  const addressCityKey = serviceAddressCityKeyFromJson(addressEntry.address ?? null);
+  const addressCityKey = serviceAddressCityKeyFromJson(
+    addressEntry.address ?? null,
+  );
   const geoAddons = await resolveGeoPricingTierAddons(client, {
     countryCode: normalizeCountryCode("IN"),
     cityKey: addressCityKey,
@@ -162,7 +192,10 @@ export async function createAmcSubscriptionAsCustomer(
 
   const serviceSiteAddress = buildServiceSiteAddressFromEntry(addressEntry);
   const startsAt = input.starts_at ?? new Date().toISOString();
-  const endsAt = computeContractEndsAtIso(startsAt, catalogPlan.contract_months);
+  const endsAt = computeContractEndsAtIso(
+    startsAt,
+    catalogPlan.contract_months,
+  );
 
   const preferredVendorId =
     input.preferred_vendor_id?.trim() ||
@@ -299,7 +332,7 @@ export async function incrementSubscriptionVisitUsed(
 }
 
 /**
- * Historically linked a prepaid one-off visit to AMC. **Disabled:** product policy is forward-only —
+ * Historically linked a prepaid one-off visit to AMC. **Disabled:** product policy is forward-only -
  * paid one-time visits finish as booked; AMC schedules separate visits across the contract.
  *
  * Kept exported so callers get a deliberate error rather than silently doing nothing.
@@ -309,7 +342,7 @@ export async function customerConvertUpcomingBookingToAmc(
   _input: { bookingId: string; subscriptionId: string },
 ): Promise<void> {
   throw new SupabaseApiError(
-    "One-time visits are not linked to AMC. Complete each paid visit as booked — your AMC covers separate future cleans on this calendar.",
+    "One-time visits are not linked to AMC. Complete each paid visit as booked - your AMC covers separate future cleans on this calendar.",
   );
 }
 

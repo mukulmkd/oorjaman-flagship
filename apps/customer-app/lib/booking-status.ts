@@ -1,6 +1,12 @@
-import type { BookingStatus } from "@oorjaman/api";
+import type { BookingRow, BookingStatus } from "@oorjaman/api";
 
 export type BookingUiBucket = "pending" | "accepted" | "completed" | "ended";
+
+export type BookingStatusLabelContext = Pick<BookingRow, "status" | "vendor_id" | "technician_id">;
+
+export function isValidBookingRow(row: BookingRow | null | undefined): row is BookingRow {
+  return Boolean(row?.id && row?.status);
+}
 
 /**
  * Maps DB statuses to customer-facing buckets.
@@ -9,6 +15,7 @@ export function bookingUiBucket(status: BookingStatus): BookingUiBucket {
   switch (status) {
     case "pending_payment":
     case "confirmed":
+    case "vendor_acknowledged":
       return "pending";
     case "accepted":
     case "in_progress":
@@ -23,12 +30,19 @@ export function bookingUiBucket(status: BookingStatus): BookingUiBucket {
 }
 
 /** Display label - stable wording for chips and detail rows. */
-export function bookingStatusLabel(status: BookingStatus): string {
+export function bookingStatusLabel(
+  status: BookingStatus,
+  row?: BookingStatusLabelContext | null,
+): string {
   switch (status) {
     case "pending_payment":
       return "Awaiting payment";
     case "confirmed":
-      return "Awaiting confirmation";
+      if (row?.technician_id) return "Technician assigned";
+      if (row?.vendor_id) return "Partner confirming";
+      return "Awaiting partner";
+    case "vendor_acknowledged":
+      return "Partner acknowledged";
     case "accepted":
       return "Accepted";
     case "in_progress":

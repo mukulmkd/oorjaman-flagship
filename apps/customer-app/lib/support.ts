@@ -1,5 +1,5 @@
 /** Demo-friendly support contact - replace with env-driven value for production. */
-export const SUPPORT_EMAIL = "support@oorjaman.app";
+export const SUPPORT_EMAIL = "support@oorjaman.com";
 
 export function bookingSupportMailto(params: { referenceCode?: string | null; topic?: string }): string {
   const ref = params.referenceCode?.trim();

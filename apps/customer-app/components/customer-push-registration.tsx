@@ -79,7 +79,7 @@ export function CustomerPushRegistration() {
       });
       if (!cancelled) registeredTokenRef.current = token;
     })().catch(() => {
-      /* Permission denied or Expo token unavailable — local notifications still work. */
+      /* Permission denied or Expo token unavailable - local notifications still work. */
     });
 
     return () => {

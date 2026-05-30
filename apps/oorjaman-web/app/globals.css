@@ -1,0 +1,146 @@
+:root {
+  --om-primary: #1f8660;
+  --om-primary-dark: #1a734f;
+  --om-navy: #0f2938;
+  --om-muted: #516a7b;
+  --om-bg: #f6faf9;
+  --om-bg-alt: #edf2f2;
+  --om-card: #ffffff;
+  --om-border: #c5d9d4;
+  --om-accent: #9fc93c;
+  --om-ring: #5cbd8c;
+  --om-max: 72rem;
+  --om-radius: 12px;
+  --om-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: var(--om-font);
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--om-navy);
+  background: var(--om-bg);
+}
+
+a {
+  color: var(--om-primary);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  color: var(--om-primary-dark);
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+.om-container {
+  width: min(100% - 2rem, var(--om-max));
+  margin-inline: auto;
+}
+
+.om-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: filter 0.15s ease, background 0.15s ease;
+}
+
+.om-btn--primary {
+  background: var(--om-primary);
+  color: #fff;
+}
+
+.om-btn--primary:hover {
+  filter: brightness(0.95);
+  color: #fff;
+}
+
+.om-btn--outline {
+  background: var(--om-card);
+  color: var(--om-navy);
+  border: 1px solid var(--om-border);
+}
+
+.om-btn--outline:hover {
+  background: var(--om-bg-alt);
+  color: var(--om-navy);
+}
+
+.om-card {
+  background: var(--om-card);
+  border: 1px solid var(--om-border);
+  border-radius: var(--om-radius);
+  padding: 1.5rem;
+}
+
+.om-section {
+  padding: 4rem 0;
+}
+
+.om-section--alt {
+  background: var(--om-bg-alt);
+}
+
+.om-h1 {
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  line-height: 1.15;
+  font-weight: 700;
+  margin: 0 0 1rem;
+  letter-spacing: -0.02em;
+}
+
+.om-h2 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+}
+
+.om-lead {
+  font-size: 1.125rem;
+  color: var(--om-muted);
+  max-width: 42rem;
+  margin: 0 0 1.5rem;
+}
+
+.om-grid-3 {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+.om-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 0.5rem 1rem;
+  background: var(--om-navy);
+  color: #fff;
+}
+
+.om-skip-link:focus {
+  left: 0;
+}

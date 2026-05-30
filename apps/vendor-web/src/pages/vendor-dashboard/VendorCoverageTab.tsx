@@ -172,7 +172,7 @@ export function VendorCoverageTab({ supabase, vendor, onSaved }: Props) {
           column). OorjaMan uses this for marketplace matching and visit assignment.
         </p>
         <p className="vd-caption vc-geo-note">
-          City lists load offline from open geographic data — no API key required.
+          City lists load offline from open geographic data - no API key required.
         </p>
       </Card>
 
@@ -245,7 +245,7 @@ export function VendorCoverageTab({ supabase, vendor, onSaved }: Props) {
       {error ? <p className="vd-error">{error}</p> : null}
       {totalPins === 0 ? (
         <p className="vd-caption vc-warn">
-          Add at least one PIN in the table before saving — otherwise you may not appear in local marketplace results.
+          Add at least one PIN in the table before saving - otherwise you may not appear in local marketplace results.
         </p>
       ) : null}
 

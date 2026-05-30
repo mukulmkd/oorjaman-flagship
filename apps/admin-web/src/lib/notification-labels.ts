@@ -6,6 +6,8 @@
 const NOTIFICATION_EVENT_TYPE_LABELS: Record<string, string> = {
   marketplace_broadcast: "Marketplace - new request (broadcast)",
   marketplace_claim_won: "Marketplace - your team claimed the booking",
+  admin_booking_created: "Ops - new booking confirmed",
+  admin_booking_vendor_response_overdue: "Ops - partner response overdue",
   admin_marketplace_floated: "Ops - marketplace opened",
   admin_booking_vendor_claimed: "Ops - vendor claimed booking",
   admin_booking_vendor_accepted: "Ops - technician assigned",
@@ -49,6 +51,8 @@ export function formatNotificationChannelLabel(channel: string): string {
 const PRICING_CATALOG_TABLE_LABELS: Record<string, string> = {
   pricing_one_time_rates: "One-time visit rates",
   pricing_amc_plans: "AMC maintenance plans",
+  pricing_tiers: "City-tier add-ons",
+  platform_settings: "Platform settings",
 };
 
 export function formatPricingCatalogTableLabel(tableName: string): string {

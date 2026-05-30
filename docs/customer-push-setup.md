@@ -1,4 +1,4 @@
-# Customer app — remote push (Expo)
+# Customer app - remote push (Expo)
 
 Support chat uses **Expo Push** for notifications when the app is killed or in the background.
 
@@ -30,7 +30,7 @@ Optional (higher rate limits): `supabase secrets set EXPO_ACCESS_TOKEN="<expo-ac
 
 ## 4. Dispatch outbox → edge function
 
-**Option A — immediate (recommended for production)**
+**Option A - immediate (recommended for production)**
 
 In the Supabase SQL editor (once per project):
 
@@ -41,15 +41,31 @@ alter database postgres set app.push_dispatch_secret = '<same-as-PUSH_DISPATCH_S
 
 The `customer_push_outbox` insert trigger calls this URL via `pg_net`.
 
-**Option B — scheduled fallback**
+**Option B - scheduled fallback**
 
 Supabase Dashboard → Edge Functions → `send-customer-expo-push` → Cron: every 1 minute, body `{}`, Authorization: `Bearer <service_role_key>`.
 
 Processes any rows if Option A is not configured.
 
-## 5. iOS / Android credentials
+## 5. Chat notification sound
 
-- **iOS**: APNs key in EAS (`eas credentials`) — requires Apple Developer Program.
+Support messages use a short **chat_message.wav** chime (underscore - required for Android resource names):
+
+- **In app (another screen / foreground):** local realtime notification with sound via `expo-notifications` handler.
+- **Background / killed:** Expo push with `sound: chat_message.wav` and Android channel `support-chat`.
+
+Rebuild the native app after pulling sound assets (`eas build` or dev client rebuild) so iOS/Android bundle the WAV:
+
+```bash
+# plugins in app.config / app.json:
+# ["expo-notifications", { "sounds": ["./assets/sounds/chat_message.wav"] }]
+```
+
+Grant notification permission with sound allowed (iOS Settings → Notifications → Sounds).
+
+## 6. iOS / Android credentials
+
+- **iOS**: APNs key in EAS (`eas credentials`) - requires Apple Developer Program.
 - **Android**: FCM via EAS (handled when you run `eas build`).
 
 Development builds from Expo Go have limited push support; use a **development build** or **production build** for end-to-end testing.

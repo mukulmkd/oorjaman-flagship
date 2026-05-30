@@ -131,7 +131,7 @@ Deno.serve(async (req: Request) => {
       title: row.title,
       body: row.body,
       data: row.data ?? {},
-      sound: "default",
+      sound: "chat_message.wav",
       channelId: "support-chat",
     }));
 

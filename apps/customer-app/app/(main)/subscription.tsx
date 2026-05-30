@@ -183,7 +183,7 @@ export default function SubscriptionAmcScreen() {
     return m;
   }, [bookingsQuery.data]);
 
-  /** Upcoming paid one-time visits at this address (shown for context only — not convertible to AMC). */
+  /** Upcoming paid one-time visits at this address (shown for context only - not convertible to AMC). */
   const upcomingOneTimeSeparate = useMemo(() => {
     if (!selectedAddressId || !activeForSelected) return [];
     const today = startOfToday();
@@ -327,7 +327,7 @@ export default function SubscriptionAmcScreen() {
       }
       Alert.alert(
         "Plan upgraded",
-        `${updated.plan_name} is now active. Extra visit slots are available — schedule them when you are ready.`,
+        `${updated.plan_name} is now active. Extra visit slots are available - schedule them when you are ready.`,
       );
     },
     onError: (e: Error) => Alert.alert("Couldn't upgrade", e.message),
@@ -349,7 +349,7 @@ export default function SubscriptionAmcScreen() {
       const showJobStart =
         isBooked && linked != null && customerBookingVisitDateVisible(linked);
       const statusLabel =
-        isBooked && linked ? bookingStatusLabel(linked.status) : visitSlotStatusLabel(slot.status);
+        isBooked && linked ? bookingStatusLabel(linked.status, linked) : visitSlotStatusLabel(slot.status);
 
       const card = (
         <Card variant={isBooked ? "elevated" : "muted"} padded>
@@ -573,7 +573,7 @@ export default function SubscriptionAmcScreen() {
                       <Text style={styles.cardLabel}>System size changed in Profile</Text>
                       <Text style={styles.metaLine}>
                         Your AMC is still priced for a different kW band. Open Profile, update your saved capacity, and
-                        save — your plan amount and visit allowances will be re-evaluated. Scheduled visits are kept as
+                        save - your plan amount and visit allowances will be re-evaluated. Scheduled visits are kept as
                         they are.
                       </Text>
                       <View style={{ marginTop: spacing.sm }}>
@@ -610,13 +610,13 @@ export default function SubscriptionAmcScreen() {
                   <View style={{ marginBottom: spacing.md }}>
                     <View style={styles.renewalBanner}>
                       <Card variant="elevated" padded>
-                      <Text style={styles.renewalKicker}>Renew your AMC</Text>
-                      <Text style={styles.planName}>{renewalDueForSelected.plan_name}</Text>
-                      <Text style={styles.metaLine}>
-                        Your plan for {selectedEntry?.label ?? "this address"} ended on{" "}
-                        {formatDisplayDate(renewalDueForSelected.ends_at)}. Choose one of the AMC plans below to renew
-                        coverage and schedule visits for the new contract year.
-                      </Text>
+                        <Text style={styles.renewalKicker}>Renew your AMC</Text>
+                        <Text style={styles.planName}>{renewalDueForSelected.plan_name}</Text>
+                        <Text style={styles.metaLine}>
+                          Your plan for {selectedEntry?.label ?? "this address"} ended on{" "}
+                          {formatDisplayDate(renewalDueForSelected.ends_at)}. Choose one of the AMC plans below to renew
+                          coverage and schedule visits for the new contract year.
+                        </Text>
                       </Card>
                     </View>
                   </View>
@@ -691,7 +691,7 @@ export default function SubscriptionAmcScreen() {
                       </Button>
                     </View>
                     <Text style={styles.legalHint}>
-                      Signing up creates visit allowances for your contract. Schedule each visit when you want — separate
+                      Signing up creates visit allowances for your contract. Schedule each visit when you want - separate
                       one-time cleanings stay on their original price.
                     </Text>
                   </>
@@ -704,7 +704,7 @@ export default function SubscriptionAmcScreen() {
                 <Text style={styles.sectionLabel}>AMC visit allowances</Text>
                 <Text style={styles.inputHelp}>
                   {selectedEntry
-                    ? `Included visits for ${selectedEntry.label}. Schedule any visit when you are ready — your job start time appears once your partner accepts and assigns a technician.`
+                    ? `Included visits for ${selectedEntry.label}. Schedule any visit when you are ready - your job start time appears once your partner accepts and assigns a technician.`
                     : "Select an address to see visit allowances."}
                 </Text>
                 <View style={{ gap: spacing.sm }}>{amcVisitSlots.map((s) => renderVisitSlotRow(s))}</View>

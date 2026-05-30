@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { BookingRow } from "@oorjaman/api";
 import { bookingApi, queryKeys } from "@oorjaman/api";
 import {
@@ -9,13 +9,15 @@ import {
 } from "@oorjaman/ui";
 import { supabase } from "../lib/supabase";
 
-type Snapshot = Pick<BookingRow, "id" | "status" | "technician_id">;
+type Snapshot = Pick<BookingRow, "id" | "status" | "technician_id" | "vendor_id">;
 
 /**
- * Subscribes to booking row updates for this customer and fires local notifications on meaningful transitions.
- * Requires `bookings` to be part of the `supabase_realtime` publication (see supabase migration).
+ * Subscribes to booking row updates for this customer: refreshes list/detail queries and
+ * fires local notifications on meaningful transitions.
+ * Requires `bookings` on the `supabase_realtime` publication (see supabase migration).
  */
 export function BookingRealtimeNotifications({ customerId }: { customerId: string | undefined }) {
+  const qc = useQueryClient();
   const snapRef = useRef<Map<string, Snapshot>>(new Map());
 
   const seedQuery = useQuery({
@@ -32,6 +34,7 @@ export function BookingRealtimeNotifications({ customerId }: { customerId: strin
         id: b.id,
         status: b.status,
         technician_id: b.technician_id,
+        vendor_id: b.vendor_id,
       });
     }
   }, [seedQuery.data]);
@@ -40,13 +43,15 @@ export function BookingRealtimeNotifications({ customerId }: { customerId: strin
     if (!supabase || !customerId || !seedQuery.isSuccess) return;
     const client = supabase;
 
-    // Unique topic per subscription: `channel(name)` returns an existing channel if `name` matches,
-    // and listeners cannot be added after `subscribe()` - remounts / Strict Mode would hit that.
     const topicSuffix =
       typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.randomUUID === "function"
         ? globalThis.crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
     const topic = `customer-bookings-${customerId}-${topicSuffix}`;
+
+    const invalidateBookings = () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
+    };
 
     const channel = client
       .channel(topic)
@@ -67,7 +72,11 @@ export function BookingRealtimeNotifications({ customerId }: { customerId: strin
             id: row.id,
             status: row.status,
             technician_id: row.technician_id,
+            vendor_id: row.vendor_id,
           });
+
+          invalidateBookings();
+
           if (!prev) return;
 
           if (row.status === "accepted" && prev.status === "confirmed") {
@@ -81,12 +90,24 @@ export function BookingRealtimeNotifications({ customerId }: { customerId: strin
           }
         },
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "bookings",
+          filter: `customer_id=eq.${customerId}`,
+        },
+        () => {
+          invalidateBookings();
+        },
+      )
       .subscribe();
 
     return () => {
       void client.removeChannel(channel);
     };
-  }, [customerId, seedQuery.isSuccess, supabase]);
+  }, [customerId, qc, seedQuery.isSuccess, supabase]);
 
   return null;
 }

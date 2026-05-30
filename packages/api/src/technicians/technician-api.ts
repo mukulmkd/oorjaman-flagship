@@ -10,10 +10,24 @@ import type {
   TechnicianVerificationStatus,
   VendorRow,
 } from "../database.types";
-import { requireSessionUserId, SupabaseApiError, takeRows, takeSingleRow } from "../result";
+import {
+  requireSessionUserId,
+  SupabaseApiError,
+  takeRows,
+  takeSingleRow,
+} from "../result";
 import { syncUserDisplayNameFromTechnician } from "../users/user-display-name";
-import { offsetRangeForPage, type PagedParams, type PagedResult } from "../page-range";
-import { getBookingById, readBookingServiceOtpMeta, updateBooking, type BookingPatch } from "../bookings/booking-api";
+import {
+  offsetRangeForPage,
+  type PagedParams,
+  type PagedResult,
+} from "../page-range";
+import {
+  getBookingById,
+  readBookingServiceOtpMeta,
+  updateBooking,
+  type BookingPatch,
+} from "../bookings/booking-api";
 import { ensureVisitPayoutSettlement } from "../finance/vendor-settlement-api";
 import {
   adminVisitCompletedCopy,
@@ -24,13 +38,22 @@ import {
   vendorVisitStartedCopy,
 } from "../notifications/booking-notifications";
 import { lowRatingFollowupInAppCopy } from "../notifications/notification-copy";
-import { emitTechnicianInviteNotificationPlaceholder, type TechnicianInviteChannel } from "../notifications/technician-invite-notifications";
+import {
+  emitTechnicianInviteNotificationPlaceholder,
+  type TechnicianInviteChannel,
+} from "../notifications/technician-invite-notifications";
 
-export type TechnicianPublicStatsRow = Database["public"]["Views"]["technician_stats"]["Row"];
+export type TechnicianPublicStatsRow =
+  Database["public"]["Views"]["technician_stats"]["Row"];
 
-function mergeTechnicianMetadata(existing: Json | null | undefined, patch: Json | null | undefined): Json {
+function mergeTechnicianMetadata(
+  existing: Json | null | undefined,
+  patch: Json | null | undefined,
+): Json {
   const a =
-    typeof existing === "object" && existing !== null && !Array.isArray(existing)
+    typeof existing === "object" &&
+    existing !== null &&
+    !Array.isArray(existing)
       ? { ...(existing as Record<string, unknown>) }
       : {};
   const b =
@@ -42,7 +65,9 @@ function mergeTechnicianMetadata(existing: Json | null | undefined, patch: Json 
 
 function stripTechnicianRegistrationDraft(meta: Json | null | undefined): Json {
   const o =
-    meta && typeof meta === "object" && !Array.isArray(meta) ? { ...(meta as Record<string, Json>) } : {};
+    meta && typeof meta === "object" && !Array.isArray(meta)
+      ? { ...(meta as Record<string, Json>) }
+      : {};
   delete o.registration_draft;
   return o as Json;
 }
@@ -57,9 +82,13 @@ function mergeJobReportChecklist(
       : {};
   const next = incoming ?? {};
   const mergedPre =
-    next.pre_start != null && typeof next.pre_start === "object" && !Array.isArray(next.pre_start)
+    next.pre_start != null &&
+    typeof next.pre_start === "object" &&
+    !Array.isArray(next.pre_start)
       ? {
-          ...(typeof base.pre_start === "object" && base.pre_start !== null && !Array.isArray(base.pre_start)
+          ...(typeof base.pre_start === "object" &&
+          base.pre_start !== null &&
+          !Array.isArray(base.pre_start)
             ? (base.pre_start as Record<string, unknown>)
             : {}),
           ...(next.pre_start as Record<string, unknown>),
@@ -107,7 +136,10 @@ function normalizeCodeInput(value: string): string {
   return value.trim().toUpperCase().replace(/\s+/g, "");
 }
 
-function mergeBookingMetadata(existing: Json | null | undefined, patch: Record<string, Json>): Json {
+function mergeBookingMetadata(
+  existing: Json | null | undefined,
+  patch: Record<string, Json>,
+): Json {
   const base =
     existing && typeof existing === "object" && !Array.isArray(existing)
       ? { ...(existing as Record<string, Json>) }
@@ -130,16 +162,25 @@ async function recordServiceOtpFailure(
   const isStart = phase === "start";
   const currentCount = isStart ? otp.startFailCount : otp.happyFailCount;
   const failCount = currentCount + 1;
-  const lockedUntil = failCount >= OTP_MAX_ATTEMPTS ? new Date(Date.now() + OTP_LOCK_WINDOW_MS).toISOString() : null;
+  const lockedUntil =
+    failCount >= OTP_MAX_ATTEMPTS
+      ? new Date(Date.now() + OTP_LOCK_WINDOW_MS).toISOString()
+      : null;
   const m =
-    booking.metadata && typeof booking.metadata === "object" && !Array.isArray(booking.metadata)
+    booking.metadata &&
+    typeof booking.metadata === "object" &&
+    !Array.isArray(booking.metadata)
       ? (booking.metadata as Record<string, Json>)
       : {};
   const rawOtp =
-    m.service_otp && typeof m.service_otp === "object" && !Array.isArray(m.service_otp)
+    m.service_otp &&
+    typeof m.service_otp === "object" &&
+    !Array.isArray(m.service_otp)
       ? (m.service_otp as Record<string, Json>)
       : {};
-  const existingAttempts = Array.isArray(rawOtp.failed_attempts) ? (rawOtp.failed_attempts as Json[]) : [];
+  const existingAttempts = Array.isArray(rawOtp.failed_attempts)
+    ? (rawOtp.failed_attempts as Json[])
+    : [];
   const nextAttempts = [
     ...existingAttempts.slice(-9),
     { phase, at: nowIso, technician_id: technicianId } as Json,
@@ -191,14 +232,20 @@ function buildPreStartChecklistPayload(
 export async function technicianStartJob(
   client: SupabaseClient<Database>,
   bookingId: string,
-  options: { preStartSafety: PreStartSafetyAck; startCode?: string | null; startSelfieUrl: string },
+  options: {
+    preStartSafety: PreStartSafetyAck;
+    startCode?: string | null;
+    startSelfieUrl: string;
+  },
 ): Promise<BookingRow> {
   if (!allPreStartSafetyAcked(options.preStartSafety)) {
     throw new SupabaseApiError("Confirm all safety items before starting.");
   }
   const startSelfieUrl = options.startSelfieUrl.trim();
   if (!startSelfieUrl) {
-    throw new SupabaseApiError("A start-of-visit selfie is required before starting the job timer.");
+    throw new SupabaseApiError(
+      "A start-of-visit selfie is required before starting the job timer.",
+    );
   }
 
   const booking = await getBookingById(client, bookingId);
@@ -211,14 +258,25 @@ export async function technicianStartJob(
   }
   const technicianId = await requireMyTechnicianId(client);
   const otpMeta = readBookingServiceOtpMeta(booking.metadata);
-  if (otpMeta.startLockedUntil && Date.now() < new Date(otpMeta.startLockedUntil).getTime()) {
-    throw new SupabaseApiError("Job Start Code entry is temporarily locked. Please retry in a few minutes.");
+  if (
+    otpMeta.startLockedUntil &&
+    Date.now() < new Date(otpMeta.startLockedUntil).getTime()
+  ) {
+    throw new SupabaseApiError(
+      "Job Start Code entry is temporarily locked. Please retry in a few minutes.",
+    );
   }
   if (otpMeta.startCode) {
     const provided = normalizeCodeInput(options.startCode ?? "");
-    if (!provided) throw new SupabaseApiError("Enter the Job Start Code from customer app.");
+    if (!provided)
+      throw new SupabaseApiError("Enter the Job Start Code from customer app.");
     if (provided !== otpMeta.startCode) {
-      const fail = await recordServiceOtpFailure(client, booking, technicianId, "start");
+      const fail = await recordServiceOtpFailure(
+        client,
+        booking,
+        technicianId,
+        "start",
+      );
       throw new SupabaseApiError(
         fail.lockedUntil
           ? "Job Start Code locked for 5 minutes due to repeated mismatches."
@@ -232,7 +290,10 @@ export async function technicianStartJob(
     technicianId,
     beforePhotoUrls: [],
     afterPhotoUrls: [],
-    checklist: buildPreStartChecklistPayload(options.preStartSafety, startSelfieUrl),
+    checklist: buildPreStartChecklistPayload(
+      options.preStartSafety,
+      startSelfieUrl,
+    ),
   });
 
   const now = new Date().toISOString();
@@ -285,7 +346,11 @@ export async function getMyTechnicianProfile(
   const uid = userData.user?.id;
   if (!uid) return null;
 
-  const { data, error } = await client.from("technicians").select("*").eq("user_id", uid).maybeSingle();
+  const { data, error } = await client
+    .from("technicians")
+    .select("*")
+    .eq("user_id", uid)
+    .maybeSingle();
 
   if (error) throw new SupabaseApiError(error.message, error);
   return data ?? null;
@@ -296,7 +361,11 @@ export async function getTechnicianEmployerVendor(
   client: SupabaseClient<Database>,
   vendorId: string,
 ): Promise<VendorRow | null> {
-  const { data, error } = await client.from("vendors").select("*").eq("id", vendorId).maybeSingle();
+  const { data, error } = await client
+    .from("vendors")
+    .select("*")
+    .eq("id", vendorId)
+    .maybeSingle();
   if (error) throw new SupabaseApiError(error.message, error);
   return data;
 }
@@ -318,18 +387,22 @@ export async function updateMyTechnicianAvailability(
   return takeSingleRow(data, error);
 }
 
-/** Jobs tab and field workflows — platform verified and employer approved. */
-export function technicianIsFullyOnboarded(tech: TechnicianRow | null | undefined): boolean {
+/** Jobs tab and field workflows - platform verified and employer approved. */
+export function technicianIsFullyOnboarded(
+  tech: TechnicianRow | null | undefined,
+): boolean {
   return Boolean(
     tech &&
-      tech.verification_status === "verified" &&
-      tech.is_verified &&
-      tech.vendor_review_status === "approved",
+    tech.verification_status === "verified" &&
+    tech.is_verified &&
+    tech.vendor_review_status === "approved",
   );
 }
 
 /** In-progress onboarding wizard (save & continue later), including draft saved on an otherwise verified row. */
-export function technicianHasActiveOnboardingDraft(tech: TechnicianRow | null | undefined): boolean {
+export function technicianHasActiveOnboardingDraft(
+  tech: TechnicianRow | null | undefined,
+): boolean {
   if (!tech) return false;
   if (tech.verification_status === "draft") return true;
   const meta = tech.metadata;
@@ -338,9 +411,11 @@ export function technicianHasActiveOnboardingDraft(tech: TechnicianRow | null | 
 }
 
 /**
- * Submitted profile waiting on employer (and possibly platform) review — not the editable draft wizard.
+ * Submitted profile waiting on employer (and possibly platform) review - not the editable draft wizard.
  */
-export function technicianShowsPendingReviewScreen(tech: TechnicianRow | null | undefined): boolean {
+export function technicianShowsPendingReviewScreen(
+  tech: TechnicianRow | null | undefined,
+): boolean {
   if (!tech || technicianIsFullyOnboarded(tech)) return false;
   if (tech.verification_status === "draft") return false;
   if (tech.vendor_review_status === "rejected") return false;
@@ -353,11 +428,17 @@ export function technicianShowsPendingReviewScreen(tech: TechnicianRow | null | 
 }
 
 /** Technician UUID for inserts (`job_reports.technician_id`) - throws when session invalid. */
-export async function requireMyTechnicianId(client: SupabaseClient<Database>): Promise<string> {
+export async function requireMyTechnicianId(
+  client: SupabaseClient<Database>,
+): Promise<string> {
   const { data: userData } = await client.auth.getUser();
   const uid = requireSessionUserId(userData.user?.id);
 
-  const { data, error } = await client.from("technicians").select("id").eq("user_id", uid).maybeSingle();
+  const { data, error } = await client
+    .from("technicians")
+    .select("id")
+    .eq("user_id", uid)
+    .maybeSingle();
 
   if (error) throw new SupabaseApiError(error.message, error);
   if (!data?.id) throw new SupabaseApiError("Technician profile not found");
@@ -381,7 +462,11 @@ export async function recordTechnicianLocation(
     lng: input.lng,
     ...(input.recordedAt ? { recorded_at: input.recordedAt } : {}),
   };
-  const { data, error } = await client.from("technician_locations").insert(row).select().single();
+  const { data, error } = await client
+    .from("technician_locations")
+    .insert(row)
+    .select()
+    .single();
   if (error) throw new SupabaseApiError(error.message, error);
   if (!data) throw new SupabaseApiError("Location was not saved.");
   return data;
@@ -451,7 +536,8 @@ function mergeDeclarationIntoMetadata(
 ): Json {
   const stripped = stripTechnicianRegistrationDraft(existing);
   const hasDecl =
-    input.declaration_information_accurate != null || input.declaration_safety_commitment != null;
+    input.declaration_information_accurate != null ||
+    input.declaration_safety_commitment != null;
   const hasSafetyAck =
     input.safety_ack_pre_start_checklist != null ||
     input.safety_ack_job_start_code != null ||
@@ -465,15 +551,19 @@ function mergeDeclarationIntoMetadata(
       ? { ...(stripped as Record<string, Json>) }
       : {};
   const prev =
-    o.declarations && typeof o.declarations === "object" && !Array.isArray(o.declarations)
+    o.declarations &&
+    typeof o.declarations === "object" &&
+    !Array.isArray(o.declarations)
       ? { ...(o.declarations as Record<string, Json>) }
       : {};
   const decl: Record<string, Json> = { ...prev };
   if (input.declaration_information_accurate != null) {
-    decl.information_accurate = input.declaration_information_accurate as unknown as Json;
+    decl.information_accurate =
+      input.declaration_information_accurate as unknown as Json;
   }
   if (input.declaration_safety_commitment != null) {
-    decl.safety_commitment = input.declaration_safety_commitment as unknown as Json;
+    decl.safety_commitment =
+      input.declaration_safety_commitment as unknown as Json;
   }
   if (hasSafetyAck) {
     decl.safety_acknowledgements = {
@@ -522,14 +612,17 @@ function payloadToInsert(
     safety_training_org: input.safety_training_org ?? null,
     doc_passport_url: input.doc_passport_url ?? null,
     doc_safety_certificate_url: input.doc_safety_certificate_url ?? null,
-    flag_solar_cleaning_experience: input.flag_solar_cleaning_experience ?? false,
+    flag_solar_cleaning_experience:
+      input.flag_solar_cleaning_experience ?? false,
     other_skills: input.other_skills ?? null,
     metadata: mergeDeclarationIntoMetadata(null, input),
     verification_submitted_at: new Date().toISOString(),
   };
 }
 
-function payloadToUpdate(input: TechnicianOnboardingPayload): Database["public"]["Tables"]["technicians"]["Update"] {
+function payloadToUpdate(
+  input: TechnicianOnboardingPayload,
+): Database["public"]["Tables"]["technicians"]["Update"] {
   const now = new Date().toISOString();
   return {
     vendor_id: input.vendor_id,
@@ -560,7 +653,8 @@ function payloadToUpdate(input: TechnicianOnboardingPayload): Database["public"]
     safety_training_org: input.safety_training_org ?? null,
     doc_passport_url: input.doc_passport_url ?? null,
     doc_safety_certificate_url: input.doc_safety_certificate_url ?? null,
-    flag_solar_cleaning_experience: input.flag_solar_cleaning_experience ?? false,
+    flag_solar_cleaning_experience:
+      input.flag_solar_cleaning_experience ?? false,
     other_skills: input.other_skills ?? null,
     verification_submitted_at: now,
   };
@@ -601,7 +695,11 @@ export async function saveTechnicianOnboardingDraft(
       metadata: draftPatch,
       verification_submitted_at: null,
     };
-    const { data, error } = await client.from("technicians").insert(row).select().single();
+    const { data, error } = await client
+      .from("technicians")
+      .insert(row)
+      .select()
+      .single();
     return takeSingleRow(data, error);
   }
 
@@ -637,7 +735,11 @@ export async function submitTechnicianOnboarding(
 
   if (!existing) {
     const row = payloadToInsert(userId, input);
-    const { data, error } = await client.from("technicians").insert(row).select().single();
+    const { data, error } = await client
+      .from("technicians")
+      .insert(row)
+      .select()
+      .single();
     const created = takeSingleRow(data, error);
     await syncUserDisplayNameFromTechnician(client, created);
     return created;
@@ -662,14 +764,21 @@ export async function submitTechnicianOnboarding(
 
   patch.metadata = mergeDeclarationIntoMetadata(existing.metadata, input);
 
-  const { data, error } = await client.from("technicians").update(patch).eq("id", existing.id).select().single();
+  const { data, error } = await client
+    .from("technicians")
+    .update(patch)
+    .eq("id", existing.id)
+    .select()
+    .single();
   const upserted = takeSingleRow(data, error);
   await syncUserDisplayNameFromTechnician(client, upserted);
   await markInviteCompletedForCurrentUser(client);
   return upserted;
 }
 
-async function markInviteCompletedForCurrentUser(client: SupabaseClient<Database>): Promise<void> {
+async function markInviteCompletedForCurrentUser(
+  client: SupabaseClient<Database>,
+): Promise<void> {
   const { data: userData, error: userErr } = await client.auth.getUser();
   if (userErr) throw new SupabaseApiError(userErr.message, userErr);
   const uid = userData.user?.id;
@@ -709,26 +818,35 @@ export async function vendorInviteTechnician(
   const token = createInviteToken();
   const inviteUrl = `oorjaman-technician://invite/${token}`;
   const employerLabel =
-    vendor.trade_name?.trim() || vendor.business_name?.trim() || "Your employer";
-  const row: Database["public"]["Tables"]["vendor_technician_invites"]["Insert"] = {
-    vendor_id: vendor.id,
-    invited_by_user_id: userId,
-    full_name: input.full_name?.trim() || null,
-    invite_phone_e164: normalizeInvitePhone(input.invite_phone_e164),
-    invite_email: input.invite_email?.trim() || null,
-    invite_token: token,
-    invite_url: inviteUrl,
-    status: "invited",
-    notification_channels: input.channels?.length ? input.channels : ["email", "sms", "whatsapp"],
-    invited_at: new Date().toISOString(),
-    last_notified_at: new Date().toISOString(),
-    metadata: {
-      employer_business_name: vendor.business_name,
-      employer_trade_name: vendor.trade_name,
-      employer_display_name: employerLabel,
-    },
-  };
-  const { data, error } = await client.from("vendor_technician_invites").insert(row).select().single();
+    vendor.trade_name?.trim() ||
+    vendor.business_name?.trim() ||
+    "Your employer";
+  const row: Database["public"]["Tables"]["vendor_technician_invites"]["Insert"] =
+    {
+      vendor_id: vendor.id,
+      invited_by_user_id: userId,
+      full_name: input.full_name?.trim() || null,
+      invite_phone_e164: normalizeInvitePhone(input.invite_phone_e164),
+      invite_email: input.invite_email?.trim() || null,
+      invite_token: token,
+      invite_url: inviteUrl,
+      status: "invited",
+      notification_channels: input.channels?.length
+        ? input.channels
+        : ["email", "sms", "whatsapp"],
+      invited_at: new Date().toISOString(),
+      last_notified_at: new Date().toISOString(),
+      metadata: {
+        employer_business_name: vendor.business_name,
+        employer_trade_name: vendor.trade_name,
+        employer_display_name: employerLabel,
+      },
+    };
+  const { data, error } = await client
+    .from("vendor_technician_invites")
+    .insert(row)
+    .select()
+    .single();
   const invite = takeSingleRow(data, error);
   emitTechnicianInviteNotificationPlaceholder({
     inviteId: invite.id,
@@ -736,7 +854,11 @@ export async function vendorInviteTechnician(
     phoneE164: invite.invite_phone_e164,
     email: invite.invite_email,
     inviteUrl: invite.invite_url ?? inviteUrl,
-    channels: (invite.notification_channels as TechnicianInviteChannel[]) ?? ["email", "sms", "whatsapp"],
+    channels: (invite.notification_channels as TechnicianInviteChannel[]) ?? [
+      "email",
+      "sms",
+      "whatsapp",
+    ],
   });
   return invite;
 }
@@ -778,7 +900,11 @@ export async function technicianHasVendorOnboardingAccess(
   const uid = userData.user?.id;
   if (!uid) return false;
 
-  const { data: userRow, error: rowErr } = await client.from("users").select("phone").eq("id", uid).maybeSingle();
+  const { data: userRow, error: rowErr } = await client
+    .from("users")
+    .select("phone")
+    .eq("id", uid)
+    .maybeSingle();
   if (rowErr) throw new SupabaseApiError(rowErr.message, rowErr);
   const phone = userRow?.phone?.trim();
   if (!phone) return false;
@@ -801,7 +927,11 @@ export async function technicianGetMyInvite(
   if (userErr) throw new SupabaseApiError(userErr.message, userErr);
   const uid = userData.user?.id;
   if (!uid) return null;
-  const { data: userRow, error: rowErr } = await client.from("users").select("phone").eq("id", uid).maybeSingle();
+  const { data: userRow, error: rowErr } = await client
+    .from("users")
+    .select("phone")
+    .eq("id", uid)
+    .maybeSingle();
   if (rowErr) throw new SupabaseApiError(rowErr.message, rowErr);
   const phone = userRow?.phone?.trim();
   if (!phone) return null;
@@ -834,7 +964,11 @@ export async function vendorReviewTechnicianProfile(
   const { data: userData, error: userErr } = await client.auth.getUser();
   if (userErr) throw new SupabaseApiError(userErr.message, userErr);
   const userId = requireSessionUserId(userData.user?.id);
-  const { data: vendor, error: vendorErr } = await client.from("vendors").select("id").eq("user_id", userId).maybeSingle();
+  const { data: vendor, error: vendorErr } = await client
+    .from("vendors")
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle();
   if (vendorErr) throw new SupabaseApiError(vendorErr.message, vendorErr);
   if (!vendor?.id) throw new SupabaseApiError("Vendor profile not found.");
   const { data: technician, error: techErr } = await client
@@ -844,18 +978,30 @@ export async function vendorReviewTechnicianProfile(
     .maybeSingle();
   if (techErr) throw new SupabaseApiError(techErr.message, techErr);
   if (!technician || technician.vendor_id !== vendor.id) {
-    throw new SupabaseApiError("Technician does not belong to your organisation.");
+    throw new SupabaseApiError(
+      "Technician does not belong to your organisation.",
+    );
   }
   const now = new Date().toISOString();
   const patch: Database["public"]["Tables"]["technicians"]["Update"] =
     input.decision === "approved"
-      ? { vendor_review_status: "approved", vendor_reviewed_at: now, vendor_rejection_reason: null }
+      ? {
+          vendor_review_status: "approved",
+          vendor_reviewed_at: now,
+          vendor_rejection_reason: null,
+        }
       : {
           vendor_review_status: "rejected",
           vendor_reviewed_at: now,
-          vendor_rejection_reason: input.reason?.trim() || "Profile rejected by vendor.",
+          vendor_rejection_reason:
+            input.reason?.trim() || "Profile rejected by vendor.",
         };
-  const { data, error } = await client.from("technicians").update(patch).eq("id", technicianId).select().single();
+  const { data, error } = await client
+    .from("technicians")
+    .update(patch)
+    .eq("id", technicianId)
+    .select()
+    .single();
   if (error) {
     if (error.message.includes("users row missing")) {
       throw new SupabaseApiError(
@@ -872,7 +1018,9 @@ export async function vendorReviewTechnicianProfile(
 }
 
 export type TechnicianListFilters = {
-  verificationStatus?: TechnicianVerificationStatus | TechnicianVerificationStatus[];
+  verificationStatus?:
+    | TechnicianVerificationStatus
+    | TechnicianVerificationStatus[];
   limit?: number;
 };
 
@@ -880,7 +1028,10 @@ export async function adminListTechnicians(
   client: SupabaseClient<Database>,
   filters?: TechnicianListFilters,
 ): Promise<TechnicianRow[]> {
-  let q = client.from("technicians").select("*").order("created_at", { ascending: false });
+  let q = client
+    .from("technicians")
+    .select("*")
+    .order("created_at", { ascending: false });
 
   if (filters?.verificationStatus) {
     const st = Array.isArray(filters.verificationStatus)
@@ -901,7 +1052,10 @@ export async function adminListTechniciansPaged(
   params: PagedParams,
 ): Promise<PagedResult<TechnicianRow>> {
   const { from, to } = offsetRangeForPage(params.page, params.pageSize);
-  let q = client.from("technicians").select("*", { count: "exact" }).order("created_at", { ascending: false });
+  let q = client
+    .from("technicians")
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false });
 
   if (filters?.verificationStatus) {
     const st = Array.isArray(filters.verificationStatus)
@@ -918,7 +1072,11 @@ export async function adminGetTechnician(
   client: SupabaseClient<Database>,
   technicianId: string,
 ): Promise<TechnicianRow | null> {
-  const { data, error } = await client.from("technicians").select("*").eq("id", technicianId).maybeSingle();
+  const { data, error } = await client
+    .from("technicians")
+    .select("*")
+    .eq("id", technicianId)
+    .maybeSingle();
   if (error) throw new SupabaseApiError(error.message, error);
   return data;
 }
@@ -945,7 +1103,12 @@ export async function adminSetTechnicianVerification(
     patch.verification_rejection_reason = input.rejectionReason;
   }
 
-  const { data, error } = await client.from("technicians").update(patch).eq("id", technicianId).select().single();
+  const { data, error } = await client
+    .from("technicians")
+    .update(patch)
+    .eq("id", technicianId)
+    .select()
+    .single();
   return takeSingleRow(data, error);
 }
 
@@ -971,28 +1134,47 @@ export async function technicianCompleteJob(
 export async function technicianFinalizeJobReport(
   client: SupabaseClient<Database>,
   bookingId: string,
-  input: Omit<JobReportUpsertInput, "bookingId" | "technicianId"> & { happyCode?: string | null },
+  input: Omit<JobReportUpsertInput, "bookingId" | "technicianId"> & {
+    happyCode?: string | null;
+  },
 ): Promise<{ booking: BookingRow; report: JobReportRow }> {
   const technicianId = await requireMyTechnicianId(client);
   const booking = await getBookingById(client, bookingId);
   if (booking.status !== "in_progress") {
-    throw new SupabaseApiError("Happy Code completion is only allowed when the job is in progress.");
+    throw new SupabaseApiError(
+      "Happy Code completion is only allowed when the job is in progress.",
+    );
   }
   const otpMeta = readBookingServiceOtpMeta(booking.metadata);
-  if (otpMeta.happyLockedUntil && Date.now() < new Date(otpMeta.happyLockedUntil).getTime()) {
-    throw new SupabaseApiError("Happy Code entry is temporarily locked. Please retry in a few minutes.");
+  if (
+    otpMeta.happyLockedUntil &&
+    Date.now() < new Date(otpMeta.happyLockedUntil).getTime()
+  ) {
+    throw new SupabaseApiError(
+      "Happy Code entry is temporarily locked. Please retry in a few minutes.",
+    );
   }
   if (booking.actual_start) {
     const ageMs = Date.now() - new Date(booking.actual_start).getTime();
     if (Number.isFinite(ageMs) && ageMs > HAPPY_CODE_MAX_AGE_MS) {
-      throw new SupabaseApiError("Happy Code expired for this visit. Ask customer to regenerate from app.");
+      throw new SupabaseApiError(
+        "Happy Code expired for this visit. Ask customer to regenerate from app.",
+      );
     }
   }
   if (otpMeta.happyCode) {
     const provided = normalizeCodeInput(input.happyCode ?? "");
-    if (!provided) throw new SupabaseApiError("Enter Happy Code before completing the visit.");
+    if (!provided)
+      throw new SupabaseApiError(
+        "Enter Happy Code before completing the visit.",
+      );
     if (provided !== otpMeta.happyCode) {
-      const fail = await recordServiceOtpFailure(client, booking, technicianId, "happy");
+      const fail = await recordServiceOtpFailure(
+        client,
+        booking,
+        technicianId,
+        "happy",
+      );
       throw new SupabaseApiError(
         fail.lockedUntil
           ? "Happy Code locked for 5 minutes due to repeated mismatches."
@@ -1000,7 +1182,11 @@ export async function technicianFinalizeJobReport(
       );
     }
   }
-  const report = await upsertJobReport(client, { ...input, bookingId, technicianId });
+  const report = await upsertJobReport(client, {
+    ...input,
+    bookingId,
+    technicianId,
+  });
   const now = new Date().toISOString();
   const serviceOtpPatch =
     otpMeta.startCode || otpMeta.happyCode
@@ -1070,7 +1256,9 @@ export async function upsertJobReport(
 ): Promise<JobReportRow> {
   const { data: existing } = await client
     .from("job_reports")
-    .select("id, checklist, anomaly_notes, weather, panel_area_sqm, water_tds_ppm, debris_level, metadata")
+    .select(
+      "id, checklist, anomaly_notes, weather, panel_area_sqm, water_tds_ppm, debris_level, metadata",
+    )
     .eq("booking_id", input.bookingId)
     .maybeSingle();
 
@@ -1096,13 +1284,25 @@ export async function upsertJobReport(
     const merged = {
       ...row,
       anomaly_notes:
-        input.anomalyNotes !== undefined ? input.anomalyNotes : existing.anomaly_notes ?? null,
-      weather: input.weather !== undefined ? input.weather : existing.weather ?? null,
+        input.anomalyNotes !== undefined
+          ? input.anomalyNotes
+          : (existing.anomaly_notes ?? null),
+      weather:
+        input.weather !== undefined
+          ? input.weather
+          : (existing.weather ?? null),
       panel_area_sqm:
-        input.panelAreaSqm !== undefined ? input.panelAreaSqm : existing.panel_area_sqm ?? null,
+        input.panelAreaSqm !== undefined
+          ? input.panelAreaSqm
+          : (existing.panel_area_sqm ?? null),
       water_tds_ppm:
-        input.waterTdsPpm !== undefined ? input.waterTdsPpm : existing.water_tds_ppm ?? null,
-      debris_level: input.debrisLevel !== undefined ? input.debrisLevel : existing.debris_level ?? null,
+        input.waterTdsPpm !== undefined
+          ? input.waterTdsPpm
+          : (existing.water_tds_ppm ?? null),
+      debris_level:
+        input.debrisLevel !== undefined
+          ? input.debrisLevel
+          : (existing.debris_level ?? null),
       metadata:
         input.metadata !== undefined
           ? ((input.metadata ?? {}) as Json)
@@ -1119,7 +1319,11 @@ export async function upsertJobReport(
     return takeSingleRow(data, error);
   }
 
-  const { data, error } = await client.from("job_reports").insert(row).select().single();
+  const { data, error } = await client
+    .from("job_reports")
+    .insert(row)
+    .select()
+    .single();
   return takeSingleRow(data, error);
 }
 
@@ -1152,13 +1356,18 @@ export async function customerUpdateJobReportFeedback(
     throw new Error("Job report not found for booking");
   }
   const rating =
-    patch.customer_rating == null ? null : Math.round(Number(patch.customer_rating));
+    patch.customer_rating == null
+      ? null
+      : Math.round(Number(patch.customer_rating));
   if (rating != null && (Number.isNaN(rating) || rating < 1 || rating > 5)) {
     throw new SupabaseApiError("Rating must be between 1 and 5.");
   }
   const now = Date.now();
   const completedAtMs = new Date(report.completed_at).getTime();
-  if (Number.isFinite(completedAtMs) && now - completedAtMs > 24 * 60 * 60 * 1000) {
+  if (
+    Number.isFinite(completedAtMs) &&
+    now - completedAtMs > 24 * 60 * 60 * 1000
+  ) {
     throw new SupabaseApiError("Rating edit window closed (24 hours).");
   }
   const safePatch: CustomerFeedbackPatch = {
@@ -1182,32 +1391,36 @@ export async function customerUpdateJobReportFeedback(
       .eq("booking_id", bookingId)
       .gte("created_at", cutoffIso)
       .limit(1);
-    if (existingErr) throw new SupabaseApiError(existingErr.message, existingErr);
+    if (existingErr)
+      throw new SupabaseApiError(existingErr.message, existingErr);
     if (!existingNudge?.length) {
       const booking = await getBookingById(client, bookingId);
-      const ref = booking.reference_code?.trim() || bookingId.slice(0, 8).toUpperCase();
+      const ref =
+        booking.reference_code?.trim() || bookingId.slice(0, 8).toUpperCase();
       const inAppCopy = lowRatingFollowupInAppCopy(ref, rating);
-      const { error: queueErr } = await client.from("notification_events").insert({
-        booking_id: bookingId,
-        recipient_audience: "admin",
-        recipient_vendor_id: booking.vendor_id,
-        event_type: "low_rating_followup",
-        channels: ["in_app", "email", "sms", "whatsapp"] as unknown as Json,
-        status: "queued",
-        payload: {
+      const { error: queueErr } = await client
+        .from("notification_events")
+        .insert({
           booking_id: bookingId,
-          reference_code: booking.reference_code,
-          title: inAppCopy.title,
-          body: inAppCopy.body,
-          href: `/dashboard/bookings?highlight=${bookingId}`,
-          customer_id: booking.customer_id,
-          vendor_id: booking.vendor_id,
-          rating,
-          feedback: safePatch.customer_feedback ?? "",
-          queued_at: new Date().toISOString(),
-        } as Json,
-        demo_mode: true,
-      });
+          recipient_audience: "admin",
+          recipient_vendor_id: booking.vendor_id,
+          event_type: "low_rating_followup",
+          channels: ["in_app", "email", "sms", "whatsapp"] as unknown as Json,
+          status: "queued",
+          payload: {
+            booking_id: bookingId,
+            reference_code: booking.reference_code,
+            title: inAppCopy.title,
+            body: inAppCopy.body,
+            href: `/dashboard/bookings?highlight=${bookingId}`,
+            customer_id: booking.customer_id,
+            vendor_id: booking.vendor_id,
+            rating,
+            feedback: safePatch.customer_feedback ?? "",
+            queued_at: new Date().toISOString(),
+          } as Json,
+          demo_mode: true,
+        });
       if (queueErr) throw new SupabaseApiError(queueErr.message, queueErr);
     }
   }
@@ -1232,7 +1445,10 @@ export async function listVisibleJobReports(
   client: SupabaseClient<Database>,
   options?: { limit?: number },
 ): Promise<JobReportRow[]> {
-  let q = client.from("job_reports").select("*").order("completed_at", { ascending: false });
+  let q = client
+    .from("job_reports")
+    .select("*")
+    .order("completed_at", { ascending: false });
   if (options?.limit != null) q = q.limit(options.limit);
   const { data, error } = await q;
   return takeRows(data, error);
@@ -1258,19 +1474,21 @@ export async function adminSetJobReportFeedbackModeration(
 ): Promise<JobReportRow> {
   const { data: userData } = await client.auth.getUser();
   const adminId = requireSessionUserId(userData.user?.id);
-  const patch: Database["public"]["Tables"]["job_reports"]["Update"] = input.hidden
-    ? {
-        feedback_hidden: true,
-        feedback_hidden_reason: input.reason?.trim() || "Hidden by admin moderation.",
-        feedback_hidden_at: new Date().toISOString(),
-        feedback_hidden_by: adminId,
-      }
-    : {
-        feedback_hidden: false,
-        feedback_hidden_reason: null,
-        feedback_hidden_at: null,
-        feedback_hidden_by: null,
-      };
+  const patch: Database["public"]["Tables"]["job_reports"]["Update"] =
+    input.hidden
+      ? {
+          feedback_hidden: true,
+          feedback_hidden_reason:
+            input.reason?.trim() || "Hidden by admin moderation.",
+          feedback_hidden_at: new Date().toISOString(),
+          feedback_hidden_by: adminId,
+        }
+      : {
+          feedback_hidden: false,
+          feedback_hidden_reason: null,
+          feedback_hidden_at: null,
+          feedback_hidden_by: null,
+        };
   const { data, error } = await client
     .from("job_reports")
     .update(patch)
@@ -1327,7 +1545,9 @@ export async function adminListTechnicianJobHistory(
   client: SupabaseClient<Database>,
   filters?: AdminTechnicianJobHistoryFilters,
 ): Promise<BookingRow[]> {
-  const ids = (filters?.technicianIds ?? []).map((x) => x.trim()).filter(Boolean);
+  const ids = (filters?.technicianIds ?? [])
+    .map((x) => x.trim())
+    .filter(Boolean);
   const limit = filters?.limit ?? 300;
   let q = client
     .from("bookings")

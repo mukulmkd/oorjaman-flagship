@@ -220,12 +220,12 @@ export function VendorInsightsTab({
                   {ratingsWindow.map((r) => (
                     <tr key={r.id}>
                       <td className="vd-mono">{r.booking_id.slice(0, 8)}…</td>
-                      <td>{r.customer_rating ?? "—"}</td>
+                      <td>{r.customer_rating ?? "-"}</td>
                       <td className="vd-mono">{new Date(r.completed_at).toLocaleString()}</td>
                       <td>
                         {r.feedback_hidden
                           ? "Feedback hidden by moderation."
-                          : ([r.customer_feedback, r.anomaly_notes].filter(Boolean).join(" · ") || "—")}
+                          : ([r.customer_feedback, r.anomaly_notes].filter(Boolean).join(" · ") || "-")}
                       </td>
                     </tr>
                   ))}

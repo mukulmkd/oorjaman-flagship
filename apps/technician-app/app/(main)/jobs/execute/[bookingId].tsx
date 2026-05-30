@@ -35,6 +35,7 @@ import {
 import { ModalHeaderSupportTrailing } from "../../../../components/modal-header-support-trailing";
 import { fontFamily, fontSize, fontWeight } from "../../../../constants/fonts";
 import { supabase } from "../../../../lib/supabase";
+import { pickJobEvidenceImageUri } from "../../../../lib/job-evidence-picker";
 import { uploadAndLinkJobReportPhoto } from "../../../../lib/job-evidence-upload";
 import {
   allSafetyChecked,
@@ -211,6 +212,7 @@ export default function JobExecutionWizardScreen() {
       <ModalHeaderSupportTrailing
         onClose={() => router.back()}
         closeAccessibilityLabel="Close field visit"
+        showSupportChat={false}
       />
     ),
   });
@@ -323,30 +325,12 @@ export default function JobExecutionWizardScreen() {
       ]);
     });
 
-    let uri: string | null = null;
-
-    if (choice === "library") {
-      const libraryPerm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!libraryPerm.granted) {
-        Alert.alert("Photos", "Allow photo library access to attach evidence.");
-        return;
-      }
-      const picked = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.85,
-      });
-      uri = picked.canceled ? null : (picked.assets[0]?.uri ?? null);
-    } else if (choice === "camera") {
-      const camPerm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!camPerm.granted) {
-        Alert.alert("Camera", "Camera permission is required to take a photo.");
-        return;
-      }
-      const shot = await ImagePicker.launchCameraAsync({
-        quality: 0.85,
-      });
-      uri = shot.canceled ? null : (shot.assets[0]?.uri ?? null);
-    }
+    const uri =
+      choice === "library"
+        ? await pickJobEvidenceImageUri({ source: "library" })
+        : choice === "camera"
+          ? await pickJobEvidenceImageUri({ source: "camera" })
+          : null;
 
     if (!uri) return;
 
@@ -376,16 +360,10 @@ export default function JobExecutionWizardScreen() {
 
   async function captureStartSelfie() {
     if (!supabase || !bookingId) return;
-    const camPerm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!camPerm.granted) {
-      Alert.alert("Camera", "Camera permission is required for your start-of-visit selfie.");
-      return;
-    }
-    const shot = await ImagePicker.launchCameraAsync({
-      quality: 0.85,
+    const uri = await pickJobEvidenceImageUri({
+      source: "camera",
       cameraType: ImagePicker.CameraType.front,
     });
-    const uri = shot.canceled ? null : (shot.assets[0]?.uri ?? null);
     if (!uri) return;
     try {
       setUploading("selfie");
@@ -446,9 +424,11 @@ export default function JobExecutionWizardScreen() {
           title="Can't run this flow"
           description={description}
           action={
-            <Button variant="outline" size="md" onPress={() => navigation.goBack()}>
-              Go back
-            </Button>
+            <View style={styles.emptyAction}>
+              <Button variant="outline" size="md" onPress={() => navigation.goBack()}>
+                Go back
+              </Button>
+            </View>
           }
         />
       </Screen>
@@ -523,13 +503,6 @@ export default function JobExecutionWizardScreen() {
       {modalHeader}
       <FadeInView style={styles.fadeFlex}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.progress}>
-          <Text style={styles.progressText}>
-            Step {step + 1} of {STEPS.length}:{" "}
-            {STEP_HEADING[stepKey]}
-          </Text>
-        </View>
-
         {b.actual_start ? (
           <Card variant="elevated" padded>
             <Text style={styles.timerLabel}>Job timer</Text>
@@ -624,7 +597,7 @@ export default function JobExecutionWizardScreen() {
             <View style={styles.photoActions}>
               <Button
                 loading={uploading === "selfie"}
-                size="lg"
+                size="md"
                 variant="primary"
                 onPress={() => void captureStartSelfie()}
               >
@@ -658,7 +631,7 @@ export default function JobExecutionWizardScreen() {
             <View style={styles.photoActions}>
               <Button
                 loading={uploading === "before"}
-                size="lg"
+                size="md"
                 variant="primary"
                 onPress={() => void captureAndUpload("before")}
               >
@@ -682,7 +655,7 @@ export default function JobExecutionWizardScreen() {
             <View style={styles.photoActions}>
               <Button
                 loading={uploading === "after"}
-                size="lg"
+                size="md"
                 variant="primary"
                 onPress={() => void captureAndUpload("after")}
               >
@@ -775,7 +748,7 @@ export default function JobExecutionWizardScreen() {
             <View style={styles.stickyBtn}>
               <Button
                 variant="outline"
-                size="lg"
+                size="md"
                 onPress={() => setStep((s) => Math.max(minStep, s - 1))}
               >
                 Back
@@ -785,7 +758,7 @@ export default function JobExecutionWizardScreen() {
           <View style={styles.stickyBtn}>
             <Button
               loading={primaryButton.loading}
-              size="lg"
+              size="md"
               variant="primary"
               disabled={primaryButton.disabled}
               onPress={primaryButton.onPress}
@@ -808,12 +781,6 @@ const styles = StyleSheet.create({
     ...modalScrollContentStyle,
     paddingBottom: spacing.xxxl,
     gap: spacing.md,
-  },
-  progress: {},
-  progressText: {
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.sm,
-    color: colors.mutedForeground,
   },
   timerLabel: {
     fontFamily: fontFamily.medium,
@@ -956,6 +923,10 @@ const styles = StyleSheet.create({
   },
   stickyBtn: {
     flex: 1,
+    minWidth: 0,
+  },
+  emptyAction: {
+    alignSelf: "flex-start",
   },
   muted: {
     fontFamily: fontFamily.regular,

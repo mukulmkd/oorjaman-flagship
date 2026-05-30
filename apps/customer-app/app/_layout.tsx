@@ -20,6 +20,7 @@ import {
   keepNativeSplashScreenVisible,
   MobileAuthSessionGuard,
   MobileOfflineGate,
+  MobileUatEnvironmentBanner,
 } from "@oorjaman/ui";
 
 installMobileAuthConsoleFilters();
@@ -27,10 +28,11 @@ import { SupportChatHeaderButton } from "../components/help-header-button";
 import { supabase } from "../lib/supabase";
 import { HelpSupportProvider } from "../components/help-support-provider";
 import { SitePhotoStampProvider } from "../components/site-photo-stamp-provider";
-import { initBookingNotificationHandler } from "@oorjaman/ui";
+import { initBookingNotificationHandler, initSupportChatNotificationHandler } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
 
 initBookingNotificationHandler();
+initSupportChatNotificationHandler();
 
 keepNativeSplashScreenVisible();
 
@@ -74,6 +76,7 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
+      <MobileUatEnvironmentBanner />
       <QueryProvider>
         <MobileOfflineGate>
           <MobileAuthSessionGuard client={supabase} loginHref="/login" />

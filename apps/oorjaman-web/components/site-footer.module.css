@@ -1,0 +1,65 @@
+.footer {
+  margin-top: auto;
+  background: var(--om-navy);
+  color: rgb(255 255 255 / 0.85);
+  padding: 3rem 0 1.5rem;
+}
+
+.grid {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+
+.brand {
+  font-weight: 700;
+  font-size: 1.125rem;
+  margin: 0 0 0.5rem;
+  color: #fff;
+}
+
+.tagline {
+  margin: 0;
+  font-size: 0.875rem;
+  color: rgb(255 255 255 / 0.65);
+  max-width: 18rem;
+}
+
+.colTitle {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgb(255 255 255 / 0.5);
+  margin: 0 0 0.75rem;
+}
+
+.links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.links a {
+  color: rgb(255 255 255 / 0.85);
+  text-decoration: none;
+  font-size: 0.875rem;
+}
+
+.links a:hover {
+  color: var(--om-ring);
+}
+
+.bottom {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgb(255 255 255 / 0.12);
+  font-size: 0.8125rem;
+  color: rgb(255 255 255 / 0.5);
+}
+
+.bottom p {
+  margin: 0;
+}

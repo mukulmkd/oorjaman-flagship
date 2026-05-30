@@ -129,8 +129,11 @@ export function TechnicianDirectoryPage() {
           <Card padded>
             <div className="dash-card-grid">
               <div>
-                <p className="dash-card-label">Vendor filter</p>
+                <label className="dash-card-label" htmlFor="tech-vendor-filter">
+                  Vendor filter
+                </label>
                 <select
+                  id="tech-vendor-filter"
                   className="vd-select"
                   value={selectedVendorId}
                   onChange={(e) => setSelectedVendorId(e.target.value)}
@@ -163,95 +166,95 @@ export function TechnicianDirectoryPage() {
             </div>
           </Card>
           <Card padded={false}>
-          {query.isLoading ? (
-            <div className="dash-table-empty">
-              <div className="dash-table-skeleton-wrap-sm">
-                <TableRowsSkeleton rows={8} />
+            {query.isLoading ? (
+              <div className="dash-table-empty">
+                <div className="dash-table-skeleton-wrap-sm">
+                  <TableRowsSkeleton rows={8} />
+                </div>
               </div>
-            </div>
-          ) : query.isError ? (
-            <div className="dash-table-empty">
-              <p className="dash-empty-error">{(query.error as Error).message}</p>
-            </div>
-          ) : !query.data?.length ? (
-            <div className="dash-table-empty">No vendor-approved technicians found.</div>
-          ) : filteredRows.length === 0 ? (
-            <div className="dash-table-empty">No technicians match the selected filters.</div>
-          ) : (
-            <>
-              <div className="bm-table-wrap">
-                <table className="bm-table">
-                  <thead>
-                    <tr>
-                      <th>Technician ID</th>
-                      <th>Verification</th>
-                      <th>Vendor</th>
-                      <th>Jobs</th>
-                      <th>Performance</th>
-                      <th>Last job</th>
-                      <th>Vendor review</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {directoryWindow.map((t) => (
-                      <tr key={t.id}>
-                        <td className="dash-mono">{t.user_id.slice(0, 8)}…</td>
-                        <td>
-                          <Badge tone={t.is_verified ? "success" : "warning"}>
-                            {t.is_verified ? "verified" : "pending"}
-                          </Badge>
-                        </td>
-                        <td>{t.vendor_id ? vendorById.get(t.vendor_id)?.business_name ?? t.vendor_id.slice(0, 8) + "…" : "—"}</td>
-                        <td>
-                          {(historyByTechId.get(t.id)?.total ?? 0).toString()}
-                          <span className="dash-help" style={{ display: "block", fontSize: "0.75rem", marginTop: "0.15rem" }}>
-                            done {(historyByTechId.get(t.id)?.completed ?? 0).toString()} · active{" "}
-                            {(historyByTechId.get(t.id)?.active ?? 0).toString()}
-                          </span>
-                        </td>
-                        <td>
-                          <span>{(statsByTechId.get(t.id)?.total_jobs ?? 0).toString()} services</span>
-                          <span style={{ display: "block", marginTop: "0.25rem" }}>
-                            {statsByTechId.get(t.id)?.avg_rating != null
-                              ? `${statsByTechId.get(t.id)!.avg_rating!.toFixed(1)} / 5`
-                              : "—"}
-                            {statsByTechId.get(t.id)?.rating_count ? ` (${statsByTechId.get(t.id)!.rating_count})` : ""}
-                          </span>
-                          <span className="dash-help" style={{ display: "block", fontSize: "0.75rem", marginTop: "0.15rem" }}>
-                            30d:{" "}
-                            {statsByTechId.get(t.id)?.avg_rating_30d != null
-                              ? `${statsByTechId.get(t.id)!.avg_rating_30d!.toFixed(1)} / 5`
-                              : "-"}{" "}
-                            ({statsByTechId.get(t.id)?.rating_count_30d ?? 0})
-                          </span>
-                        </td>
-                        <td style={{ whiteSpace: "nowrap", fontSize: "0.85rem" }}>
-                          {historyByTechId.get(t.id)?.latestScheduledAt
-                            ? formatDisplayDateTime(historyByTechId.get(t.id)!.latestScheduledAt!)
-                            : "—"}
-                        </td>
-                        <td>{t.vendor_review_status}</td>
-                        <td>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            type="button"
-                            onClick={() => navigate(`/dashboard/technicians/item/${t.id}`)}
-                          >
-                            View
-                          </Button>
-                        </td>
+            ) : query.isError ? (
+              <div className="dash-table-empty">
+                <p className="dash-empty-error">{(query.error as Error).message}</p>
+              </div>
+            ) : !query.data?.length ? (
+              <div className="dash-table-empty">No vendor-approved technicians found.</div>
+            ) : filteredRows.length === 0 ? (
+              <div className="dash-table-empty">No technicians match the selected filters.</div>
+            ) : (
+              <>
+                <div className="bm-table-wrap">
+                  <table className="bm-table">
+                    <thead>
+                      <tr>
+                        <th>Technician ID</th>
+                        <th>Verification</th>
+                        <th>Vendor</th>
+                        <th>Jobs</th>
+                        <th>Performance</th>
+                        <th>Last job</th>
+                        <th>Vendor review</th>
+                        <th />
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div style={{ padding: "0.75rem 1rem 1rem" }}>
-                <TablePaginationBar page={directoryPage} total={directoryTotal} onPageChange={setDirectoryPage} />
-              </div>
-            </>
-          )}
+                    </thead>
+                    <tbody>
+                      {directoryWindow.map((t) => (
+                        <tr key={t.id}>
+                          <td className="dash-mono">{t.user_id.slice(0, 8)}…</td>
+                          <td>
+                            <Badge tone={t.is_verified ? "success" : "warning"}>
+                              {t.is_verified ? "verified" : "pending"}
+                            </Badge>
+                          </td>
+                          <td>{t.vendor_id ? vendorById.get(t.vendor_id)?.business_name ?? t.vendor_id.slice(0, 8) + "…" : "-"}</td>
+                          <td>
+                            {(historyByTechId.get(t.id)?.total ?? 0).toString()}
+                            <span className="dash-help" style={{ display: "block", fontSize: "0.75rem", marginTop: "0.15rem" }}>
+                              done {(historyByTechId.get(t.id)?.completed ?? 0).toString()} · active{" "}
+                              {(historyByTechId.get(t.id)?.active ?? 0).toString()}
+                            </span>
+                          </td>
+                          <td>
+                            <span>{(statsByTechId.get(t.id)?.total_jobs ?? 0).toString()} services</span>
+                            <span style={{ display: "block", marginTop: "0.25rem" }}>
+                              {statsByTechId.get(t.id)?.avg_rating != null
+                                ? `${statsByTechId.get(t.id)!.avg_rating!.toFixed(1)} / 5`
+                                : "-"}
+                              {statsByTechId.get(t.id)?.rating_count ? ` (${statsByTechId.get(t.id)!.rating_count})` : ""}
+                            </span>
+                            <span className="dash-help" style={{ display: "block", fontSize: "0.75rem", marginTop: "0.15rem" }}>
+                              30d:{" "}
+                              {statsByTechId.get(t.id)?.avg_rating_30d != null
+                                ? `${statsByTechId.get(t.id)!.avg_rating_30d!.toFixed(1)} / 5`
+                                : "-"}{" "}
+                              ({statsByTechId.get(t.id)?.rating_count_30d ?? 0})
+                            </span>
+                          </td>
+                          <td style={{ whiteSpace: "nowrap", fontSize: "0.85rem" }}>
+                            {historyByTechId.get(t.id)?.latestScheduledAt
+                              ? formatDisplayDateTime(historyByTechId.get(t.id)!.latestScheduledAt!)
+                              : "-"}
+                          </td>
+                          <td>{t.vendor_review_status}</td>
+                          <td>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              type="button"
+                              onClick={() => navigate(`/dashboard/technicians/item/${t.id}`)}
+                            >
+                              View
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ padding: "0.75rem 1rem 1rem" }}>
+                  <TablePaginationBar page={directoryPage} total={directoryTotal} onPageChange={setDirectoryPage} />
+                </div>
+              </>
+            )}
           </Card>
         </>
       )}

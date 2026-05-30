@@ -1,5 +1,5 @@
 # =============================================================================
-# OorjaMan flagship monorepo — single root gitignore (all apps + packages)
+# OorjaMan flagship monorepo - single root gitignore (all apps + packages)
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -87,14 +87,14 @@ test-results/
 blob-report/
 
 # -----------------------------------------------------------------------------
-# Web apps — Vite (admin-web, vendor-web, support-web)
+# Web apps - Vite (admin-web, vendor-web, support-web)
 # -----------------------------------------------------------------------------
 **/dist/
 **/dist-ssr/
 **/.vite/
 
 # -----------------------------------------------------------------------------
-# Mobile apps — Expo / React Native (customer-app, technician-app)
+# Mobile apps - Expo / React Native (customer-app, technician-app)
 # -----------------------------------------------------------------------------
 **/.expo/
 **/.expo-shared/

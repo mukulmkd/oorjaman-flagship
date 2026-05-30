@@ -5,7 +5,14 @@ import {
   formattedSiteAddressFromJson,
 } from "../bookings/customer-booking-payload";
 import { resolveBookingVendor } from "../bookings/vendor-fallback";
-import type { BookingRow, CustomerRow, Database, Json, SubscriptionRow, VendorRow } from "../database.types";
+import type {
+  BookingRow,
+  CustomerRow,
+  Database,
+  Json,
+  SubscriptionRow,
+  VendorRow,
+} from "../database.types";
 import { getBookingRoutingDefaults } from "../platform/platform-settings-api";
 import { SupabaseApiError } from "../result";
 import * as vendorApi from "../vendors/vendor-api";
@@ -16,7 +23,7 @@ const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
 /**
  * Evenly spaces AMC visits across the subscription contract window (from `starts_at`).
- * Does not modify existing one-time bookings — those stay separate (forward-only AMC policy).
+ * Does not modify existing one-time bookings - those stay separate (forward-only AMC policy).
  */
 export function computeAmcVisitSlots(
   sub: SubscriptionRow,
@@ -49,18 +56,25 @@ export function computeAmcVisitSlots(
 }
 
 function readPreferredVendorIdFromMetadata(metadata: Json): string | null {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata))
+    return null;
   const v = (metadata as Record<string, unknown>).preferred_vendor_id;
   if (typeof v !== "string") return null;
   const t = v.trim();
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(t)) {
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      t,
+    )
+  ) {
     return null;
   }
   return t;
 }
 
 function sortVendorsByName(vendors: VendorRow[]): VendorRow[] {
-  return [...vendors].sort((a, b) => a.business_name.localeCompare(b.business_name));
+  return [...vendors].sort((a, b) =>
+    a.business_name.localeCompare(b.business_name),
+  );
 }
 
 function pickAmcRequestedVendorDisplayId(params: {
@@ -71,7 +85,8 @@ function pickAmcRequestedVendorDisplayId(params: {
   if (params.metadataPreferred) return params.metadataPreferred;
   if (params.platformDefaultVendorId) {
     const byId = new Map(params.approvedSorted.map((v) => [v.id, v]));
-    if (byId.has(params.platformDefaultVendorId)) return params.platformDefaultVendorId;
+    if (byId.has(params.platformDefaultVendorId))
+      return params.platformDefaultVendorId;
   }
   return params.approvedSorted[0]?.id ?? null;
 }
@@ -85,13 +100,15 @@ function pickRequestedVendorIdForAmc(params: {
   if (display) return display;
   const first = params.approvedSorted[0];
   if (!first) {
-    throw new SupabaseApiError("No approved partners available for AMC scheduling.");
+    throw new SupabaseApiError(
+      "No approved partners available for AMC scheduling.",
+    );
   }
   return first.id;
 }
 
 /**
- * @deprecated Removed — AMC bookings are created only via {@link scheduleAmcVisitSlot}.
+ * @deprecated Removed - AMC bookings are created only via {@link scheduleAmcVisitSlot}.
  */
 export async function syncAmcBookingsForSubscription(
   _client: SupabaseClient<Database>,
@@ -125,7 +142,10 @@ async function _syncAmcBookingsForSubscriptionLegacy(
   if (custErr) throw new SupabaseApiError(custErr.message, custErr);
   const customer = customerRow as CustomerRow | null;
 
-  const addrJson = readServiceSiteAddressFromSubscription(customer, subscription);
+  const addrJson = readServiceSiteAddressFromSubscription(
+    customer,
+    subscription,
+  );
   if (addrJson == null) {
     throw new SupabaseApiError(
       "AMC subscription has no service address - cannot schedule visits.",
@@ -141,7 +161,9 @@ async function _syncAmcBookingsForSubscriptionLegacy(
   ]);
 
   const approvedSorted = sortVendorsByName(approved);
-  const preferredFromMeta = readPreferredVendorIdFromMetadata(subscription.metadata);
+  const preferredFromMeta = readPreferredVendorIdFromMetadata(
+    subscription.metadata,
+  );
   const requestedVendorId = pickRequestedVendorIdForAmc({
     metadataPreferred: preferredFromMeta,
     platformDefaultVendorId: defaults.defaultVendorId,
@@ -162,7 +184,9 @@ async function _syncAmcBookingsForSubscriptionLegacy(
 
   const siteText = formattedSiteAddressFromJson(addrJson);
   if (!siteText.trim()) {
-    throw new SupabaseApiError("AMC service_site_address could not be formatted for booking.");
+    throw new SupabaseApiError(
+      "AMC service_site_address could not be formatted for booking.",
+    );
   }
 
   const created: BookingRow[] = [];

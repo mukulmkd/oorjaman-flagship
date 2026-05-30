@@ -1,0 +1,66 @@
+.article {
+  max-width: 48rem;
+}
+
+.header {
+  margin-bottom: 2rem;
+}
+
+.meta {
+  font-size: 0.875rem;
+  color: var(--om-muted);
+  margin: 0 0 0.5rem;
+}
+
+.toc {
+  background: var(--om-card);
+  border: 1px solid var(--om-border);
+  border-radius: var(--om-radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.tocTitle {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--om-muted);
+  margin: 0 0 0.5rem;
+}
+
+.toc ol {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.toc a {
+  text-decoration: none;
+  font-size: 0.9375rem;
+}
+
+.section {
+  margin-bottom: 2rem;
+  scroll-margin-top: 5rem;
+}
+
+.section h2 {
+  font-size: 1.25rem;
+  margin: 0 0 0.75rem;
+}
+
+.section p {
+  margin: 0 0 0.75rem;
+}
+
+.section ul {
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+}
+
+.disclaimer {
+  font-size: 0.8125rem;
+  color: var(--om-muted);
+  border-top: 1px solid var(--om-border);
+  padding-top: 1.5rem;
+  margin-top: 2rem;
+}

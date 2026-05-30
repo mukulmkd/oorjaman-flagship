@@ -47,18 +47,25 @@ export type ScheduleAmcVisitSlotInput = {
 };
 
 function readPreferredVendorIdFromMetadata(metadata: Json): string | null {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata))
+    return null;
   const v = (metadata as Record<string, unknown>).preferred_vendor_id;
   if (typeof v !== "string") return null;
   const t = v.trim();
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(t)) {
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      t,
+    )
+  ) {
     return null;
   }
   return t;
 }
 
 function sortVendorsByName(vendors: VendorRow[]): VendorRow[] {
-  return [...vendors].sort((a, b) => a.business_name.localeCompare(b.business_name));
+  return [...vendors].sort((a, b) =>
+    a.business_name.localeCompare(b.business_name),
+  );
 }
 
 function pickAmcRequestedVendorDisplayId(params: {
@@ -69,7 +76,8 @@ function pickAmcRequestedVendorDisplayId(params: {
   if (params.metadataPreferred) return params.metadataPreferred;
   if (params.platformDefaultVendorId) {
     const byId = new Map(params.approvedSorted.map((v) => [v.id, v]));
-    if (byId.has(params.platformDefaultVendorId)) return params.platformDefaultVendorId;
+    if (byId.has(params.platformDefaultVendorId))
+      return params.platformDefaultVendorId;
   }
   return params.approvedSorted[0]?.id ?? null;
 }
@@ -88,7 +96,8 @@ export async function syncAmcVisitSlotsForSubscription(
     .limit(1);
 
   if (existingErr) throw new SupabaseApiError(existingErr.message, existingErr);
-  if (existing && existing.length > 0) return listAmcVisitSlotsForSubscription(client, subscription.id);
+  if (existing && existing.length > 0)
+    return listAmcVisitSlotsForSubscription(client, subscription.id);
 
   const slots = computeAmcVisitSlots(subscription);
   if (slots.length === 0) return [];
@@ -101,7 +110,10 @@ export async function syncAmcVisitSlotsForSubscription(
     status: "pending" as SubscriptionVisitSlotStatus,
   }));
 
-  const { data, error } = await client.from("subscription_visit_slots").insert(rows).select();
+  const { data, error } = await client
+    .from("subscription_visit_slots")
+    .insert(rows)
+    .select();
   return takeRows(data, error);
 }
 
@@ -155,7 +167,9 @@ export async function scheduleAmcVisitSlot(
 ): Promise<{ booking: BookingRow; slot: SubscriptionVisitSlotRow }> {
   const slot = await getAmcVisitSlotById(client, input.slotId);
   if (slot.status !== "pending") {
-    throw new SupabaseApiError("This AMC visit is already scheduled or completed.");
+    throw new SupabaseApiError(
+      "This AMC visit is already scheduled or completed.",
+    );
   }
 
   const { data: subRow, error: subErr } = await client
@@ -178,17 +192,26 @@ export async function scheduleAmcVisitSlot(
   if (custErr) throw new SupabaseApiError(custErr.message, custErr);
   const customer = customerRow as CustomerRow | null;
 
-  const addrJson = readServiceSiteAddressFromSubscription(customer, subscription);
+  const addrJson = readServiceSiteAddressFromSubscription(
+    customer,
+    subscription,
+  );
   if (addrJson == null) {
-    throw new SupabaseApiError("AMC subscription has no service address — update Profile and try again.");
+    throw new SupabaseApiError(
+      "AMC subscription has no service address - update Profile and try again.",
+    );
   }
 
-  const siteText = input.siteAddressText.trim() || formattedSiteAddressFromJson(addrJson);
+  const siteText =
+    input.siteAddressText.trim() || formattedSiteAddressFromJson(addrJson);
   if (!siteText.trim()) {
     throw new SupabaseApiError("Enter the service site address.");
   }
 
-  const isFirstAmcBooking = !(await subscriptionHasCustomerScheduledAmcVisit(client, subscription.id));
+  const isFirstAmcBooking = !(await subscriptionHasCustomerScheduledAmcVisit(
+    client,
+    subscription.id,
+  ));
   const nowIso = new Date().toISOString();
   const serviceAddressId =
     input.serviceAddressId?.trim() ||
@@ -203,7 +226,9 @@ export async function scheduleAmcVisitSlot(
     sequence: slot.sequence,
     subscription_plan: subscription.plan_code,
     schedule_slot: input.scheduleSlotMeta,
-    ...(input.bookingRecipient ? { booking_recipient: input.bookingRecipient } : {}),
+    ...(input.bookingRecipient
+      ? { booking_recipient: input.bookingRecipient }
+      : {}),
     ...(serviceAddressId ? { service_address_id: serviceAddressId } : {}),
   };
 
@@ -213,7 +238,9 @@ export async function scheduleAmcVisitSlot(
       vendorApi.listApprovedVendors(client),
     ]);
     const requestedDisplay = pickAmcRequestedVendorDisplayId({
-      metadataPreferred: readPreferredVendorIdFromMetadata(subscription.metadata),
+      metadataPreferred: readPreferredVendorIdFromMetadata(
+        subscription.metadata,
+      ),
       platformDefaultVendorId: defaults.defaultVendorId,
       approvedSorted: sortVendorsByName(approved),
     });
@@ -222,7 +249,9 @@ export async function scheduleAmcVisitSlot(
       requested_vendor_id: requestedDisplay,
       resolved_vendor_id: null,
       used_fallback: true,
-      reason: isFirstAmcBooking ? "amc_awaiting_admin_marketplace" : "default_vendor_marketplace",
+      reason: isFirstAmcBooking
+        ? "amc_awaiting_admin_marketplace"
+        : "default_vendor_marketplace",
     };
     if (isFirstAmcBooking) {
       extraMetadata.marketplace = {
@@ -231,17 +260,12 @@ export async function scheduleAmcVisitSlot(
         awaiting_admin_float: true,
       };
     } else {
-      const signals = customerLocationSignalsFromCustomer(customer);
       extraMetadata.marketplace = {
         mode: "default_vendor",
-        floated: true,
-        open_at: nowIso,
-        open_until: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        floated: false,
+        awaiting_admin_float: true,
         accept_window_hours: 1,
         post_7pm_admin_queue: true,
-        broadcast_filter: "customer_pin",
-        filter_pincode: signals.pincode?.replace(/\D/g, "").slice(0, 6) || null,
-        filter_city: signals.city?.trim() || null,
       };
     }
   } else {
@@ -252,14 +276,15 @@ export async function scheduleAmcVisitSlot(
       requested_vendor_id: pick.requestedVendorId,
       resolved_vendor_id: useDefaultMarketplace ? null : pick.resolvedVendorId,
       used_fallback: useDefaultMarketplace,
-      reason: useDefaultMarketplace ? "default_vendor_marketplace" : pick.reason,
+      reason: useDefaultMarketplace
+        ? "default_vendor_marketplace"
+        : pick.reason,
     };
     if (useDefaultMarketplace) {
       extraMetadata.marketplace = {
         mode: "default_vendor",
-        floated: true,
-        open_at: nowIso,
-        open_until: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        floated: false,
+        awaiting_admin_float: true,
         accept_window_hours: 1,
         post_7pm_admin_queue: true,
         auto_routed_from_preferred_unavailable: true,
@@ -267,6 +292,10 @@ export async function scheduleAmcVisitSlot(
         filter_pincode: pick.marketplaceFilterPincode,
         filter_city: pick.marketplaceFilterCity,
       };
+    } else {
+      extraMetadata.vendor_response = {
+        anchor_at: nowIso,
+      } as Json;
     }
   }
 

@@ -43,7 +43,7 @@ function parseRupeeToPaise(raw: string): number {
 }
 
 function snapshotSummary(j: unknown): string {
-  if (!j || typeof j !== "object" || Array.isArray(j)) return "—";
+  if (!j || typeof j !== "object" || Array.isArray(j)) return "-";
   const o = j as Record<string, unknown>;
   const base = Number(o.base_price) || 0;
   const pp = Number(o.per_panel_rate) || 0;
@@ -313,24 +313,24 @@ export function PricingManagementPage() {
             <h2 style={{ margin: "0 0 0.5rem", fontSize: webTypography.size.md }}>What each section does</h2>
             <ol style={{ margin: 0, paddingLeft: "1.25rem", fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)", lineHeight: 1.65 }}>
               <li style={{ marginBottom: "0.5rem" }}>
-                <strong style={{ color: "var(--wb-fg)" }}>National default</strong> — fallback rate card when we cannot match the
+                <strong style={{ color: "var(--wb-fg)" }}>National default</strong> - fallback rate card when we cannot match the
                 customer&apos;s city to a tier (or legacy city row). Every active country should have exactly one row with
                 empty city and empty tier. Stored in INR <span className="vd-mono">paise</span> (integer; divide by 100 for rupees).
               </li>
               <li style={{ marginBottom: "0.5rem" }}>
-                <strong style={{ color: "var(--wb-fg)" }}>Tier catalog</strong> — named bands (e.g. metro vs town). Only labels + sort
+                <strong style={{ color: "var(--wb-fg)" }}>Tier catalog</strong> - named bands (e.g. metro vs town). Only labels + sort
                 order; no money here.
               </li>
               <li style={{ marginBottom: "0.5rem" }}>
-                <strong style={{ color: "var(--wb-fg)" }}>Tier rate cards</strong> — one money row per tier code (base + per panel +
+                <strong style={{ color: "var(--wb-fg)" }}>Tier rate cards</strong> - one money row per tier code (base + per panel +
                 per kW + multiplier). Used when the customer&apos;s city appears in the city→tier map.
               </li>
               <li style={{ marginBottom: "0.5rem" }}>
-                <strong style={{ color: "var(--wb-fg)" }}>City → tier map</strong> — maps a normalized city name to a tier code so
+                <strong style={{ color: "var(--wb-fg)" }}>City → tier map</strong> - maps a normalized city name to a tier code so
                 the engine picks the right tier rate card.
               </li>
               <li>
-                <strong style={{ color: "var(--wb-fg)" }}>Legacy city override</strong> — optional per-city money row that bypasses
+                <strong style={{ color: "var(--wb-fg)" }}>Legacy city override</strong> - optional per-city money row that bypasses
                 tiers if present. Prefer city→tier + tier cards for new markets.
               </li>
             </ol>
@@ -392,7 +392,7 @@ export function PricingManagementPage() {
           </Card>
 
           <Card padded style={{ marginBottom: "1.25rem" }}>
-            <h2 style={{ margin: "0 0 0.5rem", fontSize: webTypography.size.md }}>National default — audit trail</h2>
+            <h2 style={{ margin: "0 0 0.5rem", fontSize: webTypography.size.md }}>National default - audit trail</h2>
             <p style={{ margin: "0 0 1rem", fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)", lineHeight: 1.5 }}>
               Each save to the national row is logged (who / when / before→after). Apply migration{" "}
               <code className="vd-mono">20260618160000_pricing_national_default_audit</code> if this list is empty after edits.
@@ -405,7 +405,7 @@ export function PricingManagementPage() {
               </p>
             ) : (nationalAuditQuery.data ?? []).length === 0 ? (
               <p style={{ margin: 0, fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)" }}>
-                No audit rows yet for {normalizeCountryCode(countryCode)} — history starts after the migration is applied and you
+                No audit rows yet for {normalizeCountryCode(countryCode)} - history starts after the migration is applied and you
                 save the national default again.
               </p>
             ) : (
@@ -427,7 +427,7 @@ export function PricingManagementPage() {
                         </td>
                         <td style={{ padding: "0.5rem", verticalAlign: "top" }}>{row.operation}</td>
                         <td style={{ padding: "0.5rem", verticalAlign: "top", fontFamily: "ui-monospace, monospace", fontSize: "0.75rem" }} title={row.changed_by ?? ""}>
-                          {row.changed_by ? `${row.changed_by.slice(0, 8)}…` : "—"}
+                          {row.changed_by ? `${row.changed_by.slice(0, 8)}…` : "-"}
                         </td>
                         <td style={{ padding: "0.5rem", verticalAlign: "top", lineHeight: 1.45 }}>{auditRowSummary(row)}</td>
                       </tr>
@@ -555,7 +555,7 @@ export function PricingManagementPage() {
                         <tr key={row.id}>
                           <td className="vd-mono">{row.city_key}</td>
                           <td className="vd-mono">{row.tier_code}</td>
-                          <td>{row.state_key ?? "—"}</td>
+                          <td>{row.state_key ?? "-"}</td>
                           <td>
                             <button
                               type="button"
@@ -755,7 +755,7 @@ function TierRateCard({
       ) : null}
       <hr style={{ margin: "1rem 0", border: "none", borderTop: "1px solid var(--wb-border, #e7e5e4)" }} />
       <p style={{ margin: "0 0 0.5rem", fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)" }}>
-        Fixed catalogue surcharge when a customer&apos;s city maps to this geo tier — stacked on Service pricing (visit +
+        Fixed catalogue surcharge when a customer&apos;s city maps to this geo tier - stacked on Service pricing (visit +
         AMC).
       </p>
       <div className="dash-card-grid">

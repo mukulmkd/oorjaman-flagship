@@ -4,6 +4,7 @@ import {
   DEFAULT_VENDOR_PLATFORM_FEE_PERCENT,
   getVendorPlatformFeePercent,
 } from "../platform/platform-settings-api";
+import { emitVendorSettlementStatusNotification } from "../notifications/vendor-settlement-notifications";
 import { SupabaseApiError, takeRows, takeSingleRow } from "../result";
 
 function readPenaltyPaiseFromBookingMetadata(metadata: Json | null | undefined): number {
@@ -234,7 +235,46 @@ export async function adminUpdateVendorSettlement(
     .eq("id", settlementId)
     .select("*")
     .single();
-  return takeSingleRow(data, error) as VendorSettlementRow;
+  const updated = takeSingleRow(data, error) as VendorSettlementRow;
+
+  if (input.status && input.status !== row.status) {
+    try {
+      await emitVendorSettlementStatusNotification(client, row, updated);
+    } catch {
+      // Do not block admin settlement updates if notification insert fails.
+    }
+  }
+
+  return updated;
+}
+
+/**
+ * Idempotently creates visit_payout rows for the vendor's completed bookings (vendor RLS insert).
+ * Use when technician finalize did not create a ledger row (e.g. pre-migration visits).
+ */
+export async function vendorSyncCompletedVisitPayoutSettlements(
+  client: SupabaseClient<Database>,
+  options?: { limit?: number },
+): Promise<{ created: number; skipped: number }> {
+  const limit = Math.min(500, Math.max(1, options?.limit ?? 200));
+  const { data: bookings, error } = await client
+    .from("bookings")
+    .select("id, vendor_id, status, reference_code, currency, final_price_cents, estimated_price_cents")
+    .eq("status", "completed")
+    .not("vendor_id", "is", null)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new SupabaseApiError(error.message, error);
+
+  let created = 0;
+  let skipped = 0;
+  for (const b of bookings ?? []) {
+    const row = await ensureVisitPayoutSettlement(client, b as BookingRow);
+    if (row) created += 1;
+    else skipped += 1;
+  }
+  return { created, skipped };
 }
 
 /** Create payout rows for completed visits that pre-date the ledger (admin maintenance). */

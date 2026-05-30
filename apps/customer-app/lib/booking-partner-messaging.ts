@@ -71,7 +71,7 @@ export function buildPostCheckoutPartnerAlert(
   return {
     title: "Partner update",
     message:
-      "Your preferred partner could not take this visit at your saved address. OorjaMan will assign another service partner — open My bookings for updates.",
+      "Your preferred partner could not take this visit at your saved address. OorjaMan will assign another service partner - open My bookings for updates.",
   };
 }
 
@@ -86,15 +86,15 @@ export function customerConfirmedBookingStatusHelp(
   }
 
   if (isSubscriptionAmcAwaitingAdminFloat(booking.metadata)) {
-    return "Your AMC visit is confirmed. OorjaMan operations will assign a service partner for this visit — you'll see the partner name here once assigned.";
+    return "Your AMC visit is confirmed. OorjaMan operations will assign a service partner for this visit - you'll see the partner name here once assigned.";
   }
 
   if (isBookingAwaitingOorjamanPartnerAssignment(booking)) {
-    return "Your visit is confirmed. OorjaMan operations will assign a service partner for your area — you'll see the partner name here once assigned.";
+    return "Your visit is confirmed. OorjaMan operations will assign a service partner for your area - you'll see the partner name here once assigned.";
   }
 
   if (booking.vendor_id) {
-    return "We've notified your assigned service partner — they'll confirm your slot when ready.";
+    return "We've notified your assigned service partner - they'll confirm your slot when ready.";
   }
 
   return null;

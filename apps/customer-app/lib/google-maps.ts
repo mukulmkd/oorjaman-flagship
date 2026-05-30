@@ -17,7 +17,7 @@ export function normalizeLatLng(
   return { lat: la, lng: ln };
 }
 
-/** Universal Google Maps link — works in Safari and the Maps app on iOS and Android. */
+/** Universal Google Maps link - works in Safari and the Maps app on iOS and Android. */
 export function buildGoogleMapsBrowserUrl(lat: number, lng: number): string {
   const coords = normalizeLatLng(lat, lng);
   if (!coords) throw new Error("Invalid coordinates.");
@@ -49,7 +49,11 @@ export async function openGoogleMapsInBrowser(
   Alert.alert("Maps", "Could not open Google Maps. Try again.");
 }
 
-export function buildGoogleStaticMapImageUrl(lat: number, lng: number, size: number): string | null {
+export function buildGoogleStaticMapImageUrl(
+  lat: number,
+  lng: number,
+  size: number,
+): string | null {
   const key = getGoogleMapsApiKey();
   if (!key) return null;
   const s = Math.min(640, Math.max(120, Math.round(size)));

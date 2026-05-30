@@ -7,14 +7,24 @@ import {
   type ServiceAddressEntry,
 } from "../customers/service-address-book";
 
-export function readSubscriptionServiceAddressId(sub: SubscriptionRow): string | null {
+export function readSubscriptionServiceAddressId(
+  sub: SubscriptionRow,
+): string | null {
   if (sub.service_address_id?.trim()) return sub.service_address_id.trim();
-  if (!sub.metadata || typeof sub.metadata !== "object" || Array.isArray(sub.metadata)) return null;
+  if (
+    !sub.metadata ||
+    typeof sub.metadata !== "object" ||
+    Array.isArray(sub.metadata)
+  )
+    return null;
   const v = (sub.metadata as Record<string, unknown>).service_address_id;
   return typeof v === "string" && v.trim() ? v.trim() : null;
 }
 
-export function isSubscriptionActive(sub: SubscriptionRow, nowMs = Date.now()): boolean {
+export function isSubscriptionActive(
+  sub: SubscriptionRow,
+  nowMs = Date.now(),
+): boolean {
   if (sub.status !== "active" && sub.status !== "trialing") return false;
   return new Date(sub.ends_at).getTime() >= nowMs;
 }
@@ -35,12 +45,15 @@ export function getActiveSubscriptionForAddress(
 }
 
 /** Contract end date is before now (independent of `status` until back-office updates it). */
-export function isSubscriptionContractEnded(sub: SubscriptionRow, nowMs = Date.now()): boolean {
+export function isSubscriptionContractEnded(
+  sub: SubscriptionRow,
+  nowMs = Date.now(),
+): boolean {
   return new Date(sub.ends_at).getTime() < nowMs;
 }
 
 /**
- * Most recent lapsed AMC for an address when there is no active plan — used for renewal prompts.
+ * Most recent lapsed AMC for an address when there is no active plan - used for renewal prompts.
  */
 export function getRenewalDueSubscriptionForAddress(
   subscriptions: SubscriptionRow[],
@@ -54,9 +67,12 @@ export function getRenewalDueSubscriptionForAddress(
   const ended = subscriptions
     .filter(
       (s) =>
-        readSubscriptionServiceAddressId(s) === id && isSubscriptionContractEnded(s, nowMs),
+        readSubscriptionServiceAddressId(s) === id &&
+        isSubscriptionContractEnded(s, nowMs),
     )
-    .sort((a, b) => new Date(b.ends_at).getTime() - new Date(a.ends_at).getTime());
+    .sort(
+      (a, b) => new Date(b.ends_at).getTime() - new Date(a.ends_at).getTime(),
+    );
 
   return ended[0] ?? null;
 }
@@ -82,7 +98,12 @@ export function readServiceSiteAddressFromSubscription(
       /* fall through to metadata snapshot */
     }
   }
-  if (!sub.metadata || typeof sub.metadata !== "object" || Array.isArray(sub.metadata)) return null;
+  if (
+    !sub.metadata ||
+    typeof sub.metadata !== "object" ||
+    Array.isArray(sub.metadata)
+  )
+    return null;
   const raw = (sub.metadata as Record<string, unknown>).service_site_address;
   return raw == null ? null : (raw as Json);
 }
@@ -97,7 +118,8 @@ export function normalizeAddressComparisonKey(text: string): string {
 }
 
 export function readBookingServiceAddressId(metadata: Json): string | null {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata))
+    return null;
   const v = (metadata as Record<string, unknown>).service_address_id;
   return typeof v === "string" && v.trim() ? v.trim() : null;
 }
@@ -114,11 +136,22 @@ export function bookingMatchesSubscriptionAddress(
   const bookingAddrId = readBookingServiceAddressId(bookingMetadata);
   if (bookingAddrId) return bookingAddrId === subAddrId;
 
-  const subSite = readServiceSiteAddressFromSubscription(customer, subscription);
-  const subText = normalizeAddressComparisonKey(formattedSiteAddressFromJson(subSite));
-  const bookText = normalizeAddressComparisonKey(formattedSiteAddressFromJson(bookingSiteAddress));
+  const subSite = readServiceSiteAddressFromSubscription(
+    customer,
+    subscription,
+  );
+  const subText = normalizeAddressComparisonKey(
+    formattedSiteAddressFromJson(subSite),
+  );
+  const bookText = normalizeAddressComparisonKey(
+    formattedSiteAddressFromJson(bookingSiteAddress),
+  );
   if (!subText || !bookText) return false;
-  return subText === bookText || subText.includes(bookText) || bookText.includes(subText);
+  return (
+    subText === bookText ||
+    subText.includes(bookText) ||
+    bookText.includes(subText)
+  );
 }
 
 export function subscriptionAddressLabel(

@@ -657,7 +657,7 @@ export default function TechnicianOnboardingScreen() {
     return <Redirect href="/pending-vendor-review" />;
   }
 
-  /** Must match `(main)/_layout.tsx` and `resolveTechnicianAppPostAuthPath` — platform + employer approval. */
+  /** Must match `(main)/_layout.tsx` and `resolveTechnicianAppPostAuthPath` - platform + employer approval. */
   const hasActiveDraft = technicianApi.technicianHasActiveOnboardingDraft(tech);
   const canAccessMainApp =
     technicianApi.technicianIsFullyOnboarded(tech) && !hasActiveDraft;
@@ -695,21 +695,21 @@ export default function TechnicianOnboardingScreen() {
   const canNext =
     step === 0
       ? Boolean(
-          form.vendor_id &&
-            form.name_as_per_aadhaar.trim() &&
-            /^\d{4}-\d{2}-\d{2}$/.test(form.date_of_birth.trim()) &&
-            form.addr_line1.trim() &&
-            form.father_guardian_name.trim() &&
-            form.gender,
-        )
+        form.vendor_id &&
+        form.name_as_per_aadhaar.trim() &&
+        /^\d{4}-\d{2}-\d{2}$/.test(form.date_of_birth.trim()) &&
+        form.addr_line1.trim() &&
+        form.father_guardian_name.trim() &&
+        form.gender,
+      )
       : step === 1
         ? Boolean(
-            form.pan_number.trim() &&
-              form.aadhaar_last4.trim().length === 4 &&
-              aadhaarCopyReady &&
-              panCopyReady &&
-              passportReady,
-          )
+          form.pan_number.trim() &&
+          form.aadhaar_last4.trim().length === 4 &&
+          aadhaarCopyReady &&
+          panCopyReady &&
+          passportReady,
+        )
         : step === 2
           ? stepSkillsCanProceed(form)
           : step === 3
@@ -844,7 +844,7 @@ export default function TechnicianOnboardingScreen() {
             <DobField value={form.date_of_birth} onChangeIso={(iso) => setField("date_of_birth", iso)} />
             <Field
               label="Personal phone (from your invite)"
-              helperText="This number is your sign-in phone — it cannot be changed here."
+              helperText="This number is your sign-in phone - it cannot be changed here."
               value={form.personal_phone}
               editable={false}
               keyboardType="phone-pad"
@@ -943,7 +943,7 @@ export default function TechnicianOnboardingScreen() {
               onChangeText={(t) => setField("preferred_locations_text", t.replace(/[,;\n]+/g, " ").trimStart())}
               placeholder="e.g. Bengaluru"
             />
-            <Text style={styles.hint}>Enter one city only — not a list of areas or districts.</Text>
+            <Text style={styles.hint}>Enter one city only - not a list of areas or districts.</Text>
             <Field label="Experience summary (optional)" value={form.experience_summary} onChangeText={(t) => setField("experience_summary", t)} multiline />
             <Field label="Service radius (km)" value={form.service_radius_km} onChangeText={(t) => setField("service_radius_km", t)} keyboardType="decimal-pad" />
             <Field
@@ -960,7 +960,7 @@ export default function TechnicianOnboardingScreen() {
           <>
             <Text style={styles.sectionTitle}>Safety awareness *</Text>
             <Text style={styles.hint}>
-              These match how you start jobs in the OorjaMan app — confirm each item to continue.
+              These match how you start jobs in the OorjaMan app - confirm each item to continue.
             </Text>
             {ONBOARDING_SAFETY_ACKS.map((item) => (
               <ToggleRow
@@ -1202,7 +1202,7 @@ function Field({
         helperText={helperText}
         value={value}
         placeholder={placeholder}
-        onChangeText={onChangeText ?? (() => {})}
+        onChangeText={onChangeText ?? (() => { })}
         multiline={multiline}
         keyboardType={keyboardType ?? "default"}
         autoCapitalize={autoCapitalize ?? "sentences"}

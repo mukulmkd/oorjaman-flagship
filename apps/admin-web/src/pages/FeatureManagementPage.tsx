@@ -43,7 +43,7 @@ export function FeatureManagementPage() {
     <>
       <PageHeader
         title="Feature management"
-        subtitle="Turn notification delivery channels on or off independently for demo and live pipelines — same flags as notifications, isolated for operational clarity."
+        subtitle="Turn notification delivery channels on or off independently for demo and live pipelines - same flags as notifications, isolated for operational clarity."
         actions={
           <Button variant="outline" size="sm" type="button" onClick={() => void channelSettingsQuery.refetch()}>
             Refresh

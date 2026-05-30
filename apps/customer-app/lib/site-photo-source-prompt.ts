@@ -2,7 +2,7 @@ import { ActionSheetIOS, Alert, Platform } from "react-native";
 
 export type SitePhotoSource = "camera" | "library";
 
-/** One-shot camera vs gallery choice — must finish before opening the system picker. */
+/** One-shot camera vs gallery choice - must finish before opening the system picker. */
 export function promptSitePhotoSource(): Promise<SitePhotoSource | null> {
   if (Platform.OS === "ios") {
     return new Promise((resolve) => {

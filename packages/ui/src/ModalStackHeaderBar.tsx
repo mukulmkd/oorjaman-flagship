@@ -15,7 +15,7 @@ export type ModalStackHeaderBarProps = {
   subtitleNumberOfLines?: number;
 };
 
-/** Full-screen stack modal header — same title / subtitle / close layout as support chat sheets. */
+/** Full-screen stack modal header - same title / subtitle / close layout as support chat sheets. */
 export function ModalStackHeaderBar({
   title,
   subtitle,

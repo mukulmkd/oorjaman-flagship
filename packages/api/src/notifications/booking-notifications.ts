@@ -5,6 +5,8 @@ import { SupabaseApiError } from "../result";
 export type NotificationAudience = "admin" | "vendor";
 
 export type AdminBookingNotificationEventType =
+  | "admin_booking_created"
+  | "admin_booking_vendor_response_overdue"
   | "admin_marketplace_floated"
   | "admin_booking_vendor_claimed"
   | "admin_booking_vendor_accepted"
@@ -50,7 +52,9 @@ type EmitInAppInput = {
 };
 
 export {
+  adminBookingCreatedCopy,
   adminBookingCancelledCopy,
+  adminVendorResponseOverdueCopy,
   adminMarketplaceFloatedCopy,
   adminReassignmentNeededCopy,
   adminTechnicianReassignedCopy,
@@ -60,6 +64,7 @@ export {
   adminVisitCompletedCopy,
   adminVisitStartedCopy,
   vendorBookingAssignedCopy,
+  vendorCustomerPreferredBookingCopy,
   vendorVisitCompletedCopy,
   vendorVisitStartedCopy,
 } from "./notification-copy";

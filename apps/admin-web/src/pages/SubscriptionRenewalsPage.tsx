@@ -295,8 +295,8 @@ export function SubscriptionRenewalsPage() {
                   <div className="sr-step-body">
                     <p className="sr-step-label">Choose a list</p>
                     <p className="sr-step-desc">
-                      <strong>Expiring soon</strong> — active plans ending in your window.{" "}
-                      <strong>Recently lapsed</strong> — ended with no active plan on the same site.
+                      <strong>Expiring soon</strong> - active plans ending in your window.{" "}
+                      <strong>Recently lapsed</strong> - ended with no active plan on the same site.
                     </p>
                   </div>
                 </li>
@@ -316,7 +316,7 @@ export function SubscriptionRenewalsPage() {
                   <div className="sr-step-body">
                     <p className="sr-step-label">Send renewal queue</p>
                     <p className="sr-step-desc">
-                      Delivers <strong>only</strong> renewal reminders — not booking or ops notifications.
+                      Delivers <strong>only</strong> renewal reminders - not booking or ops notifications.
                     </p>
                   </div>
                 </li>
@@ -630,7 +630,7 @@ export function SubscriptionRenewalsPage() {
                             ? "Lapsed"
                             : p.renewal_audience === "expiring_soon"
                               ? "Expiring"
-                              : "—";
+                              : "-";
                         const channels = Array.isArray(e.channels)
                           ? e.channels.map((ch) => formatNotificationChannelLabel(String(ch)))
                           : [];
@@ -641,13 +641,13 @@ export function SubscriptionRenewalsPage() {
                             <td>
                               <Badge tone={deliveryStatusTone(e.status)}>{deliveryStatusLabel(e.status)}</Badge>
                             </td>
-                            <td>{String(p.plan_name ?? "—")}</td>
+                            <td>{String(p.plan_name ?? "-")}</td>
                             <td>
                               {typeof p.ends_at === "string" && p.ends_at.trim()
                                 ? formatDisplayDate(p.ends_at)
-                                : "—"}
+                                : "-"}
                             </td>
-                            <td>{channels.length ? channels.join(", ") : "—"}</td>
+                            <td>{channels.length ? channels.join(", ") : "-"}</td>
                             <td>{formatDisplayDateTime(e.created_at)}</td>
                           </tr>
                         );
@@ -670,7 +670,7 @@ export function SubscriptionRenewalsPage() {
 
       <Modal
         open={previewOpen}
-        title={`Message preview — ${previewCustomerName}`}
+        title={`Message preview - ${previewCustomerName}`}
         onClose={() => setPreviewOpen(false)}
       >
         {previewMut.data && previewMut.data.length > 0 ? (

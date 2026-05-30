@@ -66,13 +66,13 @@ export function SupportConversationDeskMeta({ conversation }: Props) {
                   <div className="support-outcome-row">
                     <span className="support-outcome-label">Closed</span>
                     <span className="support-outcome-value">
-                      {closure.closed_at ? formatWhen(closure.closed_at) : "—"}
+                      {closure.closed_at ? formatWhen(closure.closed_at) : "-"}
                     </span>
                   </div>
                   <div className="support-outcome-row">
                     <span className="support-outcome-label">Closed by</span>
                     <span className="support-outcome-value">
-                      {closure.closed_by_display_name ?? "—"}
+                      {closure.closed_by_display_name ?? "-"}
                     </span>
                   </div>
                   {closure.close_reason_label ? (
@@ -81,7 +81,7 @@ export function SupportConversationDeskMeta({ conversation }: Props) {
                       <span className="support-outcome-value">{closure.close_reason_label}</span>
                     </div>
                   ) : null}
-                  {closure.resolution_tag_label && closure.resolution_tag_label !== "—" ? (
+                  {closure.resolution_tag_label && closure.resolution_tag_label !== "-" ? (
                     <div className="support-outcome-row">
                       <span className="support-outcome-label">Resolution</span>
                       <span className="support-outcome-value">{closure.resolution_tag_label}</span>

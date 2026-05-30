@@ -197,11 +197,11 @@ export default function PreferredPartnerModal() {
       <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
         {modalHeader}
         <View style={modalScrollContentStyle}>
-        <ErrorStateCard
-          title="Could not load partners"
-          message={(vendorsQuery.error as Error).message}
-          onRetry={() => void vendorsQuery.refetch()}
-        />
+          <ErrorStateCard
+            title="Could not load partners"
+            message={(vendorsQuery.error as Error).message}
+            onRetry={() => void vendorsQuery.refetch()}
+          />
         </View>
       </Screen>
     );
@@ -212,11 +212,11 @@ export default function PreferredPartnerModal() {
       <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
         {modalHeader}
         <View style={modalScrollContentStyle}>
-        <ErrorStateCard
-          title="Could not load your visit history"
-          message={(completedVendorIdsQuery.error as Error).message}
-          onRetry={() => void completedVendorIdsQuery.refetch()}
-        />
+          <ErrorStateCard
+            title="Could not load your visit history"
+            message={(completedVendorIdsQuery.error as Error).message}
+            onRetry={() => void completedVendorIdsQuery.refetch()}
+          />
         </View>
       </Screen>
     );
@@ -227,7 +227,7 @@ export default function PreferredPartnerModal() {
       <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
         {modalHeader}
         <View style={modalScrollContentStyle}>
-        <EmptyStateCard title="No approved partners yet" description="Check back soon — the list updates as partners are verified." />
+          <EmptyStateCard title="No approved partners yet" description="Check back soon - the list updates as partners are verified." />
         </View>
       </Screen>
     );
