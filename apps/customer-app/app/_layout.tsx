@@ -36,7 +36,7 @@ initSupportChatNotificationHandler();
 
 keepNativeSplashScreenVisible();
 
-/** Root modals: hide stack back control (we use header close), center title on Android, bottom sheet–style enter on Android. */
+/** Root modals: hide stack back control (we use header close), center title on Android, bottom sheet-style enter on Android. */
 const customerModalHeaderOptions = {
   headerBackVisible: false,
   ...(Platform.OS === "android" ? ({ animation: "slide_from_bottom" } as const) : {}),

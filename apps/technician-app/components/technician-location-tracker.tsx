@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { bookingApi, queryKeys, technicianApi } from "@oorjaman/api";
 import { supabase } from "../lib/supabase";
 
-/** ~12s - middle of the 10–15s window; balanced accuracy limits GPS wake-ups. */
+/** ~12s - middle of the 10-15s window; balanced accuracy limits GPS wake-ups. */
 const LOCATION_TICK_MS = 12_000;
 
 /**

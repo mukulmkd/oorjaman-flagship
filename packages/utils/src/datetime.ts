@@ -65,7 +65,7 @@ export function formatDisplayDateTimeRange(
   const start = parseIsoLike(startIso);
   const end = parseIsoLike(endIso);
   if (!start || !end) {
-    return `${formatIsoFallback(startIso)} – ${formatIsoFallback(endIso)}`;
+    return `${formatIsoFallback(startIso)} - ${formatIsoFallback(endIso)}`;
   }
   const startFmt = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
     ...DATE_PARTS,
@@ -74,5 +74,5 @@ export function formatDisplayDateTimeRange(
   const endFmt = new Intl.DateTimeFormat(DISPLAY_LOCALE, TIME_PARTS).format(
     end,
   );
-  return `${startFmt} – ${endFmt} IST`;
+  return `${startFmt} - ${endFmt} IST`;
 }

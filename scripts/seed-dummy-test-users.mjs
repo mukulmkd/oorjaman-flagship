@@ -260,7 +260,7 @@ async function main() {
 
   console.log("\nDone. Use dummy OTP flow in apps with the same password backing sign-in:", password);
   console.log(
-    "Phones: admins +919000000101–102, support +919000000111–112, vendors +919000000201–202, tech +919000000301–302, customers +919000000401–402.",
+    "Phones: admins +919000000101-102, support +919000000111-112, vendors +919000000201-202, tech +919000000301-302, customers +919000000401-402.",
   );
 }
 

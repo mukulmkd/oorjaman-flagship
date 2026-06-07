@@ -10,7 +10,7 @@ This document is the **runbook and backlog** for the marketing site. Revisit whe
 
 ---
 
-## What is shipped (Phases 0–3)
+## What is shipped (Phases 0-3)
 
 | Phase                    | Status | Contents                                                                                                      |
 | ------------------------ | ------ | ------------------------------------------------------------------------------------------------------------- |
@@ -147,4 +147,4 @@ Root `package.json` `build` includes `oorjaman-web` for CI.
 
 ---
 
-_Last updated: 2026-05-19 - Phases 0–3 complete for oorjaman.com / GoDaddy static path._
+_Last updated: 2026-05-19 - Phases 0-3 complete for oorjaman.com / GoDaddy static path._

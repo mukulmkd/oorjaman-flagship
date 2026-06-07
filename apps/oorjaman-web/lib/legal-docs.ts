@@ -219,7 +219,7 @@ export const legalDocuments: LegalDocument[] = [
         id: "refunds",
         title: "Refunds",
         paragraphs: [
-          "Eligible refunds for failed or cancelled visits are processed to the original payment method where applicable. Processing times depend on your bank or UPI provider (typically 5–10 business days).",
+          "Eligible refunds for failed or cancelled visits are processed to the original payment method where applicable. Processing times depend on your bank or UPI provider (typically 5-10 business days).",
         ],
       },
     ],

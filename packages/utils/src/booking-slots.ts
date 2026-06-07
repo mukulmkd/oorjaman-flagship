@@ -146,7 +146,7 @@ export function slotsForDay(dayKey: string, now: Date): BookingSlotOption[] {
     const end = new Date(start.getTime() + SLOT_DURATION_MS);
     options.push({
       id: `${dayKey}-${pad2(h)}00`,
-      label: `${formatHmLocal(start)} – ${formatHmLocal(end)} IST`,
+      label: `${formatHmLocal(start)} - ${formatHmLocal(end)} IST`,
       scheduledStart: start.toISOString(),
       scheduledEnd: end.toISOString(),
     });

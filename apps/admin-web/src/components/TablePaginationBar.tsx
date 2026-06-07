@@ -17,7 +17,7 @@ export function TablePaginationBar({ page, pageSize = DEFAULT_TABLE_PAGE_SIZE, t
   return (
     <div className="tbl-pager" role="navigation" aria-label="Pagination">
       <span className="tbl-pager-meta">
-        {from}–{to} of {total}
+        {from}-{to} of {total}
       </span>
       <div className="tbl-pager-nav">
         <Button type="button" size="sm" variant="outline" disabled={p <= 1} onClick={() => onPageChange(p - 1)}>

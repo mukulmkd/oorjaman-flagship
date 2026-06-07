@@ -2710,7 +2710,7 @@ grant select on public.pricing_catalog_audit to authenticated;
 
 insert into public.service_capacity_tiers (country_code, code, capacity_kw, typical_panel_count, label, sort_order)
 values
-  ('IN', 'kw_3', 3, 6, '3 kW (5–6 panels)', 10),
+  ('IN', 'kw_3', 3, 6, '3 kW (5-6 panels)', 10),
   ('IN', 'kw_4', 4, 8, '4 kW (8 panels)', 20),
   ('IN', 'kw_5', 5, 10, '5 kW (10 panels)', 30),
   ('IN', 'kw_6', 6, 12, '6 kW (12 panels)', 40),
