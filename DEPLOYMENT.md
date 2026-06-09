@@ -3,7 +3,7 @@
 This runbook covers:
 
 - **8 web URLs** on GoDaddy (4 production + 4 UAT)
-- **4 mobile installables** - Customer and Technician apps, each with a **PROD** (store) and **UAT** (internal QA) binary
+- **4 mobile installables** - Customer and Partner apps, each with a **PROD** (store) and **UAT** (internal QA) binary
 - **2 Supabase projects** - UAT database vs production database (same schema, different data)
 
 **Related docs:** [ENVIRONMENT.md](ENVIRONMENT.md) (all env vars), [SEO.md](SEO.md) (production marketing SEO only), [BILLING.md](BILLING.md) (Maps, push, store fees).
@@ -17,7 +17,7 @@ This runbook covers:
 | Marketing web                | `oorjaman.com`                     | `dev-oorjaman.oorjaman.com` (noindex)          |
 | Admin / vendor / support web | `admin.*`, `vendor.*`, `support.*` | `dev-admin.*`, `dev-vendor.*`, `dev-support.*` |
 | Customer app (iOS/Android)   | App Store / Play - **OorjaMan**    | Internal / TestFlight - **OorjaMan (UAT)**     |
-| Technician app (iOS/Android) | Store - **OorjaMan Technician**    | Internal - **OorjaMan Technician (UAT)**       |
+| Partner app (iOS/Android) | Store - **OorjaMan Partner**    | Internal - **OorjaMan Partner (UAT)**       |
 | Supabase                     | `oorjaman-prod` project            | `oorjaman-uat` project                         |
 
 ---
@@ -179,7 +179,7 @@ VITE_SUPPORT_PORTAL_URL=https://dev-support.oorjaman.com
 
 ---
 
-## Mobile apps - Customer & Technician (PROD vs UAT)
+## Mobile apps - Customer & Partner (PROD vs UAT)
 
 Expo apps do **not** use GoDaddy. They ship as **native binaries** via [EAS Build](https://docs.expo.dev/build/introduction/). PROD and UAT must be **different installable apps** (different bundle IDs) so QA can run both on one phone and the store never receives a UAT build.
 
@@ -188,7 +188,7 @@ Expo apps do **not** use GoDaddy. They ship as **native binaries** via [EAS Buil
 | Mechanism                                     | PROD                                                | UAT                                                         |
 | --------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------- |
 | `EXPO_PUBLIC_DEPLOY_ENV`                      | `production`                                        | `uat`                                                       |
-| App display name                              | OorjaMan / OorjaMan Technician                      | OorjaMan **(UAT)** / OorjaMan Technician **(UAT)**          |
+| App display name                              | OorjaMan / OorjaMan Partner                      | OorjaMan **(UAT)** / OorjaMan Partner **(UAT)**          |
 | iOS bundle ID                                 | `com.oorjaman.customer` / `com.oorjaman.technician` | `com.oorjaman.customer.uat` / `com.oorjaman.technician.uat` |
 | Android package                               | same pattern                                        | `*.uat` suffix                                              |
 | Deep link scheme                              | `oorjaman-customer` / `oorjaman-technician`         | `oorjaman-customer-uat` / `oorjaman-technician-uat`         |

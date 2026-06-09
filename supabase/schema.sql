@@ -8270,4 +8270,889 @@ $$;
 
 $$;
 
+-- ----- 20260736000000_amc_wallet_assigned_vendor.sql -----
+alter table public.subscriptions
+  add column if not exists assigned_vendor_id uuid references public.vendors (id) on delete set null,
+  add column if not exists assigned_vendor_at timestamptz;
+
+create index if not exists subscriptions_assigned_vendor_idx
+  on public.subscriptions (assigned_vendor_id)
+  where assigned_vendor_id is not null;
+
+comment on column public.subscriptions.assigned_vendor_id is
+  'Dedicated AMC partner; all AMC visit bookings use this vendor. Set by admin before scheduling.';
+
+alter table public.payments
+  add column if not exists subscription_id uuid references public.subscriptions (id) on delete set null;
+
+create index if not exists payments_subscription_id_idx
+  on public.payments (subscription_id)
+  where subscription_id is not null;
+
+do $enum$
+begin
+  create type public.amc_wallet_status as enum (
+    'pending_funding',
+    'funded',
+    'depleted',
+    'cancelled'
+  );
+
+exception
+  when duplicate_object then null;
+
+end $enum$;
+
+do $enum$
+begin
+  create type public.amc_wallet_entry_kind as enum (
+    'customer_fund',
+    'visit_release',
+    'platform_fee',
+    'refund',
+    'adjustment'
+  );
+
+exception
+  when duplicate_object then null;
+
+end $enum$;
+
+create table if not exists public.amc_wallets (
+  id uuid primary key default gen_random_uuid(),
+  subscription_id uuid not null unique references public.subscriptions (id) on delete cascade,
+  customer_id uuid not null references public.customers (id) on delete cascade,
+  assigned_vendor_id uuid references public.vendors (id) on delete set null,
+  total_funded_paise bigint not null default 0 check (total_funded_paise >= 0),
+  balance_paise bigint not null default 0 check (balance_paise >= 0),
+  released_to_vendor_paise bigint not null default 0 check (released_to_vendor_paise >= 0),
+  platform_fee_collected_paise bigint not null default 0 check (platform_fee_collected_paise >= 0),
+  per_visit_alloc_paise bigint not null default 0 check (per_visit_alloc_paise >= 0),
+  visits_allocated int not null default 0 check (visits_allocated >= 0),
+  visits_released int not null default 0 check (visits_released >= 0),
+  currency text not null default 'INR',
+  status public.amc_wallet_status not null default 'pending_funding',
+  funded_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists amc_wallets_customer_idx on public.amc_wallets (customer_id);
+
+create index if not exists amc_wallets_vendor_idx on public.amc_wallets (assigned_vendor_id)
+  where assigned_vendor_id is not null;
+
+drop trigger if exists amc_wallets_set_updated_at on public.amc_wallets;
+
+create trigger amc_wallets_set_updated_at
+before update on public.amc_wallets
+for each row execute function public.set_updated_at();
+
+create table if not exists public.amc_wallet_entries (
+  id uuid primary key default gen_random_uuid(),
+  wallet_id uuid not null references public.amc_wallets (id) on delete cascade,
+  kind public.amc_wallet_entry_kind not null,
+  amount_paise bigint not null,
+  balance_after_paise bigint,
+  booking_id uuid references public.bookings (id) on delete set null,
+  vendor_settlement_id uuid references public.vendor_settlements (id) on delete set null,
+  note text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists amc_wallet_entries_wallet_idx
+  on public.amc_wallet_entries (wallet_id, created_at desc);
+
+comment on table public.amc_wallets is
+  'OorjaMan-held AMC escrow: customer prepays contract value; releases per completed visit to assigned vendor minus platform fee.';
+
+comment on table public.amc_wallet_entries is
+  'Immutable ledger for AMC wallet credits (customer fund) and debits (visit release, platform fee).';
+
+create or replace function public.fund_amc_wallet_from_payment(
+  p_subscription_id uuid,
+  p_payment_id uuid,
+  p_amount_paise bigint
+)
+returns public.amc_wallets
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_customer_id uuid;
+
+v_wallet public.amc_wallets;
+
+v_sub public.subscriptions;
+
+v_pay public.payments;
+
+v_amount bigint;
+
+v_per_visit bigint;
+
+begin
+  v_amount := greatest(0, round(p_amount_paise));
+
+if v_amount <= 0 then
+    raise exception 'fund amount must be positive';
+
+end if;
+
+select * into v_sub from public.subscriptions where id = p_subscription_id for update;
+
+if not found then raise exception 'subscription not found'; end if;
+
+select * into v_pay from public.payments where id = p_payment_id for update;
+
+if not found then raise exception 'payment not found'; end if;
+
+if v_pay.status <> 'success'::public.payment_status then
+    raise exception 'payment must be successful before funding wallet';
+
+end if;
+
+if v_pay.subscription_id is distinct from p_subscription_id then
+    raise exception 'payment subscription mismatch';
+
+end if;
+
+if v_pay.customer_id <> v_sub.customer_id then
+    raise exception 'payment customer mismatch';
+
+end if;
+
+v_customer_id := public.my_customer_id();
+
+if v_customer_id is null and not public.is_admin() then
+    raise exception 'not authorized';
+
+end if;
+
+if v_customer_id is not null and v_customer_id <> v_sub.customer_id then
+    raise exception 'not authorized';
+
+end if;
+
+select * into v_wallet from public.amc_wallets where subscription_id = p_subscription_id for update;
+
+if not found then raise exception 'amc wallet not found'; end if;
+
+if v_wallet.status <> 'pending_funding'::public.amc_wallet_status then
+    raise exception 'wallet is not awaiting funding';
+
+end if;
+
+v_per_visit := v_wallet.per_visit_alloc_paise;
+
+if v_per_visit <= 0 and coalesce(v_sub.visits_included, 0) > 0 then
+    v_per_visit := greatest(1, round(v_amount::numeric / v_sub.visits_included));
+
+end if;
+
+update public.amc_wallets
+  set
+    total_funded_paise = v_amount,
+    balance_paise = v_amount,
+    per_visit_alloc_paise = v_per_visit,
+    visits_allocated = coalesce(v_sub.visits_included, 0),
+    status = 'funded'::public.amc_wallet_status,
+    funded_at = coalesce(v_pay.paid_at, now()),
+    updated_at = now()
+  where id = v_wallet.id
+  returning * into v_wallet;
+
+insert into public.amc_wallet_entries (wallet_id, kind, amount_paise, balance_after_paise, note, metadata)
+  values (
+    v_wallet.id,
+    'customer_fund'::public.amc_wallet_entry_kind,
+    v_amount,
+    v_wallet.balance_paise,
+    'AMC contract payment',
+    jsonb_build_object('payment_id', p_payment_id)
+  );
+
+update public.subscriptions
+  set status = 'active'::public.subscription_status, updated_at = now()
+  where id = p_subscription_id
+    and status = 'trialing'::public.subscription_status;
+
+return v_wallet;
+
+end;
+
+$$;
+
+revoke all on function public.fund_amc_wallet_from_payment(uuid, uuid, bigint) from public;
+
+grant execute on function public.fund_amc_wallet_from_payment(uuid, uuid, bigint) to authenticated;
+
+create or replace function public.admin_assign_amc_subscription_vendor(
+  p_subscription_id uuid,
+  p_vendor_id uuid
+)
+returns public.subscriptions
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_sub public.subscriptions;
+
+v_vendor public.vendors;
+
+begin
+  if not public.is_admin() then
+    raise exception 'admin only';
+
+end if;
+
+select * into v_vendor from public.vendors where id = p_vendor_id;
+
+if not found then raise exception 'vendor not found'; end if;
+
+if v_vendor.approval_status <> 'approved'::public.vendor_approval_status then
+    raise exception 'vendor must be approved';
+
+end if;
+
+update public.subscriptions
+  set
+    assigned_vendor_id = p_vendor_id,
+    assigned_vendor_at = now(),
+    updated_at = now()
+  where id = p_subscription_id
+  returning * into v_sub;
+
+if not found then raise exception 'subscription not found'; end if;
+
+update public.amc_wallets
+  set assigned_vendor_id = p_vendor_id, updated_at = now()
+  where subscription_id = p_subscription_id;
+
+return v_sub;
+
+end;
+
+$$;
+
+revoke all on function public.admin_assign_amc_subscription_vendor(uuid, uuid) from public;
+
+grant execute on function public.admin_assign_amc_subscription_vendor(uuid, uuid) to authenticated;
+
+create or replace function public.release_amc_wallet_visit_payout(p_booking_id uuid)
+returns public.vendor_settlements
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_booking public.bookings;
+
+v_wallet public.amc_wallets;
+
+v_fee_pct numeric;
+
+v_gross bigint;
+
+v_platform_fee bigint;
+
+v_net bigint;
+
+v_new_balance bigint;
+
+v_settlement public.vendor_settlements;
+
+v_next_status public.amc_wallet_status;
+
+begin
+  select * into v_booking from public.bookings where id = p_booking_id for update;
+
+if not found then raise exception 'booking not found'; end if;
+
+if v_booking.status <> 'completed'::public.booking_status then
+    raise exception 'booking must be completed';
+
+end if;
+
+if v_booking.subscription_id is null or v_booking.vendor_id is null then
+    raise exception 'not an amc booking with vendor';
+
+end if;
+
+if not public.is_admin() then
+    if v_booking.vendor_id is distinct from public.my_vendor_id()
+       and not exists (
+         select 1 from public.technicians t
+         where t.id = v_booking.technician_id and t.user_id = auth.uid()
+       ) then
+      raise exception 'not authorized';
+
+end if;
+
+end if;
+
+select * into v_settlement from public.vendor_settlements
+  where booking_id = p_booking_id and kind = 'visit_payout';
+
+if found then return v_settlement; end if;
+
+select * into v_wallet from public.amc_wallets
+  where subscription_id = v_booking.subscription_id for update;
+
+if not found then raise exception 'amc wallet not found'; end if;
+
+if v_wallet.status <> 'funded'::public.amc_wallet_status then
+    raise exception 'wallet not funded';
+
+end if;
+
+if v_wallet.assigned_vendor_id is not null and v_wallet.assigned_vendor_id <> v_booking.vendor_id then
+    raise exception 'vendor mismatch for amc';
+
+end if;
+
+v_gross := greatest(0, v_wallet.per_visit_alloc_paise);
+
+if v_gross <= 0 or v_wallet.balance_paise < v_gross then
+    raise exception 'insufficient wallet balance';
+
+end if;
+
+select coalesce(ps.vendor_platform_fee_percent, 10)::numeric into v_fee_pct
+  from public.platform_settings ps where ps.id = 1;
+
+v_platform_fee := round(v_gross * v_fee_pct / 100.0);
+
+v_net := greatest(0, v_gross - v_platform_fee);
+
+v_new_balance := v_wallet.balance_paise - v_gross;
+
+v_next_status := case when v_new_balance <= 0 then 'depleted'::public.amc_wallet_status else v_wallet.status end;
+
+insert into public.vendor_settlements (
+    booking_id, vendor_id, kind, status, currency, reference_code,
+    visit_gross_paise, platform_fee_paise, net_payout_paise, metadata
+  ) values (
+    v_booking.id, v_booking.vendor_id, 'visit_payout', 'pending_review',
+    coalesce(v_booking.currency, 'INR'), v_booking.reference_code,
+    v_gross, v_platform_fee, v_net,
+    jsonb_build_object(
+      'platform_fee_percent', v_fee_pct,
+      'auto_created', true,
+      'source', 'amc_wallet_visit_release',
+      'subscription_id', v_booking.subscription_id,
+      'wallet_id', v_wallet.id
+    )
+  ) returning * into v_settlement;
+
+update public.amc_wallets set
+    balance_paise = v_new_balance,
+    released_to_vendor_paise = released_to_vendor_paise + v_net,
+    platform_fee_collected_paise = platform_fee_collected_paise + v_platform_fee,
+    visits_released = visits_released + 1,
+    status = v_next_status,
+    updated_at = now()
+  where id = v_wallet.id;
+
+insert into public.amc_wallet_entries (wallet_id, kind, amount_paise, balance_after_paise, booking_id, vendor_settlement_id, note, metadata)
+  values
+    (v_wallet.id, 'visit_release', -v_net, v_new_balance, v_booking.id, v_settlement.id,
+     'Vendor net from AMC wallet', jsonb_build_object('gross_paise', v_gross)),
+    (v_wallet.id, 'platform_fee', -v_platform_fee, v_new_balance, v_booking.id, v_settlement.id,
+     'OorjaMan fee on AMC visit', jsonb_build_object('fee_percent', v_fee_pct));
+
+return v_settlement;
+
+end;
+
+$$;
+
+revoke all on function public.release_amc_wallet_visit_payout(uuid) from public;
+
+grant execute on function public.release_amc_wallet_visit_payout(uuid) to authenticated;
+
+-- ----- 20260737000000_amc_vendor_reassignment.sql -----
+drop function if exists public.admin_assign_amc_subscription_vendor(uuid, uuid);
+
+create or replace function public.admin_assign_amc_subscription_vendor(
+  p_subscription_id uuid,
+  p_vendor_id uuid,
+  p_reassign_open_bookings boolean default true
+)
+returns public.subscriptions
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_sub public.subscriptions;
+
+v_vendor public.vendors;
+
+begin
+  if not public.is_admin() then
+    raise exception 'admin only';
+
+end if;
+
+select * into v_vendor from public.vendors where id = p_vendor_id;
+
+if not found then raise exception 'vendor not found'; end if;
+
+if v_vendor.approval_status <> 'approved'::public.vendor_approval_status then
+    raise exception 'vendor must be approved';
+
+end if;
+
+update public.subscriptions
+  set
+    assigned_vendor_id = p_vendor_id,
+    assigned_vendor_at = now(),
+    updated_at = now()
+  where id = p_subscription_id
+  returning * into v_sub;
+
+if not found then raise exception 'subscription not found'; end if;
+
+update public.amc_wallets
+  set assigned_vendor_id = p_vendor_id, updated_at = now()
+  where subscription_id = p_subscription_id;
+
+if p_reassign_open_bookings then
+    update public.bookings b
+    set
+      vendor_id = p_vendor_id,
+      technician_id = null,
+      status = case
+        when b.status = 'accepted'::public.booking_status then 'confirmed'::public.booking_status
+        else b.status
+      end,
+      metadata = coalesce(b.metadata, '{}'::jsonb) || jsonb_build_object(
+        'amc_vendor_reassignment', jsonb_build_object(
+          'previous_vendor_id', b.vendor_id,
+          'reassigned_at', now(),
+          'reassigned_by', 'admin',
+          'scope', 'subscription',
+          'subscription_id', p_subscription_id
+        ),
+        'vendor_reassignment', coalesce(b.metadata->'vendor_reassignment', '{}'::jsonb) || jsonb_build_object(
+          'awaiting_admin_assignment', false,
+          'reassigned_at', now(),
+          'reassigned_vendor_id', p_vendor_id,
+          'previous_vendor_id', b.vendor_id
+        ),
+        'vendor_response', jsonb_build_object('anchor_at', now())
+      ),
+      updated_at = now()
+    where b.subscription_id = p_subscription_id
+      and b.status in (
+        'confirmed'::public.booking_status,
+        'accepted'::public.booking_status,
+        'in_progress'::public.booking_status
+      )
+      and b.vendor_id is distinct from p_vendor_id;
+
+end if;
+
+return v_sub;
+
+end;
+
+$$;
+
+revoke all on function public.admin_assign_amc_subscription_vendor(uuid, uuid, boolean) from public;
+
+grant execute on function public.admin_assign_amc_subscription_vendor(uuid, uuid, boolean) to authenticated;
+
+create or replace function public.release_amc_wallet_visit_payout(p_booking_id uuid)
+returns public.vendor_settlements
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_booking public.bookings;
+
+v_wallet public.amc_wallets;
+
+v_fee_pct numeric;
+
+v_gross bigint;
+
+v_platform_fee bigint;
+
+v_net bigint;
+
+v_new_balance bigint;
+
+v_settlement public.vendor_settlements;
+
+v_next_status public.amc_wallet_status;
+
+begin
+  select * into v_booking from public.bookings where id = p_booking_id for update;
+
+if not found then raise exception 'booking not found'; end if;
+
+if v_booking.status <> 'completed'::public.booking_status then
+    raise exception 'booking must be completed';
+
+end if;
+
+if v_booking.subscription_id is null or v_booking.vendor_id is null then
+    raise exception 'not an amc booking with vendor';
+
+end if;
+
+if not public.is_admin() then
+    if v_booking.vendor_id is distinct from public.my_vendor_id()
+       and not exists (
+         select 1 from public.technicians t
+         where t.id = v_booking.technician_id and t.user_id = auth.uid()
+       ) then
+      raise exception 'not authorized';
+
+end if;
+
+end if;
+
+select * into v_settlement from public.vendor_settlements
+  where booking_id = p_booking_id and kind = 'visit_payout';
+
+if found then return v_settlement; end if;
+
+select * into v_wallet from public.amc_wallets
+  where subscription_id = v_booking.subscription_id for update;
+
+if not found then raise exception 'amc wallet not found'; end if;
+
+if v_wallet.status <> 'funded'::public.amc_wallet_status then
+    raise exception 'wallet not funded';
+
+end if;
+
+v_gross := greatest(0, v_wallet.per_visit_alloc_paise);
+
+if v_gross <= 0 or v_wallet.balance_paise < v_gross then
+    raise exception 'insufficient wallet balance';
+
+end if;
+
+select coalesce(ps.vendor_platform_fee_percent, 10)::numeric into v_fee_pct
+  from public.platform_settings ps where ps.id = 1;
+
+v_platform_fee := round(v_gross * v_fee_pct / 100.0);
+
+v_net := greatest(0, v_gross - v_platform_fee);
+
+v_new_balance := v_wallet.balance_paise - v_gross;
+
+v_next_status := case when v_new_balance <= 0 then 'depleted'::public.amc_wallet_status else v_wallet.status end;
+
+insert into public.vendor_settlements (
+    booking_id, vendor_id, kind, status, currency, reference_code,
+    visit_gross_paise, platform_fee_paise, net_payout_paise, metadata
+  ) values (
+    v_booking.id, v_booking.vendor_id, 'visit_payout', 'pending_review',
+    coalesce(v_booking.currency, 'INR'), v_booking.reference_code,
+    v_gross, v_platform_fee, v_net,
+    jsonb_build_object(
+      'platform_fee_percent', v_fee_pct,
+      'auto_created', true,
+      'source', 'amc_wallet_visit_release',
+      'subscription_id', v_booking.subscription_id,
+      'wallet_id', v_wallet.id
+    )
+  ) returning * into v_settlement;
+
+update public.amc_wallets set
+    balance_paise = v_new_balance,
+    released_to_vendor_paise = released_to_vendor_paise + v_net,
+    platform_fee_collected_paise = platform_fee_collected_paise + v_platform_fee,
+    visits_released = visits_released + 1,
+    status = v_next_status,
+    updated_at = now()
+  where id = v_wallet.id;
+
+insert into public.amc_wallet_entries (wallet_id, kind, amount_paise, balance_after_paise, booking_id, vendor_settlement_id, note, metadata)
+  values
+    (v_wallet.id, 'visit_release', -v_net, v_new_balance, v_booking.id, v_settlement.id,
+     'Vendor net from AMC wallet', jsonb_build_object('gross_paise', v_gross)),
+    (v_wallet.id, 'platform_fee', -v_platform_fee, v_new_balance, v_booking.id, v_settlement.id,
+     'OorjaMan fee on AMC visit', jsonb_build_object('fee_percent', v_fee_pct));
+
+return v_settlement;
+
+end;
+
+$$;
+
+-- ----- 20260738000000_visit_payout_settlement_rpc.sql -----
+create or replace function public.create_standard_visit_payout_settlement(p_booking_id uuid)
+returns public.vendor_settlements
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_booking public.bookings;
+
+v_existing public.vendor_settlements;
+
+v_fee_pct numeric;
+
+v_gross bigint;
+
+v_platform_fee bigint;
+
+v_net bigint;
+
+begin
+  select * into v_booking from public.bookings where id = p_booking_id for update;
+
+if not found then raise exception 'booking not found'; end if;
+
+if v_booking.status <> 'completed'::public.booking_status then
+    raise exception 'booking must be completed';
+
+end if;
+
+if v_booking.vendor_id is null then
+    raise exception 'booking has no vendor';
+
+end if;
+
+if v_booking.subscription_id is not null then
+    raise exception 'use release_amc_wallet_visit_payout for amc bookings';
+
+end if;
+
+if not public.is_admin() then
+    if v_booking.vendor_id is distinct from public.my_vendor_id()
+       and v_booking.technician_id is distinct from public.my_technician_id()
+       and not exists (
+         select 1
+         from public.job_reports jr
+         where jr.booking_id = p_booking_id
+           and jr.technician_id = public.my_technician_id()
+       ) then
+      raise exception 'not authorized';
+
+end if;
+
+end if;
+
+select * into v_existing from public.vendor_settlements
+  where booking_id = p_booking_id and kind = 'visit_payout';
+
+if found then return v_existing; end if;
+
+v_gross := greatest(
+    0,
+    coalesce(
+      nullif(v_booking.final_price_cents, 0),
+      nullif(v_booking.estimated_price_cents, 0),
+      0
+    )
+  );
+
+select coalesce(ps.vendor_platform_fee_percent, 10)::numeric into v_fee_pct
+  from public.platform_settings ps where ps.id = 1;
+
+v_platform_fee := round(v_gross * v_fee_pct / 100.0);
+
+v_net := greatest(0, v_gross - v_platform_fee);
+
+insert into public.vendor_settlements (
+    booking_id, vendor_id, kind, status, currency, reference_code,
+    visit_gross_paise, platform_fee_paise, net_payout_paise, metadata
+  ) values (
+    v_booking.id, v_booking.vendor_id, 'visit_payout', 'pending_review',
+    coalesce(v_booking.currency, 'INR'), v_booking.reference_code,
+    v_gross, v_platform_fee, v_net,
+    jsonb_build_object(
+      'platform_fee_percent', v_fee_pct,
+      'auto_created', true,
+      'source', 'visit_completed'
+    )
+  ) returning * into v_existing;
+
+return v_existing;
+
+end;
+
+$$;
+
+revoke all on function public.create_standard_visit_payout_settlement(uuid) from public;
+
+grant execute on function public.create_standard_visit_payout_settlement(uuid) to authenticated;
+
+-- ----- 20260739000000_settlement_based_revenue_amc_finance.sql -----
+comment on table public.amc_wallets is
+  'Internal AMC contract ledger: customer prepay held by OorjaMan until each visit payout is settled.';
+
+comment on table public.amc_wallet_entries is
+  'Internal ledger entries for AMC contract funding and per-visit vendor release.';
+
+drop view if exists public.finance_dashboard_stats;
+
+drop view if exists public.recognized_revenue_stats;
+
+create view public.recognized_revenue_stats
+with (security_invoker = true) as
+with visit_fee_settled as (
+  select
+    ((coalesce(vs.settled_at, vs.updated_at) at time zone 'Asia/Kolkata')::date) as day,
+    sum(coalesce(vs.platform_fee_paise, 0))::bigint as revenue_cents,
+    sum(
+      case when b.subscription_id is not null then coalesce(vs.platform_fee_paise, 0) else 0 end
+    )::bigint as amc_revenue_cents,
+    sum(
+      case when b.subscription_id is null then coalesce(vs.platform_fee_paise, 0) else 0 end
+    )::bigint as one_time_revenue_cents
+  from public.vendor_settlements vs
+  inner join public.bookings b on b.id = vs.booking_id
+  where vs.kind = 'visit_payout'::public.vendor_settlement_kind
+    and vs.status = 'settled'::public.vendor_settlement_status
+  group by 1
+),
+penalty_settled as (
+  select
+    ((coalesce(vs.settled_at, vs.updated_at) at time zone 'Asia/Kolkata')::date) as day,
+    sum(greatest(0, coalesce(vs.penalty_final_paise, 0)))::bigint as revenue_cents,
+    0::bigint as amc_revenue_cents,
+    0::bigint as one_time_revenue_cents
+  from public.vendor_settlements vs
+  where vs.kind = 'cancellation_penalty'::public.vendor_settlement_kind
+    and vs.status = 'settled'::public.vendor_settlement_status
+  group by 1
+),
+customer_cancel_fee_daily as (
+  select
+    ((b.cancelled_at at time zone 'Asia/Kolkata')::date) as day,
+    sum(
+      greatest(
+        0,
+        coalesce((b.metadata -> 'customer_cancellation' ->> 'late_fee_paise')::bigint, 0)
+      )
+    )::bigint as revenue_cents,
+    0::bigint as amc_revenue_cents,
+    0::bigint as one_time_revenue_cents
+  from public.bookings b
+  where b.status = 'cancelled'::public.booking_status
+    and b.cancelled_at is not null
+    and coalesce((b.metadata -> 'customer_cancellation' ->> 'within_grace_window')::boolean, true) = false
+    and greatest(
+      0,
+      coalesce((b.metadata -> 'customer_cancellation' ->> 'late_fee_paise')::bigint, 0)
+    ) > 0
+  group by 1
+),
+combined as (
+  select day, revenue_cents, amc_revenue_cents, one_time_revenue_cents from visit_fee_settled
+  union all
+  select day, revenue_cents, amc_revenue_cents, one_time_revenue_cents from penalty_settled
+  union all
+  select day, revenue_cents, amc_revenue_cents, one_time_revenue_cents from customer_cancel_fee_daily
+),
+by_day as (
+  select
+    day,
+    sum(revenue_cents)::bigint as revenue_cents,
+    sum(amc_revenue_cents)::bigint as amc_revenue_cents,
+    sum(one_time_revenue_cents)::bigint as one_time_revenue_cents
+  from combined
+  group by 1
+)
+select
+  coalesce((select sum(revenue_cents) from by_day), 0::bigint) as total_revenue_cents,
+  coalesce((select sum(amc_revenue_cents) from by_day), 0::bigint) as amc_revenue_cents,
+  coalesce((select sum(one_time_revenue_cents) from by_day), 0::bigint) as one_time_revenue_cents,
+  coalesce(
+    (
+      select jsonb_agg(
+        jsonb_build_object(
+          'day', d.day,
+          'revenue_cents', d.revenue_cents,
+          'amc_revenue_cents', d.amc_revenue_cents,
+          'one_time_revenue_cents', d.one_time_revenue_cents
+        )
+        order by d.day
+      )
+      from by_day d
+    ),
+    '[]'::jsonb
+  ) as revenue_per_day;
+
+comment on view public.recognized_revenue_stats is
+  'OorjaMan recognized revenue: settled visit platform fees (AMC + one-time) + settled penalties + customer late-cancel fees.';
+
+grant select on public.recognized_revenue_stats to authenticated;
+
+create view public.finance_dashboard_stats
+with (security_invoker = true) as
+select
+  r.total_revenue_cents,
+  r.amc_revenue_cents,
+  r.one_time_revenue_cents,
+  r.revenue_per_day,
+  coalesce(
+    (select sum(p.amount)::bigint from public.payments p where p.status = 'success'::public.payment_status),
+    0::bigint
+  ) as total_collections_cents,
+  coalesce(
+    (
+      select sum(p.amount)::bigint
+      from public.payments p
+      where p.status = 'success'::public.payment_status
+        and p.subscription_id is not null
+    ),
+    0::bigint
+  ) as amc_contract_collections_cents,
+  coalesce(
+    (
+      select sum(w.balance_paise)::bigint
+      from public.amc_wallets w
+      where w.status in ('pending_funding'::public.amc_wallet_status, 'funded'::public.amc_wallet_status)
+    ),
+    0::bigint
+  ) as amc_deferred_liability_paise,
+  coalesce(
+    (
+      select sum(vs.net_payout_paise)::bigint
+      from public.vendor_settlements vs
+      inner join public.bookings b on b.id = vs.booking_id
+      where vs.kind = 'visit_payout'::public.vendor_settlement_kind
+        and vs.status in (
+          'pending_review'::public.vendor_settlement_status,
+          'approved'::public.vendor_settlement_status
+        )
+        and b.subscription_id is not null
+    ),
+    0::bigint
+  ) as amc_vendor_payables_pending_paise,
+  coalesce(
+    (
+      select sum(vs.net_payout_paise)::bigint
+      from public.vendor_settlements vs
+      inner join public.bookings b on b.id = vs.booking_id
+      where vs.kind = 'visit_payout'::public.vendor_settlement_kind
+        and vs.status in (
+          'pending_review'::public.vendor_settlement_status,
+          'approved'::public.vendor_settlement_status
+        )
+        and b.subscription_id is null
+    ),
+    0::bigint
+  ) as one_time_vendor_payables_pending_paise
+from public.recognized_revenue_stats r;
+
+comment on view public.finance_dashboard_stats is
+  'Admin finance KPIs: settled revenue split, collections, AMC deferred liability, vendor payables pending settlement.';
+
+grant select on public.finance_dashboard_stats to authenticated;
+
 -- End of schema (generated)

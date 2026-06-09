@@ -1,8 +1,19 @@
 export type SupportSubcategory = {
   slug: string;
   label: string;
+  /** Short line under the chip before the customer taps (pricing / policy). */
+  hint?: string;
   prompt?: string;
 };
+
+/** Shown in support intake and AMC waiting screens. */
+export const AMC_URGENT_CLEANING_SUBCATEGORY_SLUG = "urgent_cleaning" as const;
+
+export const amcUrgentCleaningSupportHint =
+  "Charged separately at one-time visit rates. Does not use your prepaid AMC visits.";
+
+export const amcUrgentCleaningSupportPrompt =
+  "Your AMC covers scheduled included visits - not same-day urgent cleans. If we arrange an urgent one-time visit, you pay the standard visit rate separately. It is not converted into an AMC visit and does not reduce your included visit count. Tell us your site, preferred date, and why you need it urgently.";
 
 export type SupportCategory = {
   slug: string;
@@ -31,6 +42,12 @@ export const SUPPORT_CATEGORIES: SupportCategory[] = [
     description: "Annual maintenance contracts, visit allowances, and renewals.",
     subcategories: [
       { slug: "plan_upgrade", label: "Upgrade or change plan", prompt: "Which site address and what plan do you want?" },
+      {
+        slug: AMC_URGENT_CLEANING_SUBCATEGORY_SLUG,
+        label: "Need urgent cleaning?",
+        hint: amcUrgentCleaningSupportHint,
+        prompt: amcUrgentCleaningSupportPrompt,
+      },
       { slug: "schedule_amc_visit", label: "Schedule an AMC visit", prompt: "Which visit number and preferred dates?" },
       { slug: "renewal", label: "Renewal or contract end", prompt: "Site address and when your plan ended or ends." },
       { slug: "visit_allowance", label: "Visit count / allowances", prompt: "Describe what looks wrong on your AMC screen." },

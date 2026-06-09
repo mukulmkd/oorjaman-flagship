@@ -4,7 +4,7 @@ Support chat uses **Expo Push** for notifications when the app is killed or in t
 
 For the full dev vs production matrix (all env vars and apps), see [**ENVIRONMENT.md**](../ENVIRONMENT.md).
 
-Technician app push (separate function and outbox): [**technician-push-setup.md**](technician-push-setup.md).
+Partner app push (separate function and outbox): [**technician-push-setup.md**](technician-push-setup.md).
 
 ## 1. Apply migrations
 

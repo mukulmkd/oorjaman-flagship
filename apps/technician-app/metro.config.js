@@ -17,4 +17,11 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, "node_modules"),
 ];
 
+/** Never bundle the sibling customer app into technician Metro graphs. */
+const customerAppRoot = path.join(monorepoRoot, "apps", "customer-app");
+config.resolver.blockList = [
+  ...(config.resolver.blockList ?? []),
+  new RegExp(`${customerAppRoot.replace(/[/\\]/g, "[/\\\\]")}.*`),
+];
+
 module.exports = config;

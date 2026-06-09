@@ -632,10 +632,10 @@ export default function TechnicianOnboardingScreen() {
   if (wrongRole) {
     return (
       <Screen edges={SCREEN_EDGES_FULL_SCREEN}>
-        <Text style={styles.title}>Technician profile</Text>
+        <Text style={styles.title}>Partner profile</Text>
         <Text style={styles.body}>
-          This account is not registered as a technician. Sign out and use onboarding sign-in so new accounts receive
-          the technician role on first sign-up.
+          This account is not set up for field partner work on OorjaMan. Sign out and use partner sign-in so new
+          accounts receive the partner role on first sign-up.
         </Text>
         <View style={styles.sectionTop}>
           <Button
@@ -736,7 +736,7 @@ export default function TechnicianOnboardingScreen() {
         edges={SCREEN_EDGES_FULL_SCREEN}
         header={
           <>
-            <Text style={styles.title}>Technician onboarding</Text>
+            <Text style={styles.title}>Partner onboarding</Text>
             <Text style={styles.stepLabel}>
               Step {step + 1} of {STEPS.length}: {STEPS[step]}
             </Text>

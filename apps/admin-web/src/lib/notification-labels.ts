@@ -17,6 +17,7 @@ const NOTIFICATION_EVENT_TYPE_LABELS: Record<string, string> = {
   admin_booking_visit_started: "Ops - visit started",
   admin_booking_visit_completed: "Ops - visit completed",
   admin_booking_cancelled: "Ops - booking cancelled",
+  admin_amc_awaiting_partner: "Ops - new AMC needs partner",
   vendor_booking_assigned: "Partner - booking assigned to you",
   vendor_booking_visit_started: "Partner - visit started",
   vendor_booking_visit_completed: "Partner - visit completed",

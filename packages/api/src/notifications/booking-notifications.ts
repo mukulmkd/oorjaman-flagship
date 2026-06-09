@@ -24,7 +24,8 @@ export type VendorBookingNotificationEventType =
 
 export type InAppNotificationPayload = {
   reference_code: string | null;
-  booking_id: string;
+  booking_id: string | null;
+  subscription_id?: string | null;
   title: string;
   body: string;
   href?: string | null;
@@ -86,7 +87,7 @@ export async function emitInAppNotification(
 
   const payload: InAppNotificationPayload = {
     reference_code: input.booking.reference_code,
-    booking_id: input.booking.id,
+    booking_id: input.booking.id ?? null,
     title: input.title,
     body: input.body,
     href: input.href ?? null,
@@ -100,7 +101,7 @@ export async function emitInAppNotification(
   };
 
   const row: Database["public"]["Tables"]["notification_events"]["Insert"] = {
-    booking_id: input.booking.id,
+    booking_id: input.booking.id ?? null,
     recipient_audience: input.audience,
     recipient_vendor_id:
       input.audience === "vendor" ? (input.recipientVendorId ?? input.booking.vendor_id) : null,

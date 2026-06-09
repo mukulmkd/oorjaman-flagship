@@ -30,6 +30,7 @@ import {
 } from "@oorjaman/api";
 import { colors } from "@oorjaman/config";
 import { Button, Card, DashboardSkeleton, PageHeader } from "@oorjaman/web-ui";
+import { NotificationPlatformHealth } from "../components/NotificationPlatformHealth";
 import { useSupabase } from "../lib/supabase-context";
 import { webTypography } from "../styles/typography";
 import "./analytics-dashboard.css";
@@ -273,20 +274,21 @@ export function AnalyticsDashboardPage() {
               </p>
             </article>
             <article className="analytics-kpi">
-              <p className="analytics-kpi-label">Revenue</p>
+              <p className="analytics-kpi-label">Recognized revenue</p>
               <p className="analytics-kpi-value">
                 {formatInrFromPaise(dashboardQuery.data.recognizedRevenue.total_revenue_cents)}
               </p>
               <p className="analytics-kpi-hint">
-                {dashboardQuery.data.platformFeePercent}% of customer payments on completed visits + cancellation fees
+                Settled platform fees · AMC {formatInrFromPaise(dashboardQuery.data.recognizedRevenue.amc_revenue_cents)}{" "}
+                · One-time {formatInrFromPaise(dashboardQuery.data.recognizedRevenue.one_time_revenue_cents)}
               </p>
             </article>
             <article className="analytics-kpi">
-              <p className="analytics-kpi-label">Total payments</p>
+              <p className="analytics-kpi-label">Total collections</p>
               <p className="analytics-kpi-value">
                 {formatInrFromPaise(dashboardQuery.data.payments.total_payments_cents)}
               </p>
-              <p className="analytics-kpi-hint">Successful gateway payments (all time)</p>
+              <p className="analytics-kpi-hint">All successful payments (AMC prepay + one-time checkout)</p>
             </article>
             <article className="analytics-kpi">
               <p className="analytics-kpi-label">Active subscriptions</p>
@@ -515,6 +517,8 @@ export function AnalyticsDashboardPage() {
               </div>
             </Card>
           </div>
+
+          <NotificationPlatformHealth />
         </div>
       )}
     </>

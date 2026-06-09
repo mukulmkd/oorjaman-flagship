@@ -15,12 +15,14 @@ export function FadeInView({ children, style, duration = 320 }: Props) {
 
   useEffect(() => {
     opacity.setValue(0);
-    Animated.timing(opacity, {
+    const anim = Animated.timing(opacity, {
       toValue: 1,
       duration,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
-    }).start();
+    });
+    anim.start();
+    return () => anim.stop();
   }, [duration, opacity]);
 
   return <Animated.View style={[style, { opacity }]}>{children}</Animated.View>;

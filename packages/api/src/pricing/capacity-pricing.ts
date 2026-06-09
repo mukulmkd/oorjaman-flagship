@@ -2,6 +2,7 @@ import type {
   PricingAmcPlanRow,
   PricingOneTimeRateRow,
   ServiceCapacityTierRow,
+  SubscriptionRow,
 } from "../database.types";
 
 /** Supported system sizes (no 7 kW or 9 kW). */
@@ -144,20 +145,72 @@ export function compareAmcPlanTier(a: PricingAmcPlanRow, b: PricingAmcPlanRow): 
   return a.sort_order - b.sort_order;
 }
 
+export function readSubscriptionContractMonths(
+  subscription: Pick<SubscriptionRow, "metadata"> | null | undefined,
+): number | null {
+  if (
+    !subscription?.metadata ||
+    typeof subscription.metadata !== "object" ||
+    Array.isArray(subscription.metadata)
+  ) {
+    return null;
+  }
+  const raw = (subscription.metadata as Record<string, unknown>).contract_months;
+  return typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? raw : null;
+}
+
+/** Treat subscription visit/term fields as the upgrade baseline when they exceed catalog. */
+export function buildEffectiveAmcPlanForUpgrade(
+  catalogPlan: PricingAmcPlanRow | undefined,
+  subscription?: Pick<
+    SubscriptionRow,
+    "visits_included" | "metadata" | "plan_code" | "plan_name" | "billing_period"
+  > | null,
+): PricingAmcPlanRow | null {
+  if (!catalogPlan) return null;
+
+  const visitsIncluded = Math.max(
+    subscription?.visits_included ?? 0,
+    catalogPlan.visits_included,
+  );
+  const contractMonths =
+    readSubscriptionContractMonths(subscription) ?? catalogPlan.contract_months;
+
+  if (
+    visitsIncluded === catalogPlan.visits_included &&
+    contractMonths === catalogPlan.contract_months
+  ) {
+    return catalogPlan;
+  }
+
+  return {
+    ...catalogPlan,
+    visits_included: visitsIncluded,
+    contract_months: contractMonths,
+  };
+}
+
 export function isAmcPlanUpgradeFrom(
   current: PricingAmcPlanRow,
   candidate: PricingAmcPlanRow,
 ): boolean {
   if (current.plan_code === candidate.plan_code) return false;
-  if (current.capacity_tier_code !== candidate.capacity_tier_code) return false;
+  if (
+    normalizeCapacityTierCode(current.capacity_tier_code) !==
+    normalizeCapacityTierCode(candidate.capacity_tier_code)
+  ) {
+    return false;
+  }
   return compareAmcPlanTier(candidate, current) > 0;
 }
 
 export function listAmcUpgradePlansForSubscription(
   catalog: PricingAmcPlanRow[],
   currentPlanCode: string,
+  subscription?: Pick<SubscriptionRow, "visits_included" | "metadata"> | null,
 ): PricingAmcPlanRow[] {
-  const current = catalog.find((p) => p.plan_code === currentPlanCode.trim());
+  const catalogPlan = catalog.find((p) => p.plan_code === currentPlanCode.trim());
+  const current = buildEffectiveAmcPlanForUpgrade(catalogPlan, subscription);
   if (!current) return [];
   return listAmcPlansForTier(catalog, current.capacity_tier_code).filter((p) =>
     isAmcPlanUpgradeFrom(current, p),

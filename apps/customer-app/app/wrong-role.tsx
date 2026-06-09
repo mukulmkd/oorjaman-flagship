@@ -17,8 +17,8 @@ function hintForRole(role: UserRole): { title: string; body: string } {
       };
     case "technician":
       return {
-        title: "Use the technician app",
-        body: "This account is for field technicians. Install and open the Oorjaman Technician app on your device.",
+        title: "Use the partner app",
+        body: "This account is for field partners. Install and open the OorjaMan Partner app on your device.",
       };
     case "admin":
       return {

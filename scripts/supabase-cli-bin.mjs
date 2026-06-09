@@ -10,7 +10,7 @@ const localBin = resolve(root, "node_modules", ".bin", binName);
 if (!existsSync(localBin)) {
   console.error("");
   console.error("Supabase CLI is not installed. From the repo root run:");
-  console.error("  npm install");
+  console.error("  npm install   # installs the pinned CLI from devDependencies (no global install needed)");
   console.error("");
   process.exit(1);
 }

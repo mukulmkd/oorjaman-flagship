@@ -58,6 +58,19 @@ export type VendorTechnicianInviteStatus =
 
 export type PaymentStatus = "pending" | "success" | "failed";
 
+export type AmcWalletStatus =
+  | "pending_funding"
+  | "funded"
+  | "depleted"
+  | "cancelled";
+
+export type AmcWalletEntryKind =
+  | "customer_fund"
+  | "visit_release"
+  | "platform_fee"
+  | "refund"
+  | "adjustment";
+
 export type VendorSettlementKind = "visit_payout" | "cancellation_penalty";
 export type VendorSettlementStatus =
   | "pending_review"
@@ -347,6 +360,8 @@ export type PlatformSettingsRow = {
 export type PaymentRow = {
   id: string;
   booking_id: string | null;
+  /** AMC contract payment collected by OorjaMan (held until visits are settled). */
+  subscription_id: string | null;
   customer_id: string;
   amount: number;
   status: PaymentStatus;
@@ -354,6 +369,38 @@ export type PaymentRow = {
   payment_method: string | null;
   /** When payment succeeded; null until success. */
   paid_at: string | null;
+  created_at: string;
+};
+
+export type AmcWalletRow = {
+  id: string;
+  subscription_id: string;
+  customer_id: string;
+  assigned_vendor_id: string | null;
+  total_funded_paise: number;
+  balance_paise: number;
+  released_to_vendor_paise: number;
+  platform_fee_collected_paise: number;
+  per_visit_alloc_paise: number;
+  visits_allocated: number;
+  visits_released: number;
+  currency: string;
+  status: AmcWalletStatus;
+  funded_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AmcWalletEntryRow = {
+  id: string;
+  wallet_id: string;
+  kind: AmcWalletEntryKind;
+  amount_paise: number;
+  balance_after_paise: number | null;
+  booking_id: string | null;
+  vendor_settlement_id: string | null;
+  note: string | null;
+  metadata: Json;
   created_at: string;
 };
 
@@ -378,6 +425,47 @@ export type VendorSettlementRow = {
   settled_by: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type VendorDeferredPenaltyStatus = "pending" | "applied" | "waived";
+
+export type VendorDeferredPenaltyRow = {
+  id: string;
+  vendor_id: string;
+  source_booking_id: string;
+  penalty_paise: number;
+  status: VendorDeferredPenaltyStatus;
+  applied_booking_id: string | null;
+  vendor_settlement_id: string | null;
+  metadata: Json;
+  created_at: string;
+  applied_at: string | null;
+  updated_at: string;
+};
+
+export type CustomerOorjamanCreditGrantRow = {
+  id: string;
+  customer_id: string;
+  source_booking_id: string | null;
+  reason: string;
+  credits_issued: number;
+  credits_remaining: number;
+  issued_at: string;
+  expires_at: string;
+  metadata: Json;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CustomerOorjamanCreditRedemptionRow = {
+  id: string;
+  customer_id: string;
+  grant_id: string;
+  booking_id: string | null;
+  payment_id: string | null;
+  credits_redeemed: number;
+  note: string | null;
+  created_at: string;
 };
 
 /** Country-scoped tier label (e.g. metro band). */
@@ -501,6 +589,9 @@ export type SubscriptionRow = {
   cancelled_reason: string | null;
   external_provider: string | null;
   external_subscription_id: string | null;
+  /** Dedicated AMC partner; all visit bookings route here once assigned by admin. */
+  assigned_vendor_id: string | null;
+  assigned_vendor_at: string | null;
   metadata: Json;
   created_at: string;
   updated_at: string;
@@ -1149,6 +1240,7 @@ export type Database = {
         Insert: {
           id?: string;
           booking_id?: string | null;
+          subscription_id?: string | null;
           customer_id: string;
           amount: number;
           status?: PaymentStatus;
@@ -1156,9 +1248,36 @@ export type Database = {
         Update: Partial<
           Pick<
             PaymentRow,
-            "booking_id" | "status" | "payment_method" | "paid_at"
+            "booking_id" | "subscription_id" | "status" | "payment_method" | "paid_at"
           >
         >;
+        Relationships: [];
+      };
+      amc_wallets: {
+        Row: AmcWalletRow;
+        Insert: {
+          id?: string;
+          subscription_id: string;
+          customer_id: string;
+          assigned_vendor_id?: string | null;
+          total_funded_paise?: number;
+          balance_paise?: number;
+          released_to_vendor_paise?: number;
+          platform_fee_collected_paise?: number;
+          per_visit_alloc_paise?: number;
+          visits_allocated?: number;
+          visits_released?: number;
+          currency?: string;
+          status?: AmcWalletStatus;
+          funded_at?: string | null;
+        };
+        Update: Partial<Omit<AmcWalletRow, "id" | "subscription_id" | "customer_id" | "created_at">>;
+        Relationships: [];
+      };
+      amc_wallet_entries: {
+        Row: AmcWalletEntryRow;
+        Insert: never;
+        Update: never;
         Relationships: [];
       };
       vendor_settlements: {
@@ -1188,6 +1307,61 @@ export type Database = {
             VendorSettlementRow,
             "id" | "booking_id" | "vendor_id" | "kind" | "created_at"
           >
+        >;
+        Relationships: [];
+      };
+      customer_oorjaman_credit_grants: {
+        Row: CustomerOorjamanCreditGrantRow;
+        Insert: {
+          id?: string;
+          customer_id: string;
+          source_booking_id?: string | null;
+          reason?: string;
+          credits_issued: number;
+          credits_remaining: number;
+          issued_at?: string;
+          expires_at: string;
+          metadata?: Json;
+        };
+        Update: Partial<
+          Omit<
+            CustomerOorjamanCreditGrantRow,
+            "id" | "customer_id" | "created_at"
+          >
+        >;
+        Relationships: [];
+      };
+      customer_oorjaman_credit_redemptions: {
+        Row: CustomerOorjamanCreditRedemptionRow;
+        Insert: {
+          id?: string;
+          customer_id: string;
+          grant_id: string;
+          booking_id?: string | null;
+          payment_id?: string | null;
+          credits_redeemed: number;
+          note?: string | null;
+        };
+        Update: Partial<
+          Omit<CustomerOorjamanCreditRedemptionRow, "id" | "customer_id" | "created_at">
+        >;
+        Relationships: [];
+      };
+      vendor_deferred_penalties: {
+        Row: VendorDeferredPenaltyRow;
+        Insert: {
+          id?: string;
+          vendor_id: string;
+          source_booking_id: string;
+          penalty_paise: number;
+          status?: VendorDeferredPenaltyStatus;
+          applied_booking_id?: string | null;
+          vendor_settlement_id?: string | null;
+          metadata?: Json;
+          applied_at?: string | null;
+        };
+        Update: Partial<
+          Omit<VendorDeferredPenaltyRow, "id" | "vendor_id" | "source_booking_id" | "created_at">
         >;
         Relationships: [];
       };
@@ -1480,7 +1654,23 @@ export type Database = {
       recognized_revenue_stats: {
         Row: {
           total_revenue_cents: number;
+          amc_revenue_cents: number;
+          one_time_revenue_cents: number;
           revenue_per_day: Json | null;
+        };
+        Relationships: [];
+      };
+      finance_dashboard_stats: {
+        Row: {
+          total_revenue_cents: number;
+          amc_revenue_cents: number;
+          one_time_revenue_cents: number;
+          revenue_per_day: Json | null;
+          total_collections_cents: number;
+          amc_contract_collections_cents: number;
+          amc_deferred_liability_paise: number;
+          amc_vendor_payables_pending_paise: number;
+          one_time_vendor_payables_pending_paise: number;
         };
         Relationships: [];
       };
@@ -1623,6 +1813,56 @@ export type Database = {
         };
         Returns: { slot_id: string; bookable: boolean }[];
       };
+      issue_vendor_last_hour_cancel_credits: {
+        Args: {
+          p_customer_id: string;
+          p_source_booking_id: string;
+          p_credits?: number;
+        };
+        Returns: CustomerOorjamanCreditGrantRow;
+      };
+      queue_vendor_deferred_penalty: {
+        Args: {
+          p_vendor_id: string;
+          p_source_booking_id: string;
+          p_penalty_paise: number;
+          p_metadata?: Json;
+        };
+        Returns: VendorDeferredPenaltyRow;
+      };
+      redeem_customer_oorjaman_credits: {
+        Args: {
+          p_customer_id: string;
+          p_booking_id: string;
+          p_payment_id: string | null;
+          p_payable_paise: number;
+        };
+        Returns: Json;
+      };
+      fund_amc_wallet_from_payment: {
+        Args: {
+          p_subscription_id: string;
+          p_payment_id: string;
+          p_amount_paise: number;
+        };
+        Returns: AmcWalletRow;
+      };
+      admin_assign_amc_subscription_vendor: {
+        Args: {
+          p_subscription_id: string;
+          p_vendor_id: string;
+          p_reassign_open_bookings?: boolean;
+        };
+        Returns: SubscriptionRow;
+      };
+      release_amc_wallet_visit_payout: {
+        Args: { p_booking_id: string };
+        Returns: VendorSettlementRow;
+      };
+      create_standard_visit_payout_settlement: {
+        Args: { p_booking_id: string };
+        Returns: VendorSettlementRow;
+      };
     };
     Enums: {
       user_role: UserRole;
@@ -1633,6 +1873,8 @@ export type Database = {
       subscription_billing_period: SubscriptionBillingPeriod;
       job_report_weather: JobReportWeather;
       payment_status: PaymentStatus;
+      amc_wallet_status: AmcWalletStatus;
+      amc_wallet_entry_kind: AmcWalletEntryKind;
       vendor_technician_invite_status: VendorTechnicianInviteStatus;
     };
     CompositeTypes: Record<string, never>;

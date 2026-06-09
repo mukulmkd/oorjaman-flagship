@@ -9,11 +9,11 @@ import {
 } from "react-native";
 import { colors, fontFamily, fontSize, lineHeight, spacing } from "@oorjaman/config";
 import {
-  AnimatedPressable,
-  hasReanimated,
-  useAnimatedStyleSafe,
-  useSharedValueSafe,
-  withTimingSafe,
+  getAnimatedPressable,
+  getHasReanimated,
+  getUseAnimatedStyle,
+  getUseSharedValue,
+  getWithTiming,
 } from "./reanimated-safe";
 
 type Variant = "primary" | "secondary" | "outline" | "ghost" | "destructive" | "danger";
@@ -34,6 +34,12 @@ export function Button({
   disabled,
   ...rest
 }: Props) {
+  const hasReanimated = getHasReanimated();
+  const AnimatedPressable = getAnimatedPressable();
+  const useAnimatedStyleSafe = getUseAnimatedStyle();
+  const useSharedValueSafe = getUseSharedValue();
+  const withTimingSafe = getWithTiming();
+
   if (hasReanimated && AnimatedPressable && useAnimatedStyleSafe && useSharedValueSafe && withTimingSafe) {
     return (
       <AnimatedButton
@@ -127,7 +133,10 @@ function AnimatedButton({
   style,
   ...rest
 }: Props) {
-  const AnimatedPressableImpl = AnimatedPressable as NonNullable<typeof AnimatedPressable>;
+  const AnimatedPressableImpl = getAnimatedPressable()!;
+  const useSharedValueSafe = getUseSharedValue();
+  const useAnimatedStyleSafe = getUseAnimatedStyle();
+  const withTimingSafe = getWithTiming();
   const isDisabled = Boolean(disabled || loading);
   const normalizedVariant: Variant = variant === "danger" ? "destructive" : variant;
   const pressedOpacity = useSharedValueSafe!(1);

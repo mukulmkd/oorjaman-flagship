@@ -15,7 +15,7 @@ export default function AboutPage() {
       lead="We connect property owners with verified solar O&M partners - technology for scheduling, pricing, safety workflows, and settlements."
     >
       <p>
-        Customers use our mobile app. Partners use the partner portal and technician app. Platform operators run pricing
+        Customers use our mobile app. Partners use the partner portal and OorjaMan Partner app. Platform operators run pricing
         and approvals from admin tools.
       </p>
       <p>

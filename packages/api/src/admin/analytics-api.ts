@@ -261,12 +261,67 @@ async function fetchRevenueStatsRow(
   };
 }
 
-/** Platform fee on customer payments (completed visits) + cancellation fees. */
-export async function adminFetchRecognizedRevenueStats(client: SupabaseClient<Database>): Promise<{
+export type RecognizedRevenueStats = {
   total_revenue_cents: number;
+  amc_revenue_cents: number;
+  one_time_revenue_cents: number;
   revenue_per_day: RevenueDayPoint[];
-}> {
-  return fetchRevenueStatsRow(client, "recognized_revenue_stats");
+};
+
+export type FinanceDashboardStats = RecognizedRevenueStats & {
+  total_collections_cents: number;
+  amc_contract_collections_cents: number;
+  amc_deferred_liability_paise: number;
+  amc_vendor_payables_pending_paise: number;
+  one_time_vendor_payables_pending_paise: number;
+};
+
+/** Settled platform fees (visit payouts + penalties) + customer late-cancel fees. */
+export async function adminFetchRecognizedRevenueStats(
+  client: SupabaseClient<Database>,
+): Promise<RecognizedRevenueStats> {
+  const { data, error } = await client.from("recognized_revenue_stats").select("*").single();
+  const row = takeSingleRow(data, error) as {
+    total_revenue_cents: number;
+    amc_revenue_cents?: number;
+    one_time_revenue_cents?: number;
+    revenue_per_day: Json | null;
+  };
+  return {
+    total_revenue_cents: Number(row.total_revenue_cents) || 0,
+    amc_revenue_cents: Number(row.amc_revenue_cents) || 0,
+    one_time_revenue_cents: Number(row.one_time_revenue_cents) || 0,
+    revenue_per_day: parseRevenuePerDay(row.revenue_per_day),
+  };
+}
+
+/** Finance tab KPIs: collections, settled revenue split, AMC liability, vendor payables. */
+export async function adminFetchFinanceDashboardStats(
+  client: SupabaseClient<Database>,
+): Promise<FinanceDashboardStats> {
+  const { data, error } = await client.from("finance_dashboard_stats").select("*").single();
+  const row = takeSingleRow(data, error) as {
+    total_revenue_cents: number;
+    amc_revenue_cents?: number;
+    one_time_revenue_cents?: number;
+    revenue_per_day: Json | null;
+    total_collections_cents?: number;
+    amc_contract_collections_cents?: number;
+    amc_deferred_liability_paise?: number;
+    amc_vendor_payables_pending_paise?: number;
+    one_time_vendor_payables_pending_paise?: number;
+  };
+  return {
+    total_revenue_cents: Number(row.total_revenue_cents) || 0,
+    amc_revenue_cents: Number(row.amc_revenue_cents) || 0,
+    one_time_revenue_cents: Number(row.one_time_revenue_cents) || 0,
+    revenue_per_day: parseRevenuePerDay(row.revenue_per_day),
+    total_collections_cents: Number(row.total_collections_cents) || 0,
+    amc_contract_collections_cents: Number(row.amc_contract_collections_cents) || 0,
+    amc_deferred_liability_paise: Number(row.amc_deferred_liability_paise) || 0,
+    amc_vendor_payables_pending_paise: Number(row.amc_vendor_payables_pending_paise) || 0,
+    one_time_vendor_payables_pending_paise: Number(row.one_time_vendor_payables_pending_paise) || 0,
+  };
 }
 
 /** Successful payment gateway totals (all successful payments). */

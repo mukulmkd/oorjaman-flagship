@@ -38,6 +38,8 @@ type Props = {
   onClose: () => void;
   setFocusedThreadId: (id: string | null) => void;
   refreshUnreadCount: () => void;
+  /** Full-screen stack modal (no dimmed backdrop / bottom sheet chrome). */
+  presentation?: "overlay" | "screen";
 };
 
 type IntakeStep = "category" | "subcategory" | "details";
@@ -79,12 +81,13 @@ function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function HelpSupportModalBody({
+export function HelpSupportModalBody({
   visible,
   context,
   onClose,
   setFocusedThreadId,
   refreshUnreadCount,
+  presentation = "overlay",
 }: Props) {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
@@ -186,20 +189,65 @@ function HelpSupportModalBody({
   });
 
   const resetIntake = useCallback(() => {
-    setIntakeStep(context?.category_slug ? "subcategory" : "category");
-    setCategorySlug(context?.category_slug ?? null);
+    const welcome: LocalBubble = {
+      id: uid(),
+      role: "bot",
+      body: "Hi! I'm here to help. Choose a topic below and we'll connect you with OorjaMan support.",
+    };
+
+    if (context?.category_slug && context?.subcategory_slug) {
+      const cat = supportApi.getSupportCategory(context.category_slug);
+      const sub = supportApi.getSupportSubcategory(context.category_slug, context.subcategory_slug);
+      if (cat && sub) {
+        setIntakeStep("details");
+        setCategorySlug(cat.slug);
+        setSubcategorySlug(sub.slug);
+        setDetailsDraft("");
+        setLocalBubbles([
+          welcome,
+          { id: uid(), role: "user", body: cat.label },
+          { id: uid(), role: "bot", body: "Got it. Which of these best describes your question?" },
+          { id: uid(), role: "user", body: sub.label },
+          { id: uid(), role: "bot", body: sub.prompt ?? "Please describe your issue (required)." },
+        ]);
+        setConversationId(null);
+        setComposerText("");
+        return;
+      }
+    }
+
+    if (context?.category_slug) {
+      const cat = supportApi.getSupportCategory(context.category_slug);
+      setIntakeStep("subcategory");
+      setCategorySlug(context.category_slug);
+      setSubcategorySlug(null);
+      setDetailsDraft("");
+      setLocalBubbles([
+        welcome,
+        ...(cat
+          ? [
+              { id: uid(), role: "user" as const, body: cat.label },
+              {
+                id: uid(),
+                role: "bot" as const,
+                body: "Got it. Which of these best describes your question?",
+              },
+            ]
+          : []),
+      ]);
+      setConversationId(null);
+      setComposerText("");
+      return;
+    }
+
+    setIntakeStep("category");
+    setCategorySlug(null);
     setSubcategorySlug(null);
     setDetailsDraft("");
-    setLocalBubbles([
-      {
-        id: uid(),
-        role: "bot",
-        body: "Hi! I'm here to help. Choose a topic below and we'll connect you with OorjaMan support.",
-      },
-    ]);
+    setLocalBubbles([welcome]);
     setConversationId(null);
     setComposerText("");
-  }, [context?.category_slug]);
+  }, [context?.category_slug, context?.subcategory_slug]);
 
   const markThreadRead = useCallback(
     async (convId: string) => {
@@ -488,10 +536,14 @@ function HelpSupportModalBody({
   const scrollBottomPad = Math.max(insets.bottom, spacing.lg) + spacing.xl;
   const footerBottomPad = Math.max(insets.bottom, spacing.sm);
 
+  const fullscreen = presentation === "screen";
+
   return (
-    <View style={styles.root}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close help" />
-      <View style={styles.sheet}>
+    <View style={[styles.root, fullscreen && styles.rootScreen]}>
+      {fullscreen ? null : (
+        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close help" />
+      )}
+      <View style={[styles.sheet, fullscreen && styles.sheetScreen]}>
         <ModalSheetHeader
           title={sheetTitle}
           subtitle={sheetSubtitle}
@@ -502,7 +554,7 @@ function HelpSupportModalBody({
 
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.sheetBody}
+          style={[styles.sheetBody, fullscreen && styles.sheetBodyScreen]}
           keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
         >
           {showLoading ? (
@@ -593,6 +645,7 @@ function HelpSupportModalBody({
                         onPress={() => pickSubcategory(sub.slug, sub.label)}
                       >
                         <Text style={styles.chipTitle}>{sub.label}</Text>
+                        {sub.hint ? <Text style={styles.chipHint}>{sub.hint}</Text> : null}
                       </Pressable>
                     ))}
                   </View>
@@ -720,13 +773,18 @@ function HelpSupportModalBody({
   );
 }
 
+export type HelpSupportScreenProps = Props;
+
 export function HelpSupportModal(props: Props) {
+  if (!props.visible) return null;
+
   return (
     <Modal
-      visible={props.visible}
+      visible
       transparent
       animationType="slide"
       onRequestClose={props.onClose}
+      onDismiss={props.onClose}
       statusBarTranslucent={Platform.OS === "android"}
       navigationBarTranslucent={Platform.OS === "android"}
     >
@@ -739,6 +797,10 @@ export function HelpSupportModal(props: Props) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: "flex-end" },
+  rootScreen: {
+    justifyContent: "flex-start",
+    backgroundColor: colors.background,
+  },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)" },
   sheet: {
     maxHeight: "92%",
@@ -748,9 +810,19 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     overflow: "hidden",
   },
+  sheetScreen: {
+    flex: 1,
+    maxHeight: "100%",
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+  },
   sheetBody: {
     flexShrink: 1,
     minHeight: 120,
+  },
+  sheetBodyScreen: {
+    flex: 1,
+    flexShrink: undefined,
   },
   sheetScroll: {
     flexGrow: 1,
@@ -895,6 +967,13 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semiBold,
     fontSize: fontSize.sm,
     color: colors.foreground,
+  },
+  chipHint: {
+    marginTop: 4,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    lineHeight: 16,
+    color: colors.mutedForeground,
   },
   chipBody: {
     fontFamily: fontFamily.regular,

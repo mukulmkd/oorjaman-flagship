@@ -66,42 +66,26 @@ export async function ensureVisitPayoutSettlement(
   client: SupabaseClient<Database>,
   booking: Pick<
     BookingRow,
-    "id" | "vendor_id" | "status" | "reference_code" | "currency" | "final_price_cents" | "estimated_price_cents"
+    | "id"
+    | "vendor_id"
+    | "status"
+    | "reference_code"
+    | "currency"
+    | "final_price_cents"
+    | "estimated_price_cents"
+    | "subscription_id"
   >,
 ): Promise<VendorSettlementRow | null> {
   if (booking.status !== "completed" || !booking.vendor_id) return null;
 
-  const { data: existing } = await client
-    .from("vendor_settlements")
-    .select("id")
-    .eq("booking_id", booking.id)
-    .eq("kind", "visit_payout")
-    .maybeSingle();
-  if (existing?.id) {
-    const { data } = await client.from("vendor_settlements").select("*").eq("id", existing.id).single();
-    return data as VendorSettlementRow;
+  if (booking.subscription_id) {
+    const { releaseAmcWalletVisitPayout } = await import("./amc-wallet-api");
+    return releaseAmcWalletVisitPayout(client, booking);
   }
 
-  const feePercent = await getVendorPlatformFeePercent(client);
-  const breakdown = computeVisitPayoutBreakdown(bookingVisitValuePaise(booking), feePercent);
-  const row: Database["public"]["Tables"]["vendor_settlements"]["Insert"] = {
-    booking_id: booking.id,
-    vendor_id: booking.vendor_id,
-    kind: "visit_payout",
-    status: "pending_review",
-    currency: booking.currency ?? "INR",
-    reference_code: booking.reference_code,
-    visit_gross_paise: breakdown.grossPaise,
-    platform_fee_paise: breakdown.platformFeePaise,
-    net_payout_paise: breakdown.netPayoutPaise,
-    metadata: {
-      platform_fee_percent: breakdown.platformFeePercent,
-      auto_created: true,
-      source: "visit_completed",
-    } as Json,
-  };
-
-  const { data, error } = await client.from("vendor_settlements").insert(row).select("*").single();
+  const { data, error } = await client.rpc("create_standard_visit_payout_settlement", {
+    p_booking_id: booking.id,
+  });
   if (error) throw new SupabaseApiError(error.message, error);
   return data as VendorSettlementRow;
 }
@@ -146,6 +130,16 @@ export async function ensureCancellationPenaltySettlement(
   return data as VendorSettlementRow;
 }
 
+export type VendorSettlementAdminRow = VendorSettlementRow & {
+  is_amc_visit: boolean;
+};
+
+export function settlementIsAmcVisit(row: Pick<VendorSettlementRow, "metadata">): boolean {
+  if (!row.metadata || typeof row.metadata !== "object" || Array.isArray(row.metadata)) return false;
+  const source = (row.metadata as Record<string, unknown>).source;
+  return source === "amc_wallet_visit_release" || source === "amc_contract_visit_release";
+}
+
 export async function adminListVendorSettlements(
   client: SupabaseClient<Database>,
   filters?: {
@@ -154,14 +148,32 @@ export async function adminListVendorSettlements(
     vendorId?: string;
     limit?: number;
   },
-): Promise<VendorSettlementRow[]> {
+): Promise<VendorSettlementAdminRow[]> {
   const limit = Math.min(500, Math.max(1, filters?.limit ?? 200));
   let q = client.from("vendor_settlements").select("*").order("created_at", { ascending: false }).limit(limit);
   if (filters?.kind) q = q.eq("kind", filters.kind);
   if (filters?.status) q = q.eq("status", filters.status);
   if (filters?.vendorId) q = q.eq("vendor_id", filters.vendorId);
   const { data, error } = await q;
-  return takeRows(data, error) as VendorSettlementRow[];
+  const rows = takeRows(data, error) as VendorSettlementRow[];
+  if (rows.length === 0) return [];
+
+  const bookingIds = [...new Set(rows.map((r) => r.booking_id))];
+  const { data: bookings, error: bookingErr } = await client
+    .from("bookings")
+    .select("id, subscription_id")
+    .in("id", bookingIds);
+  if (bookingErr) throw new SupabaseApiError(bookingErr.message, bookingErr);
+
+  const amcByBookingId = new Map<string, boolean>();
+  for (const b of bookings ?? []) {
+    amcByBookingId.set(b.id, b.subscription_id != null);
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    is_amc_visit: amcByBookingId.get(row.booking_id) ?? settlementIsAmcVisit(row),
+  }));
 }
 
 export async function vendorListMySettlements(
@@ -320,6 +332,14 @@ export function settlementDisplayAmountPaise(row: VendorSettlementRow): number {
 
 export function settlementKindLabel(kind: VendorSettlementKind): string {
   return kind === "visit_payout" ? "Visit payout" : "Cancellation penalty";
+}
+
+export function settlementVisitChannelLabel(
+  row: Pick<VendorSettlementRow, "kind" | "metadata"> & { is_amc_visit?: boolean },
+): string | null {
+  if (row.kind !== "visit_payout") return null;
+  if (row.is_amc_visit || settlementIsAmcVisit(row)) return "AMC visit";
+  return "One-time visit";
 }
 
 export function settlementStatusLabel(status: VendorSettlementStatus): string {

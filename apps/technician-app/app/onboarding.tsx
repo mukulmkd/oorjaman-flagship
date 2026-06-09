@@ -2,46 +2,92 @@ import { useCallback, useRef, useState } from "react";
 import {
   Dimensions,
   FlatList,
-  ListRenderItem,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
+  type ListRenderItem,
   Pressable,
   StyleSheet,
   Text,
   View,
+  type ViewToken,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, spacing } from "@oorjaman/config";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { STORAGE_KEY_ONBOARDING } from "../constants/storage";
+import { BrandLockup } from "../components/brand-lockup";
+import { BrandNameInline } from "../components/brand-wordmark";
+
+type TrustRow = { title: string; subtitle: string };
+
+type SlideIcon = keyof typeof Ionicons.glyphMap;
 
 type Slide = {
-  key: string;
+  id: string;
+  icon: SlideIcon;
   title: string;
-  body: string;
+  titleHasBrand?: boolean;
+  titleBrandPrefix?: string;
+  body?: string;
+  trustRows?: TrustRow[];
+  /** First slide: compact lockup + field-app intro (not customer “book a visit”). */
+  welcomeHero?: boolean;
 };
 
 const SLIDES: Slide[] = [
   {
-    key: "1",
-    title: "Your day, organised",
-    body: "See assigned visits, routes, and priorities without digging through messages.",
+    id: "1",
+    icon: "construct-outline",
+    welcomeHero: true,
+    title: "Your field workspace",
+    body:
+      "This app is for OorjaMan field partners on solar cleaning jobs — not for booking visits. See what dispatch assigned you, run the on-site workflow, and submit proof your employer and operations can rely on.",
   },
   {
-    key: "2",
-    title: "Check in with confidence",
-    body: "Photo proof, notes, and customer updates captured in a consistent flow.",
+    id: "2",
+    icon: "navigate-outline",
+    title: "Assignments, not guesswork",
+    body:
+      "Each job card shows address, scope, customer notes, and site photos before you travel. Status updates stay in one place instead of scattered calls and chat threads.",
   },
   {
-    key: "3",
-    title: "Get paid for completed work",
-    body: "Job status and history stay transparent for you and the operations team.",
+    id: "3",
+    icon: "clipboard-outline",
+    title: "Same steps, every roof",
+    body:
+      "Confirm the Job Start Code, complete safety checks, capture before/after photos, and close the visit with a structured report — so every handoff looks the same to ops.",
+  },
+  {
+    id: "4",
+    icon: "shield-checkmark-outline",
+    title: "",
+    titleHasBrand: true,
+    titleBrandPrefix: "Why partners use ",
+    trustRows: [
+      {
+        title: "Employer-linked sign-in",
+        subtitle: "Use the mobile number your vendor or OorjaMan ops registered — consumer accounts stay in the customer app.",
+      },
+      {
+        title: "Guided field workflow",
+        subtitle: "Start code, checklist, timed visit, and photo evidence in one flow built for rooftop work.",
+      },
+      {
+        title: "Dispatch visibility",
+        subtitle: "Job history and visit status stay visible to operations — raise help from the job when something is unclear.",
+      },
+    ],
   },
 ];
 
 const { width: SCREEN_W } = Dimensions.get("window");
+
+const ICON_LARGE = 48;
+const ICON_TRUST = 22;
+
+/** Primary with ~13% opacity (same idea as Solar's `primary + '22'`). */
+const iconWrapBg = `${colors.primary}22`;
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -53,13 +99,14 @@ export default function OnboardingScreen() {
     router.replace("/permissions");
   }, []);
 
-  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const x = e.nativeEvent.contentOffset.x;
-    const i = Math.round(x / SCREEN_W);
-    setIndex(i);
-  }, []);
+  const onViewableItemsChanged = useRef((info: { viewableItems: ViewToken[] }) => {
+    const item = info.viewableItems[0];
+    if (item?.index != null) setIndex(item.index);
+  }).current;
 
-  const goNext = useCallback(() => {
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
+
+  const handleNext = useCallback(() => {
     if (index < SLIDES.length - 1) {
       listRef.current?.scrollToIndex({ index: index + 1, animated: true });
     } else {
@@ -70,10 +117,44 @@ export default function OnboardingScreen() {
   const renderItem: ListRenderItem<Slide> = useCallback(
     ({ item }) => (
       <View style={[styles.slide, { width: SCREEN_W }]}>
-        <View style={styles.slideCopy}>
-          <Text style={styles.slideTitle}>{item.title}</Text>
-          <Text style={styles.slideBody}>{item.body}</Text>
-        </View>
+        {item.welcomeHero ? (
+          <View style={styles.welcomeHero}>
+            <View style={styles.rolePill}>
+              <Ionicons name="construct-outline" size={14} color={colors.primary} />
+              <Text style={styles.rolePillText}>Partner app</Text>
+            </View>
+            <BrandLockup iconSize={92} />
+          </View>
+        ) : (
+          <View style={[styles.iconWrap, { backgroundColor: iconWrapBg }]}>
+            <Ionicons name={item.icon} size={ICON_LARGE} color={colors.primary} />
+          </View>
+        )}
+        {item.titleHasBrand ? (
+          <BrandNameInline prefix={item.titleBrandPrefix ?? ""} style={styles.title} />
+        ) : (
+          <Text style={styles.title}>{item.title}</Text>
+        )}
+        {item.trustRows ? (
+          <View style={styles.trustBlock}>
+            {item.trustRows.map((row, i) => (
+              <View
+                key={`${item.id}-${i}`}
+                style={[styles.trustRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
+              >
+                <View style={styles.trustIconWrap}>
+                  <Ionicons name="checkmark-circle" size={ICON_TRUST} color={colors.success} />
+                </View>
+                <View style={styles.trustContent}>
+                  <Text style={styles.trustTitle}>{row.title}</Text>
+                  <Text style={styles.trustSubtitle}>{row.subtitle}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.body}>{item.body}</Text>
+        )}
       </View>
     ),
     [],
@@ -81,32 +162,39 @@ export default function OnboardingScreen() {
 
   const isLast = index === SLIDES.length - 1;
 
+  const ctaLabel = isLast
+    ? "Continue to setup"
+    : index === SLIDES.length - 2
+      ? "Almost done"
+      : "Next";
+
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <View style={styles.topBar}>
-        <Text style={styles.brand}>Oorjaman</Text>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Skip introduction"
           onPress={() => void finish()}
           hitSlop={12}
+          style={({ pressed }) => [pressed && styles.skipPressed]}
         >
           <Text style={styles.skip}>Skip</Text>
         </Pressable>
       </View>
 
       <FlatList
-        style={styles.list}
         ref={listRef}
+        style={styles.list}
         data={SLIDES}
-        keyExtractor={(s) => s.key}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
         horizontal
         pagingEnabled
         bounces={false}
         decelerationRate="fast"
         showsHorizontalScrollIndicator={false}
-        renderItem={renderItem}
-        onMomentumScrollEnd={onScroll}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
         getItemLayout={(_, i) => ({
           length: SCREEN_W,
           offset: SCREEN_W * i,
@@ -114,25 +202,29 @@ export default function OnboardingScreen() {
         })}
       />
 
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-        <View style={styles.dots}>
-          {SLIDES.map((s, i) => (
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom + 12, spacing.xl), backgroundColor: colors.background }]}>
+        <View style={styles.pagination}>
+          {SLIDES.map((_, i) => (
             <View
-              key={s.key}
-              style={[styles.dot, i === index ? styles.dotActive : styles.dotIdle]}
+              key={SLIDES[i].id}
+              style={[
+                styles.dot,
+                {
+                  backgroundColor: i === index ? colors.primary : colors.border,
+                  width: i === index ? 24 : 8,
+                },
+              ]}
             />
           ))}
         </View>
+
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={isLast ? "Get started" : "Next slide"}
-          onPress={goNext}
-          style={({ pressed }) => [
-            styles.cta,
-            pressed && styles.ctaPressed,
-          ]}
+          accessibilityLabel={isLast ? "Continue to setup" : "Go to next slide"}
+          onPress={() => void handleNext()}
+          style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
         >
-          <Text style={styles.ctaLabel}>{isLast ? "Get started" : "Continue"}</Text>
+          <Text style={styles.ctaLabel}>{ctaLabel}</Text>
         </Pressable>
       </View>
     </View>
@@ -140,79 +232,135 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  list: {
+  container: {
     flex: 1,
   },
   topBar: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-  },
-  brand: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: fontSize.lg,
-    color: colors.foreground,
   },
   skip: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.md,
     color: colors.primary,
   },
+  skipPressed: {
+    opacity: 0.7,
+  },
+  list: {
+    flex: 1,
+  },
   slide: {
     flex: 1,
-    paddingHorizontal: spacing.md,
+    alignItems: "center",
     justifyContent: "center",
-    paddingBottom: spacing.lg,
+    paddingHorizontal: 32,
   },
-  slideCopy: {
-    gap: spacing.sm,
+  welcomeHero: {
+    alignItems: "center",
+    marginBottom: 28,
+    gap: 14,
   },
-  slideTitle: {
+  rolePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: `${colors.primary}14`,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: `${colors.primary}33`,
+  },
+  rolePillText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: fontSize.xs,
+    color: colors.primary,
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
+  },
+  iconWrap: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 32,
+  },
+  title: {
     fontFamily: fontFamily.bold,
-    fontSize: fontSize.xxl,
-    lineHeight: 32,
-    letterSpacing: -0.4,
+    fontSize: fontSize.xl,
+    lineHeight: 30,
+    letterSpacing: -0.35,
+    color: colors.foreground,
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  body: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.md,
+    lineHeight: 24,
+    color: colors.mutedForeground,
+    textAlign: "center",
+  },
+  trustBlock: {
+    width: "100%",
+    paddingHorizontal: 16,
+    marginTop: 8,
+  },
+  trustRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingVertical: 12,
+  },
+  trustIconWrap: {
+    width: 28,
+    marginRight: 12,
+    alignItems: "center",
+    paddingTop: 2,
+  },
+  trustContent: {
+    flex: 1,
+  },
+  trustTitle: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: fontSize.md,
     color: colors.foreground,
   },
-  slideBody: {
+  trustSubtitle: {
     fontFamily: fontFamily.regular,
-    fontSize: fontSize.lg,
-    lineHeight: 26,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
     color: colors.mutedForeground,
+    marginTop: 2,
   },
   footer: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    gap: spacing.md,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    gap: 12,
   },
-  dots: {
+  pagination: {
     flexDirection: "row",
     justifyContent: "center",
+    alignItems: "center",
     gap: 8,
+    marginBottom: 24,
   },
   dot: {
     height: 8,
     borderRadius: 4,
   },
-  dotIdle: {
-    width: 8,
-    backgroundColor: colors.border,
-  },
-  dotActive: {
-    width: 28,
-    backgroundColor: colors.primary,
-  },
   cta: {
+    alignSelf: "stretch",
     backgroundColor: colors.primary,
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: 56,
   },
   ctaPressed: {
     opacity: 0.92,

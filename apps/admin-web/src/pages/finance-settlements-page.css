@@ -148,6 +148,14 @@
   font-size: var(--type-xs, 0.75rem);
 }
 
+.fin-amc-wallets-link {
+  font-size: 0.875rem;
+  text-decoration: none;
+  color: var(--dash-link, #2563eb);
+  margin-right: 0.75rem;
+  align-self: center;
+}
+
 .fin-page {
   max-width: 1200px;
 }

@@ -10,6 +10,8 @@ import {
 } from "./help-support-context";
 import { HelpSupportModal } from "./help-support-modal";
 import { SupportChatRealtimeNotifications } from "./support-chat-realtime-notifications";
+import { AmcNotificationResponse } from "./amc-notification-response";
+import { SubscriptionRealtimeNotifications } from "./subscription-realtime-notifications";
 import { SupportNotificationResponse } from "./support-notification-response";
 
 export type { HelpSupportOpenContext, HelpSupportContext, HelpSupportState } from "./help-support-context";
@@ -74,8 +76,12 @@ export function HelpSupportProvider({ children }: { children: ReactNode }) {
     <HelpSupportCtx.Provider value={value}>
       {children}
       <CustomerPushRegistration />
+      {trackUnread && custQ.data?.id ? (
+        <SubscriptionRealtimeNotifications customerId={custQ.data.id} />
+      ) : null}
       <SupportChatRealtimeNotifications />
       <SupportNotificationResponse />
+      <AmcNotificationResponse />
       <HelpSupportModal
         visible={visible}
         context={context}

@@ -19,7 +19,7 @@ export function jobUiBucket(status: BookingStatus): JobUiBucket {
   }
 }
 
-/** Technician-facing job status labels. */
+/** Partner-facing job status labels. */
 export function jobStatusLabel(status: BookingStatus): string {
   switch (status) {
     case "pending_payment":

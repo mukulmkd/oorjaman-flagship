@@ -24,6 +24,8 @@ export function DashboardLayout() {
     !technicianNavActive;
   const routingNavActive = location.pathname.startsWith("/dashboard/booking-routing");
   const operationsNavActive = location.pathname.startsWith("/dashboard/operations");
+  const partnerQualityNavActive = location.pathname.startsWith("/dashboard/partners/quality");
+  const trustSafetyNavActive = location.pathname.startsWith("/dashboard/trust-safety");
   const bookingsNavActive = location.pathname.startsWith("/dashboard/bookings");
   const notificationsNavActive = location.pathname.startsWith("/dashboard/notifications");
   const renewalNavActive = location.pathname.startsWith("/dashboard/subscription-renewals");
@@ -60,8 +62,23 @@ export function DashboardLayout() {
           <span>Operations</span>
         </div>
         <nav className="dash-nav" aria-label="Primary">
-          <Link to="/dashboard/analytics" className={analyticsNavActive ? "dash-nav-active" : ""}>
-            Analytics
+          <Link
+            to="/dashboard/operations"
+            className={operationsNavActive ? "dash-nav-active" : ""}
+          >
+            Operations desk
+          </Link>
+          <Link to="/dashboard/bookings" className={bookingsNavActive ? "dash-nav-active" : ""}>
+            Bookings
+          </Link>
+          <Link
+            to="/dashboard/booking-routing"
+            className={routingNavActive ? "dash-nav-active" : ""}
+          >
+            Booking routing
+          </Link>
+          <Link to="/dashboard/finance" className={financeNavActive ? "dash-nav-active" : ""}>
+            Finance
           </Link>
           <Link
             to="/dashboard/vendor-approval"
@@ -76,28 +93,25 @@ export function DashboardLayout() {
             All vendors
           </Link>
           <Link
+            to="/dashboard/partners/quality"
+            className={partnerQualityNavActive ? "dash-nav-active" : ""}
+          >
+            Partner quality
+          </Link>
+          <Link
             to="/dashboard/technicians"
             className={technicianNavActive ? "dash-nav-active" : ""}
           >
             Technicians
           </Link>
           <Link
-            to="/dashboard/booking-routing"
-            className={routingNavActive ? "dash-nav-active" : ""}
+            to="/dashboard/trust-safety"
+            className={trustSafetyNavActive ? "dash-nav-active" : ""}
           >
-            Booking routing
+            Trust & safety
           </Link>
-          <Link
-            to="/dashboard/operations"
-            className={operationsNavActive ? "dash-nav-active" : ""}
-          >
-            Operations control
-          </Link>
-          <Link to="/dashboard/bookings" className={bookingsNavActive ? "dash-nav-active" : ""}>
-            Bookings
-          </Link>
-          <Link to="/dashboard/finance" className={financeNavActive ? "dash-nav-active" : ""}>
-            Finance
+          <Link to="/dashboard/analytics" className={analyticsNavActive ? "dash-nav-active" : ""}>
+            Analytics
           </Link>
           <a href={supportPortalUrl("/inbox")} target="_blank" rel="noreferrer">
             Support desk ↗

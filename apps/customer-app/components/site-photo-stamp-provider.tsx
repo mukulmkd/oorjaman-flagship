@@ -18,7 +18,6 @@ import {
   type LayoutChangeEvent,
 } from "react-native";
 import { File } from "expo-file-system";
-import { captureRef } from "react-native-view-shot";
 import type { SitePhotoCaptureGeo } from "@oorjaman/api";
 import { colors } from "@oorjaman/config";
 import { fontFamily, fontSize } from "../constants/fonts";
@@ -236,6 +235,7 @@ export function SitePhotoStampProvider({ children }: { children: ReactNode }) {
       void (async () => {
         try {
           if (!captureRefView.current) throw new Error("Stamp view not ready.");
+          const { captureRef } = require("react-native-view-shot") as typeof import("react-native-view-shot");
           const uri = await captureRef(captureRefView, {
             format: "jpg",
             quality: 0.9,

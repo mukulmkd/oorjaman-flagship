@@ -1,12 +1,16 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSegments } from "expo-router";
 import { colors } from "@oorjaman/config";
+import { isRootModalRoute, openSupportChat } from "../lib/support-chat-navigation";
 import { useHelpSupport } from "./help-support-context";
 
 /** Header action to open the support chat sheet. */
 export function SupportChatHeaderButton() {
+  const segments = useSegments();
   const { openHelp, unreadCount } = useHelpSupport();
   const badgeLabel = unreadCount > 99 ? "99+" : String(unreadCount);
+  const onModalStack = isRootModalRoute(segments);
 
   return (
     <Pressable
@@ -17,13 +21,14 @@ export function SupportChatHeaderButton() {
           : "Chat with customer support"
       }
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      onPress={() =>
-        openHelp(
-          unreadCount > 0
-            ? { focus_active_thread: true }
-            : undefined,
-        )
-      }
+      onPress={() => {
+        const ctx = unreadCount > 0 ? { focus_active_thread: true as const } : undefined;
+        if (onModalStack) {
+          openSupportChat(ctx);
+          return;
+        }
+        openHelp(ctx);
+      }}
       style={({ pressed }) => [styles.btn, pressed && styles.btnPressed]}
     >
       <Ionicons name="chatbubbles-outline" size={24} color={colors.primary} />

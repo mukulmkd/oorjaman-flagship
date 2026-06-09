@@ -23,7 +23,7 @@ Guide for **local development** vs **production** settings across the OorjaMan f
 | Location                   | Used by                                           |
 | -------------------------- | ------------------------------------------------- |
 | `apps/customer-app/.env`   | Customer Expo app                                 |
-| `apps/technician-app/.env` | Technician Expo app                               |
+| `apps/technician-app/.env` | Partner Expo app (OorjaMan Partner)               |
 | `apps/admin-web/.env`      | Admin Vite app                                    |
 | `apps/vendor-web/.env`     | Vendor Vite app                                   |
 | `apps/support-web/.env`    | Support Vite app                                  |
@@ -192,7 +192,7 @@ Detail: [docs/booking-notifications-realtime.md](docs/booking-notifications-real
 
 ---
 
-## 4. Technician app (`apps/technician-app`)
+## 4. Partner app (`apps/technician-app`)
 
 **PROD vs UAT:** [**DEPLOYMENT.md**](DEPLOYMENT.md#mobile-apps--customer--technician-prod-vs-uat).
 
@@ -210,7 +210,7 @@ Detail: [docs/booking-notifications-realtime.md](docs/booking-notifications-real
 **UAT build:** `npx eas build --profile uat --platform all`  
 **Production build:** `npx eas build --profile production --platform all` (+ `eas credentials` for prod and `.uat` bundle IDs).
 
-### Technician app - Expo push & notifications
+### Partner app - Expo push & notifications
 
 Support chat uses **local notifications** (app open/background) and **remote Expo push** (app killed).
 
@@ -341,7 +341,7 @@ eas secret:create --name EXPO_PUBLIC_EAS_PROJECT_ID --value "..."
 eas secret:create --name EXPO_PUBLIC_GOOGLE_MAPS_API_KEY --value "..."
 ```
 
-**Technician app:**
+**Partner app:**
 
 ```bash
 cd apps/technician-app

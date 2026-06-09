@@ -3,11 +3,11 @@ import { Pressable, StyleSheet, View } from "react-native";
 import type { PressableProps } from "react-native";
 import { colors, spacing } from "@oorjaman/config";
 import {
-  AnimatedPressable,
-  hasReanimated,
-  useAnimatedStyleSafe,
-  useSharedValueSafe,
-  withTimingSafe,
+  getAnimatedPressable,
+  getHasReanimated,
+  getUseAnimatedStyle,
+  getUseSharedValue,
+  getWithTiming,
 } from "./reanimated-safe";
 
 type Variant = "elevated" | "outline" | "muted";
@@ -30,6 +30,12 @@ export function Card({
   onPress,
   accessibilityLabel,
 }: CardProps) {
+  const hasReanimated = getHasReanimated();
+  const AnimatedPressable = getAnimatedPressable();
+  const useAnimatedStyleSafe = getUseAnimatedStyle();
+  const useSharedValueSafe = getUseSharedValue();
+  const withTimingSafe = getWithTiming();
+
   if (hasReanimated && AnimatedPressable && useAnimatedStyleSafe && useSharedValueSafe && withTimingSafe) {
     return (
       <AnimatedCard
@@ -91,7 +97,10 @@ function AnimatedCard({
   onPress,
   accessibilityLabel,
 }: CardProps) {
-  const AnimatedPressableImpl = AnimatedPressable as NonNullable<typeof AnimatedPressable>;
+  const AnimatedPressableImpl = getAnimatedPressable()!;
+  const useSharedValueSafe = getUseSharedValue();
+  const useAnimatedStyleSafe = getUseAnimatedStyle();
+  const withTimingSafe = getWithTiming();
   const shell = [
     styles.base,
     padded && styles.padded,

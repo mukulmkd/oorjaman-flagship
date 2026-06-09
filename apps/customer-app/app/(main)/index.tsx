@@ -25,6 +25,7 @@ import {
   formatSubscriptionValidThrough,
   renewalDueSubscriptionForCurrentServiceSite,
 } from "../../lib/customer-active-amc";
+import { navigateToBookVisit } from "../../lib/book-visit-navigation";
 
 export default function HomeTab() {
   const navigation = useNavigation();
@@ -151,7 +152,14 @@ export default function HomeTab() {
           </Text>
         </Pressable>
       ) : null}
-      <Button variant="primary" size="lg" onPress={() => router.push("/book")}>
+      <Button
+        variant="primary"
+        size="lg"
+        onPress={() => {
+          if (!supabase) return;
+          void navigateToBookVisit(supabase, customerQ.data ?? null, subsQ.data);
+        }}
+      >
         Book a visit
       </Button>
       <View style={{ height: spacing.sm }} />

@@ -1,0 +1,55 @@
+.ops-desk-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.ops-desk-kpi-card {
+  min-height: 88px;
+}
+
+.ops-desk-kpi-card--alert {
+  border-color: var(--wb-danger, #b42318);
+}
+
+.ops-desk-kpi-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--wb-fg, #1c1917);
+}
+
+.ops-desk-kpi-label {
+  margin-top: 0.35rem;
+  font-size: 0.8125rem;
+  color: var(--wb-muted-fg, #78716c);
+  line-height: 1.35;
+}
+
+.ops-desk-category-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.ops-desk-chip {
+  border: 1px solid var(--wb-border, #e7e5e4);
+  background: var(--wb-bg, #fff);
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.ops-desk-chip.is-active {
+  border-color: var(--wb-primary, #1f8660);
+  background: color-mix(in srgb, var(--wb-primary, #1f8660) 12%, white);
+  color: var(--wb-primary, #1f8660);
+  font-weight: 600;
+}
+
+.ops-desk-empty {
+  padding: 1.5rem 1rem 2rem;
+  text-align: center;
+}

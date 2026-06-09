@@ -2,8 +2,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { serviceAddressCityKeyFromJson } from "../bookings/customer-booking-payload";
 import type { Database, Json, SubscriptionRow } from "../database.types";
 import { getMyCustomer } from "../customers/customer-api";
-import { getPricingAmcPlanByCode } from "../pricing/capacity-pricing-api";
-import { isAmcPlanUpgradeFrom } from "../pricing/capacity-pricing";
+import {
+  buildEffectiveAmcPlanForUpgrade,
+  listAmcUpgradePlansForSubscription,
+} from "../pricing/capacity-pricing";
+import {
+  getPricingAmcPlanByCode,
+  getPricingAmcPlanByCodeIncludingInactive,
+  listPricingAmcPlans,
+} from "../pricing/capacity-pricing-api";
 import { normalizeCountryCode } from "../pricing/pricing-engine";
 import { resolveGeoPricingTierAddons } from "../pricing/pricing-api";
 import { getCustomerSolarSizing } from "../customers/customer-solar-sizing";
@@ -13,8 +20,23 @@ import {
   isSubscriptionActive,
   resolveSubscriptionAddressEntry,
 } from "./subscription-address";
+
 export const AMC_PLAN_UPGRADE_DISCLAIMER =
   "Upgrading updates your visit allowance and plan price for the rest of this contract period. Visits you already scheduled or completed stay as they are. Any price difference may be reviewed by OorjaMan.";
+
+function amcPlanUpgradeRejectedMessage(
+  subscription: SubscriptionRow,
+  allowedUpgrades: ReturnType<typeof listAmcUpgradePlansForSubscription>,
+  targetPlanCode: string,
+): string {
+  if (subscription.plan_code.trim() === targetPlanCode.trim()) {
+    return "You're already on this AMC plan. Pull to refresh your plan details.";
+  }
+  if (allowedUpgrades.length === 0) {
+    return "You're already on the highest AMC plan for your system size. Contact support for additional visits, or wait until your contract renewal date.";
+  }
+  return "Choose a higher AMC plan than your current package. Pull to refresh if you just upgraded.";
+}
 
 export async function upgradeAmcSubscriptionAsCustomer(
   client: SupabaseClient<Database>,
@@ -43,15 +65,40 @@ export async function upgradeAmcSubscriptionAsCustomer(
     );
   }
 
-  const currentPlan = await getPricingAmcPlanByCode(
-    client,
-    subscription.plan_code,
-  );
-  const newPlan = await getPricingAmcPlanByCode(client, input.plan_code.trim());
+  const targetPlanCode = input.plan_code.trim();
+  const [catalog, newPlan] = await Promise.all([
+    listPricingAmcPlans(client),
+    getPricingAmcPlanByCode(client, targetPlanCode),
+  ]);
 
-  if (!isAmcPlanUpgradeFrom(currentPlan, newPlan)) {
+  let catalogCurrentPlan = catalog.find(
+    (p) => p.plan_code === subscription.plan_code.trim(),
+  );
+  if (!catalogCurrentPlan) {
+    try {
+      catalogCurrentPlan = await getPricingAmcPlanByCodeIncludingInactive(
+        client,
+        subscription.plan_code,
+      );
+    } catch {
+      catalogCurrentPlan = undefined;
+    }
+  }
+
+  if (!buildEffectiveAmcPlanForUpgrade(catalogCurrentPlan, subscription)) {
     throw new SupabaseApiError(
-      "Choose a higher AMC plan than your current package.",
+      "Your current AMC package is no longer in our catalog. Contact support to upgrade.",
+    );
+  }
+
+  const allowedUpgrades = listAmcUpgradePlansForSubscription(
+    catalog,
+    subscription.plan_code,
+    subscription,
+  );
+  if (!allowedUpgrades.some((p) => p.plan_code === newPlan.plan_code)) {
+    throw new SupabaseApiError(
+      amcPlanUpgradeRejectedMessage(subscription, allowedUpgrades, targetPlanCode),
     );
   }
 

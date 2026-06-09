@@ -10,7 +10,9 @@ export type VendorRoutingReason =
   | "preferred_missing_customer_fallback"
   | "preferred_missing_platform_default"
   /** First AMC visit: no vendor until ops floats to marketplace or assigns. */
-  | "amc_awaiting_admin_marketplace";
+  | "amc_awaiting_admin_marketplace"
+  /** AMC contract has a dedicated partner assigned by admin. */
+  | "amc_assigned_partner";
 
 export type VendorRoutingResolution = {
   resolvedVendorId: string;

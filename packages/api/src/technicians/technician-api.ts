@@ -313,6 +313,7 @@ export async function technicianStartJob(
   const updated = await updateBooking(client, bookingId, {
     status: "in_progress",
     actual_start: now,
+    technician_id: booking.technician_id ?? technicianId,
     ...(serviceOtpPatch
       ? {
           metadata: mergeBookingMetadata(booking.metadata, {
@@ -1202,6 +1203,7 @@ export async function technicianFinalizeJobReport(
   const completed = await updateBooking(client, bookingId, {
     status: "completed",
     actual_end: now,
+    technician_id: booking.technician_id ?? technicianId,
     ...(serviceOtpPatch
       ? {
           metadata: mergeBookingMetadata(booking.metadata, {

@@ -5,6 +5,7 @@ export type HelpSupportOpenContext = {
   subscription_id?: string | null;
   service_address_id?: string | null;
   category_slug?: string | null;
+  subcategory_slug?: string | null;
   /** Open this conversation thread when the sheet opens (e.g. from a push tap). */
   conversation_id?: string | null;
   /** Jump into the active thread (e.g. when opening from unread badge). */

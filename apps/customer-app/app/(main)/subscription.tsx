@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import {
   bookingApi,
   customerApi,
@@ -27,9 +27,16 @@ import {
   resolveGeoPricingTierAddons,
   readSubscriptionServiceAddressId,
   serviceAddressCityKeyFromJson,
-  formatAmcVisitLabel,
+  formatAmcIncludedVisitTitle,
+  formatAmcSuggestedVisitWindow,
+  partitionAmcVisitSlotsForDisplay,
+  resolveAmcVisitScheduleNudge,
+  summarizeAmcVisitAllowances,
+  amcContractIsReadyForVisits,
+  getAmcContractBySubscriptionId,
   isAmcVisitSlotBookedByCustomer,
   isCustomerScheduledAmcMetadata,
+  paymentApi,
   subscriptionApi,
 } from "@oorjaman/api";
 import { formatDisplayDate, formatDisplayDateTime } from "@oorjaman/utils";
@@ -100,10 +107,16 @@ function bookingBelongsToAddress(booking: BookingRow, addressId: string, subId: 
 
 export default function SubscriptionAmcScreen() {
   const qc = useQueryClient();
+  const routeParams = useLocalSearchParams<{ addressId?: string | string[]; focus?: string | string[] }>();
+  const addressIdParam = Array.isArray(routeParams.addressId)
+    ? routeParams.addressId[0]
+    : routeParams.addressId;
+  const focusParam = Array.isArray(routeParams.focus) ? routeParams.focus[0] : routeParams.focus;
   const [selectedPlanCode, setSelectedPlanCode] = useState<string | null>(null);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [addressPickerOpen, setAddressPickerOpen] = useState(false);
   const [upgradeSheetOpen, setUpgradeSheetOpen] = useState(false);
+  const [pastVisitsExpanded, setPastVisitsExpanded] = useState(false);
 
   const customerQuery = useQuery({
     queryKey: queryKeys.customers.mine(),
@@ -117,9 +130,13 @@ export default function SubscriptionAmcScreen() {
   );
 
   useEffect(() => {
+    if (addressIdParam && addressBook.entries.some((e) => e.id === addressIdParam)) {
+      setSelectedAddressId(addressIdParam);
+      return;
+    }
     if (selectedAddressId && addressBook.entries.some((e) => e.id === selectedAddressId)) return;
     setSelectedAddressId(addressBook.defaultId ?? addressBook.entries[0]?.id ?? null);
-  }, [addressBook.defaultId, addressBook.entries, selectedAddressId]);
+  }, [addressBook.defaultId, addressBook.entries, addressIdParam, selectedAddressId]);
 
   const subsQuery = useQuery({
     queryKey: queryKeys.subscriptions.list(),
@@ -173,7 +190,45 @@ export default function SubscriptionAmcScreen() {
     enabled: Boolean(supabase && activeForSelected?.id),
   });
 
+  const amcContractQuery = useQuery({
+    queryKey: queryKeys.finance.amcWalletBySubscription(activeForSelected?.id ?? "__none__"),
+    queryFn: () => getAmcContractBySubscriptionId(supabase!, activeForSelected!.id),
+    enabled: Boolean(supabase && activeForSelected?.id),
+  });
+
   const amcVisitSlots = visitSlotsQuery.data ?? [];
+  const amcContract = amcContractQuery.data ?? null;
+
+  const canScheduleAmcVisits = Boolean(
+    activeForSelected?.status === "active" &&
+      activeForSelected.assigned_vendor_id &&
+      amcContractIsReadyForVisits(amcContract),
+  );
+
+  const includedVisitsTotal =
+    activeForSelected?.visits_included ?? amcVisitSlots.length;
+
+  const visitAllowanceSummary = useMemo(
+    () =>
+      summarizeAmcVisitAllowances(amcVisitSlots, {
+        canSchedule: canScheduleAmcVisits,
+      }),
+    [amcVisitSlots, canScheduleAmcVisits],
+  );
+
+  const { active: activeVisitSlots, past: pastVisitSlots } = useMemo(
+    () => partitionAmcVisitSlotsForDisplay(amcVisitSlots),
+    [amcVisitSlots],
+  );
+
+  const visitScheduleNudge = useMemo(
+    () =>
+      resolveAmcVisitScheduleNudge(amcVisitSlots, {
+        canSchedule: canScheduleAmcVisits,
+        totalVisits: includedVisitsTotal,
+      }),
+    [amcVisitSlots, canScheduleAmcVisits, includedVisitsTotal],
+  );
 
   const scheduledAmcBookingsById = useMemo(() => {
     const m = new Map<string, BookingRow>();
@@ -257,11 +312,34 @@ export default function SubscriptionAmcScreen() {
 
   const upgradePlansForActive = useMemo((): PricingAmcPlanRow[] => {
     if (!activeForSelected) return [];
-    return listAmcUpgradePlansForSubscription(amcPlansQuery.data ?? [], activeForSelected.plan_code);
+    return listAmcUpgradePlansForSubscription(
+      amcPlansQuery.data ?? [],
+      activeForSelected.plan_code,
+      activeForSelected,
+    );
   }, [activeForSelected, amcPlansQuery.data]);
 
   const canUpgradeActivePlan =
     Boolean(activeForSelected) && upgradePlansForActive.length > 0 && !amcTierOutOfSync;
+
+  useEffect(() => {
+    if (focusParam !== "upgrade" || subsQuery.isPending || amcPlansQuery.isPending) return;
+    if (!activeForSelected) return;
+    if (upgradePlansForActive.length === 0) {
+      Alert.alert(
+        "AMC renewal",
+        "You're already on the highest AMC plan for your system size, or your current package can't be upgraded here. Contact support for additional visits, or wait until your contract renewal date.",
+      );
+      return;
+    }
+    setUpgradeSheetOpen(true);
+  }, [
+    focusParam,
+    activeForSelected?.id,
+    subsQuery.isPending,
+    amcPlansQuery.isPending,
+    upgradePlansForActive.length,
+  ]);
 
   useEffect(() => {
     if (!amcPlansForCapacity.length) {
@@ -301,19 +379,76 @@ export default function SubscriptionAmcScreen() {
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: queryKeys.subscriptions.all() });
       await qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
+      await qc.invalidateQueries({ queryKey: queryKeys.finance.all() });
       Alert.alert(
-        "AMC active",
-        "Your plan includes visit allowances across the contract. Schedule each visit when you are ready. One-time visits you already booked stay separate.",
+        "AMC created",
+        "Complete payment for your AMC. After payment, OorjaMan will assign your dedicated partner - then you can schedule visits.",
       );
     },
     onError: (e: Error) => Alert.alert("Couldn't subscribe", e.message),
   });
 
+  const payAmcMut = useMutation({
+    mutationFn: async () => {
+      if (!supabase || !customerQuery.data || !activeForSelected) {
+        throw new Error("Subscribe first, then pay for your AMC.");
+      }
+      const amountPaise = Math.max(0, Math.round(activeForSelected.amount_cents));
+      const pending = await paymentApi.createPendingAmcPayment(supabase, {
+        customerId: customerQuery.data.id,
+        subscriptionId: activeForSelected.id,
+        amountPaise,
+      });
+      return paymentApi.completeAmcSubscriptionPayment(supabase, pending.id, { paymentMethod: "UPI" });
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: queryKeys.subscriptions.all() });
+      await qc.invalidateQueries({ queryKey: queryKeys.finance.all() });
+      Alert.alert(
+        "Payment received",
+        "Payment received. We will assign your dedicated partner shortly - you can schedule visits once they are assigned.",
+      );
+    },
+    onError: (e: Error) => Alert.alert("Payment failed", e.message),
+  });
+
   const upgradeMut = useMutation({
     mutationFn: async (planCode: string) => {
-      if (!supabase || !activeForSelected) throw new Error("No active AMC to upgrade.");
+      if (!supabase || !selectedAddressId) throw new Error("No active AMC to upgrade.");
+
+      await Promise.all([
+        qc.refetchQueries({ queryKey: queryKeys.subscriptions.list() }),
+        qc.refetchQueries({ queryKey: queryKeys.pricing.capacityCatalog("IN") }),
+      ]);
+
+      const freshSubs =
+        qc.getQueryData<SubscriptionRow[]>(queryKeys.subscriptions.list()) ?? [];
+      const freshCatalog =
+        qc.getQueryData<PricingAmcPlanRow[]>(queryKeys.pricing.capacityCatalog("IN")) ?? [];
+      const freshActive = getActiveSubscriptionForAddress(freshSubs, selectedAddressId);
+      if (!freshActive) throw new Error("No active AMC to upgrade.");
+
+      const allowedUpgrades = listAmcUpgradePlansForSubscription(
+        freshCatalog,
+        freshActive.plan_code,
+        freshActive,
+      );
+      if (!allowedUpgrades.some((p) => p.plan_code === planCode)) {
+        if (freshActive.plan_code === planCode) {
+          throw new Error("You're already on this AMC plan. Pull to refresh your plan details.");
+        }
+        if (allowedUpgrades.length === 0) {
+          throw new Error(
+            "You're already on the highest AMC plan for your system size. Contact support for additional visits, or wait until your contract renewal date.",
+          );
+        }
+        throw new Error(
+          "That plan is no longer available as an upgrade. Pull to refresh and try again.",
+        );
+      }
+
       return subscriptionApi.upgradeAmcSubscriptionAsCustomer(supabase, {
-        subscription_id: activeForSelected.id,
+        subscription_id: freshActive.id,
         plan_code: planCode,
       });
     },
@@ -334,37 +469,76 @@ export default function SubscriptionAmcScreen() {
   });
 
   const renderVisitSlotRow = useCallback(
-    (slot: SubscriptionVisitSlotRow) => {
+    (slot: SubscriptionVisitSlotRow, options?: { variant?: "active" | "past" }) => {
       const linked = slot.booking_id ? scheduledAmcBookingsById.get(slot.booking_id) : null;
       const isBooked =
         isAmcVisitSlotBookedByCustomer(slot) &&
         Boolean(linked) &&
         linked!.status !== "cancelled" &&
         isCustomerScheduledAmcMetadata(linked!.metadata);
-      const visitTitle = formatAmcVisitLabel(slot.sequence);
+      const isCompleted = slot.status === "completed";
+      const visitTitle = formatAmcIncludedVisitTitle(slot.sequence, includedVisitsTotal);
       const titleLine =
         isBooked && linked?.reference_code
           ? `${visitTitle} · ${linked.reference_code}`
           : visitTitle;
+      const suggestedWindow = formatAmcSuggestedVisitWindow(slot.ideal_scheduled_start, {
+        sequence: slot.sequence,
+        totalVisits: includedVisitsTotal,
+      });
       const showJobStart =
         isBooked && linked != null && customerBookingVisitDateVisible(linked);
       const statusLabel =
         isBooked && linked ? bookingStatusLabel(linked.status, linked) : visitSlotStatusLabel(slot.status);
+      const completedWhen =
+        isCompleted && linked?.scheduled_start
+          ? formatDisplayDate(linked.scheduled_start)
+          : isCompleted
+            ? formatDisplayDate(slot.ideal_scheduled_start)
+            : null;
+
+      let hintLine: string;
+      if (isCompleted) {
+        hintLine = completedWhen ? `Completed ${completedWhen}` : "Completed";
+      } else if (isBooked) {
+        hintLine = `${statusLabel} · Tap for details`;
+      } else if (slot.status === "pending" && !canScheduleAmcVisits) {
+        hintLine = `${suggestedWindow} · Waiting for your AMC partner`;
+      } else if (slot.status === "pending") {
+        hintLine = `${suggestedWindow} · Not scheduled yet`;
+      } else {
+        hintLine = `${statusLabel} · Schedule when you are ready`;
+      }
+
+      const cardVariant =
+        options?.variant === "past" ? "muted" : isBooked || isCompleted ? "elevated" : "muted";
 
       const card = (
-        <Card variant={isBooked ? "elevated" : "muted"} padded>
-          <Text style={[styles.rowRef, !isBooked && styles.rowRefMuted]}>{titleLine}</Text>
+        <Card variant={cardVariant} padded>
+          <Text
+            style={[
+              styles.rowRef,
+              !isBooked && !isCompleted && options?.variant !== "past" && styles.rowRefMuted,
+            ]}
+          >
+            {titleLine}
+          </Text>
           {showJobStart ? (
             <>
               <Text style={styles.rowDateLabel}>Job start</Text>
               <Text style={styles.rowWhen}>{formatDisplayDateTime(linked!.scheduled_start)}</Text>
             </>
           ) : null}
-          <Text style={[styles.rowHint, !isBooked && styles.rowHintMuted]}>
-            {statusLabel}
-            {isBooked ? " · Tap for details" : " · Schedule when you are ready"}
+          <Text
+            style={[
+              styles.rowHint,
+              !isBooked && !isCompleted && styles.rowHintMuted,
+              options?.variant === "past" && styles.rowHintMuted,
+            ]}
+          >
+            {hintLine}
           </Text>
-          {!isBooked && slot.status === "pending" ? (
+          {!isBooked && !isCompleted && slot.status === "pending" && canScheduleAmcVisits ? (
             <View style={{ marginTop: spacing.sm }}>
               <Button
                 variant="primary"
@@ -383,11 +557,11 @@ export default function SubscriptionAmcScreen() {
         </Card>
       );
 
-      if (isBooked && linked) {
+      if ((isBooked || isCompleted) && linked) {
         return (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${titleLine}, ${statusLabel}`}
+            accessibilityLabel={`${titleLine}, ${hintLine}`}
             key={slot.id}
             onPress={() => router.push({ pathname: "/booking-detail", params: { id: linked.id } })}
             style={({ pressed }) => [styles.rowPress, pressed && styles.rowPressed]}
@@ -398,12 +572,12 @@ export default function SubscriptionAmcScreen() {
       }
 
       return (
-        <View key={slot.id} style={[styles.rowPress, styles.rowDisabled]} accessibilityState={{ disabled: true }}>
+        <View key={slot.id} style={styles.rowPress} accessibilityState={{ disabled: !canScheduleAmcVisits }}>
           {card}
         </View>
       );
     },
-    [scheduledAmcBookingsById],
+    [scheduledAmcBookingsById, canScheduleAmcVisits, includedVisitsTotal],
   );
 
   const renderAddressRow = (entry: ServiceAddressEntry) => {
@@ -431,7 +605,9 @@ export default function SubscriptionAmcScreen() {
             </Text>
           ) : null}
           {active ? (
-            <Text style={styles.addressAmcBadge}>AMC active · {active.plan_name}</Text>
+            <Text style={styles.addressAmcBadge}>
+              {active.status === "trialing" ? "AMC pending payment" : "AMC active"} · {active.plan_name}
+            </Text>
           ) : renewalDue ? (
             <Text style={styles.addressRenewBadge}>
               AMC ended {formatDisplayDate(renewalDue.ends_at)} · renew below
@@ -538,7 +714,7 @@ export default function SubscriptionAmcScreen() {
               <Card variant="muted" padded>
                 <Text style={styles.cardLabel}>Your system (from Profile)</Text>
                 <Text style={styles.metaLine}>
-                  {solarSizing.snappedKw} kW · {solarSizing.panelCount} panels - AMC plans below match this size.
+                  {solarSizing.snappedKw} kW · {solarSizing.panelCount} panels
                 </Text>
               </Card>
             </View>
@@ -585,14 +761,41 @@ export default function SubscriptionAmcScreen() {
                   </View>
                 ) : null}
                 <Card variant="elevated" padded>
-                  <Text style={styles.cardLabel}>Active plan for this address</Text>
+                  <Text style={styles.cardLabel}>
+                    {activeForSelected.status === "trialing" ? "AMC awaiting payment" : "Active plan for this address"}
+                  </Text>
                   <Text style={styles.planName}>{activeForSelected.plan_name}</Text>
                   <Text style={styles.metaLine}>
                     Renews through {formatDisplayDate(activeForSelected.ends_at)} ·{" "}
                     {activeForSelected.visits_included != null
-                      ? `${amcVisitSlots.filter((s) => isAmcVisitSlotBookedByCustomer(s)).length} / ${activeForSelected.visits_included} visits scheduled`
+                      ? `${visitAllowanceSummary.scheduledOrBooked} / ${activeForSelected.visits_included} visits scheduled`
                       : "Visit tracking"}
                   </Text>
+                  {activeForSelected.status === "trialing" ? (
+                    <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
+                      <Text style={styles.metaLine}>
+                        Pay {formatInrFromCents(activeForSelected.amount_cents)} to activate your AMC for this address.
+                        Your dedicated partner is assigned after payment.
+                      </Text>
+                      <Button
+                        loading={payAmcMut.isPending}
+                        variant="primary"
+                        size="sm"
+                        onPress={() => payAmcMut.mutate()}
+                      >
+                        Pay for AMC
+                      </Button>
+                    </View>
+                  ) : activeForSelected.status === "active" && !activeForSelected.assigned_vendor_id ? (
+                    <Text style={[styles.metaLine, { marginTop: spacing.sm }]}>
+                      Payment received. OorjaMan is assigning your dedicated AMC partner - scheduling opens once assigned.
+                      For urgent cleaning before then, contact support and choose “Need urgent cleaning?” - billed separately at one-time rates.
+                    </Text>
+                  ) : activeForSelected.assigned_vendor_id && amcContractIsReadyForVisits(amcContract) ? (
+                    <Text style={[styles.metaLine, { marginTop: spacing.sm }]}>
+                      Dedicated partner assigned · schedule your included visits below.
+                    </Text>
+                  ) : null}
                   {tierPlansForActiveAmc.length > 0 ? (
                     <View style={{ marginTop: spacing.md }}>
                       <Button variant="outline" size="sm" onPress={() => setUpgradeSheetOpen(true)}>
@@ -691,7 +894,7 @@ export default function SubscriptionAmcScreen() {
                       </Button>
                     </View>
                     <Text style={styles.legalHint}>
-                      Signing up creates visit allowances for your contract. Schedule each visit when you want - separate
+                      Signing up creates included visits for your contract. Schedule each when you want - separate
                       one-time cleanings stay on their original price.
                     </Text>
                   </>
@@ -701,20 +904,127 @@ export default function SubscriptionAmcScreen() {
 
             {activeForSelected ? (
               <View style={styles.pad}>
-                <Text style={styles.sectionLabel}>AMC visit allowances</Text>
+                <Text style={styles.sectionLabel}>Included visits</Text>
                 <Text style={styles.inputHelp}>
                   {selectedEntry
-                    ? `Included visits for ${selectedEntry.label}. Schedule any visit when you are ready - your job start time appears once your partner accepts and assigns a technician.`
-                    : "Select an address to see visit allowances."}
+                    ? `Prepaid cleanings for ${selectedEntry.label}. Pick a date for each when you are ready - they are not tied to one-time bookings below. Job start appears once your partner assigns a technician.`
+                    : "Select an address to see included visits."}
                 </Text>
-                <View style={{ gap: spacing.sm }}>{amcVisitSlots.map((s) => renderVisitSlotRow(s))}</View>
+                {amcVisitSlots.length > 0 ? (
+                  <>
+                    {!visitAllowanceSummary.allUsed ? (
+                      <View style={styles.visitProgressRow}>
+                        <View style={styles.visitProgressDots} accessibilityLabel={visitAllowanceSummary.headline}>
+                          {Array.from({ length: visitAllowanceSummary.total }, (_, i) => (
+                            <View
+                              key={`dot-${i}`}
+                              style={[
+                                styles.visitProgressDot,
+                                i < visitAllowanceSummary.progressFilled
+                                  ? styles.visitProgressDotFilled
+                                  : styles.visitProgressDotEmpty,
+                              ]}
+                            />
+                          ))}
+                        </View>
+                        <Text style={styles.visitProgressHeadline}>{visitAllowanceSummary.headline}</Text>
+                      </View>
+                    ) : null}
+
+                    {visitAllowanceSummary.allUsed ? (
+                      <View style={styles.allUsedCard}>
+                        <Card variant="elevated" padded>
+                          <Text style={styles.allUsedTitle}>
+                            All {visitAllowanceSummary.total} included visits used
+                          </Text>
+                          <Text style={styles.allUsedBody}>
+                            Book a paid one-time cleaning anytime
+                            {renewalDueForSelected
+                              ? ", or renew your AMC below."
+                              : activeForSelected.ends_at
+                                ? `, or renew when your contract ends on ${formatDisplayDate(activeForSelected.ends_at)}.`
+                                : "."}
+                          </Text>
+                          <View style={styles.allUsedActions}>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onPress={() => router.push({ pathname: "/book" })}
+                            >
+                              Book one-time visit
+                            </Button>
+                          </View>
+                        </Card>
+                      </View>
+                    ) : null}
+
+                    {visitScheduleNudge ? (
+                      <View style={styles.nudgeCard}>
+                        <Card variant="elevated" padded>
+                          <Text style={styles.nudgeTitle}>{visitScheduleNudge.message}</Text>
+                          <Text style={styles.nudgeBody}>
+                            {formatAmcSuggestedVisitWindow(visitScheduleNudge.slot.ideal_scheduled_start, {
+                              sequence: visitScheduleNudge.slot.sequence,
+                              totalVisits: includedVisitsTotal,
+                            })}
+                          </Text>
+                          <View style={{ marginTop: spacing.sm }}>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onPress={() =>
+                                router.push({
+                                  pathname: "/book",
+                                  params: { amcSlotId: visitScheduleNudge.slot.id },
+                                })
+                              }
+                            >
+                              Schedule visit
+                            </Button>
+                          </View>
+                        </Card>
+                      </View>
+                    ) : null}
+
+                    {activeVisitSlots.length > 0 ? (
+                      <View style={{ gap: spacing.sm }}>
+                        {activeVisitSlots.map((s) => renderVisitSlotRow(s, { variant: "active" }))}
+                      </View>
+                    ) : null}
+
+                    {pastVisitSlots.length > 0 ? (
+                      <View style={{ marginTop: spacing.md }}>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityState={{ expanded: pastVisitsExpanded }}
+                          accessibilityLabel={`Past included visits, ${pastVisitSlots.length} visits`}
+                          onPress={() => setPastVisitsExpanded((v) => !v)}
+                          style={({ pressed }) => [
+                            styles.pastVisitsHeader,
+                            pressed && styles.rowPressed,
+                          ]}
+                        >
+                          <Text style={styles.pastVisitsHeaderText}>
+                            Past included visits ({pastVisitSlots.length})
+                          </Text>
+                          <Text style={styles.pastVisitsChevron}>{pastVisitsExpanded ? "▾" : "▸"}</Text>
+                        </Pressable>
+                        {pastVisitsExpanded ? (
+                          <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
+                            {pastVisitSlots.map((s) => renderVisitSlotRow(s, { variant: "past" }))}
+                          </View>
+                        ) : null}
+                      </View>
+                    ) : null}
+                  </>
+                ) : null}
                 {visitSlotsQuery.isError ? (
                   <Text style={styles.metaLine}>{(visitSlotsQuery.error as Error).message}</Text>
                 ) : null}
                 {amcVisitSlots.length === 0 && !visitSlotsQuery.isPending ? (
                   <EmptyStateCard
                     title="No visit slots yet"
-                    description="Pull to refresh. If you just subscribed, visit allowances should appear shortly."
+                    description="Pull to refresh. If you just subscribed, included visits should appear shortly."
                   />
                 ) : null}
               </View>
@@ -1040,6 +1350,84 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   rowHintMuted: {
+    color: colors.mutedForeground,
+  },
+  visitProgressRow: {
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  visitProgressDots: {
+    flexDirection: "row",
+    gap: spacing.xs,
+  },
+  visitProgressDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  visitProgressDotFilled: {
+    backgroundColor: colors.primary,
+  },
+  visitProgressDotEmpty: {
+    backgroundColor: colors.border,
+  },
+  visitProgressHeadline: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+    color: colors.foreground,
+  },
+  nudgeCard: {
+    marginBottom: spacing.md,
+    borderColor: colors.primary,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  nudgeTitle: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: fontSize.md,
+    color: colors.foreground,
+  },
+  nudgeBody: {
+    marginTop: spacing.xs,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+    color: colors.mutedForeground,
+  },
+  allUsedCard: {
+    marginBottom: spacing.md,
+  },
+  allUsedTitle: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: fontSize.md,
+    color: colors.foreground,
+  },
+  allUsedBody: {
+    marginTop: spacing.xs,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+    color: colors.mutedForeground,
+  },
+  allUsedActions: {
+    marginTop: spacing.md,
+    alignSelf: "flex-start",
+  },
+  pastVisitsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+  },
+  pastVisitsHeaderText: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: fontSize.sm,
+    color: colors.mutedForeground,
+  },
+  pastVisitsChevron: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
     color: colors.mutedForeground,
   },
   muted: {

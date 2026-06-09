@@ -23,6 +23,7 @@ import {
 import { colors, spacing } from "@oorjaman/config";
 import { LoginPhoneRow } from "@oorjaman/ui";
 import { fontFamily, fontSize, fontWeight } from "../constants/fonts";
+import { BrandLockup } from "../components/brand-lockup";
 import { supabase } from "../lib/supabase";
 
 const OTP_LEN = 6;
@@ -149,7 +150,9 @@ export default function LoginScreen() {
           { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.md },
         ]}
       >
-        <Text style={styles.kicker}>Welcome to oorjaman</Text>
+        <View style={styles.brandHeader}>
+          <BrandLockup iconSize={96} />
+        </View>
         <Text style={styles.title}>Sign in with mobile</Text>
         <Text style={styles.lede}>
           We'll text you a one-time code. Standard SMS rates may apply from your carrier.
@@ -270,12 +273,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },
-  kicker: {
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.sm,
-    color: colors.primary,
-    letterSpacing: 0.3,
-    textTransform: "uppercase",
+  brandHeader: {
+    alignSelf: "center",
+    marginBottom: spacing.xs,
   },
   title: {
     fontFamily: fontFamily.bold,

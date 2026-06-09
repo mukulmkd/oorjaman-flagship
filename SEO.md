@@ -97,7 +97,7 @@ npm run build:godaddy -w oorjaman-web
 | **Real pricing on web**        | Optional Supabase read                                           | Today pricing is narrative only                                 |
 | **Logo / favicon**             | `app/icon.tsx`, `public/`                                        | Replace gradient placeholder in header                          |
 | **Partner portal URL**         | `NEXT_PUBLIC_VENDOR_PORTAL_URL`                                  | `/partners` CTA                                                 |
-| **Technician app legal links** | Same as customer                                                 | Point to same `publicLegalUrls`                                 |
+| **Partner app legal links** | Same as customer                                                 | Point to same `publicLegalUrls`                                 |
 | **Structured data audit**      | [Rich Results Test](https://search.google.com/test/rich-results) | After each major release                                        |
 | **Lighthouse pass**            | CI or manual                                                     | Target ≥ 90 mobile Performance/SEO                              |
 | **Apple App Site Association** | `public/.well-known/`                                            | Universal links to `/download`                                  |

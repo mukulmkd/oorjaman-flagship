@@ -20,7 +20,7 @@ export default function MainTabsLayout() {
     enabled: Boolean(supabase),
   });
 
-  if (!supabase || q.isPending) {
+  if (!supabase || (q.isLoading && q.data === undefined)) {
     return <TabShellSkeleton tabSlots={5} />;
   }
 

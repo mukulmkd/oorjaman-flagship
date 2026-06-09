@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="OorjaMan">
+  <defs>
+    <linearGradient id="gLeaf" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1a734f"/>
+      <stop offset="100%" stop-color="#2fa56f"/>
+    </linearGradient>
+    <linearGradient id="gPanel" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5cbd8c"/>
+      <stop offset="100%" stop-color="#1f8660"/>
+    </linearGradient>
+    <linearGradient id="gNavy" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#163a52"/>
+      <stop offset="100%" stop-color="#0f2938"/>
+    </linearGradient>
+    <clipPath id="ring">
+      <circle cx="256" cy="256" r="196"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#ring)">
+    <path fill="url(#gNavy)" d="M256 60c108 0 196 88 196 196s-88 196-196 196V60c0 0 118 0 196 0 0-108-88-196-196-196z"/>
+    <path fill="url(#gPanel)" d="M60 60h196v196H60z"/>
+    <g stroke="#ffffff" stroke-width="10" opacity="0.92">
+      <line x1="60" y1="123" x2="256" y2="123"/>
+      <line x1="60" y1="186" x2="256" y2="186"/>
+      <line x1="60" y1="249" x2="256" y2="249"/>
+      <line x1="127" y1="60" x2="127" y2="256"/>
+      <line x1="190" y1="60" x2="190" y2="256"/>
+    </g>
+    <path fill="url(#gLeaf)" d="M60 256c0-54 36-98 88-118 8 42 34 78 72 98-34 18-72 20-108 20 0 0-52 0-52 0z"/>
+    <path fill="#9fc93c" opacity="0.85" d="M88 300c28-10 52-30 68-58-18 34-46 58-82 70 4-4 10-8 14-12z"/>
+  </g>
+</svg>

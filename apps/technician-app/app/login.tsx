@@ -22,6 +22,7 @@ import {
 } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
 import { LoginPhoneRow } from "@oorjaman/ui";
+import { BrandLockup } from "../components/brand-lockup";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { supabase } from "../lib/supabase";
 
@@ -149,10 +150,14 @@ export default function LoginScreen() {
           { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.md },
         ]}
       >
-        <Text style={styles.kicker}>Technician access</Text>
+        <View style={styles.brandHeader}>
+          <BrandLockup iconSize={96} />
+        </View>
+        <Text style={styles.kicker}>Partner sign-in</Text>
         <Text style={styles.title}>Sign in with mobile</Text>
         <Text style={styles.lede}>
-          Use the mobile number registered with operations. We'll verify via SMS OTP.
+          Use the mobile number your employer or OorjaMan operations registered for you. We'll text a
+          one-time code to verify.
         </Text>
 
         {dummyHint ? (
@@ -259,7 +264,7 @@ export default function LoginScreen() {
         <Text style={styles.hint}>Sessions stay signed in until you explicitly sign out.</Text>
 
         <Text style={styles.footerNote}>
-          New technician? Use the same sign-in above. After your number is verified, we’ll walk you through
+          New partner? Use the same sign-in above. After your number is verified, we’ll walk you through
           onboarding.
         </Text>
       </View>
@@ -277,12 +282,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },
+  brandHeader: {
+    alignSelf: "center",
+    marginBottom: spacing.xs,
+  },
   kicker: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
     color: colors.primary,
     letterSpacing: 0.3,
     textTransform: "uppercase",
+    textAlign: "center",
+    alignSelf: "center",
   },
   title: {
     fontFamily: fontFamily.bold,

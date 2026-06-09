@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Oorjaman Technician",
+    "name": "OorjaMan Partner",
     "slug": "technician-app",
     "scheme": "oorjaman-technician",
     "version": "1.0.0",
@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1f8660"
+      "backgroundColor": "#ffffff"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
@@ -29,6 +29,8 @@
       [
         "expo-notifications",
         {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#1f8660",
           "sounds": ["./assets/sounds/chat_message.wav"]
         }
       ],
@@ -36,15 +38,15 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow Oorjaman Technician to use your location for job routing while you're working.",
+          "locationWhenInUsePermission": "Allow OorjaMan Partner to use your location for job routing while you're working.",
           "isAndroidForegroundServiceEnabled": false
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Oorjaman Technician to attach before and after photos for job reports.",
-          "cameraPermission": "Allow Oorjaman Technician to capture site photos for job reports."
+          "photosPermission": "Allow OorjaMan Partner to attach before and after photos for job reports.",
+          "cameraPermission": "Allow OorjaMan Partner to capture site photos for job reports."
         }
       ]
     ],

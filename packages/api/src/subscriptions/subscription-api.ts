@@ -16,6 +16,7 @@ import { getPricingAmcPlanByCode } from "../pricing/capacity-pricing-api";
 import { resolveGeoPricingTierAddons } from "../pricing/pricing-api";
 import { normalizeCountryCode } from "../pricing/pricing-engine";
 import { getCustomerSolarSizing } from "../customers/customer-solar-sizing";
+import { ensureAmcWalletForSubscription } from "../finance/amc-wallet-api";
 import { syncAmcVisitSlotsForSubscription } from "./amc-visit-slots";
 import { serviceAddressCityKeyFromJson } from "../bookings/customer-booking-payload";
 import { getActiveSubscriptionForAddress } from "./subscription-address";
@@ -229,10 +230,11 @@ export async function createAmcSubscriptionAsCustomer(
     amount_cents: billedAmountCents,
     currency: "INR",
     metadata,
-    status: "active",
+    status: "trialing",
   });
 
   await syncAmcVisitSlotsForSubscription(client, row);
+  await ensureAmcWalletForSubscription(client, row);
   return row;
 }
 

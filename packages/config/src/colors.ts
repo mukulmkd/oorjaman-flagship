@@ -1,11 +1,14 @@
 /**
  * Centralized semantic colors for web + React Native.
  *
+ * Split wordmark colours (Oorja / Man / tagline) live in `brand.ts` — import
+ * `brandColors` from `@oorjaman/config`. Use this file for app UI tokens only.
+ *
  * Brand mapping (OorjaMan logo):
- * - Leaf / “Oorja” green → primary CTAs, success, interactive emphasis
- * - Deep blue / “Man” navy → typography and structure
+ * - Leaf green → primary CTAs, success, interactive emphasis
+ * - Navy structure text → foreground / headings
  * - Icon lime accents → accent + focus ring (paired sparingly with green)
- * - Neutral cool grays → surfaces and secondary text (aligned to navy undertone)
+ * - Neutral cool grays → surfaces and secondary text
  */
 export const colors = {
   /** Leaf green - primary actions */

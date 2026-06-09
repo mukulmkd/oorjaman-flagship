@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   adminBackfillVisitPayoutSettlements,
-  adminFetchRecognizedRevenueStats,
+  adminFetchFinanceDashboardStats,
   adminGetPlatformSettings,
   adminListVendorSettlements,
   adminUpdatePlatformSettings,
@@ -13,13 +13,15 @@ import {
   settlementDisplayAmountPaise,
   settlementKindLabel,
   settlementStatusLabel,
+  settlementVisitChannelLabel,
   vendorApi,
   type VendorSettlementKind,
-  type VendorSettlementRow,
+  type VendorSettlementAdminRow,
   type VendorSettlementStatus,
 } from "@oorjaman/api";
 import { formatDisplayDateTime } from "@oorjaman/utils";
 import { Badge, Button, Card, PageHeader } from "@oorjaman/web-ui";
+import { Link } from "react-router-dom";
 import { TablePaginationBar } from "../components/TablePaginationBar";
 import { useSupabase } from "../lib/supabase-context";
 import "../layouts/dashboard-layout.css";
@@ -75,9 +77,9 @@ export function FinanceSettlementsPage() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.platform.settings() }),
   });
 
-  const recognizedRevenueQ = useQuery({
-    queryKey: [...queryKeys.admin.analytics(), "recognized-revenue"] as const,
-    queryFn: () => adminFetchRecognizedRevenueStats(supabase!),
+  const financeDashboardQ = useQuery({
+    queryKey: [...queryKeys.admin.analytics(), "finance-dashboard"] as const,
+    queryFn: () => adminFetchFinanceDashboardStats(supabase!),
     enabled: Boolean(supabase),
   });
 
@@ -120,6 +122,7 @@ export function FinanceSettlementsPage() {
     }) => adminUpdateVendorSettlement(supabase!, input.id, input),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.finance.all() });
+      void qc.invalidateQueries({ queryKey: queryKeys.admin.analytics() });
     },
   });
 
@@ -137,8 +140,12 @@ export function FinanceSettlementsPage() {
     <div className="dash-page fin-page">
       <PageHeader
         title="Finance & settlements"
-        subtitle="Partner payouts after completed visits, cancellation penalties, and platform commission from OorjaMan settings."
+        subtitle="All collections flow through OorjaMan. Recognized revenue is the platform fee when you mark a visit payout settled (AMC and one-time)."
         actions={
+          <>
+          <Link to="/dashboard/finance/amc-contracts" className="fin-amc-wallets-link">
+            AMC contracts
+          </Link>
           <Button
             type="button"
             variant="outline"
@@ -148,6 +155,7 @@ export function FinanceSettlementsPage() {
           >
             Backfill completed visits
           </Button>
+          </>
         }
       />
 
@@ -160,8 +168,8 @@ export function FinanceSettlementsPage() {
           <Card padded>
             <h2 className="fin-settings-title">Platform settings</h2>
             <p className="dash-muted-line fin-settings-help">
-              Commission on completed visit gross. Stored on each payout row when the visit is completed; changing this
-              does not recalculate existing rows.
+              Commission on visit gross (one-time checkout price or AMC per-visit allocation). Snapshotted when the
+              payout row is created at visit completion. Revenue is recognized only after you mark the payout settled.
             </p>
             {platformSettingsQ.isPending ? (
               <p className="dash-muted-line">Loading platform settings…</p>
@@ -228,16 +236,69 @@ export function FinanceSettlementsPage() {
 
           <div className="fin-kpi-grid" aria-label="Finance summary">
             <div className="fin-kpi">
-              <span className="fin-kpi-label">Total revenue</span>
+              <span className="fin-kpi-label">Recognized revenue</span>
               <span className="fin-kpi-value">
-                {recognizedRevenueQ.isPending
+                {financeDashboardQ.isPending
                   ? "…"
-                  : recognizedRevenueQ.isError
+                  : financeDashboardQ.isError
                     ? "-"
-                    : formatInrFromPaise(recognizedRevenueQ.data?.total_revenue_cents ?? 0)}
+                    : formatInrFromPaise(financeDashboardQ.data?.total_revenue_cents ?? 0)}
               </span>
               <span className="dash-muted-line" style={{ fontSize: "0.75rem", marginTop: "0.2rem" }}>
-                {platformFeePercent}% of customer payments on completed visits + cancellation fees
+                Settled platform fees · AMC{" "}
+                {financeDashboardQ.isSuccess
+                  ? formatInrFromPaise(financeDashboardQ.data.amc_revenue_cents)
+                  : "…"}{" "}
+                · One-time{" "}
+                {financeDashboardQ.isSuccess
+                  ? formatInrFromPaise(financeDashboardQ.data.one_time_revenue_cents)
+                  : "…"}
+              </span>
+            </div>
+            <div className="fin-kpi">
+              <span className="fin-kpi-label">Total collections</span>
+              <span className="fin-kpi-value">
+                {financeDashboardQ.isPending
+                  ? "…"
+                  : formatInrFromPaise(financeDashboardQ.data?.total_collections_cents ?? 0)}
+              </span>
+              <span className="dash-muted-line" style={{ fontSize: "0.75rem", marginTop: "0.2rem" }}>
+                AMC contracts{" "}
+                {financeDashboardQ.isSuccess
+                  ? formatInrFromPaise(financeDashboardQ.data.amc_contract_collections_cents)
+                  : "…"}
+              </span>
+            </div>
+            <div className="fin-kpi">
+              <span className="fin-kpi-label">AMC deferred liability</span>
+              <span className="fin-kpi-value">
+                {financeDashboardQ.isPending
+                  ? "…"
+                  : formatInrFromPaise(financeDashboardQ.data?.amc_deferred_liability_paise ?? 0)}
+              </span>
+              <span className="dash-muted-line" style={{ fontSize: "0.75rem", marginTop: "0.2rem" }}>
+                Prepaid AMC not yet released to partners
+              </span>
+            </div>
+            <div className="fin-kpi">
+              <span className="fin-kpi-label">Vendor payables pending</span>
+              <span className="fin-kpi-value">
+                {financeDashboardQ.isPending
+                  ? "…"
+                  : formatInrFromPaise(
+                      (financeDashboardQ.data?.amc_vendor_payables_pending_paise ?? 0) +
+                        (financeDashboardQ.data?.one_time_vendor_payables_pending_paise ?? 0),
+                    )}
+              </span>
+              <span className="dash-muted-line" style={{ fontSize: "0.75rem", marginTop: "0.2rem" }}>
+                AMC{" "}
+                {financeDashboardQ.isSuccess
+                  ? formatInrFromPaise(financeDashboardQ.data.amc_vendor_payables_pending_paise)
+                  : "…"}{" "}
+                · One-time{" "}
+                {financeDashboardQ.isSuccess
+                  ? formatInrFromPaise(financeDashboardQ.data.one_time_vendor_payables_pending_paise)
+                  : "…"}
               </span>
             </div>
             <div className="fin-kpi">
@@ -247,10 +308,6 @@ export function FinanceSettlementsPage() {
             <div className="fin-kpi">
               <span className="fin-kpi-label">Penalties to review</span>
               <span className="fin-kpi-value">{pendingPenalties}</span>
-            </div>
-            <div className="fin-kpi">
-              <span className="fin-kpi-label">Ledger rows loaded</span>
-              <span className="fin-kpi-value">{total}</span>
             </div>
           </div>
 
@@ -323,6 +380,7 @@ export function FinanceSettlementsPage() {
                         <th>Visit</th>
                         <th>Partner</th>
                         <th>Type</th>
+                        <th>Channel</th>
                         <th>Amount</th>
                         <th>Breakdown</th>
                         <th>Status</th>
@@ -365,7 +423,7 @@ function SettlementRow({
   onAction,
   busy,
 }: {
-  row: VendorSettlementRow;
+  row: VendorSettlementAdminRow;
   vendorName: string;
   editingPenalty?: string;
   onPenaltyEdit: (value: string) => void;
@@ -382,10 +440,11 @@ function SettlementRow({
     row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
       ? (row.metadata as Record<string, unknown>).platform_fee_percent
       : null;
+  const channelLabel = settlementVisitChannelLabel(row);
   const breakdown =
     row.kind === "visit_payout"
-      ? `Gross ${formatInrFromPaise(row.visit_gross_paise ?? 0)} · Fee ${formatInrFromPaise(row.platform_fee_paise ?? 0)}${typeof feePercent === "number" ? ` (${feePercent}%)` : ""
-      }`
+      ? `Gross ${formatInrFromPaise(row.visit_gross_paise ?? 0)} · OorjaMan fee ${formatInrFromPaise(row.platform_fee_paise ?? 0)}${typeof feePercent === "number" ? ` (${feePercent}%)` : ""
+      }${row.status === "settled" ? " · Revenue recognized" : " · Revenue pending settle"}`
       : `Assessed ${formatInrFromPaise(row.penalty_assessed_paise ?? 0)}`;
 
   return (
@@ -393,6 +452,7 @@ function SettlementRow({
       <td className="bm-cell-mono">{row.reference_code ?? row.booking_id.slice(0, 8)}</td>
       <td>{vendorName}</td>
       <td>{settlementKindLabel(row.kind)}</td>
+      <td>{channelLabel ?? "-"}</td>
       <td className={isPenalty ? "fin-amount-penalty" : "fin-amount-payout"}>
         {isPenalty ? "Charge " : "Pay "}
         {formatInrFromPaise(amount)}

@@ -57,7 +57,7 @@ if (!existsSync(configPath)) {
   console.error("");
   console.error("Supabase config not found at supabase/config.toml.");
   console.error("Link your project once:");
-  console.error("  npm exec supabase link --project-ref <your-project-ref>");
+  console.error("  npx supabase link --project-ref <your-project-ref>");
   console.error("");
   process.exit(1);
 }

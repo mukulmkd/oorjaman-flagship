@@ -81,6 +81,19 @@ export async function getPricingAmcPlanByCode(
   return takeSingleRow(data, error);
 }
 
+/** Resolve a catalog row even when the plan was retired after the customer subscribed. */
+export async function getPricingAmcPlanByCodeIncludingInactive(
+  client: SupabaseClient<Database>,
+  planCode: string,
+): Promise<PricingAmcPlanRow> {
+  const { data, error } = await client
+    .from("pricing_amc_plans")
+    .select("*")
+    .eq("plan_code", planCode.trim())
+    .single();
+  return takeSingleRow(data, error);
+}
+
 export async function quoteOneTimeServicePrice(
   client: SupabaseClient<Database>,
   input: { capacityKw: number; countryCode?: string; cityKey?: string | null },

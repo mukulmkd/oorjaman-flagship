@@ -13,6 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import {
   bookingApi,
+  customerApi,
   customerBookingDisplayTitle,
   customerBookingVisitDateVisible,
   queryKeys,
@@ -40,6 +41,7 @@ import {
 import { fontFamily, fontSize } from "../../../constants/fonts";
 import { isBookingAwaitingOorjamanPartnerAssignment } from "../../../lib/booking-partner-messaging";
 import { bookingSupportMailto } from "../../../lib/support";
+import { navigateToBookVisit } from "../../../lib/book-visit-navigation";
 import { supabase } from "../../../lib/supabase";
 import { formatDisplayDateTime } from "@oorjaman/utils";
 import { TabNavTitle } from "../../../components/tab-nav-title";
@@ -115,6 +117,12 @@ export default function MyBookingsScreen() {
   const userQuery = useQuery({
     queryKey: queryKeys.users.me(),
     queryFn: () => userApi.getMyUserRecord(supabase!),
+    enabled: Boolean(supabase),
+  });
+
+  const customerQuery = useQuery({
+    queryKey: queryKeys.customers.mine(),
+    queryFn: () => customerApi.getMyCustomer(supabase!),
     enabled: Boolean(supabase),
   });
 
@@ -234,7 +242,14 @@ export default function MyBookingsScreen() {
           <Text style={styles.lede}>
             Sorted by visit date (newest first). Up to four at a time; use Load more when you have more than four. Pull down to refresh.
           </Text>
-          <Button variant="outline" size="sm" onPress={() => router.push("/book")}>
+          <Button
+            variant="outline"
+            size="sm"
+            onPress={() => {
+              if (!supabase) return;
+              void navigateToBookVisit(supabase, customerQuery.data ?? null);
+            }}
+          >
             New request
           </Button>
         </View>
@@ -270,7 +285,14 @@ export default function MyBookingsScreen() {
                   title="No bookings yet"
                   description="Request a slot with an approved partner - you'll track status here from pending through completion."
                   action={
-                    <Button variant="primary" size="md" onPress={() => router.push("/book")}>
+                    <Button
+                      variant="primary"
+                      size="md"
+                      onPress={() => {
+                        if (!supabase) return;
+                        void navigateToBookVisit(supabase, customerQuery.data ?? null);
+                      }}
+                    >
                       Book a visit
                     </Button>
                   }

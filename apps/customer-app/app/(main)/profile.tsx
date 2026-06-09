@@ -23,6 +23,7 @@ import {
   customerApi,
   customerCapacityTierWillChangeAmc,
   formatInrFromCents,
+  getCustomerOorjamanCreditsSummary,
   getCustomerSolarSizing,
   patchAddressEntryGps,
   queryKeys,
@@ -178,6 +179,12 @@ export default function ProfileTab() {
   const subsQuery = useQuery({
     queryKey: queryKeys.subscriptions.list(),
     queryFn: () => subscriptionApi.listVisibleSubscriptions(supabase!),
+    enabled: Boolean(supabase),
+  });
+
+  const creditsQuery = useQuery({
+    queryKey: queryKeys.finance.customerOorjamanCredits(),
+    queryFn: () => getCustomerOorjamanCreditsSummary(supabase!),
     enabled: Boolean(supabase),
   });
 
@@ -586,6 +593,34 @@ export default function ProfileTab() {
               keyboardType="number-pad"
               placeholder="Backup contact for visits"
             />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>OorjaMan Credits</Text>
+            <Text style={styles.sectionHint}>
+              Apology wallet credits when a partner cancels within the last hour before your visit. 1 Credit = ₹1 off a
+              future one-time booking.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="View OorjaMan Credits wallet"
+              onPress={() => router.push("/credits")}
+              style={({ pressed }) => [styles.prefPartnerRow, pressed && styles.prefPartnerRowPressed]}
+            >
+              <View style={styles.prefPartnerRowText}>
+                <Text style={styles.prefPartnerValue}>
+                  {creditsQuery.isPending
+                    ? "Loading…"
+                    : `${creditsQuery.data?.balance_credits ?? 0} Credits available`}
+                </Text>
+                <Text style={styles.prefPartnerCta}>
+                  {creditsQuery.data && creditsQuery.data.balance_paise > 0
+                    ? `Worth ${formatInrFromCents(creditsQuery.data.balance_paise)} · Tap to view wallet`
+                    : "Tap to view wallet"}
+                </Text>
+              </View>
+              <Text style={styles.prefPartnerChevron}>›</Text>
+            </Pressable>
           </View>
 
           <View style={styles.section}>

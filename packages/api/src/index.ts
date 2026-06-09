@@ -85,9 +85,17 @@ export {
 export {
   adminListNotificationEvents,
   adminListNotificationEventsPaged,
+  adminCountNotificationEvents,
   adminCountQueuedNotificationEvents,
   adminProcessNotificationQueue,
 } from "./notifications/notification-events-api";
+export {
+  adminFetchOpsDeskSummary,
+  adminListAmcAwaitingPartnerAssignments,
+  adminListRecentFailedNotificationEvents,
+  type OpsAmcAwaitingPartnerRow,
+  type OpsDeskSummary,
+} from "./operations/ops-desk-api";
 export {
   countUnreadInAppNotifications,
   listInAppNotifications,
@@ -98,6 +106,13 @@ export {
   unsubscribeNotificationChannel,
 } from "./notifications/notification-inbox-api";
 export type { InAppNotificationPayload, NotificationAudience } from "./notifications/booking-notifications";
+export {
+  adminAmcAwaitingPartnerCopy,
+  customerAmcPartnerAssignedCopy,
+  emitAdminAmcAwaitingPartnerNotification,
+  type AdminAmcNotificationEventType,
+  type AmcInAppNotificationPayload,
+} from "./notifications/amc-notifications";
 export {
   adminListNotificationTemplates,
   adminPreviewNotificationTemplate,
@@ -132,6 +147,7 @@ export {
   VENDOR_CANCEL_REPEAT_LOOKBACK_MS,
   adminFloatDefaultVendorBooking,
   adminAssignVendorToBooking,
+  adminReassignAmcBookingVendor,
   adminFlagBookingOpsIssue,
   adminResetBookingOtpLock,
   adminListOpsBookingExceptions,
@@ -209,6 +225,7 @@ export {
   adminFetchBookingsCreatedDaily,
   adminFetchRevenueStats,
   adminFetchRecognizedRevenueStats,
+  adminFetchFinanceDashboardStats,
   adminFetchPaymentStats,
   adminFetchSubscriptionStats,
   adminFetchVendorPerformance,
@@ -226,6 +243,8 @@ export {
   analyticsPeriodChartSubtitle,
   type AnalyticsBusinessPeriod,
   type AnalyticsPeriodSeriesPoint,
+  type FinanceDashboardStats,
+  type RecognizedRevenueStats,
   type BookingStatsRow,
   type BookingsCreatedDailyRow,
   type RevenueDayPoint,
@@ -325,14 +344,43 @@ export {
   customerBookingDisplayTitle,
   customerBookingRefModalSubtitle,
   customerBookingVisitDateVisible,
+  formatAmcIncludedVisitTitle,
+  formatAmcQuarterLabel,
+  formatAmcSuggestedVisitWindow,
   formatAmcVisitLabel,
+  isAmcSuggestedVisitWindowApproaching,
   isAmcSubscriptionBooking,
   isAmcVisitSlotBookedByCustomer,
   isCustomerScheduledAmcMetadata,
   isLegacyAutoScheduledAmcBooking,
+  partitionAmcVisitSlotsForDisplay,
   readAmcVisitSequenceFromMetadata,
+  resolveAmcVisitScheduleNudge,
   shouldHideAmcBookingFromCustomerList,
+  summarizeAmcVisitAllowances,
+  type AmcVisitAllowanceSummary,
+  type AmcVisitScheduleNudge,
 } from "./subscriptions/amc-display";
+export {
+  amcAllowanceExhaustedPromptMessage,
+  amcAwaitingPartnerAssignmentMessage,
+  amcNoPlanPromptMessage,
+  bookVisitRequiresAmcChoiceGate,
+  isAmcAwaitingPartnerAssignment,
+  amcVisitBookingGateMessage,
+  countAmcVisitsConsumedAtAddress,
+  countOneTimeVisitsAtAddressDuringAmc,
+  customerMayBookOneTimeVisit,
+  customerMustUseAmcBookingFlow,
+  assertCustomerMayBookOneTimeVisit,
+  listPendingAmcVisitSlots,
+  readServiceAddressIdFromBookingMetadata,
+  resolveAmcVisitBookingGate,
+  resolveAmcVisitBookingGateForAddress,
+  subscriptionAddressIdForGate,
+  type AmcAwaitingPartnerAssignmentGate,
+  type AmcVisitBookingGate,
+} from "./subscriptions/amc-visit-booking-eligibility";
 export {
   AMC_CAPACITY_CHANGE_DISCLAIMER,
   customerCapacityTierWillChangeAmc,
@@ -390,6 +438,11 @@ export {
 } from "./support/support-message-events";
 export type { SupportCategory, SupportSubcategory } from "./support/support-catalog";
 export {
+  AMC_URGENT_CLEANING_SUBCATEGORY_SLUG,
+  amcUrgentCleaningSupportHint,
+  amcUrgentCleaningSupportPrompt,
+} from "./support/support-catalog";
+export {
   customerHasSavedSolarSiteDetails,
   formatAllowedCapacityKwList,
   getCustomerSolarSizing,
@@ -416,6 +469,30 @@ export {
 } from "./customers/customer-site-photos";
 export * as paymentApi from "./payments/payment-api";
 export {
+  adminAssignAmcSubscriptionVendor,
+  adminListAmcContracts,
+  amcContractIsReadyForVisits,
+  amcContractStatusLabel,
+  computeAmcPerVisitAllocPaise,
+  ensureAmcContractForSubscription,
+  fundAmcContractFromPayment,
+  getAmcContractBySubscriptionId,
+  listAmcContractEntries,
+  releaseAmcContractVisitPayout,
+  type AmcContractAdminRow,
+  type AmcContractRow,
+  type AmcContractStatus,
+} from "./finance/amc-contract-api";
+export {
+  adminListAmcWallets,
+  ensureAmcWalletForSubscription,
+  fundAmcWalletFromPayment,
+  getAmcWalletBySubscriptionId,
+  listAmcWalletEntries,
+  releaseAmcWalletVisitPayout,
+  type AmcWalletAdminRow,
+} from "./finance/amc-wallet-api";
+export {
   adminBackfillVisitPayoutSettlements,
   adminListVendorSettlements,
   adminUpdateVendorSettlement,
@@ -426,15 +503,45 @@ export {
   ensureVisitPayoutSettlement,
   formatInrFromPaise,
   settlementDisplayAmountPaise,
+  settlementIsAmcVisit,
   settlementKindLabel,
   settlementStatusLabel,
+  settlementVisitChannelLabel,
   vendorListMySettlements,
   vendorSyncCompletedVisitPayoutSettlements,
   type AdminUpdateVendorSettlementInput,
+  type VendorSettlementAdminRow,
   type VendorSettlementKind,
   type VendorSettlementStatus,
   type VisitPayoutBreakdown,
 } from "./finance/vendor-settlement-api";
+export {
+  creditsToPaise,
+  isVendorCancelInLastHourBeforeSlot,
+  OORJAMAN_CREDIT_PAISE,
+  OORJAMAN_CREDIT_VALIDITY_MS,
+  planOorjamanCreditsRedemption,
+  VENDOR_CANCEL_LAST_HOUR_BEFORE_SLOT_MS,
+  VENDOR_LAST_HOUR_CANCEL_CUSTOMER_CREDITS,
+  type OorjamanCreditsRedemptionPlan,
+} from "./finance/customer-credits-policy";
+export {
+  getCustomerOorjamanCreditsSummary,
+  issueVendorLastHourCancelCredits,
+  listCustomerOorjamanCreditGrants,
+  redeemCustomerOorjamanCredits,
+  type CustomerOorjamanCreditsSummary,
+} from "./finance/customer-credits-api";
+export {
+  applyNextVendorDeferredPenaltyOnBooking,
+  listPendingVendorDeferredPenalties,
+  queueVendorDeferredPenalty,
+} from "./finance/vendor-deferred-penalty-api";
+export type {
+  CustomerOorjamanCreditGrantRow,
+  CustomerOorjamanCreditRedemptionRow,
+  VendorDeferredPenaltyRow,
+} from "./database.types";
 export * from "./vendors/vendor-service-area";
 export {
   calculatePrice,

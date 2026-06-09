@@ -141,7 +141,7 @@ export function BookingRoutingPage() {
     <>
       <PageHeader
         title="Booking routing"
-        subtitle="Platform default partner, partner reassignment when a preferred vendor cannot serve the location, and any-partner marketplace bookings."
+        subtitle="Routing policy and marketplace configuration. Actionable marketplace rows also appear on Operations desk."
         actions={
           <Button variant="outline" size="sm" type="button" onClick={() => void fallbackBookingsQuery.refetch()}>
             Refresh activity

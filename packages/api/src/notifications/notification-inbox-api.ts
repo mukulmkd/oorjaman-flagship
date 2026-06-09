@@ -16,10 +16,11 @@ export function parseInAppNotificationPayload(payload: unknown): InAppNotificati
   const bookingId = typeof p.booking_id === "string" ? p.booking_id : null;
   const title = typeof p.title === "string" ? p.title : null;
   const body = typeof p.body === "string" ? p.body : null;
-  if (!bookingId || !title || !body) return null;
+  if (!title || !body) return null;
   return {
     reference_code: typeof p.reference_code === "string" ? p.reference_code : null,
     booking_id: bookingId,
+    subscription_id: typeof p.subscription_id === "string" ? p.subscription_id : null,
     title,
     body,
     href: typeof p.href === "string" ? p.href : null,

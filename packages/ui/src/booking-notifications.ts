@@ -110,6 +110,18 @@ export async function notifyCustomerJobCompleted(
   );
 }
 
+export async function notifyCustomerAmcPartnerAssigned(
+  subscriptionId: string,
+  vendorName?: string | null,
+): Promise<void> {
+  const partner = vendorName?.trim() || "Your dedicated partner";
+  await presentImmediate(
+    `${BRAND} - AMC partner assigned`,
+    `${partner} is assigned to your AMC plan. Open the app to schedule your included visits.`,
+    { kind: "amc_partner_assigned", subscriptionId },
+  );
+}
+
 /** Vendor confirms acceptance from the partner inbox (same app binary as customer). */
 export async function notifyVendorBookingAccepted(
   bookingId: string,

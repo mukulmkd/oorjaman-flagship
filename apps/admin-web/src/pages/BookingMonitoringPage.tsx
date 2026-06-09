@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   adminAssignVendorToBooking,
+  adminReassignAmcBookingVendor,
   adminNotifyOverdueVendorResponses,
   adminFloatDefaultVendorBooking,
   adminFlagBookingOpsIssue,
@@ -110,7 +111,7 @@ type BookingActionState =
   | null
   | {
     row: BookingMonitoringEnriched;
-    view: "menu" | "assign";
+    view: "menu" | "assign" | "amc_reassign";
   };
 
 function formatTiming(row: BookingMonitoringEnriched): { scheduled: string; actual?: string } {
@@ -190,6 +191,14 @@ function canRefloatMarketplace(row: BookingMonitoringEnriched): boolean {
 
 function needsVendorAssignment(row: BookingMonitoringEnriched): boolean {
   return row.status === "confirmed" && !row.vendor_id;
+}
+
+const AMC_REASSIGN_STATUSES: BookingStatus[] = ["confirmed", "accepted", "in_progress"];
+
+function canReassignAmcBooking(row: BookingMonitoringEnriched): boolean {
+  if (!row.subscription_id) return false;
+  if (!AMC_REASSIGN_STATUSES.includes(row.status)) return false;
+  return Boolean(row.vendor_id);
 }
 
 function detectOpsRisks(row: BookingMonitoringEnriched, now = new Date()): OpsRisk[] {
@@ -278,6 +287,7 @@ function detectOpsRisks(row: BookingMonitoringEnriched, now = new Date()): OpsRi
 function hasAssignableAction(row: BookingMonitoringEnriched, risks: OpsRisk[]): boolean {
   return (
     needsVendorAssignment(row) ||
+    canReassignAmcBooking(row) ||
     canFloatToMarketplace(row) ||
     canRefloatMarketplace(row) ||
     risks.length > 0
@@ -352,8 +362,18 @@ export function BookingMonitoringPage() {
     },
   });
   const assignMut = useMutation({
-    mutationFn: async ({ bookingId, vendorId }: { bookingId: string; vendorId: string }) =>
-      adminAssignVendorToBooking(supabase!, bookingId, vendorId),
+    mutationFn: async ({
+      bookingId,
+      vendorId,
+      amcReassign,
+    }: {
+      bookingId: string;
+      vendorId: string;
+      amcReassign?: boolean;
+    }) =>
+      amcReassign
+        ? adminReassignAmcBookingVendor(supabase!, bookingId, vendorId)
+        : adminAssignVendorToBooking(supabase!, bookingId, vendorId),
     onSuccess: async () => {
       setBookingAction(null);
       setAssignVendorId("");
@@ -409,7 +429,7 @@ export function BookingMonitoringPage() {
     <>
       <PageHeader
         title="Bookings"
-        subtitle="Browse one-time and AMC bookings. Routing shows how the partner was chosen; Alerts are automated ops signals."
+        subtitle="Search and audit all bookings. For live triage (assign partner, OTP reset, AMC setup), use Operations desk."
         actions={
           <Button
             variant="outline"
@@ -613,9 +633,11 @@ export function BookingMonitoringPage() {
         title={
           bookingAction?.view === "assign"
             ? "Assign partner"
-            : bookingAction?.row
-              ? `Actions · ${bookingAction.row.reference_code}`
-              : "Actions"
+            : bookingAction?.view === "amc_reassign"
+              ? "Change AMC partner"
+              : bookingAction?.row
+                ? `Actions · ${bookingAction.row.reference_code}`
+                : "Actions"
         }
         description={
           actionRow
@@ -740,6 +762,18 @@ export function BookingMonitoringPage() {
                 </Button>
               ) : null}
 
+              {canReassignAmcBooking(actionRow) ? (
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  disabled={mutating}
+                  onClick={() => setBookingAction({ row: actionRow, view: "amc_reassign" })}
+                >
+                  Change AMC partner…
+                </Button>
+              ) : null}
+
               {canFloatToMarketplace(actionRow) ? (
                 <Button
                   type="button"
@@ -822,11 +856,12 @@ export function BookingMonitoringPage() {
           </div>
         ) : null}
 
-        {bookingAction?.view === "assign" && actionRow ? (
+        {(bookingAction?.view === "assign" || bookingAction?.view === "amc_reassign") && actionRow ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
             <p style={{ margin: 0, fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)", lineHeight: 1.5 }}>
-              The partner&apos;s one-hour acceptance window starts when you confirm (unless a marketplace window is
-              already active-then timers follow <code style={{ fontSize: "0.85em" }}>open_at</code>).
+              {bookingAction.view === "amc_reassign"
+                ? "Reassign this AMC visit only. The contract default partner stays the same unless you change it from AMC wallets. Wallet payout goes to whoever completes the visit."
+                : "The partner's one-hour acceptance window starts when you confirm (unless a marketplace window is already active-then timers follow open_at)."}
             </p>
             <label className="dash-card-label" htmlFor="assign-vendor-modal-select">
               Approved partner
@@ -871,10 +906,14 @@ export function BookingMonitoringPage() {
                 disabled={!assignVendorId}
                 onClick={() => {
                   if (!assignVendorId) return;
-                  void assignMut.mutateAsync({ bookingId: actionRow.id, vendorId: assignVendorId });
+                  void assignMut.mutateAsync({
+                    bookingId: actionRow.id,
+                    vendorId: assignVendorId,
+                    amcReassign: bookingAction?.view === "amc_reassign",
+                  });
                 }}
               >
-                Confirm assignment
+                {bookingAction?.view === "amc_reassign" ? "Confirm change" : "Confirm assignment"}
               </Button>
             </div>
             {assignMut.isError ? <p className="bm-error">{(assignMut.error as Error).message}</p> : null}

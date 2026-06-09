@@ -14,12 +14,9 @@ import type {
   SubscriptionRow,
   SubscriptionVisitSlotRow,
   SubscriptionVisitSlotStatus,
-  VendorRow,
 } from "../database.types";
-import { getBookingRoutingDefaults } from "../platform/platform-settings-api";
 import { SupabaseApiError, takeRows, takeSingleRow } from "../result";
-import * as vendorApi from "../vendors/vendor-api";
-import { customerLocationSignalsFromCustomer } from "../vendors/vendor-service-area";
+import { getAmcWalletBySubscriptionId } from "../finance/amc-wallet-api";
 import { computeAmcVisitSlots } from "./amc-booking-generation";
 import { readServiceSiteAddressFromSubscription } from "./subscription-address";
 
@@ -45,42 +42,6 @@ export type ScheduleAmcVisitSlotInput = {
         marketplaceFilterCity: string | null;
       };
 };
-
-function readPreferredVendorIdFromMetadata(metadata: Json): string | null {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata))
-    return null;
-  const v = (metadata as Record<string, unknown>).preferred_vendor_id;
-  if (typeof v !== "string") return null;
-  const t = v.trim();
-  if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      t,
-    )
-  ) {
-    return null;
-  }
-  return t;
-}
-
-function sortVendorsByName(vendors: VendorRow[]): VendorRow[] {
-  return [...vendors].sort((a, b) =>
-    a.business_name.localeCompare(b.business_name),
-  );
-}
-
-function pickAmcRequestedVendorDisplayId(params: {
-  metadataPreferred: string | null;
-  platformDefaultVendorId: string | null;
-  approvedSorted: VendorRow[];
-}): string | null {
-  if (params.metadataPreferred) return params.metadataPreferred;
-  if (params.platformDefaultVendorId) {
-    const byId = new Map(params.approvedSorted.map((v) => [v.id, v]));
-    if (byId.has(params.platformDefaultVendorId))
-      return params.platformDefaultVendorId;
-  }
-  return params.approvedSorted[0]?.id ?? null;
-}
 
 /**
  * Creates ideal-date visit placeholders when a customer subscribes. No booking rows or reference codes yet.
@@ -143,21 +104,6 @@ export async function getAmcVisitSlotById(
   return takeSingleRow(data, error);
 }
 
-async function subscriptionHasCustomerScheduledAmcVisit(
-  client: SupabaseClient<Database>,
-  subscriptionId: string,
-): Promise<boolean> {
-  const { count, error } = await client
-    .from("subscription_visit_slots")
-    .select("id", { count: "exact", head: true })
-    .eq("subscription_id", subscriptionId)
-    .not("booking_id", "is", null)
-    .neq("status", "pending");
-
-  if (error) throw new SupabaseApiError(error.message, error);
-  return (count ?? 0) > 0;
-}
-
 /**
  * Customer picks a time for a pending AMC slot → creates booking (with reference code) and links the slot.
  */
@@ -180,8 +126,19 @@ export async function scheduleAmcVisitSlot(
   if (subErr) throw new SupabaseApiError(subErr.message, subErr);
   const subscription = subRow as SubscriptionRow;
 
-  if (!["active", "trialing"].includes(subscription.status)) {
-    throw new SupabaseApiError("This AMC plan is no longer active.");
+  if (subscription.status !== "active") {
+    throw new SupabaseApiError("This AMC plan is not active yet. Complete payment and partner assignment first.");
+  }
+
+  if (!subscription.assigned_vendor_id) {
+    throw new SupabaseApiError(
+      "Your dedicated AMC partner has not been assigned yet. We will notify you when you can schedule visits.",
+    );
+  }
+
+  const wallet = await getAmcWalletBySubscriptionId(client, subscription.id);
+  if (!wallet || wallet.status !== "funded") {
+    throw new SupabaseApiError("AMC payment is required before scheduling visits.");
   }
 
   const { data: customerRow, error: custErr } = await client
@@ -208,96 +165,33 @@ export async function scheduleAmcVisitSlot(
     throw new SupabaseApiError("Enter the service site address.");
   }
 
-  const isFirstAmcBooking = !(await subscriptionHasCustomerScheduledAmcVisit(
-    client,
-    subscription.id,
-  ));
   const nowIso = new Date().toISOString();
   const serviceAddressId =
     input.serviceAddressId?.trim() ||
     subscription.service_address_id?.trim() ||
     null;
 
-  let vendorId: string | null = null;
-  let vendorRouting: VendorRoutingMeta;
+  const assignedVendorId = subscription.assigned_vendor_id!;
+  const vendorId = assignedVendorId;
+  const vendorRouting: VendorRoutingMeta = {
+    requested_vendor_id: assignedVendorId,
+    resolved_vendor_id: assignedVendorId,
+    used_fallback: false,
+    reason: "amc_assigned_partner",
+  };
   const extraMetadata: Record<string, Json> = {
     source: "subscription_amc",
     customer_scheduled_amc: true,
+    amc_assigned_vendor_id: assignedVendorId,
     sequence: slot.sequence,
     subscription_plan: subscription.plan_code,
     schedule_slot: input.scheduleSlotMeta,
+    vendor_response: { anchor_at: nowIso } as Json,
     ...(input.bookingRecipient
       ? { booking_recipient: input.bookingRecipient }
       : {}),
     ...(serviceAddressId ? { service_address_id: serviceAddressId } : {}),
   };
-
-  if (input.vendorPick.mode === "any") {
-    const [defaults, approved] = await Promise.all([
-      getBookingRoutingDefaults(client),
-      vendorApi.listApprovedVendors(client),
-    ]);
-    const requestedDisplay = pickAmcRequestedVendorDisplayId({
-      metadataPreferred: readPreferredVendorIdFromMetadata(
-        subscription.metadata,
-      ),
-      platformDefaultVendorId: defaults.defaultVendorId,
-      approvedSorted: sortVendorsByName(approved),
-    });
-    vendorId = null;
-    vendorRouting = {
-      requested_vendor_id: requestedDisplay,
-      resolved_vendor_id: null,
-      used_fallback: true,
-      reason: isFirstAmcBooking
-        ? "amc_awaiting_admin_marketplace"
-        : "default_vendor_marketplace",
-    };
-    if (isFirstAmcBooking) {
-      extraMetadata.marketplace = {
-        mode: "default_vendor",
-        floated: false,
-        awaiting_admin_float: true,
-      };
-    } else {
-      extraMetadata.marketplace = {
-        mode: "default_vendor",
-        floated: false,
-        awaiting_admin_float: true,
-        accept_window_hours: 1,
-        post_7pm_admin_queue: true,
-      };
-    }
-  } else {
-    const pick = input.vendorPick;
-    const useDefaultMarketplace = pick.preferredUnavailable;
-    vendorId = useDefaultMarketplace ? null : pick.resolvedVendorId;
-    vendorRouting = {
-      requested_vendor_id: pick.requestedVendorId,
-      resolved_vendor_id: useDefaultMarketplace ? null : pick.resolvedVendorId,
-      used_fallback: useDefaultMarketplace,
-      reason: useDefaultMarketplace
-        ? "default_vendor_marketplace"
-        : pick.reason,
-    };
-    if (useDefaultMarketplace) {
-      extraMetadata.marketplace = {
-        mode: "default_vendor",
-        floated: false,
-        awaiting_admin_float: true,
-        accept_window_hours: 1,
-        post_7pm_admin_queue: true,
-        auto_routed_from_preferred_unavailable: true,
-        broadcast_filter: "customer_pin",
-        filter_pincode: pick.marketplaceFilterPincode,
-        filter_city: pick.marketplaceFilterCity,
-      };
-    } else {
-      extraMetadata.vendor_response = {
-        anchor_at: nowIso,
-      } as Json;
-    }
-  }
 
   const payload = buildCustomerBookingCreateInput({
     customerId: subscription.customer_id,

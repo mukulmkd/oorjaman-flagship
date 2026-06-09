@@ -15,13 +15,13 @@ import { StatusBar } from "expo-status-bar";
 import { colors } from "@oorjaman/config";
 import { QueryProvider } from "../providers/query-provider";
 import {
-  hideNativeSplashScreenOnce,
   installMobileAuthConsoleFilters,
   keepNativeSplashScreenVisible,
   MobileAuthSessionGuard,
   MobileOfflineGate,
   MobileUatEnvironmentBanner,
 } from "@oorjaman/ui";
+import { hideNativeSplashScreenOnce } from "@oorjaman/ui/safe-splash-screen";
 
 installMobileAuthConsoleFilters();
 import { SupportChatHeaderButton } from "../components/help-header-button";
@@ -67,7 +67,8 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (fontsReady) void hideNativeSplashScreenOnce();
+    if (!fontsReady) return;
+    void hideNativeSplashScreenOnce();
   }, [fontsReady]);
 
   if (!fontsReady) {
@@ -129,6 +130,22 @@ export default function RootLayout() {
         />
         <Stack.Screen
           name="booking-reschedule"
+          options={{
+            presentation: "modal",
+            headerShown: false,
+            ...customerModalHeaderOptions,
+          }}
+        />
+        <Stack.Screen
+          name="credits"
+          options={{
+            presentation: "modal",
+            headerShown: false,
+            ...customerModalHeaderOptions,
+          }}
+        />
+        <Stack.Screen
+          name="support-chat"
           options={{
             presentation: "modal",
             headerShown: false,

@@ -135,6 +135,11 @@ export const queryKeys = {
       [...queryKeys.bookings.all(), "ops-exceptions", limit ?? "default"] as const,
     opsExceptionsPage: (page: number, pageSize: number, filter?: string) =>
       [...queryKeys.bookings.all(), "ops-exceptions-paged", page, pageSize, filter ?? "actionable"] as const,
+    opsDeskSummary: () => [...queryKeys.bookings.all(), "ops-desk-summary"] as const,
+    opsDeskAmcAwaitingPartner: () =>
+      [...queryKeys.bookings.all(), "ops-desk-amc-awaiting-partner"] as const,
+    notificationFailedRecent: (hours: number) =>
+      [...queryKeys.bookings.all(), "notification-failed-recent", hours] as const,
     notificationInbox: (audience: "admin" | "vendor", limit?: number) =>
       [...queryKeys.bookings.all(), "notification-inbox", audience, limit ?? 40] as const,
     notificationUnreadCount: (audience: "admin" | "vendor") =>
@@ -260,6 +265,12 @@ export const queryKeys = {
   finance: {
     all: () => [...queryKeys.root, "finance"] as const,
     adminSettlements: (filtersKey: string) => [...queryKeys.finance.all(), "admin-settlements", filtersKey] as const,
+    amcWallets: (statusKey: string) => [...queryKeys.finance.all(), "amc-wallets", statusKey] as const,
+    amcContracts: (statusKey: string) => [...queryKeys.finance.all(), "amc-contracts", statusKey] as const,
+    amcWalletBySubscription: (subscriptionId: string) =>
+      [...queryKeys.finance.all(), "amc-wallet", subscriptionId] as const,
+    customerOorjamanCredits: () =>
+      [...queryKeys.finance.all(), "customer-oorjaman-credits"] as const,
   },
 
   health: {

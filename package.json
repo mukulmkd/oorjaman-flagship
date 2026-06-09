@@ -26,20 +26,23 @@
     "expo:types": "npm run expo:types -w customer-app && npm run expo:types -w technician-app",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "seed:dummy-users": "node scripts/seed-dummy-test-users.mjs",
+    "purge:test-data": "node scripts/purge-test-user-data.mjs",
     "repair:public-users": "node scripts/repair-public-users.mjs",
     "db:push": "node scripts/supabase-db-push.mjs",
-    "db:push:yes": "supabase db push --yes",
+    "db:push:yes": "npx supabase db push --yes",
     "db:reference": "node scripts/build-supabase-reference.mjs",
     "db:push:include-all": "node scripts/supabase-db-push.mjs --include-all --yes",
-    "db:status": "supabase status",
-    "supabase": "supabase",
+    "db:status": "npx supabase status",
+    "supabase": "npx supabase",
     "functions:deploy": "node scripts/supabase-function-deploy.mjs",
-    "typecheck:edge-functions": "tsc -p supabase/functions/tsconfig.json --pretty false"
+    "typecheck:edge-functions": "tsc -p supabase/functions/tsconfig.json --pretty false",
+    "brand:sync": "node scripts/sync-brand-assets.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.49.1",
+    "sharp": "^0.34.2",
     "dotenv": "^16.4.5",
-    "supabase": "2.100.0",
+    "supabase": "2.105.0",
     "typescript": "~5.7.2"
   }
 }

@@ -2020,4 +2020,98 @@ grant execute on function public.my_technician_id() to authenticated;
 
 grant execute on function public.is_approved_vendor_user() to authenticated;
 
+alter table public.amc_wallets enable row level security;
+
+alter table public.amc_wallet_entries enable row level security;
+
+drop policy if exists amc_wallets_select on public.amc_wallets;
+
+create policy amc_wallets_select
+on public.amc_wallets for select to authenticated
+using (
+  public.is_admin()
+  or customer_id = public.my_customer_id()
+  or (
+    assigned_vendor_id is not null
+    and assigned_vendor_id = public.my_vendor_id()
+  )
+);
+
+drop policy if exists amc_wallets_update_admin on public.amc_wallets;
+
+create policy amc_wallets_update_admin
+on public.amc_wallets for update to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists amc_wallet_entries_select on public.amc_wallet_entries;
+
+create policy amc_wallet_entries_select
+on public.amc_wallet_entries for select to authenticated
+using (
+  public.is_admin()
+  or exists (
+    select 1 from public.amc_wallets w
+    where w.id = amc_wallet_entries.wallet_id
+      and (
+        w.customer_id = public.my_customer_id()
+        or (w.assigned_vendor_id is not null and w.assigned_vendor_id = public.my_vendor_id())
+      )
+  )
+);
+
+drop policy if exists amc_wallets_insert_customer on public.amc_wallets;
+
+create policy amc_wallets_insert_customer
+on public.amc_wallets for insert to authenticated
+with check (
+  customer_id = public.my_customer_id()
+  and exists (
+    select 1 from public.subscriptions s
+    where s.id = amc_wallets.subscription_id
+      and s.customer_id = amc_wallets.customer_id
+  )
+);
+
+drop policy if exists amc_wallets_insert_admin on public.amc_wallets;
+
+create policy amc_wallets_insert_admin
+on public.amc_wallets for insert to authenticated
+with check (public.is_admin());
+
+drop policy if exists vendor_settlements_insert on public.vendor_settlements;
+
+create policy vendor_settlements_insert
+on public.vendor_settlements for insert to authenticated
+with check (
+  public.is_admin()
+  or (
+    vendor_id = public.my_vendor_id()
+    and exists (
+      select 1
+      from public.bookings b
+      where b.id = booking_id
+        and b.vendor_id = vendor_settlements.vendor_id
+    )
+  )
+  or exists (
+    select 1
+    from public.bookings b
+    where b.id = booking_id
+      and b.vendor_id is not null
+      and b.vendor_id = vendor_settlements.vendor_id
+      and b.technician_id is not null
+      and b.technician_id = public.my_technician_id()
+  )
+  or exists (
+    select 1
+    from public.bookings b
+    join public.job_reports jr on jr.booking_id = b.id
+    where b.id = booking_id
+      and b.vendor_id is not null
+      and b.vendor_id = vendor_settlements.vendor_id
+      and jr.technician_id = public.my_technician_id()
+  )
+);
+
 -- End of policies (generated)

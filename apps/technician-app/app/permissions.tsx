@@ -42,17 +42,17 @@ export default function PermissionsScreen() {
       ]}
     >
       <Text style={styles.kicker}>Field-ready</Text>
-      <Text style={styles.title}>Location for routing</Text>
+      <Text style={styles.title}>Location for job routing</Text>
       <Text style={styles.body}>
-        Turn on location while using the app so dispatch can assign nearby jobs and customers see realistic
-        ETAs when you're en route.
+        Turn on location while using the partner app so dispatch can assign nearby jobs and customers see
+        realistic ETAs when you are en route to a site.
       </Text>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Battery-conscious</Text>
         <Text style={styles.cardBody}>
-          We only request foreground access - background tracking would be added only if your team enables
-          it later.
+          Foreground access only while you are working in the app — not background tracking unless your
+          operations team enables it later.
         </Text>
       </View>
 

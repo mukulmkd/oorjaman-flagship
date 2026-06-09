@@ -30,6 +30,7 @@ import {
   emitAdminBookingNotification,
   emitVendorBookingNotification,
 } from "../notifications/booking-notifications";
+import { isVendorCancelInLastHourBeforeSlot } from "../finance/customer-credits-policy";
 import { ensureCancellationPenaltySettlement } from "../finance/vendor-settlement-api";
 import {
   emitMarketplaceNotificationEvents,
@@ -195,6 +196,14 @@ export async function createBookingAsCustomer(
 ): Promise<BookingRow> {
   const { data: userData } = await client.auth.getUser();
   const uid = requireSessionUserId(userData.user?.id);
+
+  if (!input.subscription_id && (input.status ?? "pending_payment") === "pending_payment") {
+    const { assertCustomerMayBookOneTimeVisit, readServiceAddressIdFromBookingMetadata } =
+      await import("../subscriptions/amc-visit-booking-eligibility");
+    await assertCustomerMayBookOneTimeVisit(client, {
+      serviceAddressId: readServiceAddressIdFromBookingMetadata(input.metadata),
+    });
+  }
 
   const { data, error } = await client
     .from("bookings")
@@ -1223,6 +1232,10 @@ export async function vendorAcceptBookingRequest(
     vendorName,
     technicianName,
   });
+  const { applyNextVendorDeferredPenaltyOnBooking } = await import(
+    "../finance/vendor-deferred-penalty-api"
+  );
+  await applyNextVendorDeferredPenaltyOnBooking(client, updated);
   return updated;
 }
 
@@ -1329,18 +1342,33 @@ export async function vendorCancelAcceptedBooking(
     vid,
     bookingId,
   );
+  const lastHourBeforeSlot = isVendorCancelInLastHourBeforeSlot(
+    booking.scheduled_start,
+    new Date(nowIso),
+  );
   const baseConsequence = deriveVendorLateCancelConsequence({
     acceptedAtIso: acceptedAt,
     scheduledStartIso: booking.scheduled_start,
   });
-  const consequence = applyVendorLateCancelRepeatEscalation(
+  let consequence = applyVendorLateCancelRepeatEscalation(
     baseConsequence,
     priorStrikes,
   );
+  if (lastHourBeforeSlot && consequence.penaltyPaise <= 0) {
+    consequence = {
+      ...consequence,
+      tier: "hard",
+      penaltyPaise: 30000,
+      reason: "last_hour_before_slot",
+    };
+  }
+  const useWalletCredits = lastHourBeforeSlot;
   const coupon =
-    consequence.creditPaise > 0 ? buildCustomerCompensationCoupon() : null;
+    !useWalletCredits && consequence.creditPaise > 0
+      ? buildCustomerCompensationCoupon()
+      : null;
   const expiresAt =
-    consequence.creditPaise > 0
+    coupon && consequence.creditPaise > 0
       ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
       : null;
   const nextMeta = mergeBookingMetadata(booking.metadata, {
@@ -1360,16 +1388,18 @@ export async function vendorCancelAcceptedBooking(
       reason: trimmed,
     } as Json,
     vendor_cancellation_penalty: {
-      tier: consequence.tier,
+      tier: lastHourBeforeSlot ? "last_hour" : consequence.tier,
       penalty_paise: consequence.penaltyPaise,
       cancellation_delay_ms: consequence.cancellationDelayMs,
-      reason: consequence.reason,
+      reason: lastHourBeforeSlot ? "last_hour_before_slot" : consequence.reason,
       assessed_at: nowIso,
       prior_penalized_cancels_30d: priorStrikes,
       repeat_escalation_step: consequence.repeatEscalationStep,
       base_tier: baseConsequence.tier,
       base_penalty_paise: baseConsequence.penaltyPaise,
       base_credit_paise: baseConsequence.creditPaise,
+      deferred_to_next_booking: lastHourBeforeSlot && consequence.penaltyPaise > 0,
+      customer_wallet_credits_issued: lastHourBeforeSlot,
     } as Json,
     ...(coupon
       ? {
@@ -1400,7 +1430,31 @@ export async function vendorCancelAcceptedBooking(
     vendorName,
     note: trimmed,
   });
-  await ensureCancellationPenaltySettlement(client, updated, vid);
+  if (lastHourBeforeSlot) {
+    const { issueVendorLastHourCancelCredits } = await import(
+      "../finance/customer-credits-api"
+    );
+    const { queueVendorDeferredPenalty } = await import(
+      "../finance/vendor-deferred-penalty-api"
+    );
+    await issueVendorLastHourCancelCredits(client, {
+      customer_id: booking.customer_id,
+      source_booking_id: booking.id,
+    });
+    if (consequence.penaltyPaise > 0) {
+      await queueVendorDeferredPenalty(client, {
+        vendor_id: vid,
+        source_booking_id: booking.id,
+        penalty_paise: consequence.penaltyPaise,
+        metadata: {
+          reason: "vendor_last_hour_cancel",
+          assessed_at: nowIso,
+        },
+      });
+    }
+  } else {
+    await ensureCancellationPenaltySettlement(client, updated, vid);
+  }
   return updated;
 }
 
@@ -1772,6 +1826,95 @@ export async function adminRefloatMarketplaceBooking(
     eventType: "admin_marketplace_floated",
     ...copy,
     note: "Re-floated by operations.",
+  });
+  return updated;
+}
+
+const AMC_BOOKING_REASSIGN_STATUSES: BookingStatus[] = [
+  "confirmed",
+  "accepted",
+  "in_progress",
+];
+
+/** Admin: reassign one AMC visit booking to a different approved partner (wallet pays whoever completes). */
+export async function adminReassignAmcBookingVendor(
+  client: SupabaseClient<Database>,
+  bookingId: string,
+  vendorId: string,
+): Promise<BookingRow> {
+  const booking = await getBookingById(client, bookingId);
+  if (!booking.subscription_id) {
+    throw new SupabaseApiError("Only AMC subscription visits can be reassigned here.");
+  }
+  if (!AMC_BOOKING_REASSIGN_STATUSES.includes(booking.status)) {
+    throw new SupabaseApiError(
+      "Only confirmed, accepted, or in-progress AMC visits can be reassigned.",
+    );
+  }
+  const vid = vendorId.trim();
+  if (!vid) throw new SupabaseApiError("Choose a vendor.");
+  if (booking.vendor_id === vid) {
+    throw new SupabaseApiError("This visit is already assigned to that partner.");
+  }
+  const { data: vendor, error: vendorErr } = await client
+    .from("vendors")
+    .select("id, approval_status")
+    .eq("id", vid)
+    .maybeSingle();
+  if (vendorErr) throw new SupabaseApiError(vendorErr.message, vendorErr);
+  if (!vendor || vendor.approval_status !== "approved") {
+    throw new SupabaseApiError("Vendor must be approved before assignment.");
+  }
+
+  const nowIso = new Date().toISOString();
+  const previousVendorId = booking.vendor_id;
+  const m =
+    booking.metadata &&
+    typeof booking.metadata === "object" &&
+    !Array.isArray(booking.metadata)
+      ? (booking.metadata as Record<string, Json>)
+      : {};
+  const reassignment =
+    m.vendor_reassignment &&
+    typeof m.vendor_reassignment === "object" &&
+    !Array.isArray(m.vendor_reassignment)
+      ? (m.vendor_reassignment as Record<string, Json>)
+      : {};
+
+  const nextMeta = mergeBookingMetadata(booking.metadata, {
+    amc_vendor_reassignment: {
+      previous_vendor_id: previousVendorId,
+      reassigned_at: nowIso,
+      reassigned_by: "admin",
+      scope: "booking",
+      subscription_id: booking.subscription_id,
+    } as Json,
+    vendor_reassignment: {
+      ...reassignment,
+      awaiting_admin_assignment: false,
+      reassigned_at: nowIso,
+      reassigned_vendor_id: vid,
+      previous_vendor_id: previousVendorId,
+    } as Json,
+    vendor_response: { anchor_at: nowIso } as Json,
+  });
+
+  const updated = await updateBooking(client, bookingId, {
+    vendor_id: vid,
+    technician_id: null,
+    status: booking.status === "accepted" ? "confirmed" : booking.status,
+    metadata: nextMeta,
+  });
+
+  const vendorName = await resolveVendorDisplayName(client, vid);
+  const assignedCopy = vendorBookingAssignedCopy(updated);
+  await emitVendorBookingNotification(client, {
+    booking: updated,
+    eventType: "vendor_booking_assigned",
+    recipientVendorId: vid,
+    ...assignedCopy,
+    vendorName,
+    note: "AMC visit reassigned by operations.",
   });
   return updated;
 }

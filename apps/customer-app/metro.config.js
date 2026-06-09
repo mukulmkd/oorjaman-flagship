@@ -17,4 +17,10 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, "node_modules"),
 ];
 
+const technicianAppRoot = path.join(monorepoRoot, "apps", "technician-app");
+config.resolver.blockList = [
+  ...(config.resolver.blockList ?? []),
+  new RegExp(`${technicianAppRoot.replace(/[/\\]/g, "[/\\\\]")}.*`),
+];
+
 module.exports = config;

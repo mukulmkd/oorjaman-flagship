@@ -571,7 +571,7 @@ export default function VendorDashboardPage() {
     onSuccess: (row, variables) => {
       void vendorTechRosterQuery.refetch();
       if (variables.decision === "approved" && row.employee_code?.trim()) {
-        window.alert(`Technician approved. OorjaMan ID: ${row.employee_code.trim()}`);
+        window.alert(`Partner approved. OorjaMan ID: ${row.employee_code.trim()}`);
       }
       setTeamTechnicianDetailId((open) => (open === variables.technicianId ? null : open));
       setVendorTeamRejectReason("");

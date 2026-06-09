@@ -14,7 +14,7 @@ function hintForRole(role: UserRole | undefined): { title: string; body: string 
     case "vendor":
       return {
         title: "Use the customer app",
-        body: "Book visits and manage AMC in the Oorjaman Customer app.",
+        body: "Book visits and manage AMC in the OorjaMan Customer app.",
       };
     case "admin":
       return {
@@ -24,7 +24,7 @@ function hintForRole(role: UserRole | undefined): { title: string; body: string 
     default:
       return {
         title: "Wrong account for this app",
-        body: "This install is for technicians only.",
+        body: "This install is for OorjaMan partners only.",
       };
   }
 }

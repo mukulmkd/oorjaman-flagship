@@ -17,7 +17,7 @@ import { supabase } from "../../lib/supabase";
 function displayName(tech: { name_as_per_aadhaar?: string | null } | null | undefined): string {
   const n = tech?.name_as_per_aadhaar?.trim();
   if (n) return n.split(/\s+/)[0] ?? n;
-  return "Technician";
+  return "Partner";
 }
 
 export default function HomeTab() {

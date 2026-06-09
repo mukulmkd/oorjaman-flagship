@@ -487,7 +487,7 @@ export default function JobExecutionWizardScreen() {
       return { label: "Continue to finish", disabled: false, loading: false, onPress: () => setStep(7) };
     }
     return {
-      label: "Submit completion report",
+      label: "Submit report",
       disabled:
         beforeUrls.length === 0 ||
         afterUrls.length === 0 ||

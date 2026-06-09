@@ -1,11 +1,15 @@
 import type { ExpoConfig } from "expo/config";
+// @ts-expect-error local config plugin (CommonJS)
+import withCustomerNativeBranding from "./plugins/withCustomerNativeBranding";
 
 const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
 const deployEnv = (process.env.EXPO_PUBLIC_DEPLOY_ENV ?? "").trim().toLowerCase();
 const isUat = deployEnv === "uat" || deployEnv === "staging";
+const displayName = isUat ? "OorjaMan (UAT)" : "OorjaMan";
 
 const config: ExpoConfig = {
-  name: isUat ? "OorjaMan (UAT)" : "OorjaMan",
+  // Home-screen label on iOS (CFBundleDisplayName) and Android (app_name).
+  name: displayName,
   slug: "customer-app",
   scheme: isUat ? "oorjaman-customer-uat" : "oorjaman-customer",
   version: "1.0.0",
@@ -15,12 +19,16 @@ const config: ExpoConfig = {
   splash: {
     image: "./assets/images/splash-icon.png",
     resizeMode: "contain",
-    backgroundColor: "#1f8660",
+    backgroundColor: "#ffffff",
   },
   assetBundlePatterns: ["**/*"],
   ios: {
     supportsTablet: true,
     bundleIdentifier: isUat ? "com.oorjaman.customer.uat" : "com.oorjaman.customer",
+    infoPlist: {
+      CFBundleDisplayName: displayName,
+      CFBundleName: displayName,
+    },
     ...(googleMapsApiKey ? { config: { googleMapsApiKey } } : {}),
   },
   android: {
@@ -40,10 +48,14 @@ const config: ExpoConfig = {
       : {}),
   },
   plugins: [
+    withCustomerNativeBranding,
+    "expo-system-ui",
     "expo-router",
     [
       "expo-notifications",
       {
+        icon: "./assets/images/notification-icon.png",
+        color: "#1f8660",
         sounds: ["./assets/sounds/chat_message.wav"],
       },
     ],

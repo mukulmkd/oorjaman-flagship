@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { BookingRow, Database, PaymentRow } from "../database.types";
+import type { BookingRow, Database, PaymentRow, SubscriptionRow } from "../database.types";
+import { fundAmcWalletFromPayment } from "../finance/amc-wallet-api";
+import { emitAdminAmcAwaitingPartnerNotification } from "../notifications/amc-notifications";
 import { customerAbandonUnpaidCheckoutBooking } from "../bookings/booking-api";
 import { requireSessionUserId, SupabaseApiError, takeRows, takeSingleRow } from "../result";
 
@@ -160,4 +162,96 @@ export async function completeDummyPaymentSuccess(
   const notifiedBooking = await postBookingConfirmedNotifications(client, booking);
 
   return { booking: notifiedBooking, payment: payUpdated };
+}
+
+/** Pending payment for AMC subscription (wallet funding). */
+export async function createPendingAmcPayment(
+  client: SupabaseClient<Database>,
+  params: { customerId: string; subscriptionId: string; amountPaise: number },
+): Promise<PaymentRow> {
+  const sessionCustomerId = await getCustomerIdForSession(client);
+  if (params.customerId !== sessionCustomerId) {
+    throw new SupabaseApiError("Customer mismatch.");
+  }
+  const amount = Math.max(0, Math.round(params.amountPaise));
+  const { data, error } = await client
+    .from("payments")
+    .insert({
+      customer_id: params.customerId,
+      subscription_id: params.subscriptionId,
+      amount,
+      status: "pending",
+    })
+    .select()
+    .single();
+  return takeSingleRow(data, error);
+}
+
+/** Simulated AMC checkout success: records payment with OorjaMan and activates the AMC contract. */
+export async function completeAmcSubscriptionPayment(
+  client: SupabaseClient<Database>,
+  paymentId: string,
+  options?: { paymentMethod?: string },
+): Promise<{ subscription: SubscriptionRow; payment: PaymentRow; walletFunded: boolean }> {
+  const payment = await assertPendingPaymentOwned(client, paymentId);
+  if (!payment.subscription_id) {
+    throw new SupabaseApiError("Payment is not linked to an AMC subscription.");
+  }
+
+  const { data: subSnap, error: subErr } = await client
+    .from("subscriptions")
+    .select("*")
+    .eq("id", payment.subscription_id)
+    .maybeSingle();
+  if (subErr) throw new SupabaseApiError(subErr.message, subErr);
+  if (!subSnap || subSnap.status !== "trialing") {
+    throw new SupabaseApiError("Subscription is not awaiting AMC payment.");
+  }
+
+  const paidAt = new Date().toISOString();
+  const method = options?.paymentMethod?.trim() || "UPI";
+
+  const { data: payUpdated, error: payErr } = await client
+    .from("payments")
+    .update({ status: "success", paid_at: paidAt, payment_method: method })
+    .eq("id", paymentId)
+    .eq("status", "pending")
+    .select()
+    .single();
+
+  if (payErr) throw new SupabaseApiError(payErr.message, payErr);
+  if (!payUpdated) {
+    throw new SupabaseApiError("Could not confirm payment.");
+  }
+
+  try {
+    await fundAmcWalletFromPayment(client, {
+      subscriptionId: payment.subscription_id,
+      paymentId: payUpdated.id,
+      amountPaise: payUpdated.amount,
+    });
+  } catch (e) {
+    await client
+      .from("payments")
+      .update({ status: "pending", paid_at: null, payment_method: null })
+      .eq("id", paymentId)
+      .eq("status", "success");
+    throw e;
+  }
+
+  const { data: subscription, error: subFetchErr } = await client
+    .from("subscriptions")
+    .select("*")
+    .eq("id", payment.subscription_id)
+    .single();
+  if (subFetchErr) throw new SupabaseApiError(subFetchErr.message, subFetchErr);
+
+  const subRow = subscription as SubscriptionRow;
+  try {
+    await emitAdminAmcAwaitingPartnerNotification(client, subRow);
+  } catch {
+    /* payment succeeded; admin alert is best-effort */
+  }
+
+  return { subscription: subRow, payment: payUpdated, walletFunded: true };
 }

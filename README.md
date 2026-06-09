@@ -7,7 +7,7 @@ OorjaMan is a solar rooftop care platform: homeowners and businesses book cleani
 | Audience               | App                                  | Role                                                                                                                                                                                                                               |
 | ---------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Customers**          | `customer-app` (Expo, iOS/Android)   | Register a site, save service addresses and site photos, book one-off or AMC visits, pick preferred partners, pay, track technicians, chat with support - **store (PROD)** and **UAT** binaries per [DEPLOYMENT.md](DEPLOYMENT.md) |
-| **Technicians**        | `technician-app` (Expo, iOS/Android) | View assigned jobs, navigate to sites, run visit workflows (safety checks, evidence photos, OTP/happy codes), share live location during active visits - **PROD / UAT** builds per [DEPLOYMENT.md](DEPLOYMENT.md)                  |
+| **Field partners**     | `technician-app` (Expo, iOS/Android) — **OorjaMan Partner** | View assigned jobs, navigate to sites, run visit workflows (safety checks, evidence photos, OTP/happy codes), share live location during active visits - **PROD / UAT** builds per [DEPLOYMENT.md](DEPLOYMENT.md)                  |
 | **Partners / vendors** | `vendor-web` (Vite)                  | Manage technicians, accept or reject booking requests, marketplace jobs, subscriptions, documents, and day-to-day partner operations                                                                                               |
 | **Platform admins**    | `admin-web` (Vite)                   | Vendor approval, pricing & capacity catalog, booking monitoring, analytics, notifications, routing defaults, technician verification                                                                                               |
 | **Support desk**       | `support-web` (Vite)                 | Inbox for customer chats, insights, customer search with booking context, floating chat dock for active conversations                                                                                                              |
@@ -21,7 +21,7 @@ Backend data and auth are provided by **Supabase** (Postgres, Row Level Security
 oorjaman-flagship/
 ├── apps/
 │   ├── customer-app/      # Expo Router - customer mobile
-│   ├── technician-app/    # Expo Router - technician mobile
+│   ├── technician-app/    # Expo Router - OorjaMan Partner mobile
 │   ├── admin-web/         # React + Vite - admin portal
 │   ├── vendor-web/        # React + Vite - partner portal
 │   ├── support-web/       # React + Vite - support desk
@@ -75,7 +75,9 @@ Do **not** commit real `.env` files.
 
 ### 3. Database
 
-Apply migrations to your Supabase project:
+**Source of truth:** `supabase/migrations/*.sql`. Deploy schema, RLS, views, and cron to Supabase with `db push` - not by pasting `schema.sql` in the dashboard.
+
+Apply migrations to your linked Supabase project:
 
 ```bash
 npm run db:push          # interactive
@@ -83,18 +85,47 @@ npm run db:push          # interactive
 npm run db:push:yes      # non-interactive
 ```
 
+**UAT + Prod:** use two Supabase projects (current **OorjaMan** → UAT, new **OorjaMan Prod**). Push the same migrations to both - UAT first, then Prod. See [**SUPABASE-UAT-PROD.md**](SUPABASE-UAT-PROD.md).
+
 Seed local test users (requires root `.env` with `SUPABASE_SERVICE_ROLE_KEY`):
 
 ```bash
 npm run seed:dummy-users
 ```
 
+### Database reference files (`schema.sql` & `policies.sql`)
+
+`supabase/schema.sql` and `supabase/policies.sql` are **read-only snapshots** generated from migrations. Use them to review the full design, onboard developers, or bootstrap a blank database manually (`schema.sql` → `policies.sql` → `storage.sql`).
+
+| File | Role |
+|------|------|
+| `supabase/migrations/` | **Authoritative** - every schema / RLS / view change |
+| `supabase/schema.sql` | Generated tables, views, functions, triggers |
+| `supabase/policies.sql` | Generated RLS policies + storage policies |
+| `supabase/policies-base.sql` | Core RLS helpers (`is_admin`, `my_*`, …) prepended when regenerating |
+
+Regenerate after adding or changing migrations:
+
+```bash
+npm run db:reference
+git add supabase/schema.sql supabase/policies.sql
+```
+
+**Do not** edit `schema.sql` or `policies.sql` by hand for structural changes. Add a migration, then run `db:reference`.
+
+| Change | Action |
+|--------|--------|
+| Schema, RLS, view, cron | New file under `supabase/migrations/` |
+| Keep reference SQL in sync | `npm run db:reference` and commit |
+| Deploy to UAT / Prod | `supabase link --project-ref <REF>` → `npm run db:push` (UAT first) |
+| Edge functions | `npm run functions:deploy -- <name>` per Supabase project |
+
 ### 4. Run apps
 
 | Command              | App               | Typical URL / target                             |
 | -------------------- | ----------------- | ------------------------------------------------ |
 | `npm run customer`   | Customer mobile   | Expo dev tools → iOS/Android simulator or device |
-| `npm run technician` | Technician mobile | Same                                             |
+| `npm run technician` | Partner mobile (OorjaMan Partner) | Same                                             |
 | `npm run admin`      | Admin web         | http://localhost:5173                            |
 | `npm run vendor`     | Vendor web        | http://localhost:5174                            |
 | `npm run support`    | Support web       | http://localhost:5175                            |
@@ -112,6 +143,8 @@ npm run expo:types
 | `npm run typecheck`                  | Typecheck all workspaces (mobile apps run `expo:types` first) |
 | `npm run lint`                       | Lint where configured per workspace                           |
 | `npm run build`                      | Production build for all three web apps                       |
+| `npm run db:push` / `db:push:yes`    | Apply `supabase/migrations/` to the linked Supabase project   |
+| `npm run db:reference`               | Regenerate `schema.sql` and `policies.sql` from migrations      |
 | `npm run db:status`                  | Local Supabase CLI status                                     |
 | `npm run functions:deploy -- <name>` | Deploy one edge function from `supabase/functions/<name>`     |
 | `npm run repair:public-users`        | Repair script for auth/public user sync issues                |
@@ -129,6 +162,8 @@ Import from workspace packages in apps (no publish step in dev):
 
 ## Documentation
 
+- [**SUPABASE-UAT-PROD.md**](SUPABASE-UAT-PROD.md) - dual Supabase projects, `db push` workflow, keeping `schema.sql` / `policies.sql` in sync
+- [**DEPLOYMENT.md**](DEPLOYMENT.md) - PROD vs UAT web hosts, mobile EAS builds, GoDaddy
 - [**ENVIRONMENT.md**](ENVIRONMENT.md) - environment variables and settings for **development** vs **production** builds (mobile, web, Supabase, push)
 - [**BILLING.md**](BILLING.md) - paid third-party services (e.g. Google Maps), env vars, and setup notes
 - [**docs/customer-push-setup.md**](docs/customer-push-setup.md) - customer support chat remote push (Expo + edge function)

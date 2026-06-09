@@ -1,52 +1,69 @@
 import { useEffect, useRef } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { Animated, StyleSheet, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Href } from "expo-router";
 import { router } from "expo-router";
 import { resolveCustomerAppPostAuthPath } from "@oorjaman/api";
-import { colors } from "@oorjaman/config";
-import { fontFamily, fontSize, fontWeight } from "../constants/fonts";
+import { BrandSplash } from "../components/brand-splash";
+import {
+  SPLASH_LOADING_DELAY_MS,
+  SPLASH_LOADING_FILL_MS,
+  SPLASH_LOADING_FADE_MS,
+} from "../components/brand-loading-indicator";
 import {
   STORAGE_KEY_LOCATION_PROMPT_DONE,
   STORAGE_KEY_ONBOARDING,
 } from "../constants/storage";
 import { supabase, supabaseAuthReady } from "../lib/supabase";
 
-const MIN_SPLASH_MS = 1200;
+/** Max wait if the loading animation is interrupted (e.g. React Strict Mode). */
+const SPLASH_MAX_WAIT_MS =
+  SPLASH_LOADING_DELAY_MS + SPLASH_LOADING_FADE_MS + SPLASH_LOADING_FILL_MS + 800;
 
 export default function SplashRoute() {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const cancelledRef = useRef(false);
+  const fadeOut = useRef(new Animated.Value(1)).current;
+  const navigatedRef = useRef(false);
+  const splashCompleteRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    Animated.timing(opacity, {
-      toValue: 1,
-      duration: 480,
-      useNativeDriver: true,
-    }).start();
-  }, [opacity]);
+    let cancelled = false;
+    let splashTimeout: ReturnType<typeof setTimeout> | undefined;
 
-  useEffect(() => {
-    const run = async () => {
-      const started = Date.now();
-      let signedIn = false;
-      if (supabase) {
-        try {
-          const session = await supabaseAuthReady;
-          signedIn = Boolean(session?.user);
-        } catch {
-          signedIn = false;
+    const splashDone = new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      splashCompleteRef.current = finish;
+      splashTimeout = setTimeout(finish, SPLASH_MAX_WAIT_MS);
+    });
+
+    void (async () => {
+      const bootstrap = (async () => {
+        let signedIn = false;
+        if (supabase) {
+          try {
+            const session = await supabaseAuthReady;
+            signedIn = Boolean(session?.user);
+          } catch {
+            signedIn = false;
+          }
         }
-      }
 
-      const [onboardingDone, locationPromptDone] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEY_ONBOARDING),
-        AsyncStorage.getItem(STORAGE_KEY_LOCATION_PROMPT_DONE),
-      ]);
+        const [onboardingDone, locationPromptDone] = await Promise.all([
+          AsyncStorage.getItem(STORAGE_KEY_ONBOARDING),
+          AsyncStorage.getItem(STORAGE_KEY_LOCATION_PROMPT_DONE),
+        ]);
 
-      const waited = Date.now() - started;
-      await new Promise((r) => setTimeout(r, Math.max(0, MIN_SPLASH_MS - waited)));
-      if (cancelledRef.current) return;
+        return { signedIn, onboardingDone, locationPromptDone };
+      })();
+
+      const [, boot] = await Promise.all([splashDone, bootstrap]);
+      if (cancelled || navigatedRef.current) return;
+
+      const { signedIn, onboardingDone, locationPromptDone } = boot;
 
       let dest: Href = "/login";
       if (signedIn && supabase) {
@@ -63,32 +80,29 @@ export default function SplashRoute() {
         dest = "/permissions";
       }
 
-      Animated.timing(opacity, {
+      Animated.timing(fadeOut, {
         toValue: 0,
         duration: 360,
         useNativeDriver: true,
       }).start(({ finished }) => {
-        if (finished && !cancelledRef.current) {
+        if (finished && !cancelled && !navigatedRef.current) {
+          navigatedRef.current = true;
           router.replace(dest);
         }
       });
-    };
+    })();
 
-    void run();
     return () => {
-      cancelledRef.current = true;
+      cancelled = true;
+      if (splashTimeout) clearTimeout(splashTimeout);
+      splashCompleteRef.current = null;
     };
-  }, [opacity]);
+  }, [fadeOut]);
 
   return (
     <View style={styles.root}>
-      <Animated.View style={[styles.block, { opacity }]}>
-        <View style={styles.logo}>
-          <Text style={styles.logoLetter}>O</Text>
-        </View>
-        <Text style={styles.title}>OorjaMan</Text>
-        <Text style={styles.tagline}>Solar care, simplified.</Text>
-        <Text style={styles.badge}>Customer</Text>
+      <Animated.View style={[styles.fill, { opacity: fadeOut }]}>
+        <BrandSplash onAnimationsComplete={() => splashCompleteRef.current?.()} />
       </Animated.View>
     </View>
   );
@@ -97,52 +111,9 @@ export default function SplashRoute() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.background,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 24,
+    backgroundColor: "#ffffff",
   },
-  block: {
-    alignItems: "center",
-  },
-  logo: {
-    width: 80,
-    height: 80,
-    borderRadius: 22,
-    backgroundColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
-  },
-  logoLetter: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.display,
-    color: colors.primaryForeground,
-  },
-  title: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.xxl,
-    letterSpacing: -0.5,
-    color: colors.foreground,
-  },
-  tagline: {
-    marginTop: 8,
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.md,
-    color: colors.mutedForeground,
-    textAlign: "center",
-  },
-  badge: {
-    marginTop: 16,
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.sm,
-    color: colors.primary,
-    textTransform: "uppercase",
-    letterSpacing: 1.2,
+  fill: {
+    flex: 1,
   },
 });

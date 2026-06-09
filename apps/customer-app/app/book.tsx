@@ -31,10 +31,20 @@ import {
   queryKeys,
   rankVendorsByNearest,
   readBookingCustomerCompensationMeta,
+  getCustomerOorjamanCreditsSummary,
+  planOorjamanCreditsRedemption,
+  redeemCustomerOorjamanCredits,
   resolveBookingVendor,
   splitVendorsByServiceArea,
+  AMC_URGENT_CLEANING_SUBCATEGORY_SLUG,
+  bookVisitRequiresAmcChoiceGate,
+  isAmcAwaitingPartnerAssignment,
+  countAmcVisitsConsumedAtAddress,
+  subscriptionAddressIdForGate,
+  getAmcContractBySubscriptionId,
   getActiveSubscriptionForAddress,
   customerBookingDisplayTitle,
+  resolveAmcVisitBookingGate,
   subscriptionApi,
   vendorApi,
   vendorCoversCustomerSignals,
@@ -66,6 +76,11 @@ import {
   useModalStackHeader,
 } from "@oorjaman/ui";
 import { fontFamily, fontSize, fontWeight } from "../constants/fonts";
+import {
+  BookVisitAmcAwaitingPartnerGate,
+  BookVisitAmcChoiceGate,
+} from "../components/book-visit-amc-choice-gate";
+import { openSupportChat } from "../lib/support-chat-navigation";
 import { ServiceAddressPickerSheet } from "../components/service-address-picker-sheet";
 import {
   buildAddressBookPatch,
@@ -78,6 +93,12 @@ import {
   type ServiceAddressSaveExtras,
 } from "../lib/service-address-book";
 import { buildPostCheckoutPartnerAlert } from "../lib/booking-partner-messaging";
+import {
+  activeAmcBlocksOneTimeBooking,
+  amcVisitBookingGateMessage,
+  navigateToAmcPlan,
+  navigateToAmcRenewal,
+} from "../lib/book-visit-navigation";
 import { supabase } from "../lib/supabase";
 
 type BookingVendorPick = { mode: "preferred"; vendorId: string } | { mode: "any" };
@@ -442,11 +463,20 @@ function describeRoutingForCustomer(p: RoutingPreviewOk): string {
 export default function BookVisitModal() {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
-  const params = useLocalSearchParams<{ vendorId?: string | string[]; amcSlotId?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    vendorId?: string | string[];
+    amcSlotId?: string | string[];
+    paidVisit?: string | string[];
+  }>();
   const vendorParam = params.vendorId;
   const vendorParamId = Array.isArray(vendorParam) ? vendorParam[0] : vendorParam;
   const amcSlotParam = params.amcSlotId;
   const amcSlotId = Array.isArray(amcSlotParam) ? amcSlotParam[0] : amcSlotParam;
+  const paidVisitParam = params.paidVisit;
+  const [paidVisitChosen, setPaidVisitChosen] = useState(false);
+  const paidVisitConfirmed =
+    paidVisitChosen ||
+    (Array.isArray(paidVisitParam) ? paidVisitParam[0] : paidVisitParam) === "1";
 
   const [step, setStep] = useState<Step>(0);
   const [vendorPick, setVendorPick] = useState<BookingVendorPick>(() =>
@@ -513,27 +543,100 @@ export default function BookVisitModal() {
     queryFn: () => bookingApi.listVisibleBookings(supabase!),
     enabled: Boolean(supabase),
   });
+  const creditsQuery = useQuery({
+    queryKey: queryKeys.finance.customerOorjamanCredits(),
+    queryFn: () => getCustomerOorjamanCreditsSummary(supabase!),
+    enabled: Boolean(supabase),
+  });
   const addressBook = readServiceAddressBook(customerQuery.data ?? null);
+
+  const gateAddressId =
+    selectedServiceAddressId ?? addressBook.defaultId ?? addressBook.entries[0]?.id ?? null;
 
   const activeSubscription = useMemo(() => {
     const rows = subscriptionsQuery.data ?? [];
     if (amcSlotQuery.data) {
       return rows.find((s) => s.id === amcSlotQuery.data.subscription_id) ?? null;
     }
-    const addrId = selectedServiceAddressId ?? addressBook.defaultId ?? addressBook.entries[0]?.id ?? null;
-    if (!addrId) return null;
-    return getActiveSubscriptionForAddress(rows, addrId);
-  }, [
-    subscriptionsQuery.data,
-    amcSlotQuery.data,
-    selectedServiceAddressId,
-    addressBook.defaultId,
-    addressBook.entries,
-  ]);
+    if (!gateAddressId) return null;
+    return getActiveSubscriptionForAddress(rows, gateAddressId);
+  }, [subscriptionsQuery.data, amcSlotQuery.data, gateAddressId]);
+
+  const amcVisitSlotsQuery = useQuery({
+    queryKey: queryKeys.subscriptions.visitSlots(activeSubscription?.id ?? "__none__"),
+    queryFn: () =>
+      subscriptionApi.listAmcVisitSlotsForSubscription(supabase!, activeSubscription!.id),
+    enabled: Boolean(supabase && activeSubscription?.id),
+  });
+
+  const amcContractQuery = useQuery({
+    queryKey: queryKeys.finance.amcWalletBySubscription(activeSubscription?.id ?? "__none__"),
+    queryFn: () => getAmcContractBySubscriptionId(supabase!, activeSubscription!.id),
+    enabled: Boolean(supabase && activeSubscription?.id),
+  });
+
+  const amcGateBookingsQuery = useQuery({
+    queryKey: [
+      ...queryKeys.bookings.all(),
+      "amc-gate",
+      activeSubscription?.id ?? "__none__",
+      gateAddressId ?? "__none__",
+    ],
+    queryFn: () =>
+      bookingApi.listVisibleBookings(supabase!, {
+        from: activeSubscription!.starts_at,
+        to: activeSubscription!.ends_at,
+      }),
+    enabled: Boolean(supabase && activeSubscription?.id && gateAddressId),
+  });
+
+  const visitsConsumedAtAddress = useMemo(() => {
+    if (!activeSubscription || !gateAddressId) return 0;
+    return countAmcVisitsConsumedAtAddress(
+      amcVisitSlotsQuery.data ?? [],
+      activeSubscription,
+      amcGateBookingsQuery.data ?? [],
+      gateAddressId,
+    );
+  }, [activeSubscription, amcVisitSlotsQuery.data, amcGateBookingsQuery.data, gateAddressId]);
+
+  const amcBookingGate = useMemo(
+    () =>
+      resolveAmcVisitBookingGate(activeSubscription, amcVisitSlotsQuery.data ?? [], {
+        wallet: amcContractQuery.data ?? null,
+        visitsConsumedAtAddress,
+      }),
+    [activeSubscription, amcVisitSlotsQuery.data, amcContractQuery.data, visitsConsumedAtAddress],
+  );
+
+  const amcBlocksOneTime = activeAmcBlocksOneTimeBooking(amcBookingGate);
+  const amcGateDataReady =
+    !subscriptionsQuery.isPending &&
+    (!activeSubscription?.id ||
+      (!amcVisitSlotsQuery.isPending &&
+        !amcContractQuery.isPending &&
+        !amcGateBookingsQuery.isFetching));
+  const showsAmcAwaitingPartnerGate =
+    !amcSlotId && amcGateDataReady && isAmcAwaitingPartnerAssignment(amcBookingGate);
+  const showsAmcChoiceGate =
+    !amcSlotId &&
+    !paidVisitConfirmed &&
+    amcGateDataReady &&
+    bookVisitRequiresAmcChoiceGate(amcBookingGate);
+  const mayBookOneTime =
+    paidVisitConfirmed && bookVisitRequiresAmcChoiceGate(amcBookingGate);
 
   useEffect(() => {
     if (amcSlotId) setBookingPlanMode("amc");
-  }, [amcSlotId]);
+    else if (amcBlocksOneTime) setBookingPlanMode("amc");
+    else setBookingPlanMode("one_time");
+  }, [amcSlotId, amcBlocksOneTime]);
+
+  useEffect(() => {
+    if (amcSlotId) return;
+    if (amcBookingGate.kind !== "use_amc_slot") return;
+    router.replace(`/book?amcSlotId=${encodeURIComponent(amcBookingGate.nextSlot.id)}`);
+  }, [amcSlotId, amcBookingGate]);
 
   useEffect(() => {
     const sub = activeSubscription;
@@ -856,10 +959,13 @@ export default function BookVisitModal() {
   const scheduleComplete = Boolean(dayKey && slot && (vendorPick.mode === "any" || Boolean(vendorId)));
 
   useEffect(() => {
-    if (bookingPlanMode === "amc" && !activeSubscription) {
+    if (bookingPlanMode === "amc" && !activeSubscription && !amcSlotId) {
       setBookingPlanMode("one_time");
     }
-  }, [bookingPlanMode, activeSubscription]);
+    if (bookingPlanMode === "one_time" && amcBlocksOneTime) {
+      setBookingPlanMode("amc");
+    }
+  }, [bookingPlanMode, activeSubscription, amcSlotId, amcBlocksOneTime]);
 
   useEffect(() => {
     if (bookingPlanMode === "amc" && step === 3) {
@@ -922,14 +1028,23 @@ export default function BookVisitModal() {
     candidates.sort((a, b) => b.amountPaise - a.amountPaise);
     return candidates[0] ?? null;
   }, [myBookingsQuery.data]);
+  const grossEstimatePaise = pricingQuery.data?.estimate.final_paise ?? 0;
+  const creditsRedemptionPlan = useMemo(() => {
+    if (bookingPlanMode !== "one_time" || grossEstimatePaise <= 0) {
+      return { discount_paise: 0, discount_credits: 0, allocations: [] };
+    }
+    return planOorjamanCreditsRedemption(
+      creditsQuery.data?.active_grants ?? [],
+      grossEstimatePaise,
+    );
+  }, [bookingPlanMode, grossEstimatePaise, creditsQuery.data?.active_grants]);
+  const creditsDiscountPaise = creditsRedemptionPlan.discount_paise;
+  const afterCreditsPaise = Math.max(0, grossEstimatePaise - creditsDiscountPaise);
   const compensationDiscountPaise =
-    bookingPlanMode === "one_time" && pricingQuery.data && availableCompensation
-      ? Math.min(availableCompensation.amountPaise, pricingQuery.data.estimate.final_paise)
+    bookingPlanMode === "one_time" && availableCompensation
+      ? Math.min(availableCompensation.amountPaise, afterCreditsPaise)
       : 0;
-  const payableEstimatePaise =
-    pricingQuery.data != null
-      ? Math.max(0, pricingQuery.data.estimate.final_paise - compensationDiscountPaise)
-      : 0;
+  const payableEstimatePaise = Math.max(0, afterCreditsPaise - compensationDiscountPaise);
 
   const abandonCheckoutIfNeeded = useCallback(async () => {
     if (!supabase || bookingPlanMode !== "one_time") return;
@@ -1043,7 +1158,9 @@ export default function BookVisitModal() {
             : true;
         const useDefaultMarketplace = vendorPick.mode === "any" || !preferredAvailable;
         const nowIso = new Date().toISOString();
-        const estimatePaise = Math.max(0, pricingQuery.data!.estimate.final_paise - compensationDiscountPaise);
+        const estimatePaise = payableEstimatePaise;
+        const serviceAddressId =
+          selectedServiceAddressId ?? addressBook.defaultId ?? addressBook.entries[0]?.id ?? null;
         const payload = buildCustomerBookingCreateInput({
           customerId: customer.id,
           vendorId: useDefaultMarketplace ? null : (routing?.resolvedVendorId ?? null),
@@ -1052,6 +1169,7 @@ export default function BookVisitModal() {
           customer: fresh ?? customer,
           siteAddressText: address.trim(),
           customerNotes: notes.trim() || null,
+          serviceAddressId,
           estimatedPricePaise: estimatePaise,
           vendorRouting: {
             requested_vendor_id: routing?.requestedVendorId ?? null,
@@ -1092,6 +1210,14 @@ export default function BookVisitModal() {
                       filter_city: signals.city?.trim() || null,
                     } as Json,
                   }
+                  : {}),
+                ...(creditsDiscountPaise > 0
+                  ? {
+                      oorjaman_credits_planned: {
+                        discount_paise: creditsDiscountPaise,
+                        discount_credits: creditsRedemptionPlan.discount_credits,
+                      } as Json,
+                    }
                   : {}),
                 ...(availableCompensation && compensationDiscountPaise > 0
                   ? {
@@ -1164,6 +1290,9 @@ export default function BookVisitModal() {
     vendorsQuery.data,
     availableCompensation,
     compensationDiscountPaise,
+    creditsDiscountPaise,
+    creditsRedemptionPlan.discount_credits,
+    payableEstimatePaise,
   ]);
 
   const failPaymentMut = useMutation({
@@ -1191,9 +1320,17 @@ export default function BookVisitModal() {
         throw new Error("This slot is no longer available - choose another time.");
       }
       const approved = vendorsQuery.data ?? [];
-      const { booking } = await paymentApi.completeDummyPaymentSuccess(supabase, pendingPaymentId, {
+      const { booking, payment } = await paymentApi.completeDummyPaymentSuccess(supabase, pendingPaymentId, {
         paymentMethod: randomDummyIndianPaymentMethod(),
       });
+      if (customerQuery.data?.id && creditsDiscountPaise > 0) {
+        await redeemCustomerOorjamanCredits(supabase, {
+          customer_id: customerQuery.data.id,
+          booking_id: booking.id,
+          payment_id: payment.id,
+          payable_paise: grossEstimatePaise,
+        });
+      }
       const partnerAlert = buildPostCheckoutPartnerAlert(booking, approved);
       if (partnerAlert) {
         Alert.alert(partnerAlert.title, partnerAlert.message);
@@ -1204,6 +1341,7 @@ export default function BookVisitModal() {
       void notifyCustomerBookingCreated(booking.id);
       void qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
       void qc.invalidateQueries({ queryKey: queryKeys.payments.all() });
+      void qc.invalidateQueries({ queryKey: queryKeys.finance.customerOorjamanCredits() });
       router.replace("/(main)/bookings");
     },
   });
@@ -1329,6 +1467,93 @@ export default function BookVisitModal() {
     return <Redirect href="/customer-registration" />;
   }
 
+  if (showsAmcAwaitingPartnerGate && isAmcAwaitingPartnerAssignment(amcBookingGate)) {
+    const serviceAddressId = subscriptionAddressIdForGate(amcBookingGate.subscription);
+    return (
+      <View style={[styles.flex, { paddingBottom: insets.bottom }]}>
+        {modalHeader}
+        <View style={styles.root}>
+          <BookVisitAmcAwaitingPartnerGate
+            gate={amcBookingGate}
+            onViewAmc={() => navigateToAmcPlan(serviceAddressId)}
+            onContactSupport={() => {
+              Alert.alert(
+                "Contact support?",
+                "We'll open support chat with your AMC details attached. You can close it anytime and continue here.",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Open chat",
+                    onPress: () =>
+                      openSupportChat({
+                        subscription_id: amcBookingGate.subscription.id,
+                        service_address_id: serviceAddressId,
+                        category_slug: "amc",
+                        subcategory_slug: AMC_URGENT_CLEANING_SUBCATEGORY_SLUG,
+                      }),
+                  },
+                ],
+              );
+            }}
+            onBack={() => router.back()}
+          />
+        </View>
+      </View>
+    );
+  }
+
+  if (showsAmcChoiceGate) {
+    const serviceAddressId =
+      amcBookingGate.kind === "none"
+        ? gateAddressId
+        : subscriptionAddressIdForGate(amcBookingGate.subscription);
+    return (
+      <View style={[styles.flex, { paddingBottom: insets.bottom }]}>
+        {modalHeader}
+        <View style={styles.root}>
+          <BookVisitAmcChoiceGate
+            gate={amcBookingGate}
+            onBookOneTime={() => setPaidVisitChosen(true)}
+            onAmcPrimary={() => {
+              if (amcBookingGate.kind === "allowance_exhausted") {
+                navigateToAmcRenewal(serviceAddressId);
+                return;
+              }
+              navigateToAmcPlan(serviceAddressId);
+            }}
+            onBack={() => router.back()}
+          />
+        </View>
+      </View>
+    );
+  }
+
+  if (!amcGateDataReady && !amcSlotId && !paidVisitConfirmed) {
+    return (
+      <View style={[styles.flex, { paddingBottom: insets.bottom }]}>
+        {modalHeader}
+        <View style={styles.root}>
+          <Card variant="muted" padded>
+            <Text style={styles.sectionBody}>Checking your AMC plan for this address…</Text>
+          </Card>
+        </View>
+      </View>
+    );
+  }
+
+  if (!mayBookOneTime && !amcSlotId) {
+    return (
+      <View style={[styles.flex, { paddingBottom: insets.bottom }]}>
+        {modalHeader}
+        <View style={styles.root}>
+          <Card variant="muted" padded>
+            <Text style={styles.sectionBody}>Opening your AMC visit booking…</Text>
+          </Card>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.flex}
@@ -1341,6 +1566,23 @@ export default function BookVisitModal() {
           Step {step + 1} of {bookingPlanMode === "amc" ? 3 : 4} ·{" "}
           {step === 0 ? "Partner" : step === 1 ? "Schedule" : step === 2 ? "Confirm" : "Payment"}
         </Text>
+
+        {bookingPlanMode === "one_time" && amcBookingGate.kind === "allowance_exhausted" ? (
+          <Card variant="muted" padded>
+            <Text style={styles.sectionBody}>
+              Your included AMC visits for this address are used. This booking is charged at the standard
+              one-time rate.
+            </Text>
+          </Card>
+        ) : null}
+
+        {bookingPlanMode === "amc" && amcBookingGate.kind === "use_amc_slot" ? (
+          <Card variant="muted" padded>
+            <Text style={styles.sectionBody}>
+              {amcVisitBookingGateMessage(amcBookingGate)}
+            </Text>
+          </Card>
+        ) : null}
 
         {step === 0 ? (
           <>
@@ -1678,6 +1920,17 @@ export default function BookVisitModal() {
                     amountPaise={pricingQuery.data.quote.amount_cents}
                     perPanelPaise={pricingQuery.data.quote.per_panel_rate_cents}
                   />
+                  {creditsDiscountPaise > 0 ? (
+                    <View style={styles.slaNote}>
+                      <Card variant="muted" padded>
+                        <Text style={styles.slaNoteText}>
+                          OorjaMan Credits applied: {creditsRedemptionPlan.discount_credits} credit
+                          {creditsRedemptionPlan.discount_credits === 1 ? "" : "s"} (
+                          {formatInrFromCents(creditsDiscountPaise)} off).
+                        </Text>
+                      </Card>
+                    </View>
+                  ) : null}
                   {availableCompensation && compensationDiscountPaise > 0 ? (
                     <View style={styles.slaNote}>
                       <Card variant="muted" padded>
@@ -1869,6 +2122,13 @@ export default function BookVisitModal() {
                   <Text style={styles.paymentAmountValue}>
                     {formatInrFromCents(payableEstimatePaise)}
                   </Text>
+                  {creditsDiscountPaise > 0 ? (
+                    <Text style={styles.paymentAmountLabel}>
+                      Includes {creditsRedemptionPlan.discount_credits} OorjaMan Credit
+                      {creditsRedemptionPlan.discount_credits === 1 ? "" : "s"} (
+                      {formatInrFromCents(creditsDiscountPaise)})
+                    </Text>
+                  ) : null}
                   {compensationDiscountPaise > 0 ? (
                     <Text style={styles.paymentAmountLabel}>
                       Includes promo discount {formatInrFromCents(compensationDiscountPaise)}

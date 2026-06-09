@@ -1,6 +1,6 @@
-# Technician app - remote push (Expo)
+# Partner app - remote push (Expo)
 
-Field-support chat uses **Expo Push** for notifications when the technician app is killed or in the background.
+Field-support chat uses **Expo Push** for notifications when the OorjaMan Partner app is killed or in the background.
 
 For the full dev vs production matrix (all env vars and apps), see [**ENVIRONMENT.md**](../ENVIRONMENT.md).
 
@@ -19,7 +19,7 @@ Includes technician support audience (`20260732120000_support_technician_audienc
 1. Create/link an EAS project: `npx eas init` in `apps/technician-app`.
 2. Set `EXPO_PUBLIC_EAS_PROJECT_ID` in `apps/technician-app/.env` (same value as EAS `projectId`).
 
-The technician app can use the **same** EAS project as the customer app or a separate one; use separate projects if you want isolated push credentials per app.
+The partner app can use the **same** EAS project as the customer app or a separate one; use separate projects if you want isolated push credentials per app.
 
 ## 3. Deploy edge function
 
@@ -66,7 +66,7 @@ Development builds from Expo Go have limited push support; use a **development b
 
 ## Tap → open chat
 
-Notification `data` includes `kind: support_message` and `conversationId`. The technician app opens the support sheet on that thread automatically (local and remote pushes).
+Notification `data` includes `kind: support_message` and `conversationId`. The partner app opens the support sheet on that thread automatically (local and remote pushes).
 
 ## Deploy both mobile push functions
 

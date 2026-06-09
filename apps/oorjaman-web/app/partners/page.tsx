@@ -18,7 +18,7 @@ export default function PartnersPage() {
     >
       <ul>
         <li>Marketplace and assigned bookings</li>
-        <li>Technician apps with safety workflows and evidence capture</li>
+        <li>OorjaMan Partner app with safety workflows and evidence capture</li>
         <li>Finance dashboard for visit payouts and penalties</li>
       </ul>
       <p style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>

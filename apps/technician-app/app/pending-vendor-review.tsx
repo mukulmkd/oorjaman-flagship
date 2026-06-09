@@ -79,7 +79,7 @@ export default function PendingVendorReviewScreen() {
         <Text style={styles.title}>Under employer review</Text>
         <Text style={styles.body}>
           Your profile has been submitted. Your employer will review your application in their partner
-          portal. Once they approve you, your OorjaMan technician ID will be issued and you can open
+          portal. Once they approve you, your OorjaMan partner ID will be issued and you can open
           assigned jobs.
         </Text>
         <Text style={styles.hint}>
