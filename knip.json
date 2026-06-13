@@ -2,25 +2,18 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "expo": false,
   "ignoreExportsUsedInFile": true,
-  "ignore": [
-    "apps/*/android/**",
-    "apps/*/ios/**",
-    "brand/source/**",
-    "**/*.d.ts"
-  ],
+  "ignore": ["**/*.d.ts"],
+  "ignoreBinaries": ["expo-router/entry"],
   "ignoreDependencies": [
     "expo",
     "expo-system-ui",
+    "expo-build-properties",
     "react-native",
     "react",
     "@babel/core",
     "eslint",
     "eslint-config-next",
     "@react-navigation/native"
-  ],
-  "ignoreUnresolved": [
-    "@expo/config-plugins",
-    "@expo/image-utils"
   ],
   "ignoreIssues": {
     "packages/api/**": ["exports", "types"]
@@ -59,15 +52,15 @@
       ]
     },
     "apps/admin-web": {
-      "entry": ["index.html", "src/main.tsx"],
+      "entry": ["index.html"],
       "project": ["src/**/*.{ts,tsx}"]
     },
     "apps/support-web": {
-      "entry": ["index.html", "src/main.tsx"],
+      "entry": ["index.html"],
       "project": ["src/**/*.{ts,tsx}"]
     },
     "apps/vendor-web": {
-      "entry": ["index.html", "src/main.tsx"],
+      "entry": ["index.html"],
       "project": ["src/**/*.{ts,tsx}"]
     },
     "apps/oorjaman-web": {
@@ -82,7 +75,7 @@
       "project": ["src/**/*.ts"]
     },
     "packages/ui": {
-      "entry": ["src/index.ts", "src/safe-splash-screen.ts"],
+      "entry": ["src/index.ts"],
       "project": ["src/**/*.{ts,tsx}"]
     },
     "packages/web-ui": {

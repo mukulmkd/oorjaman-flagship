@@ -7,6 +7,7 @@ Step-by-step guide for deploying the three **Vite admin portals** (`admin-web`, 
 - [DEPLOYMENT.md](DEPLOYMENT.md) — full PROD vs UAT matrix (8 web hosts, mobile EAS, GoDaddy DNS)
 - [ENVIRONMENT.md](ENVIRONMENT.md) — all environment variables (dev vs production)
 - [SUPABASE-UAT-PROD.md](SUPABASE-UAT-PROD.md) — dual Supabase projects, migrations, RLS
+- [SECURITY-VERCEL.md](SECURITY-VERCEL.md) — Vercel + Supabase security for the three portals
 
 ---
 
@@ -32,7 +33,7 @@ The three portals are **static Vite SPAs**. They talk to Supabase **directly fro
 | **Keep dummy auth on for Vercel QA** | `VITE_USE_DUMMY_AUTH=true` avoids SMS/email provider setup while testing |
 | **Turn dummy auth off on GoDaddy prod** | Real OTP only in production |
 | **Never commit `.env` files** | Set secrets only in Vercel (testing) or your CI/build machine (GoDaddy) |
-| **Protect Vercel deployments** | Use Vercel Deployment Protection or password gate for internal testing |
+| **Protect Vercel deployments** | Use Vercel Deployment Protection or password gate for internal testing — see [SECURITY-VERCEL.md](SECURITY-VERCEL.md) |
 
 ### Recommended environment flow
 
