@@ -63,20 +63,68 @@ In [vercel.com](https://vercel.com) → **Add New Project** → import this repo
 
 ### Monorepo build settings (each project)
 
-Because this repo uses **npm workspaces**, install from the **repository root** — do not set Root Directory to `apps/admin-web`.
+**Use the same pattern on admin, vendor, and support** — copy your working **admin** project and only change the workspace name and output path.
 
-| Setting | Value |
-|---------|-------|
-| **Root Directory** | `.` (repo root) — **must match on admin, vendor, and support** |
-| **Framework Preset** | **Other** (not Vite — avoids `vite build` overriding your command) |
-| **Install Command** | `npm ci --include=dev` *(or leave empty to use root `vercel.json`)* |
-| **Build Command** | `npm run build:uat -w admin-web` *(swap workspace name per project)* |
-| **Output Directory** | `apps/admin-web/dist` *(swap per project)* |
-| **Node.js Version** | 20.x |
+Confirmed working **admin** setup (repo root, not `apps/admin-web` as root):
 
-If **vendor** fails on `country-state-city` while **admin** succeeds, compare **Root Directory**: vendor is often wrongly set to `apps/vendor-web`. Either clear it (repo root) or rely on `apps/vendor-web/vercel.json`, which reinstalls from the monorepo root.
+| Setting | Admin (working) | Vendor | Support |
+|---------|-----------------|--------|---------|
+| **Root Directory** | empty (repo root) | empty (repo root) | empty (repo root) |
+| **Framework Preset** | Vite | Vite | Vite |
+| **Install Command** | `npm install` | `npm install` | `npm install` |
+| **Build Command** | `npm run build:uat -w admin-web` | `npm run build:uat -w vendor-web` | `npm run build:uat -w support-web` |
+| **Output Directory** | `apps/admin-web/dist` | `apps/vendor-web/dist` | `apps/support-web/dist` |
+| **Node.js Version** | 20.x | 20.x | 20.x |
 
-Each portal’s `build:uat` runs `brand:sync:web` before Vite. Vendor skips `tsc` during UAT deploy and installs `country-state-city` in `prebuild:uat` if the package was missing from CI install.
+**Output Directory must include the app path** (`apps/vendor-web/dist`), not plain `dist`. With Root at repo root, Vite writes to `apps/vendor-web/dist`; if Output is only `dist`, Vercel looks for `/dist` at the repo root and fails with:
+
+`No Output Directory named "dist" found after the Build completed`
+
+Do **not** add per-app `vercel.json` files — admin has none.
+
+Vendor `build:uat` runs `prebuild:uat` (ensures `country-state-city` if CI skipped it) then `brand:sync:web` and `vite build --mode uat` (no `tsc` on deploy).
+
+### Per-app deploys only (Ignored Build Step)
+
+By default, **every push** rebuilds **all three** Vercel projects. To deploy only when that portal (or shared packages) change:
+
+#### Where to find it in the dashboard
+
+1. Open the project (e.g. **oorjaman-admin**).
+2. **Settings** (top tabs or left sidebar).
+3. **Build and Deployment** (not “Git” on newer Vercel UI).
+4. Scroll to **Ignored Build Step**.
+
+If you still don’t see it: use the Settings search box and type **Ignored Build Step**.
+
+#### Option A — built-in folder filter (simple, app-only)
+
+In **Ignored Build Step**, choose **Only build if there are changes in a folder** and set:
+
+| Project | Folder |
+|---------|--------|
+| Admin | `apps/admin-web` |
+| Vendor | `apps/vendor-web` |
+| Support | `apps/support-web` |
+
+This does **not** rebuild when only `packages/api` changes (shared code). Use Option B if you want shared package changes to redeploy portals.
+
+#### Option B — custom script (app + shared `packages/`)
+
+1. Push `scripts/vercel-should-build.mjs` to `main`.
+2. In **Ignored Build Step**, choose **Run my Node script** or **Custom** and set:
+
+| Project | Command |
+|---------|---------|
+| Admin | `node scripts/vercel-should-build.mjs admin-web` |
+| Vendor | `node scripts/vercel-should-build.mjs vendor-web` |
+| Support | `node scripts/vercel-should-build.mjs support-web` |
+
+**Vercel exit codes (important):** **0** = skip build (deployment CANCELED), **1** = build runs.
+
+The script watches `apps/<portal>/`, `packages/`, brand sync script, and root lockfile.
+
+**Manual redeploy** from the dashboard always builds. First deploy on a new project also builds.
 
 ---
 
