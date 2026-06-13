@@ -67,14 +67,16 @@ Because this repo uses **npm workspaces**, install from the **repository root** 
 
 | Setting | Value |
 |---------|-------|
-| **Root Directory** | `.` (repo root) |
-| **Framework Preset** | Vite |
-| **Install Command** | `npm install` |
-| **Build Command** | `npm run build -w admin-web` *(swap app name per project)* |
+| **Root Directory** | `.` (repo root) — **must match on admin, vendor, and support** |
+| **Framework Preset** | **Other** (not Vite — avoids `vite build` overriding your command) |
+| **Install Command** | `npm ci --include=dev` *(or leave empty to use root `vercel.json`)* |
+| **Build Command** | `npm run build:uat -w admin-web` *(swap workspace name per project)* |
 | **Output Directory** | `apps/admin-web/dist` *(swap per project)* |
 | **Node.js Version** | 20.x |
 
-Each portal’s `build` script runs `brand:sync` before Vite, so favicons and logo assets are generated during CI.
+If **vendor** fails on `country-state-city` while **admin** succeeds, compare **Root Directory**: vendor is often wrongly set to `apps/vendor-web`. Either clear it (repo root) or rely on `apps/vendor-web/vercel.json`, which reinstalls from the monorepo root.
+
+Each portal’s `build:uat` runs `brand:sync:web` before Vite. Vendor skips `tsc` during UAT deploy and installs `country-state-city` in `prebuild:uat` if the package was missing from CI install.
 
 ---
 
