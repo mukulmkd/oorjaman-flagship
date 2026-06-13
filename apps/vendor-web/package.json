@@ -6,11 +6,12 @@
   "scripts": {
     "dev": "npm run brand:sync && vite --mode development",
     "build": "npm run brand:sync && tsc -b && vite build --mode production",
-    "build:uat": "npm run brand:sync && tsc -b && vite build --mode uat",
+    "brand:sync": "node ../../scripts/sync-brand-assets.mjs",
+    "brand:sync:web": "node ../../scripts/sync-brand-assets.mjs --web-only",
+    "build:uat": "npm run brand:sync:web && tsc -b && vite build --mode uat",
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false",
-    "lint": "eslint .",
-    "brand:sync": "node ../../scripts/sync-brand-assets.mjs"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@oorjaman/api": "*",

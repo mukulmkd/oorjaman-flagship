@@ -77,6 +77,9 @@ function copyRaw(outPath, inputPath) {
 }
 
 async function main() {
+  const webOnly =
+    process.env.BRAND_SYNC_WEB_ONLY === "1" || process.argv.includes("--web-only");
+
   const iconSrc = findSource("icon");
   const lockupTaglineSrc = findSource("lockupTagline");
   if (!iconSrc) {
@@ -247,6 +250,9 @@ async function main() {
    * white sides are fine; matches Google Contacts-style respectful scaling).
    */
   async function emitLauncherLogoSquare(size = 1024, fillRatio = ANDROID_LAUNCHER_LOGO_FILL) {
+    if (!sharp) {
+      return readFileSync(iconSrc);
+    }
     const trimmed = sharp(iconSrc).trim({ threshold: 12 });
     const target = Math.round(size * fillRatio);
     return trimmed
@@ -267,6 +273,9 @@ async function main() {
 
   /** Technician launcher: same O sizing as customer + persona badge on the O. */
   async function emitTechnicianLauncherLogoBuf(launcherFill, badgeOpts) {
+    if (!sharp) {
+      return readFileSync(iconSrc);
+    }
     const size = 1024;
     const base = await emitLauncherLogoSquare(size, launcherFill);
     const { badgeSize, left, top } = technicianBadgePlacementOnO(size, launcherFill, badgeOpts);
@@ -276,6 +285,9 @@ async function main() {
 
   /** Trimmed logo on transparent square — contain padding (in-app / adaptive foreground). */
   async function emitTransparentLogoSquare(size = 1024, fillRatio = ANDROID_LAUNCHER_LOGO_FILL) {
+    if (!sharp) {
+      return readFileSync(iconSrc);
+    }
     const trimmed = sharp(iconSrc).trim({ threshold: 12 });
     const target = Math.round(size * fillRatio);
     return trimmed
@@ -663,6 +675,9 @@ async function main() {
   }
 
   const mobileApps = ["customer-app", "technician-app"];
+  if (webOnly) {
+    console.log("brand:sync — web portals only (skipped mobile app assets)");
+  } else {
   for (const app of mobileApps) {
     const base = join(repoRoot, "apps", app);
     const images = join(base, "assets/images");
@@ -672,6 +687,14 @@ async function main() {
 
     const isTechnician = app === "technician-app";
     if (isTechnician) {
+      if (!sharp) {
+        copyRaw(join(images, "icon.png"), iconSrc);
+        copyRaw(join(images, "adaptive-foreground.png"), iconSrc);
+        copyRaw(join(images, "adaptive-background.png"), iconSrc);
+        copyRaw(join(images, "monochrome-icon.png"), iconSrc);
+        copyRaw(join(images, "splash-android-icon.png"), iconSrc);
+        copyRaw(join(images, "splash-icon.png"), iconSrc);
+      } else {
       const techLogoBuf = await emitTechnicianLauncherLogoBuf(ANDROID_LAUNCHER_LOGO_FILL, {
         badgeSizeRatio: 0.2,
         insetOnORatio: 0.06,
@@ -687,6 +710,7 @@ async function main() {
       await emitMonochromeFromBuffer(join(images, "monochrome-icon.png"), techLogoBuf);
       await emitTechnicianAndroidSplashIcon(join(images, "splash-android-icon.png"));
       await emitTechnicianNativeSplash(join(images, "splash-icon.png"));
+      }
     } else {
       await emitCustomerLauncherAssets(images);
       await emitNativeSplash(join(images, "splash-icon.png"));
@@ -701,6 +725,7 @@ async function main() {
     if (existsSync(sunburstSrc)) {
       copyRaw(join(brand, "sunburst.png"), sunburstSrc);
     }
+  }
   }
 
   const webApps = ["admin-web", "vendor-web", "support-web", "oorjaman-web"];
