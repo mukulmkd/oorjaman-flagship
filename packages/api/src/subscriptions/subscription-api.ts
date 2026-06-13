@@ -160,7 +160,7 @@ export async function createAmcSubscriptionAsCustomer(
   }
 
   const sizing = getCustomerSolarSizing(customer);
-  if (!sizing.ready) {
+  if (sizing.ready === false) {
     if (sizing.reason === "missing_details") {
       throw new SupabaseApiError(
         "Add installed capacity (kW) and panel count in Profile, then save, before subscribing to AMC.",
