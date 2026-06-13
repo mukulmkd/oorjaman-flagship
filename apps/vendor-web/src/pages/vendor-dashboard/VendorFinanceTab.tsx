@@ -50,6 +50,10 @@ export function VendorFinanceTab({ bookings }: Props) {
       return vendorListMySettlements(supabase!, { limit: 200 });
     },
     enabled: Boolean(supabase),
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchInterval: 30_000,
   });
 
   const platformFeePercent = platformFeeQ.data ?? 10;
@@ -120,13 +124,22 @@ export function VendorFinanceTab({ bookings }: Props) {
       <Card padded>
         <h3 className="vd-subtitle">Settlements with OorjaMan</h3>
         <p className="vd-note">
-          Each <strong>completed</strong> visit creates a payout row (OorjaMan platform fee currently{" "}
-          {platformFeePercent}%). Cancelling an <strong>accepted</strong> visit may add a penalty row for ops to
+          Each <strong>completed</strong> visit creates a payout row (OorjaMan platform fee is {platformFeePercent}%
+          of the GST-exclusive visit value). Cancelling an <strong>accepted</strong> visit may add a penalty row for ops to
           confirm. Rough net on your completed visits: {formatInr(netEstimatedCents)} before settlement status.
         </p>
       </Card>
 
       <div className="vd-actions-start">
+        <Button
+          variant="outline"
+          size="sm"
+          type="button"
+          disabled={settlementsQuery.isFetching}
+          onClick={() => void settlementsQuery.refetch()}
+        >
+          {settlementsQuery.isFetching ? "Refreshing…" : "Refresh ledger"}
+        </Button>
         <Button
           variant="outline"
           size="sm"
@@ -179,7 +192,12 @@ export function VendorFinanceTab({ bookings }: Props) {
                           {formatInrFromPaise(amount)}
                         </td>
                         <td>
-                          <Badge tone={settlementStatusTone(r.status)}>{settlementStatusLabel(r.status)}</Badge>
+                          <Badge tone={settlementStatusTone(r.status)}>
+                            {settlementStatusLabel(r.status)}
+                            {r.status === "settled" && r.settled_at
+                              ? ` · ${formatDisplayDateTime(r.settled_at)}`
+                              : ""}
+                          </Badge>
                         </td>
                         <td>{formatDisplayDateTime(r.created_at)}</td>
                       </tr>

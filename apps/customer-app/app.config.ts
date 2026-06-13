@@ -1,6 +1,8 @@
 import type { ExpoConfig } from "expo/config";
-// @ts-expect-error local config plugin (CommonJS)
+import withIosPodfileFixes from "./plugins/withIosPodfileFixes";
 import withCustomerNativeBranding from "./plugins/withCustomerNativeBranding";
+import withAndroidWhiteAdaptiveIcon from "./plugins/withAndroidWhiteAdaptiveIcon";
+import withAndroidNotificationBranding from "./plugins/withAndroidNotificationBranding";
 
 const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
 const deployEnv = (process.env.EXPO_PUBLIC_DEPLOY_ENV ?? "").trim().toLowerCase();
@@ -32,9 +34,11 @@ const config: ExpoConfig = {
     ...(googleMapsApiKey ? { config: { googleMapsApiKey } } : {}),
   },
   android: {
+    icon: "./assets/images/icon.png",
+    // Smaller adaptive-foreground.png fits the 66dp safe zone (home circle mask).
     adaptiveIcon: {
-      foregroundImage: "./assets/images/adaptive-icon.png",
-      backgroundColor: "#1f8660",
+      foregroundImage: "./assets/images/adaptive-foreground.png",
+      backgroundColor: "#ffffff",
     },
     package: isUat ? "com.oorjaman.customer.uat" : "com.oorjaman.customer",
     ...(googleMapsApiKey
@@ -48,17 +52,45 @@ const config: ExpoConfig = {
       : {}),
   },
   plugins: [
+    [
+      "expo-build-properties",
+      {
+        ios: {
+          // Avoid prebuilt React.framework linker failures (ld: framework 'React' not found).
+          buildReactNativeFromSource: true,
+        },
+      },
+    ],
+    withIosPodfileFixes,
     withCustomerNativeBranding,
+    withAndroidWhiteAdaptiveIcon,
+    [
+      "expo-splash-screen",
+      {
+        backgroundColor: "#ffffff",
+        ios: {
+          backgroundColor: "#ffffff",
+          image: "./assets/images/splash-icon.png",
+          enableFullScreenImage_legacy: true,
+        },
+        android: {
+          backgroundColor: "#ffffff",
+          image: "./assets/images/splash-android-icon.png",
+          imageWidth: 196,
+        },
+      },
+    ],
     "expo-system-ui",
     "expo-router",
     [
       "expo-notifications",
       {
         icon: "./assets/images/notification-icon.png",
-        color: "#1f8660",
+        color: "#ffffff",
         sounds: ["./assets/sounds/chat_message.wav"],
       },
     ],
+    withAndroidNotificationBranding,
     "expo-font",
     [
       "expo-location",
@@ -78,7 +110,7 @@ const config: ExpoConfig = {
           "OorjaMan needs camera access to capture geo-tagged photos of your rooftop for our crew.",
       },
     ],
-  ],
+  ] as NonNullable<ExpoConfig["plugins"]>,
   experiments: {
     typedRoutes: true,
   },

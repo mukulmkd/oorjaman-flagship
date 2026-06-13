@@ -1,11 +1,13 @@
-import { useMemo, type ReactNode } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { useQuery } from "@tanstack/react-query";
+import { useCallback, useMemo, type ReactNode } from "react";
+import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   bookingApi,
+  customerLocationSignalsFromServiceSiteAddress,
   formatInrFromCents,
   queryKeys,
+  technicianApi,
   readBookingCustomerCancellationMeta,
   readBookingOpsMeta,
   readBookingServiceOtpMeta,
@@ -29,6 +31,8 @@ import {
 import { ModalHeaderSupportTrailing } from "../../../components/modal-header-support-trailing";
 import { fontFamily, fontSize, fontWeight } from "../../../constants/fonts";
 import { BookingSitePhotos } from "../../../components/booking-site-photos";
+import { ensureForegroundLocationEnabled } from "../../../lib/location-permission";
+import { openGoogleMapsForCoordinates } from "../../../lib/open-google-maps";
 import { supabase } from "../../../lib/supabase";
 import { formatDisplayDateTimeRange } from "@oorjaman/utils";
 
@@ -98,6 +102,7 @@ function recipientLines(metadata: unknown): { headline: string; detail?: string 
 export default function JobDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string | string[] }>();
   const bookingId = Array.isArray(id) ? id[0] : id;
+  const qc = useQueryClient();
 
   const query = useQuery({
     queryKey: bookingId ? queryKeys.bookings.detail(bookingId) : [],
@@ -109,10 +114,45 @@ export default function JobDetailScreen() {
   const rec = b ? recipientLines(b.metadata) : null;
   const opsMeta = b ? readBookingOpsMeta(b.metadata) : null;
   const serviceOtp = b ? readBookingServiceOtpMeta(b.metadata) : null;
+  const siteCoords = useMemo(() => {
+    if (!b) return null;
+    const signals = customerLocationSignalsFromServiceSiteAddress(b.service_site_address);
+    if (signals.lat == null || signals.lng == null) return null;
+    return { lat: signals.lat, lng: signals.lng };
+  }, [b]);
+
+  const enRouteMut = useMutation({
+    mutationFn: () => technicianApi.technicianMarkEnRoute(supabase!, bookingId!),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.bookings.detail(bookingId!) });
+      void qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
+      void qc.invalidateQueries({ queryKey: queryKeys.bookings.technicianGpsTrackable() });
+      Alert.alert(
+        "En route",
+        siteCoords
+          ? "The customer can track your trip. Open Google Maps below to navigate to their saved site location."
+          : "The customer can now see your live location in their app.",
+      );
+    },
+    onError: (err: Error) => Alert.alert("Could not update", err.message),
+  });
+
+  const handleEnRoute = useCallback(async () => {
+    const ok = await ensureForegroundLocationEnabled({
+      title: "Location required",
+      message:
+        "Turn on location before marking en route so the customer can track your trip to their site.",
+    });
+    if (!ok) return;
+    enRouteMut.mutate();
+  }, [enRouteMut]);
 
   const statusNote = useMemo(() => {
     if (!b) return undefined;
-    if (b.status === "accepted") return "You are assigned - head to site for the scheduled window.";
+    if (b.status === "accepted" && b.technician_en_route_at) {
+      return "You are en route - the customer can track your location.";
+    }
+    if (b.status === "accepted") return "You are assigned - mark en route when you leave for the site.";
     if (b.status === "in_progress") return "Job marked in progress.";
     if (b.status === "completed") return "This visit is completed.";
     if (b.status === "cancelled") return "This job was cancelled.";
@@ -215,6 +255,18 @@ export default function JobDetailScreen() {
           <DetailSection title="Site">
             <Text style={styles.body}>{stringifyAddress(b.service_site_address)}</Text>
             <Text style={styles.meta}>Service: {b.service_type.replace(/_/g, " ")}</Text>
+            {siteCoords ? (
+              <Button
+                size="sm"
+                variant="outline"
+                style={styles.mapsBtn}
+                onPress={() => void openGoogleMapsForCoordinates(siteCoords.lat, siteCoords.lng)}
+              >
+                Open in Google Maps
+              </Button>
+            ) : (
+              <Text style={styles.meta}>GPS pin not saved for this site — use the address above.</Text>
+            )}
             <BookingSitePhotos booking={b} />
           </DetailSection>
           <DetailSection title="Service for">
@@ -264,8 +316,27 @@ export default function JobDetailScreen() {
 
           {b.status === "accepted" || b.status === "in_progress" ? (
             <View style={styles.executeFooter}>
+              {b.status === "accepted" && !b.technician_en_route_at ? (
+                <Button
+                  size="lg"
+                  variant="outline"
+                  loading={enRouteMut.isPending}
+                  onPress={() => void handleEnRoute()}
+                >
+                  En route to customer
+                </Button>
+              ) : null}
+              {b.status === "accepted" && b.technician_en_route_at && siteCoords ? (
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onPress={() => void openGoogleMapsForCoordinates(siteCoords.lat, siteCoords.lng)}
+                >
+                  Open in Google Maps
+                </Button>
+              ) : null}
               <Button size="lg" variant="primary" onPress={() => router.push(`/(main)/jobs/execute/${b.id}`)}>
-                {b.status === "in_progress" ? "Continue visit" : "Start visit"}
+                {b.status === "in_progress" ? "Continue visit" : "Start visit on site"}
               </Button>
             </View>
           ) : null}
@@ -367,5 +438,10 @@ const styles = StyleSheet.create({
   executeFooter: {
     paddingVertical: spacing.md,
     paddingBottom: spacing.xl,
+    gap: spacing.sm,
+  },
+  mapsBtn: {
+    marginTop: spacing.sm,
+    alignSelf: "flex-start",
   },
 });

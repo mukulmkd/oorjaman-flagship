@@ -7,8 +7,6 @@ import {
   supportApi,
   SUPPORT_ATTACHMENTS_BUCKET,
   type SupportConversationWithParticipant,
-  type SupportDeskCustomerContext,
-  type SupportDeskTechnicianContext,
   type SupportInboxAudienceFilter,
   type SupportInboxFilter,
   type SupportMessageRow,

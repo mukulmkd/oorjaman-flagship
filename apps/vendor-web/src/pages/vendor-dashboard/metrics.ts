@@ -1,4 +1,5 @@
 import type { BookingRow, JobReportRow } from "@oorjaman/api";
+import { computeVisitPayoutBreakdown } from "@oorjaman/api";
 
 export function bookingValueCents(b: BookingRow): number {
   return b.final_price_cents ?? b.estimated_price_cents;
@@ -92,5 +93,5 @@ export function upcomingBookings(bookings: BookingRow[], withinDays = 7): Bookin
 export const DEFAULT_PLATFORM_FEE_PERCENT = 10;
 
 export function estimateNetAfterPlatformFee(cents: number, feePercent = DEFAULT_PLATFORM_FEE_PERCENT): number {
-  return Math.round(cents * (1 - feePercent / 100));
+  return computeVisitPayoutBreakdown(cents, feePercent).netPayoutPaise;
 }

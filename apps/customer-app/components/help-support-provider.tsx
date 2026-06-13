@@ -14,7 +14,7 @@ import { AmcNotificationResponse } from "./amc-notification-response";
 import { SubscriptionRealtimeNotifications } from "./subscription-realtime-notifications";
 import { SupportNotificationResponse } from "./support-notification-response";
 
-export type { HelpSupportOpenContext, HelpSupportContext, HelpSupportState } from "./help-support-context";
+export type { HelpSupportOpenContext, HelpSupportState } from "./help-support-context";
 export { useHelpSupport } from "./help-support-context";
 
 export function HelpSupportProvider({ children }: { children: ReactNode }) {

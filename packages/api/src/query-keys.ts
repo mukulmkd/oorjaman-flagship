@@ -109,6 +109,8 @@ export const queryKeys = {
   bookings: {
     all: () => [...queryKeys.root, "bookings"] as const,
     /** In-progress job(s) for the signed-in technician - drives foreground-only GPS tracking. */
+    technicianGpsTrackable: () =>
+      [...queryKeys.bookings.all(), "technician-gps-trackable"] as const,
     technicianActiveInProgress: () =>
       [...queryKeys.bookings.all(), "technician", "in-progress-active"] as const,
     list: (filters?: Record<string, unknown>) =>
@@ -157,6 +159,8 @@ export const queryKeys = {
     detail: (bookingId: string) => [...queryKeys.bookings.all(), bookingId] as const,
     technicianLastLocation: (bookingId: string) =>
       [...queryKeys.bookings.detail(bookingId), "technician-last-location"] as const,
+    technicianProfile: (bookingId: string) =>
+      [...queryKeys.bookings.detail(bookingId), "technician-profile"] as const,
     withReport: (bookingId: string) =>
       [...queryKeys.bookings.detail(bookingId), "report"] as const,
   },

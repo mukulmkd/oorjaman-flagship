@@ -94,16 +94,6 @@ export function serviceAddressFormatted(address: Json | null | undefined): strin
   return [line1, line2, [city, state].filter(Boolean).join(", "), pincode].filter(Boolean).join(", ");
 }
 
-/** True when the customer has a non-empty saved service location (book or legacy default). */
-export function customerHasUsableServiceAddress(customer: CustomerRow | null | undefined): boolean {
-  if (!customer) return false;
-  const { entries, defaultId } = readServiceAddressBook(customer);
-  if (entries.length === 0) return false;
-  const selected = defaultId ? entries.find((e) => e.id === defaultId) ?? null : entries[0] ?? null;
-  if (!selected?.address) return false;
-  return serviceAddressFormatted(selected.address).trim().length > 0;
-}
-
 /**
  * Profile edits update `customers.service_default_address` only; the address book lives in
  * `metadata.service_addresses`. Overlay the canonical label from `service_default_address` onto the

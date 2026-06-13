@@ -18,6 +18,8 @@ import {
 export type { OneTimeCapacityQuote } from "./capacity-pricing";
 export {
   ALLOWED_CAPACITY_KW,
+  computeAmcListPriceFromVisitRate,
+  formatAmcPlanSpLabel,
   formatAmcPlanSubtitle,
   isAllowedCapacityKw,
   listAmcPlansForTier,
@@ -109,7 +111,7 @@ export async function quoteOneTimeServicePrice(
   const quote = quoteOneTimeFromCatalog(tiers, rates, input.capacityKw);
   if (!quote) {
     throw new SupabaseApiError(
-      "We only service 3, 4, 5, 6, 8, and 10 kW systems. Update your solar size in Profile to match.",
+      "We only service 3, 4, 5, 6, 8, 9, and 10 kW systems. Update your solar size in Profile to match.",
     );
   }
   const addon = Math.max(0, geoAddons.visit_addon_cents);

@@ -3,9 +3,7 @@
  *
  * Run when vendor approval fails with "users row missing" or similar role-extension errors.
  *
- * Requires in `.env`:
- *   SUPABASE_URL
- *   SUPABASE_SERVICE_ROLE_KEY
+ * Requires repo root `.env.uat.local` (default) or `.env.production.local` with SEED_ENV=production.
  *
  * Usage:
  *   npm run repair:public-users
@@ -13,12 +11,13 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { config } from "dotenv";
-import { dirname, join } from "path";
+import { dirname } from "path";
 import { fileURLToPath } from "url";
+import { loadScriptEnv } from "./load-script-env.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-config({ path: join(__dirname, "..", ".env") });
+const { tier, path: envPath } = loadScriptEnv();
+if (envPath) console.log(`Using script env (${tier}): ${envPath}`);
 
 const url = process.env.SUPABASE_URL?.trim();
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();

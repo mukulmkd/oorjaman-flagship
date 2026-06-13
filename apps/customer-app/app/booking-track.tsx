@@ -1,15 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
-import MapView, { Marker, type Region } from "react-native-maps";
+import MapView, { Marker, PROVIDER_GOOGLE, type Region } from "react-native-maps";
 import { useQuery } from "@tanstack/react-query";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { bookingApi, customerApi, customerBookingDisplayTitle, queryKeys } from "@oorjaman/api";
+import {
+  bookingApi,
+  customerApi,
+  customerBookingDisplayTitle,
+  isBookingGpsTrackable,
+  queryKeys,
+} from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
 import { formatDisplayDateTime } from "@oorjaman/utils";
 import {
   Card,
+  EmptyStateCard,
   ErrorStateCard,
   modalBodyInsetStyle,
   ModalCloseButton,
@@ -65,7 +72,14 @@ export default function TrackTechnicianScreen() {
     queryKey: bookingId ? queryKeys.bookings.detail(bookingId) : [],
     queryFn: () => bookingApi.getBookingById(supabase!, bookingId!),
     enabled: Boolean(supabase && bookingId),
+    refetchInterval: (query) => {
+      const row = query.state.data;
+      return row && isBookingGpsTrackable(row) ? 15_000 : false;
+    },
+    refetchIntervalInBackground: false,
   });
+
+  const trackable = Boolean(bookingQ.data && isBookingGpsTrackable(bookingQ.data));
 
   const modalHeader = useModalStackHeader({
     title: bookingQ.data ? customerBookingDisplayTitle(bookingQ.data) : "Track technician",
@@ -92,7 +106,9 @@ export default function TrackTechnicianScreen() {
   const techLocQ = useQuery({
     queryKey: bookingId ? queryKeys.bookings.technicianLastLocation(bookingId) : [],
     queryFn: () => bookingApi.getLastTechnicianLocationForBooking(supabase!, bookingId!),
-    enabled: Boolean(supabase && bookingId),
+    enabled: Boolean(supabase && bookingId && trackable),
+    refetchInterval: trackable ? 15_000 : false,
+    refetchIntervalInBackground: false,
   });
 
   useEffect(() => {
@@ -175,7 +191,7 @@ export default function TrackTechnicianScreen() {
     );
   }
 
-  if (techLocQ.isPending || custQ.isPending) {
+  if (bookingQ.isPending || (trackable && (techLocQ.isPending || custQ.isPending))) {
     return (
       <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
         {modalHeader}
@@ -215,6 +231,36 @@ export default function TrackTechnicianScreen() {
     );
   }
 
+  if (bookingQ.data && !trackable) {
+    const b = bookingQ.data;
+    const endedCopy =
+      b.status === "in_progress"
+        ? {
+            title: "Visit in progress",
+            description:
+              "Your technician has arrived and started the visit. Live map tracking is only available while they are en route.",
+          }
+        : b.status === "completed"
+          ? {
+              title: "Visit completed",
+              description: "This visit is finished. Tracking is no longer available.",
+            }
+          : {
+              title: "Tracking not active",
+              description:
+                "Live map opens when your technician marks themselves en route in the partner app.",
+            };
+
+    return (
+      <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+        {modalHeader}
+        <View style={modalBodyInsetStyle}>
+          <EmptyStateCard title={endedCopy.title} description={endedCopy.description} />
+        </View>
+      </Screen>
+    );
+  }
+
   const recordedLabel = techLocQ.data?.recorded_at
     ? formatDisplayDateTime(techLocQ.data.recorded_at)
     : null;
@@ -222,7 +268,12 @@ export default function TrackTechnicianScreen() {
   return (
     <View style={styles.container}>
       {modalHeader}
-      <MapView ref={mapRef} style={styles.map} initialRegion={mapRegion}>
+      <MapView
+        ref={mapRef}
+        style={styles.map}
+        provider={PROVIDER_GOOGLE}
+        initialRegion={mapRegion}
+      >
         {customerCoords ? (
           <Marker coordinate={customerCoords} title="You" pinColor={colors.primary} />
         ) : null}
@@ -233,11 +284,13 @@ export default function TrackTechnicianScreen() {
 
       <View style={styles.legendWrap}>
         <Card variant="elevated" padded>
-          <Text style={styles.legendTitle}>Last known technician location</Text>
-          {recordedLabel ? <Text style={styles.legendMeta}>Recorded {recordedLabel} IST</Text> : null}
+          <Text style={styles.legendTitle}>Technician location</Text>
+          {recordedLabel ? (
+            <Text style={styles.legendMeta}>Updated {recordedLabel} IST</Text>
+          ) : null}
           {!technicianCoords ? (
             <Text style={styles.legendHint}>
-              No GPS samples yet - tracking starts when the visit is in progress.
+              Waiting for the first GPS update from your technician…
             </Text>
           ) : null}
           {!customerCoords ? (

@@ -4,10 +4,9 @@
  *
  * Required in brand/source/:
  *   logo-icon.{png,jpg,jpeg}           — mark only, no text
- *   logo-lockup-tagline.{png,jpg,jpeg} — wordmark + tagline
+ *   logo-lockup-tagline.{png,jpg,jpeg} — wordmark + tagline (OG / marketing only)
  *
  * Optional:
- *   logo-lockup.{png,jpg,jpeg}         — wordmark without tagline
  *   notification-icon.png              — white mono 96×96; else copied from icon
  */
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -30,7 +29,6 @@ const SOURCE_ALIASES = {
     "logo.jpeg",
     "logo.jpg",
   ],
-  lockup: ["logo-lockup.png", "logo-lockup.jpg", "logo-lockup.jpeg"],
   notification: ["notification-icon.png"],
 };
 
@@ -96,7 +94,6 @@ async function main() {
     process.exit(1);
   }
 
-  const lockupSrc = findSource("lockup");
   const notifSrc = findSource("notification") ?? iconSrc;
 
   const sharp = await loadSharp();
@@ -127,13 +124,30 @@ async function main() {
 </svg>`;
   }
 
+  /** App drawer / iOS icon — contain-fit; ~88% keeps side whitespace from feeling stretched. */
+  const ANDROID_LAUNCHER_LOGO_FILL = 0.88;
+  /** Home-screen adaptive safe zone (~66% of launcher fill) — avoids circle-mask crop. */
+  const ANDROID_ADAPTIVE_FOREGROUND_FILL =
+    ANDROID_LAUNCHER_LOGO_FILL * 0.66;
+
   /**
-   * Badge placement tuned for iOS squircle / Android adaptive masks (keep inside ~88% safe area).
+   * Persona badge anchored to the O bounding box (not the canvas corner) so
+   * Android circle masks do not clip it. Home adaptive uses a smaller badge.
    */
-  function technicianBadgePlacement(canvasSize, badgeSize) {
+  function technicianBadgePlacementOnO(
+    canvasSize,
+    oFillRatio,
+    { badgeSizeRatio, insetOnORatio },
+  ) {
+    const oTarget = Math.round(canvasSize * oFillRatio);
+    const oLeft = Math.floor((canvasSize - oTarget) / 2);
+    const oTop = Math.floor((canvasSize - oTarget) / 2);
+    const badgeSize = Math.max(6, Math.round(canvasSize * badgeSizeRatio));
+    const inset = Math.max(4, Math.round(oTarget * insetOnORatio));
     return {
-      left: Math.round(canvasSize * 0.68 - badgeSize * 0.12),
-      top: Math.round(canvasSize * 0.08),
+      badgeSize,
+      left: oLeft + oTarget - badgeSize - inset,
+      top: oTop + inset,
     };
   }
 
@@ -160,9 +174,11 @@ async function main() {
       .png()
       .toBuffer();
 
-    const badgeSize = Math.max(48, Math.round(size * 0.24));
+    const { badgeSize, left, top } = technicianBadgePlacementOnO(size, fillRatio, {
+      badgeSizeRatio: 0.2,
+      insetOnORatio: 0.06,
+    });
     const badgeBuf = await sharp(Buffer.from(technicianPersonaBadgeSvg(badgeSize))).png().toBuffer();
-    const { left, top } = technicianBadgePlacement(size, badgeSize);
 
     writeBuffer(
       outPath,
@@ -170,7 +186,11 @@ async function main() {
     );
   }
 
-  /** Trim whitespace and scale the Big O to fill the canvas (transparent background). */
+  const SPLASH_LOGO_IOS_PX = 620;
+  /** Matches BrandSplash `O_SIZE` (196pt) — native pre-splash logo width in dp. */
+  const SPLASH_ANDROID_IMAGE_WIDTH = 196;
+
+  /** Transparent-background logo (in-app lockups, brand folder). */
   async function emitAppIcon(outPath, size = 1024, fillRatio = 0.9) {
     if (!sharp) {
       copyRaw(outPath, iconSrc);
@@ -195,9 +215,304 @@ async function main() {
     writeBuffer(outPath, iconBuf);
   }
 
-  async function emitIcon(outPath, size = 1024) {
-    const isAdaptive = outPath.endsWith("adaptive-icon.png");
-    await emitAppIcon(outPath, size, isAdaptive ? 0.74 : 0.9);
+  /** Google-style launcher: opaque white square with centred logo composited on top. */
+  async function emitFlatLauncherIcon(outPath, logoBuf, size = 1024) {
+    if (!sharp) {
+      copyRaw(outPath, iconSrc);
+      return;
+    }
+    const meta = await sharp(logoBuf).metadata();
+    const lw = meta.width ?? size;
+    const lh = meta.height ?? size;
+    const left = Math.floor((size - lw) / 2);
+    const top = Math.floor((size - lh) / 2);
+    writeBuffer(
+      outPath,
+      await sharp({
+        create: {
+          width: size,
+          height: size,
+          channels: 4,
+          background: { r: 255, g: 255, b: 255, alpha: 1 },
+        },
+      })
+        .composite([{ input: logoBuf, left, top }])
+        .png()
+        .toBuffer(),
+    );
+  }
+
+  /**
+   * Launcher logo — contain at max size so the full O is never cropped (uneven
+   * white sides are fine; matches Google Contacts-style respectful scaling).
+   */
+  async function emitLauncherLogoSquare(size = 1024, fillRatio = ANDROID_LAUNCHER_LOGO_FILL) {
+    const trimmed = sharp(iconSrc).trim({ threshold: 12 });
+    const target = Math.round(size * fillRatio);
+    return trimmed
+      .resize(target, target, {
+        fit: "contain",
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .extend({
+        top: Math.floor((size - target) / 2),
+        bottom: Math.ceil((size - target) / 2),
+        left: Math.floor((size - target) / 2),
+        right: Math.ceil((size - target) / 2),
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .png()
+      .toBuffer();
+  }
+
+  /** Technician launcher: same O sizing as customer + persona badge on the O. */
+  async function emitTechnicianLauncherLogoBuf(launcherFill, badgeOpts) {
+    const size = 1024;
+    const base = await emitLauncherLogoSquare(size, launcherFill);
+    const { badgeSize, left, top } = technicianBadgePlacementOnO(size, launcherFill, badgeOpts);
+    const badgeBuf = await sharp(Buffer.from(technicianPersonaBadgeSvg(badgeSize))).png().toBuffer();
+    return sharp(base).composite([{ input: badgeBuf, left, top }]).png().toBuffer();
+  }
+
+  /** Trimmed logo on transparent square — contain padding (in-app / adaptive foreground). */
+  async function emitTransparentLogoSquare(size = 1024, fillRatio = ANDROID_LAUNCHER_LOGO_FILL) {
+    const trimmed = sharp(iconSrc).trim({ threshold: 12 });
+    const target = Math.round(size * fillRatio);
+    return trimmed
+      .resize(target, target, {
+        fit: "contain",
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .extend({
+        top: Math.floor((size - target) / 2),
+        bottom: Math.ceil((size - target) / 2),
+        left: Math.floor((size - target) / 2),
+        right: Math.ceil((size - target) / 2),
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .png()
+      .toBuffer();
+  }
+
+  /**
+   * Android pre-splash: transparent O only, fills the imageWidth box (matches BrandSplash O_SIZE).
+   */
+  async function emitAndroidSplashIcon(outPath, size = 1024) {
+    if (!sharp) {
+      copyRaw(outPath, iconSrc);
+      return;
+    }
+    const trimmed = sharp(iconSrc).trim({ threshold: 12 });
+    const logoBuf = await trimmed
+      .resize(size, size, {
+        fit: "contain",
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .png()
+      .toBuffer();
+    writeBuffer(outPath, logoBuf);
+  }
+
+  /** Technician Android pre-splash: O + badge at BrandSplash scale (imageWidth dp). */
+  async function emitTechnicianAndroidSplashIcon(outPath, size = 1024) {
+    if (!sharp) {
+      copyRaw(outPath, iconSrc);
+      return;
+    }
+    const trimmed = sharp(iconSrc).trim({ threshold: 12 });
+    const target = Math.round(size * 0.78);
+    const base = await trimmed
+      .resize(target, target, {
+        fit: "contain",
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .extend({
+        top: Math.floor((size - target) / 2),
+        bottom: Math.ceil((size - target) / 2),
+        left: Math.floor((size - target) / 2),
+        right: Math.ceil((size - target) / 2),
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .png()
+      .toBuffer();
+    const { badgeSize, left, top } = technicianBadgePlacementOnO(size, 0.78, {
+      badgeSizeRatio: 0.18,
+      insetOnORatio: 0.08,
+    });
+    const badgeBuf = await sharp(Buffer.from(technicianPersonaBadgeSvg(badgeSize))).png().toBuffer();
+    writeBuffer(
+      outPath,
+      await sharp(base).composite([{ input: badgeBuf, left, top }]).png().toBuffer(),
+    );
+  }
+
+  function dilateAlphaMask(mask, width, height, radius = 2) {
+    const out = new Uint8Array(mask.length);
+    const r2 = radius * radius;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (!mask[y * width + x]) continue;
+        for (let dy = -radius; dy <= radius; dy++) {
+          for (let dx = -radius; dx <= radius; dx++) {
+            if (dx * dx + dy * dy > r2) continue;
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+              out[ny * width + nx] = 1;
+            }
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  function complementAlphaMask(mask) {
+    const out = new Uint8Array(mask.length);
+    for (let i = 0; i < mask.length; i++) out[i] = mask[i] ? 0 : 1;
+    return out;
+  }
+
+  /** Morphological close — dilate then erode; bridges thin gaps between O segments. */
+  function closeAlphaMask(mask, width, height, radius = 2) {
+    const dilated = dilateAlphaMask(mask, width, height, radius);
+    const eroded = complementAlphaMask(
+      dilateAlphaMask(complementAlphaMask(dilated), width, height, radius),
+    );
+    return eroded;
+  }
+
+  /**
+   * White silhouette with internal segment gaps closed — reads as one O at 24dp.
+   * Keeps the outer ring hole; merges thin transparent slits between logo segments.
+   */
+  async function rgbaToSolidWhiteSilhouette(rgbaSource) {
+    const { data, info } = await sharp(rgbaSource)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const { width, height } = info;
+
+    const mask = new Uint8Array(width * height);
+    for (let i = 0; i < width * height; i++) {
+      mask[i] = data[i * 4 + 3] > 32 ? 1 : 0;
+    }
+    const closed = closeAlphaMask(mask, width, height, 2);
+
+    const white = Buffer.alloc(width * height * 4);
+    for (let i = 0; i < closed.length; i++) {
+      if (closed[i]) {
+        const o = i * 4;
+        white[o] = 255;
+        white[o + 1] = 255;
+        white[o + 2] = 255;
+        white[o + 3] = 255;
+      }
+    }
+
+    return sharp(white, {
+      raw: { width, height, channels: 4 },
+    })
+      .png()
+      .toBuffer();
+  }
+
+  /** White silhouette PNG from RGBA buffer (O only or O + persona badge). */
+  async function emitMonochromeFromBuffer(outPath, rgbaSource) {
+    if (!sharp) {
+      copyRaw(outPath, findSource("notification") ?? iconSrc);
+      return;
+    }
+    const { data, info } = await sharp(rgbaSource)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    const white = Buffer.alloc(data.length);
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] > 32) {
+        white[i] = 255;
+        white[i + 1] = 255;
+        white[i + 2] = 255;
+        white[i + 3] = 255;
+      }
+    }
+
+    writeBuffer(
+      outPath,
+      await sharp(white, {
+        raw: { width: info.width, height: info.height, channels: 4 },
+      })
+        .png()
+        .toBuffer(),
+    );
+  }
+
+  /** White O silhouette at launcher fill ratio for Android 13+ themed icons. */
+  async function emitAdaptiveMonochrome(outPath, size = 1024, fillRatio = ANDROID_LAUNCHER_LOGO_FILL) {
+    if (!sharp) {
+      copyRaw(outPath, findSource("notification") ?? iconSrc);
+      return;
+    }
+    const trimmed = sharp(iconSrc).trim({ threshold: 12 });
+    const target = Math.round(size * fillRatio);
+    const rgbaSource = await trimmed
+      .resize(target, target, {
+        fit: "contain",
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .extend({
+        top: Math.floor((size - target) / 2),
+        bottom: Math.ceil((size - target) / 2),
+        left: Math.floor((size - target) / 2),
+        right: Math.ceil((size - target) / 2),
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .png()
+      .toBuffer();
+    await emitMonochromeFromBuffer(outPath, rgbaSource);
+  }
+
+  async function emitAdaptiveBackground(outPath, size = 1024) {
+    if (!sharp) {
+      copyRaw(outPath, iconSrc);
+      return;
+    }
+    writeBuffer(
+      outPath,
+      await sharp({
+        create: {
+          width: size,
+          height: size,
+          channels: 4,
+          background: { r: 255, g: 255, b: 255, alpha: 1 },
+        },
+      })
+        .png()
+        .toBuffer(),
+    );
+  }
+
+  async function emitCustomerLauncherAssets(images) {
+    if (!sharp) {
+      copyRaw(join(images, "icon.png"), iconSrc);
+      copyRaw(join(images, "splash-android-icon.png"), iconSrc);
+      copyRaw(join(images, "adaptive-foreground.png"), iconSrc);
+      copyRaw(join(images, "adaptive-background.png"), iconSrc);
+      copyRaw(join(images, "monochrome-icon.png"), iconSrc);
+      return;
+    }
+    const logoBuf = await emitLauncherLogoSquare();
+    const adaptiveLogoBuf = await emitLauncherLogoSquare(
+      1024,
+      ANDROID_ADAPTIVE_FOREGROUND_FILL,
+    );
+    const iconPath = join(images, "icon.png");
+    await emitFlatLauncherIcon(iconPath, logoBuf);
+    await emitFlatLauncherIcon(join(images, "adaptive-foreground.png"), adaptiveLogoBuf);
+    await emitAdaptiveBackground(join(images, "adaptive-background.png"));
+    await emitAdaptiveMonochrome(join(images, "monochrome-icon.png"));
+    await emitAndroidSplashIcon(join(images, "splash-android-icon.png"));
   }
 
   async function emitLockup(outPath, src, maxWidth = 1200) {
@@ -208,12 +523,50 @@ async function main() {
     }
   }
 
-  async function emitNotification(outPath) {
-    if (sharp) {
-      writeBuffer(outPath, await toPngBuffer(sharp, notifSrc, 96, 96));
-    } else {
-      copyRaw(outPath, notifSrc);
+  /**
+   * Android status-bar icon — white O silhouette on transparent 96×96 only.
+   * Status-bar glyph only (white on transparent). The shade uses the full launcher
+   * via large_notification_icon — never bake a coloured or black background here.
+   */
+  const NOTIFICATION_ICON_PX = 96;
+  const NOTIFICATION_LOGO_FILL = 0.88;
+
+  async function emitAndroidNotificationIcon(outPath, logoBuffer = null) {
+    if (!sharp) {
+      copyRaw(outPath, iconSrc);
+      return;
     }
+
+    const canvas = NOTIFICATION_ICON_PX;
+    const target = Math.round(canvas * NOTIFICATION_LOGO_FILL);
+    const logoPng =
+      logoBuffer ??
+      (await sharp(iconSrc)
+        .trim({ threshold: 12 })
+        .resize(target, target, {
+          fit: "contain",
+          background: { r: 0, g: 0, b: 0, alpha: 0 },
+        })
+        .extend({
+          top: Math.floor((canvas - target) / 2),
+          bottom: Math.ceil((canvas - target) / 2),
+          left: Math.floor((canvas - target) / 2),
+          right: Math.ceil((canvas - target) / 2),
+          background: { r: 0, g: 0, b: 0, alpha: 0 },
+        })
+        .png()
+        .toBuffer());
+
+    writeBuffer(outPath, await rgbaToSolidWhiteSilhouette(logoPng));
+  }
+
+  async function emitNotification(outPath) {
+    await emitAndroidNotificationIcon(outPath);
+  }
+
+  /** Partner app: same O mark at notification size (badge is too small for status bar). */
+  async function emitTechnicianNotification(outPath) {
+    await emitAndroidNotificationIcon(outPath);
   }
 
   /** Technician native splash: persona Big O centered on white. */
@@ -222,7 +575,7 @@ async function main() {
       copyRaw(outPath, iconSrc);
       return;
     }
-    const iconSize = 360;
+    const iconSize = SPLASH_LOGO_IOS_PX;
     const trimmed = sharp(iconSrc).trim({ threshold: 12 });
     const target = Math.round(iconSize * 0.78);
     const base = await trimmed
@@ -240,9 +593,12 @@ async function main() {
       .png()
       .toBuffer();
 
-    const badgeSize = Math.max(40, Math.round(iconSize * 0.24));
+    const { badgeSize, left: badgeLeft, top: badgeTop } = technicianBadgePlacementOnO(
+      iconSize,
+      0.78,
+      { badgeSizeRatio: 0.2, insetOnORatio: 0.06 },
+    );
     const badgeBuf = await sharp(Buffer.from(technicianPersonaBadgeSvg(badgeSize))).png().toBuffer();
-    const { left: badgeLeft, top: badgeTop } = technicianBadgePlacement(iconSize, badgeSize);
     const iconBuf = await sharp(base)
       .composite([
         {
@@ -273,13 +629,12 @@ async function main() {
     );
   }
 
-  /** Native Expo splash: icon only on white — animated lockup is in-app. */
-  async function emitNativeSplash(outPath) {
+  /** iOS Launch Screen + legacy full-bleed: large centred O (~BrandSplash 196pt scale). */
+  async function emitNativeSplash(outPath, iconSize = SPLASH_LOGO_IOS_PX) {
     if (!sharp) {
       copyRaw(outPath, iconSrc);
       return;
     }
-    const iconSize = 320;
     const trimmedIcon = sharp(iconSrc).trim({ threshold: 12 });
     const iconBuf = await trimmedIcon
       .resize(iconSize, iconSize, {
@@ -317,26 +672,31 @@ async function main() {
 
     const isTechnician = app === "technician-app";
     if (isTechnician) {
-      await emitTechnicianAppIcon(join(images, "icon.png"));
-      await emitTechnicianAppIcon(join(images, "adaptive-icon.png"), 1024, 0.64);
+      const techLogoBuf = await emitTechnicianLauncherLogoBuf(ANDROID_LAUNCHER_LOGO_FILL, {
+        badgeSizeRatio: 0.2,
+        insetOnORatio: 0.06,
+      });
+      const techAdaptiveLogoBuf = await emitTechnicianLauncherLogoBuf(
+        ANDROID_ADAPTIVE_FOREGROUND_FILL,
+        { badgeSizeRatio: 0.16, insetOnORatio: 0.12 },
+      );
+      const iconPath = join(images, "icon.png");
+      await emitFlatLauncherIcon(iconPath, techLogoBuf);
+      await emitFlatLauncherIcon(join(images, "adaptive-foreground.png"), techAdaptiveLogoBuf);
+      await emitAdaptiveBackground(join(images, "adaptive-background.png"));
+      await emitMonochromeFromBuffer(join(images, "monochrome-icon.png"), techLogoBuf);
+      await emitTechnicianAndroidSplashIcon(join(images, "splash-android-icon.png"));
       await emitTechnicianNativeSplash(join(images, "splash-icon.png"));
     } else {
-      await emitIcon(join(images, "icon.png"));
-      await emitIcon(join(images, "adaptive-icon.png"));
+      await emitCustomerLauncherAssets(images);
       await emitNativeSplash(join(images, "splash-icon.png"));
     }
-    await emitIcon(join(brand, "logo-icon.png"));
-    await emitLockup(join(brand, "logo-lockup-tagline.png"), lockupTaglineSrc, 1200);
-    if (lockupSrc) {
-      await emitLockup(join(brand, "logo-lockup.png"), lockupSrc, 1200);
+    await emitAppIcon(join(brand, "logo-icon.png"));
+    if (isTechnician) {
+      await emitTechnicianNotification(join(images, "notification-icon.png"));
+    } else {
+      await emitNotification(join(images, "notification-icon.png"));
     }
-    await emitNotification(join(images, "notification-icon.png"));
-
-    const lottieSrc = join(repoRoot, "apps/customer-app/assets/brand/splash-progress.json");
-    if (existsSync(lottieSrc)) {
-      copyRaw(join(brand, "splash-progress.json"), lottieSrc);
-    }
-
     const sunburstSrc = join(repoRoot, "apps/customer-app/assets/brand/sunburst.png");
     if (existsSync(sunburstSrc)) {
       copyRaw(join(brand, "sunburst.png"), sunburstSrc);
@@ -347,16 +707,30 @@ async function main() {
   for (const app of webApps) {
     const pub = join(repoRoot, "apps", app, "public");
     mkdirSync(pub, { recursive: true });
-    await emitIcon(join(pub, "favicon.png"), 32);
-    await emitIcon(join(pub, "apple-touch-icon.png"), 180);
-    await emitIcon(join(pub, "logo-icon.png"), 256);
-    await emitLockup(join(pub, "logo-lockup-tagline.png"), lockupTaglineSrc, 800);
+    const isVendorPortal = app === "vendor-web";
+    const emitWebIcon = isVendorPortal ? emitTechnicianAppIcon : (p, s, f) => emitAppIcon(p, s ?? 1024, f ?? 0.9);
+    await emitWebIcon(join(pub, "favicon.png"), 32, isVendorPortal ? 0.9 : undefined);
+    await emitWebIcon(join(pub, "apple-touch-icon.png"), 180, isVendorPortal ? 0.9 : undefined);
+    await emitWebIcon(join(pub, "logo-icon.png"), 256, isVendorPortal ? 0.9 : undefined);
     if (app === "oorjaman-web") {
       await emitLockup(join(pub, "og-default.png"), lockupTaglineSrc, 1200);
     }
   }
 
-  console.log("\nBrand sync complete. Rebuild native apps to refresh icons (expo prebuild / EAS).");
+  if (sharp) {
+    const masterNotif = join(sourceDir, "notification-icon.png");
+    await emitNotification(masterNotif);
+    console.log(
+      "wrote brand/source/notification-icon.png (white O on transparent — Android status bar)",
+    );
+  }
+
+  console.log(
+    `\nBrand sync complete (Android splash imageWidth=${SPLASH_ANDROID_IMAGE_WIDTH}). For native Android builds, run per app:`,
+  );
+  console.log("  npx expo prebuild --platform android");
+  console.log("  adb uninstall <package>   # launchers cache icons");
+  console.log("  npx expo run:android   # or eas build");
 }
 
 void main();

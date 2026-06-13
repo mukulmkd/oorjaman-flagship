@@ -17,7 +17,6 @@ import {
   formatIntakeExperienceLine,
   formatSubmittedAt,
 } from "../lib/vendor-approval-utils";
-import "../layouts/dashboard-layout.css";
 
 function intakeDisplayName(row: VendorRegistrationIntakeRow): string {
   const form = row.form_data;

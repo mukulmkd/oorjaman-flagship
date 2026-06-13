@@ -6,7 +6,6 @@ import { formatDisplayDateTime } from "@oorjaman/utils";
 import { Badge, Button, Card, Input, PageHeader, TableRowsSkeleton } from "@oorjaman/web-ui";
 import { useSupabase } from "../lib/supabase-context";
 import { TablePaginationBar } from "../components/TablePaginationBar";
-import "../layouts/dashboard-layout.css";
 
 type TechHistorySummary = {
   total: number;

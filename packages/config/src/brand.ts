@@ -20,6 +20,6 @@ export const brandColors = {
 } as const;
 
 /** Alias used by customer-app wordmark components */
-export const brandTextColors = brandColors;
+export type BrandTextColors = typeof brandColors;
 
 export type BrandColorToken = keyof typeof brandColors;

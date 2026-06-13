@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import MapView, { Marker, type Region } from "react-native-maps";
+import MapView, { Marker, PROVIDER_GOOGLE, type Region } from "react-native-maps";
 import { useQuery } from "@tanstack/react-query";
 import { bookingApi, queryKeys } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
@@ -43,7 +43,7 @@ export function ActivityBookingMapPreview({
     queryKey: queryKeys.bookings.technicianLastLocation(bookingId),
     queryFn: () => bookingApi.getLastTechnicianLocationForBooking(supabase!, bookingId),
     enabled: Boolean(supabase && bookingId),
-    refetchInterval: liveUpdatesEnabled ? 25_000 : false,
+    refetchInterval: liveUpdatesEnabled ? 15_000 : false,
     refetchIntervalInBackground: false,
   });
 
@@ -96,6 +96,7 @@ export function ActivityBookingMapPreview({
         <MapView
           ref={mapRef}
           style={styles.map}
+          provider={PROVIDER_GOOGLE}
           initialRegion={region}
           showsUserLocation={false}
           scrollEnabled={false}
@@ -109,7 +110,7 @@ export function ActivityBookingMapPreview({
         </MapView>
         {!techPoint && !techLocQ.isPending ? (
           <View style={styles.mapOverlay}>
-            <Text style={styles.overlayText}>Waiting for technician GPS…</Text>
+            <Text style={styles.overlayText}>Waiting for the first GPS update…</Text>
           </View>
         ) : null}
       </View>

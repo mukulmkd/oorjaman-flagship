@@ -1,4 +1,7 @@
 export * from "./badge";
+export * from "./brand-wordmark";
+export * from "./portal-brand";
+export * from "./portal-loading";
 export * from "./button";
 export * from "./card";
 export * from "./modal";

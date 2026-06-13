@@ -1,8 +1,8 @@
 -- =============================================================================
 -- Supabase Storage - job evidence photos (`job-photos` bucket)
 -- =============================================================================
--- Apply in the Supabase SQL editor (or migrations) after `schema.sql` + `policies.sql`.
--- Uses first path segment `{booking_id}/…` so RLS can tie uploads to assigned bookings.
+-- Canonical definition: supabase/migrations/20260744200000_job_photos_storage_bucket.sql
+-- (applied via npm run db:push). This file is a reference copy for manual SQL editor use.
 -- =============================================================================
 
 insert into storage.buckets (id, name, public)

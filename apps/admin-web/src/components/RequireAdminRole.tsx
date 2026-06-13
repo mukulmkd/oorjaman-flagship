@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { authApi, userApi } from "@oorjaman/api";
+import { PortalLoadingScreen } from "@oorjaman/web-ui";
 import { useSupabase } from "../lib/supabase-context";
-import "../pages/admin-login.css";
 
 /**
  * Must render inside {@link RequireSession}. Ensures `public.users.role === admin` or signs out.
@@ -34,7 +34,7 @@ export function RequireAdminRole({ children }: { children: ReactNode }) {
   }, [supabase]);
 
   if (allowed === null) {
-    return <p className="al-gate">Checking admin access…</p>;
+    return <PortalLoadingScreen label="Checking admin access…" />;
   }
   if (!allowed) {
     return <Navigate to="/login" replace />;

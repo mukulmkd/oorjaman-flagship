@@ -11,7 +11,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { basename, resolve } from "node:path";
-import { repoRoot, supabaseCliBin } from "./supabase-cli-bin.mjs";
+import { repoRoot, getSupabaseCliBin } from "./supabase-cli-bin.mjs";
 
 const configPath = resolve(repoRoot, "supabase", "config.toml");
 const functionsRoot = resolve(repoRoot, "supabase", "functions");
@@ -87,7 +87,7 @@ if (!existsSync(entryPath)) {
 
 console.log(`Deploying edge function: ${functionName}`);
 
-const result = spawnSync(supabaseCliBin, ["functions", "deploy", functionName, ...deployFlags], {
+const result = spawnSync(getSupabaseCliBin(), ["functions", "deploy", functionName, ...deployFlags], {
   stdio: "inherit",
   cwd: repoRoot,
 });

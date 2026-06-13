@@ -19,7 +19,6 @@ import { SupabaseApiError, takeSingleRow } from "../result";
 import { computeAmcVisitSlots } from "./amc-booking-generation";
 import {
   isSubscriptionActive,
-  readSubscriptionServiceAddressId,
   resolveSubscriptionAddressEntry,
   subscriptionAddressLabel,
 } from "./subscription-address";

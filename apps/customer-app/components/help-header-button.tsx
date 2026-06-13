@@ -48,9 +48,6 @@ export function SupportChatHeaderButton() {
   );
 }
 
-/** @deprecated Use {@link SupportChatHeaderButton} */
-export const HelpHeaderButton = SupportChatHeaderButton;
-
 const styles = StyleSheet.create({
   btn: {
     width: 40,

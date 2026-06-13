@@ -42,6 +42,7 @@ oorjaman-flagship/
 ├── .env.example           # Env templates (copy per app)
 ├── .env.deployment.example # PROD vs UAT URL + Supabase matrix (no secrets)
 ├── DEPLOYMENT.md          # 8 hosts (4 PROD + 4 UAT), GoDaddy, dual Supabase
+├── VERCEL.md              # Deploy admin/vendor/support portals to Vercel (testing)
 ├── SUPABASE-UAT-PROD.md   # OorjaMan UAT vs Prod: migrations, RLS, db push workflow
 ├── ENVIRONMENT.md         # Dev vs production env & build settings (all apps)
 └── BILLING.md             # Third-party services & API keys checklist
@@ -164,6 +165,7 @@ Import from workspace packages in apps (no publish step in dev):
 
 - [**SUPABASE-UAT-PROD.md**](SUPABASE-UAT-PROD.md) - dual Supabase projects, `db push` workflow, keeping `schema.sql` / `policies.sql` in sync
 - [**DEPLOYMENT.md**](DEPLOYMENT.md) - PROD vs UAT web hosts, mobile EAS builds, GoDaddy
+- [**VERCEL.md**](VERCEL.md) - deploy admin, vendor, and support portals to Vercel for testing (env vars, Supabase setup)
 - [**ENVIRONMENT.md**](ENVIRONMENT.md) - environment variables and settings for **development** vs **production** builds (mobile, web, Supabase, push)
 - [**BILLING.md**](BILLING.md) - paid third-party services (e.g. Google Maps), env vars, and setup notes
 - [**docs/customer-push-setup.md**](docs/customer-push-setup.md) - customer support chat remote push (Expo + edge function)

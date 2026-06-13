@@ -1,6 +1,18 @@
 import * as Device from "expo-device";
 import * as ImagePicker from "expo-image-picker";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
+
+/** iOS returns HEIC by default; Storage buckets allow JPEG/PNG/WebP only. */
+const IOS_JPEG_PICK_OPTIONS: Pick<
+  ImagePicker.ImagePickerOptions,
+  "preferredAssetRepresentationMode"
+> =
+  Platform.OS === "ios"
+    ? {
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+      }
+    : {};
 
 function isCameraUnavailableError(e: unknown): boolean {
   const msg = e instanceof Error ? e.message : String(e);
@@ -16,6 +28,7 @@ async function pickFromLibrary(): Promise<string | null> {
   const picked = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ImagePicker.MediaTypeOptions.Images,
     quality: 0.85,
+    ...IOS_JPEG_PICK_OPTIONS,
   });
   return picked.canceled ? null : (picked.assets[0]?.uri ?? null);
 }
@@ -30,6 +43,7 @@ async function pickFromCamera(cameraType?: ImagePicker.CameraType): Promise<stri
     const shot = await ImagePicker.launchCameraAsync({
       quality: 0.85,
       cameraType,
+      ...IOS_JPEG_PICK_OPTIONS,
     });
     return shot.canceled ? null : (shot.assets[0]?.uri ?? null);
   } catch (e: unknown) {

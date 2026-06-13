@@ -14,7 +14,6 @@ import { Button, Card, Modal, PageHeader } from "@oorjaman/web-ui";
 import { useSupabase } from "../lib/supabase-context";
 import { TablePaginationBar } from "../components/TablePaginationBar";
 import { formatNotificationChannelLabel, formatNotificationEventTypeLabel } from "../lib/notification-labels";
-import "../layouts/dashboard-layout.css";
 
 export function FeatureManagementPage() {
   const supabase = useSupabase();

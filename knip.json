@@ -1,0 +1,105 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "expo": false,
+  "ignoreExportsUsedInFile": true,
+  "ignore": [
+    "apps/*/android/**",
+    "apps/*/ios/**",
+    "brand/source/**",
+    "**/*.d.ts"
+  ],
+  "ignoreDependencies": [
+    "expo",
+    "expo-system-ui",
+    "react-native",
+    "react",
+    "@babel/core",
+    "eslint",
+    "eslint-config-next",
+    "@react-navigation/native"
+  ],
+  "ignoreUnresolved": [
+    "@expo/config-plugins",
+    "@expo/image-utils"
+  ],
+  "ignoreIssues": {
+    "packages/api/**": ["exports", "types"]
+  },
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/**/*.{mjs,js}"],
+      "project": ["scripts/**/*.{mjs,js}"]
+    },
+    "apps/customer-app": {
+      "entry": [
+        "app/**/*.{ts,tsx}",
+        "app.config.ts",
+        "plugins/**/*.js"
+      ],
+      "project": [
+        "app/**/*.{ts,tsx}",
+        "components/**/*.{ts,tsx}",
+        "lib/**/*.{ts,tsx}",
+        "constants/**/*.{ts,tsx}",
+        "plugins/**/*.js"
+      ]
+    },
+    "apps/technician-app": {
+      "entry": [
+        "app/**/*.{ts,tsx}",
+        "app.config.ts",
+        "plugins/**/*.js"
+      ],
+      "project": [
+        "app/**/*.{ts,tsx}",
+        "components/**/*.{ts,tsx}",
+        "lib/**/*.{ts,tsx}",
+        "constants/**/*.{ts,tsx}",
+        "plugins/**/*.js"
+      ]
+    },
+    "apps/admin-web": {
+      "entry": ["index.html", "src/main.tsx"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "apps/support-web": {
+      "entry": ["index.html", "src/main.tsx"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "apps/vendor-web": {
+      "entry": ["index.html", "src/main.tsx"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "apps/oorjaman-web": {
+      "entry": [
+        "app/**/*.{ts,tsx}",
+        "next.config.{js,ts,mjs}"
+      ],
+      "project": ["app/**/*.{ts,tsx}"]
+    },
+    "packages/api": {
+      "entry": ["src/**/*.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/ui": {
+      "entry": ["src/index.ts", "src/safe-splash-screen.ts"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "packages/web-ui": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "packages/config": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/utils": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "supabase/functions": {
+      "entry": ["**/*.ts"],
+      "project": ["**/*.ts"]
+    }
+  }
+}

@@ -28,6 +28,7 @@
     "seed:dummy-users": "node scripts/seed-dummy-test-users.mjs",
     "purge:test-data": "node scripts/purge-test-user-data.mjs",
     "repair:public-users": "node scripts/repair-public-users.mjs",
+    "db:repair-cli": "node scripts/repair-supabase-cli.mjs",
     "db:push": "node scripts/supabase-db-push.mjs",
     "db:push:yes": "npx supabase db push --yes",
     "db:reference": "node scripts/build-supabase-reference.mjs",
@@ -36,13 +37,27 @@
     "supabase": "npx supabase",
     "functions:deploy": "node scripts/supabase-function-deploy.mjs",
     "typecheck:edge-functions": "tsc -p supabase/functions/tsconfig.json --pretty false",
-    "brand:sync": "node scripts/sync-brand-assets.mjs"
+    "brand:sync": "node scripts/sync-brand-assets.mjs",
+    "brand:verify-notification-icon": "node scripts/verify-notification-icon.mjs",
+    "knip": "knip",
+    "knip:fix": "knip --fix",
+    "validate": "npm run typecheck && npm run knip",
+    "android:local-props": "node scripts/android-local-properties.mjs",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.49.1",
-    "sharp": "^0.34.2",
     "dotenv": "^16.4.5",
+    "knip": "^5.88.1",
+    "sharp": "^0.34.2",
     "supabase": "2.105.0",
     "typescript": "~5.7.2"
+  },
+  "version": "1.0.0",
+  "dependencies": {
+    "expo": "~54.0.35",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
   }
 }

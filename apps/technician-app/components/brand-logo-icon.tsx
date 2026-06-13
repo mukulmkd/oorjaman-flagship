@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { brandAssets, brandTextColors } from "../lib/brand-assets";
 
-/** Matches launcher-icon safe area in sync-brand-assets.mjs */
+/** In-app badge (overflow visible). Raster icons in sync-brand-assets use 22% / 16% inset. */
 const BADGE_SIZE_RATIO = 0.26;
 const BADGE_TOP_RATIO = 0.08;
 const BADGE_RIGHT_RATIO = 0.08;

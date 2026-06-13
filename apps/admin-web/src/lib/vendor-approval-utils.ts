@@ -1,4 +1,4 @@
-import type { Json, VendorApprovalStatus, VendorRow } from "@oorjaman/api";
+import type { Json, VendorApprovalStatus } from "@oorjaman/api";
 import { formatDisplayDateTime } from "@oorjaman/utils";
 
 export type VendorTab = "pending" | "approved" | "rejected";
@@ -25,16 +25,6 @@ export function cityFromRegisteredAddress(value: unknown): string {
     if (typeof c === "string" && c.trim()) return c.trim();
   }
   return "-";
-}
-
-/** One line for list columns: years + short experience text. */
-export function formatVendorExperienceLine(v: VendorRow): string {
-  const y = v.years_in_business;
-  const yearsPart = y != null ? `${y} yr${y === 1 ? "" : "s"} in business` : null;
-  const summary = v.experience_summary?.trim();
-  const short = summary && summary.length > 90 ? `${summary.slice(0, 87)}…` : summary;
-  const parts = [yearsPart, short].filter(Boolean);
-  return parts.length ? parts.join(" · ") : "-";
 }
 
 /** One line from `vendor_registration_intake.form_data` (partner registration intake). */

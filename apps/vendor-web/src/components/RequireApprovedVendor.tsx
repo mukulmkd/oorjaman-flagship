@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { vendorApi } from "@oorjaman/api";
+import { PortalLoadingScreen } from "@oorjaman/web-ui";
 import { useSupabase } from "../lib/supabase-context";
-import "../pages/login.css";
 
 /**
  * Renders children only when the current user has an **approved** vendor profile.
@@ -34,7 +34,7 @@ export function RequireApprovedVendor({ children }: { children: ReactNode }) {
   }, [supabase]);
 
   if (ok === null) {
-    return <p className="al-gate">Loading vendor profile…</p>;
+    return <PortalLoadingScreen label="Loading vendor profile…" />;
   }
   if (!ok) {
     return <Navigate to="/" replace />;

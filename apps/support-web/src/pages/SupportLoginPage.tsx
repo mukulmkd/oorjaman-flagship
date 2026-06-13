@@ -12,10 +12,8 @@ import {
   validateLoginNationalPhone,
 } from "@oorjaman/api";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Button, Card, Input, PhoneCountryLogin } from "@oorjaman/web-ui";
+import { Button, Card, Input, PhoneCountryLogin, PortalLoginBrand } from "@oorjaman/web-ui";
 import { useSupabase } from "../lib/supabase-context";
-import "./login.css";
-
 const OTP_LEN = 6;
 
 type SignInMethod = "phone" | "email";
@@ -35,7 +33,7 @@ async function routeAfterSupportLogin(
     if (row.role === "support") {
       await supportApi.ensureMySupportAgent(supabase);
     }
-    navigate("/inbox", { replace: true });
+    navigate("/insights", { replace: true });
     return;
   }
   await authApi.signOut(supabase);
@@ -76,7 +74,7 @@ export default function SupportLoginPage() {
       if (!data.session) return;
       const row = await userApi.getMyUserRecord(supabase);
       if (row?.role === "admin") {
-        navigate("/inbox", { replace: true });
+        navigate("/insights", { replace: true });
         return;
       }
       await authApi.signOut(supabase);
@@ -214,8 +212,8 @@ export default function SupportLoginPage() {
 
   return (
     <div className="al-root">
+      <PortalLoginBrand persona="support" />
       <Card padded className="al-card">
-        <h1 className="al-title">OorjaMan Support</h1>
         <p className="al-lede">
           Sign in to manage customer chats. Operations console and partner portal use separate apps.
         </p>

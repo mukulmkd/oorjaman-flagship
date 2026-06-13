@@ -11,11 +11,9 @@ import {
   validateLoginNationalPhone,
 } from "@oorjaman/api";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Button, Card, Input, PhoneCountryLogin } from "@oorjaman/web-ui";
+import { Button, Card, Input, PhoneCountryLogin, PortalLoginBrand } from "@oorjaman/web-ui";
 import { useSupabase } from "../lib/supabase-context";
 import { adminPortalUrl } from "../lib/portal-urls";
-import "./login.css";
-
 const OTP_LEN = 6;
 
 type SignInMethod = "phone" | "email";
@@ -234,11 +232,11 @@ export default function VendorLoginPage() {
 
   return (
     <div className="al-root">
+      <PortalLoginBrand persona="partner" />
       <Card padded className="al-card">
-        <h1 className="al-title">Partner sign in</h1>
         <p className="al-lede">
-          Use your mobile number or email for a one-time code. Oorjaman staff should use the operations console
-          instead.
+          Sign in with your mobile number or email for a one-time code. OorjaMan operations staff should use the
+          admin console instead.
         </p>
 
         <div className="al-tabs" role="tablist" aria-label="Sign-in method">

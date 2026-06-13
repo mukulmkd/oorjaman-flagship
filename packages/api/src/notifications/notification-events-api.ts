@@ -3,6 +3,12 @@ import type { Database, NotificationEventRow } from "../database.types";
 import { offsetRangeForPage, type PagedParams, type PagedResult } from "../page-range";
 import { SupabaseApiError, takeRows } from "../result";
 
+type NotificationEventStatus = NotificationEventRow["status"];
+
+function isNotificationEventStatus(value: string): value is NotificationEventStatus {
+  return value === "queued" || value === "sent" || value === "failed";
+}
+
 export async function adminListNotificationEvents(
   client: SupabaseClient<Database>,
   limit = 200,
@@ -41,7 +47,9 @@ export async function adminCountNotificationEvents(
 ): Promise<number> {
   let q = client.from("notification_events").select("id", { count: "exact", head: true });
   if (filters?.eventType) q = q.eq("event_type", filters.eventType);
-  if (filters?.status) q = q.eq("status", filters.status);
+  if (filters?.status && isNotificationEventStatus(filters.status)) {
+    q = q.eq("status", filters.status);
+  }
   if (filters?.sinceIso) q = q.gte("created_at", filters.sinceIso);
   const { count, error } = await q;
   if (error) throw new SupabaseApiError(error.message, error);

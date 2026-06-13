@@ -2292,6 +2292,8 @@ alter table public.pricing_rules
 
 alter table public.pricing_rules drop constraint if exists pricing_rules_city_nonempty;
 
+alter table public.pricing_rules drop constraint if exists pricing_rules_tier_exclusive_city;
+
 alter table public.pricing_rules
   add constraint pricing_rules_city_nonempty check (city is null or length(trim(city)) > 0),
   add constraint pricing_rules_tier_exclusive_city check (tier_code is null or city is null);
@@ -4060,7 +4062,13 @@ end if;
 end $$;
 
 -- ----- 20260721120000_customer_support_chat.sql -----
-create type public.support_conversation_status as enum ('intake', 'queued', 'active', 'resolved');
+do $$ begin
+  create type public.support_conversation_status as enum ('intake', 'queued', 'active', 'resolved');
+
+exception
+  when duplicate_object then null;
+
+end $$;
 
 create table if not exists public.support_conversations (
   id uuid primary key default gen_random_uuid(),
@@ -4736,7 +4744,13 @@ from (values
 on conflict (event_type, channel) do nothing;
 
 -- ----- 20260725120000_support_desk_phase2.sql -----
-create type public.support_conversation_priority as enum ('normal', 'high', 'urgent');
+do $$ begin
+  create type public.support_conversation_priority as enum ('normal', 'high', 'urgent');
+
+exception
+  when duplicate_object then null;
+
+end $$;
 
 alter table public.support_conversations
   add column if not exists priority public.support_conversation_priority not null default 'normal',
@@ -9154,5 +9168,732 @@ comment on view public.finance_dashboard_stats is
   'Admin finance KPIs: settled revenue split, collections, AMC deferred liability, vendor payables pending settlement.';
 
 grant select on public.finance_dashboard_stats to authenticated;
+
+-- ----- 20260740000000_customer_oorjaman_credits_vendor_deferred_penalties.sql -----
+do $enum$
+begin
+  create type public.vendor_deferred_penalty_status as enum ('pending', 'applied', 'waived');
+
+exception
+  when duplicate_object then null;
+
+end $enum$;
+
+create table if not exists public.customer_oorjaman_credit_grants (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid not null references public.customers (id) on delete cascade,
+  source_booking_id uuid references public.bookings (id) on delete set null,
+  reason text not null default 'vendor_last_hour_cancel',
+  credits_issued integer not null check (credits_issued > 0),
+  credits_remaining integer not null check (credits_remaining >= 0),
+  issued_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint customer_oorjaman_credit_grants_remaining_lte_issued
+    check (credits_remaining <= credits_issued)
+);
+
+create unique index if not exists customer_oorjaman_credit_grants_source_unique_idx
+  on public.customer_oorjaman_credit_grants (customer_id, source_booking_id, reason)
+  where source_booking_id is not null;
+
+create index if not exists customer_oorjaman_credit_grants_customer_active_idx
+  on public.customer_oorjaman_credit_grants (customer_id, expires_at)
+  where credits_remaining > 0;
+
+create table if not exists public.customer_oorjaman_credit_redemptions (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid not null references public.customers (id) on delete cascade,
+  grant_id uuid not null references public.customer_oorjaman_credit_grants (id) on delete restrict,
+  booking_id uuid references public.bookings (id) on delete set null,
+  payment_id uuid references public.payments (id) on delete set null,
+  credits_redeemed integer not null check (credits_redeemed > 0),
+  note text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists customer_oorjaman_credit_redemptions_customer_idx
+  on public.customer_oorjaman_credit_redemptions (customer_id, created_at desc);
+
+create table if not exists public.vendor_deferred_penalties (
+  id uuid primary key default gen_random_uuid(),
+  vendor_id uuid not null references public.vendors (id) on delete cascade,
+  source_booking_id uuid not null references public.bookings (id) on delete cascade,
+  penalty_paise bigint not null check (penalty_paise > 0),
+  status public.vendor_deferred_penalty_status not null default 'pending',
+  applied_booking_id uuid references public.bookings (id) on delete set null,
+  vendor_settlement_id uuid references public.vendor_settlements (id) on delete set null,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  applied_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists vendor_deferred_penalties_source_unique_idx
+  on public.vendor_deferred_penalties (vendor_id, source_booking_id);
+
+create index if not exists vendor_deferred_penalties_vendor_pending_idx
+  on public.vendor_deferred_penalties (vendor_id, created_at)
+  where status = 'pending';
+
+drop trigger if exists customer_oorjaman_credit_grants_set_updated_at on public.customer_oorjaman_credit_grants;
+
+create trigger customer_oorjaman_credit_grants_set_updated_at
+before update on public.customer_oorjaman_credit_grants
+for each row execute function public.set_updated_at();
+
+drop trigger if exists vendor_deferred_penalties_set_updated_at on public.vendor_deferred_penalties;
+
+create trigger vendor_deferred_penalties_set_updated_at
+before update on public.vendor_deferred_penalties
+for each row execute function public.set_updated_at();
+
+comment on table public.customer_oorjaman_credit_grants is
+  'Customer apology wallet: 1 OorjaMan Credit = ₹1, redeemable on future one-time bookings.';
+
+comment on table public.customer_oorjaman_credit_redemptions is
+  'FIFO redemption ledger against credit grants at checkout.';
+
+comment on table public.vendor_deferred_penalties is
+  'Vendor cancellation penalties assessed on the vendor''s next accepted booking.';
+
+create or replace function public.issue_vendor_last_hour_cancel_credits(
+  p_customer_id uuid,
+  p_source_booking_id uuid,
+  p_credits integer default 20
+)
+returns public.customer_oorjaman_credit_grants
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_grant public.customer_oorjaman_credit_grants;
+
+begin
+  if p_credits is null or p_credits <= 0 then
+    raise exception 'Credits must be positive';
+
+end if;
+
+select * into v_grant
+  from public.customer_oorjaman_credit_grants
+  where customer_id = p_customer_id
+    and source_booking_id = p_source_booking_id
+    and reason = 'vendor_last_hour_cancel'
+  limit 1;
+
+if found then
+    return v_grant;
+
+end if;
+
+insert into public.customer_oorjaman_credit_grants (
+    customer_id,
+    source_booking_id,
+    reason,
+    credits_issued,
+    credits_remaining,
+    issued_at,
+    expires_at,
+    metadata
+  ) values (
+    p_customer_id,
+    p_source_booking_id,
+    'vendor_last_hour_cancel',
+    p_credits,
+    p_credits,
+    now(),
+    now() + interval '1 year',
+    jsonb_build_object(
+      'note', 'Apology credits for partner cancellation within the last hour before your visit.'
+    )
+  )
+  returning * into v_grant;
+
+return v_grant;
+
+end;
+
+$$;
+
+create or replace function public.queue_vendor_deferred_penalty(
+  p_vendor_id uuid,
+  p_source_booking_id uuid,
+  p_penalty_paise bigint,
+  p_metadata jsonb default '{}'::jsonb
+)
+returns public.vendor_deferred_penalties
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row public.vendor_deferred_penalties;
+
+begin
+  if p_penalty_paise is null or p_penalty_paise <= 0 then
+    raise exception 'Penalty must be positive';
+
+end if;
+
+select * into v_row
+  from public.vendor_deferred_penalties
+  where vendor_id = p_vendor_id
+    and source_booking_id = p_source_booking_id
+  limit 1;
+
+if found then
+    return v_row;
+
+end if;
+
+insert into public.vendor_deferred_penalties (
+    vendor_id,
+    source_booking_id,
+    penalty_paise,
+    status,
+    metadata
+  ) values (
+    p_vendor_id,
+    p_source_booking_id,
+    p_penalty_paise,
+    'pending',
+    coalesce(p_metadata, '{}'::jsonb)
+  )
+  returning * into v_row;
+
+return v_row;
+
+end;
+
+$$;
+
+create or replace function public.redeem_customer_oorjaman_credits(
+  p_customer_id uuid,
+  p_booking_id uuid,
+  p_payment_id uuid,
+  p_payable_paise bigint
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_grant public.customer_oorjaman_credit_grants;
+
+v_target_credits integer;
+
+v_remaining integer;
+
+v_take integer;
+
+v_discount_credits integer := 0;
+
+v_discount_paise bigint := 0;
+
+v_allocations jsonb := '[]'::jsonb;
+
+begin
+  if p_payable_paise is null or p_payable_paise <= 0 then
+    return jsonb_build_object(
+      'discount_paise', 0,
+      'discount_credits', 0,
+      'allocations', '[]'::jsonb
+    );
+
+end if;
+
+v_target_credits := floor(p_payable_paise / 100);
+
+if v_target_credits <= 0 then
+    return jsonb_build_object(
+      'discount_paise', 0,
+      'discount_credits', 0,
+      'allocations', '[]'::jsonb
+    );
+
+end if;
+
+v_remaining := v_target_credits;
+
+for v_grant in
+    select *
+    from public.customer_oorjaman_credit_grants
+    where customer_id = p_customer_id
+      and credits_remaining > 0
+      and expires_at > now()
+    order by expires_at asc, issued_at asc
+  loop
+    exit when v_remaining <= 0;
+
+v_take := least(v_grant.credits_remaining, v_remaining);
+
+if v_take <= 0 then
+      continue;
+
+end if;
+
+update public.customer_oorjaman_credit_grants
+    set credits_remaining = credits_remaining - v_take
+    where id = v_grant.id
+      and credits_remaining = v_grant.credits_remaining;
+
+if not found then
+      raise exception 'Credit balance changed. Refresh and try again.';
+
+end if;
+
+insert into public.customer_oorjaman_credit_redemptions (
+      customer_id,
+      grant_id,
+      booking_id,
+      payment_id,
+      credits_redeemed,
+      note
+    ) values (
+      p_customer_id,
+      v_grant.id,
+      p_booking_id,
+      p_payment_id,
+      v_take,
+      'Applied at one-time visit checkout'
+    );
+
+v_discount_credits := v_discount_credits + v_take;
+
+v_remaining := v_remaining - v_take;
+
+v_allocations := v_allocations || jsonb_build_array(
+      jsonb_build_object('grant_id', v_grant.id, 'credits', v_take)
+    );
+
+end loop;
+
+v_discount_paise := v_discount_credits * 100;
+
+return jsonb_build_object(
+    'discount_paise', v_discount_paise,
+    'discount_credits', v_discount_credits,
+    'allocations', v_allocations
+  );
+
+end;
+
+$$;
+
+grant execute on function public.issue_vendor_last_hour_cancel_credits(uuid, uuid, integer) to authenticated;
+
+grant execute on function public.queue_vendor_deferred_penalty(uuid, uuid, bigint, jsonb) to authenticated;
+
+grant execute on function public.redeem_customer_oorjaman_credits(uuid, uuid, uuid, bigint) to authenticated;
+
+-- ----- 20260741000000_amc_notifications_realtime.sql -----
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and tablename = 'subscriptions'
+  ) then
+    alter publication supabase_realtime add table public.subscriptions;
+
+end if;
+
+end $$;
+
+create or replace function public.enqueue_customer_amc_partner_assigned_push()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid;
+
+v_vendor_name text;
+
+v_title text;
+
+v_body text;
+
+begin
+  if tg_op <> 'UPDATE' then
+    return new;
+
+end if;
+
+if old.assigned_vendor_id is not null or new.assigned_vendor_id is null then
+    return new;
+
+end if;
+
+if new.status <> 'active'::public.subscription_status then
+    return new;
+
+end if;
+
+select c.user_id
+    into v_user_id
+    from public.customers c
+    where c.id = new.customer_id;
+
+if v_user_id is null then
+    return new;
+
+end if;
+
+select coalesce(nullif(trim(v.trade_name), ''), nullif(trim(v.business_name), ''), 'your dedicated partner')
+    into v_vendor_name
+    from public.vendors v
+    where v.id = new.assigned_vendor_id;
+
+v_title := 'OorjaMan - AMC partner assigned';
+
+v_body := v_vendor_name || ' is assigned to ' || coalesce(nullif(trim(new.plan_name), ''), 'your AMC plan')
+    || '. Open the app to schedule your included visits.';
+
+insert into public.customer_push_outbox (
+    user_id,
+    customer_id,
+    conversation_id,
+    message_id,
+    event_type,
+    title,
+    body,
+    data
+  )
+  values (
+    v_user_id,
+    new.customer_id,
+    null,
+    null,
+    'amc_partner_assigned',
+    v_title,
+    v_body,
+    jsonb_build_object(
+      'kind', 'amc_partner_assigned',
+      'subscriptionId', new.id,
+      'serviceAddressId', new.service_address_id,
+      'vendorId', new.assigned_vendor_id
+    )
+  );
+
+return new;
+
+end;
+
+$$;
+
+drop trigger if exists subscriptions_enqueue_amc_partner_assigned_push on public.subscriptions;
+
+create trigger subscriptions_enqueue_amc_partner_assigned_push
+after update of assigned_vendor_id on public.subscriptions
+for each row execute function public.enqueue_customer_amc_partner_assigned_push();
+
+-- ----- 20260742000000_auth_sync_preserve_display_email.sql -----
+create or replace function public.auth_user_email_for_public_sync(au auth.users)
+returns text
+language sql
+immutable
+as $$
+  select case
+    when nullif(lower(trim(coalesce(au.email, ''))), '') like '%@oorjaman-dummy.test' then null
+    else nullif(lower(trim(coalesce(au.email, ''))), '')
+  end;
+
+$$;
+
+create or replace function public.apply_auth_user_to_public_users(au auth.users)
+returns void
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_email text;
+
+v_phone text;
+
+v_full_name text;
+
+v_role public.user_role;
+
+v_phone_verified timestamptz;
+
+v_email_verified timestamptz;
+
+begin
+  v_email := public.auth_user_email_for_public_sync(au);
+
+v_phone := public.auth_user_phone_e164(au);
+
+v_full_name := public.auth_user_full_name(au);
+
+v_role := public.auth_user_role_from_metadata(au);
+
+v_phone_verified := public.auth_user_phone_verified_at(au);
+
+v_email_verified := public.auth_user_email_verified_at(au);
+
+perform set_config('oorjaman.auth_sync', 'on', true);
+
+insert into public.users (
+    id,
+    email,
+    full_name,
+    phone,
+    role,
+    phone_verified_at,
+    email_verified_at
+  )
+  values (
+    au.id,
+    v_email,
+    v_full_name,
+    v_phone,
+    coalesce(v_role, 'customer'::public.user_role),
+    v_phone_verified,
+    v_email_verified
+  )
+  on conflict (id) do update set
+    email = coalesce(excluded.email, public.users.email),
+    full_name = coalesce(excluded.full_name, public.users.full_name),
+    phone = coalesce(excluded.phone, public.users.phone),
+    role = coalesce(v_role, public.users.role),
+    phone_verified_at = coalesce(excluded.phone_verified_at, public.users.phone_verified_at),
+    email_verified_at = coalesce(excluded.email_verified_at, public.users.email_verified_at),
+    updated_at = now();
+
+perform set_config('oorjaman.auth_sync', 'off', true);
+
+end;
+
+$$;
+
+-- ----- 20260743000000_customer_technician_tracking.sql -----
+alter table public.bookings
+  add column if not exists technician_en_route_at timestamptz;
+
+comment on column public.bookings.technician_en_route_at is
+  'Set when the assigned technician taps En route in the partner app; enables GPS sharing before job start.';
+
+create or replace function public.get_customer_booking_technician_profile(p_booking_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  b public.bookings;
+
+t public.technicians;
+
+u public.users;
+
+v_name text;
+
+phone text;
+
+partner text;
+
+display_name text;
+
+begin
+  select * into b from public.bookings where id = p_booking_id;
+
+if not found then
+    return null;
+
+end if;
+
+if not exists (
+    select 1
+    from public.customers c
+    where c.id = b.customer_id
+      and c.user_id = auth.uid()
+  ) then
+    raise exception 'not allowed';
+
+end if;
+
+if b.technician_id is null then
+    return null;
+
+end if;
+
+select * into t from public.technicians where id = b.technician_id;
+
+if not found then
+    return null;
+
+end if;
+
+select * into u from public.users where id = t.user_id;
+
+display_name := coalesce(
+    nullif(trim(u.full_name), ''),
+    nullif(trim(t.name_as_per_aadhaar), ''),
+    'Your technician'
+  );
+
+phone := coalesce(
+    nullif(trim(t.personal_phone), ''),
+    nullif(trim(u.phone), '')
+  );
+
+select coalesce(nullif(trim(v.trade_name), ''), nullif(trim(v.business_name), ''))
+    into partner
+  from public.vendors v
+  where v.id = t.vendor_id;
+
+return jsonb_build_object(
+    'technician_id', t.id,
+    'display_name', display_name,
+    'phone_e164', phone,
+    'partner_name', partner,
+    'avatar_storage_path', t.doc_passport_url,
+    'en_route_at', b.technician_en_route_at,
+    'is_en_route', b.technician_en_route_at is not null and b.status = 'accepted'::public.booking_status,
+    'is_on_site', b.status = 'in_progress'::public.booking_status
+  );
+
+end;
+
+$$;
+
+revoke all on function public.get_customer_booking_technician_profile(uuid) from public;
+
+grant execute on function public.get_customer_booking_technician_profile(uuid) to authenticated;
+
+create or replace function public.log_customer_site_activity_from_booking()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  addr_id text;
+
+ref_code text;
+
+base_payload jsonb;
+
+begin
+  addr_id := public.booking_metadata_service_address_id(new.metadata);
+
+if addr_id is null then
+    return new;
+
+end if;
+
+ref_code := coalesce(nullif(trim(both from new.reference_code), ''), new.id::text);
+
+base_payload := jsonb_build_object(
+    'reference_code', ref_code,
+    'status', new.status,
+    'scheduled_start', new.scheduled_start
+  );
+
+if tg_op = 'INSERT' then
+    perform public.insert_customer_site_activity(
+      new.customer_id,
+      addr_id,
+      'booking_created',
+      'Booking placed',
+      'Visit ' || ref_code || ' · ' || to_char(new.scheduled_start at time zone 'Asia/Kolkata', 'Mon DD, YYYY'),
+      coalesce(new.created_at, now()),
+      new.id,
+      new.subscription_id,
+      'booking:' || new.id::text || ':created',
+      base_payload
+    );
+
+return new;
+
+end if;
+
+if tg_op = 'UPDATE' then
+    if old.status is distinct from new.status then
+      perform public.insert_customer_site_activity(
+        new.customer_id,
+        addr_id,
+        'booking_status_' || new.status,
+        case new.status
+          when 'pending_payment' then 'Awaiting payment'
+          when 'confirmed' then 'Booking confirmed'
+          when 'accepted' then 'Vendor accepted'
+          when 'in_progress' then 'Visit in progress'
+          when 'completed' then 'Visit completed'
+          when 'cancelled' then 'Booking cancelled'
+          else 'Booking updated'
+        end,
+        'Visit ' || ref_code,
+        coalesce(new.updated_at, now()),
+        new.id,
+        new.subscription_id,
+        'booking:' || new.id::text || ':status:' || new.status,
+        base_payload || jsonb_build_object('previous_status', old.status)
+      );
+
+end if;
+
+if old.technician_id is null and new.technician_id is not null then
+      perform public.insert_customer_site_activity(
+        new.customer_id,
+        addr_id,
+        'booking_technician_assigned',
+        'Technician assigned',
+        'Visit ' || ref_code,
+        coalesce(new.updated_at, now()),
+        new.id,
+        new.subscription_id,
+        'booking:' || new.id::text || ':technician_assigned',
+        base_payload || jsonb_build_object('technician_id', new.technician_id)
+      );
+
+end if;
+
+if old.technician_en_route_at is null and new.technician_en_route_at is not null then
+      perform public.insert_customer_site_activity(
+        new.customer_id,
+        addr_id,
+        'booking_technician_en_route',
+        'Technician on the way',
+        'Visit ' || ref_code,
+        coalesce(new.technician_en_route_at, new.updated_at, now()),
+        new.id,
+        new.subscription_id,
+        'booking:' || new.id::text || ':en_route',
+        base_payload || jsonb_build_object('technician_id', new.technician_id)
+      );
+
+end if;
+
+if old.scheduled_start is distinct from new.scheduled_start then
+      perform public.insert_customer_site_activity(
+        new.customer_id,
+        addr_id,
+        'booking_rescheduled',
+        'Visit rescheduled',
+        to_char(new.scheduled_start at time zone 'Asia/Kolkata', 'Mon DD, YYYY · HH12:MI AM'),
+        coalesce(new.updated_at, now()),
+        new.id,
+        new.subscription_id,
+        'booking:' || new.id::text || ':reschedule:' || new.scheduled_start::text,
+        base_payload
+      );
+
+end if;
+
+end if;
+
+return new;
+
+end;
+
+$$;
 
 -- End of schema (generated)

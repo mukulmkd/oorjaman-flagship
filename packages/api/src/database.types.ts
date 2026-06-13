@@ -713,6 +713,7 @@ export type CustomerSiteActivityKind =
   | "booking_status_completed"
   | "booking_status_cancelled"
   | "booking_technician_assigned"
+  | "booking_technician_en_route"
   | "booking_rescheduled"
   | "customer_rating_submitted"
   | "amc_subscribed"
@@ -779,6 +780,7 @@ export type BookingRow = {
   customer_id: string;
   vendor_id: string | null;
   technician_id: string | null;
+  technician_en_route_at: string | null;
   subscription_id: string | null;
   status: BookingStatus;
   scheduled_start: string;
@@ -1746,6 +1748,10 @@ export type Database = {
       sync_my_user_from_auth: {
         Args: Record<string, never>;
         Returns: UserRow;
+      };
+      get_customer_booking_technician_profile: {
+        Args: { p_booking_id: string };
+        Returns: Json;
       };
       mark_notification_read: {
         Args: { p_event_id: string };

@@ -125,6 +125,41 @@ Some features use database-level settings (push URLs, cron). Run the SQL from [E
 
 ---
 
+## Bootstrap a **new empty** UAT project (match Prod schema)
+
+`supabase/migrations/` are **incremental** changes. Core tables (`users`, `customers`, `bookings`, …) were created on Prod **before** migration history started, so they are **not** in any migration file. A brand-new UAT project cannot use `db push` alone on day one.
+
+**Recommended (schema-only clone from Prod):**
+
+```bash
+# 1) Log in once
+npx supabase login
+
+# 2) Dump Prod schema (no data — omit --data-only; default is DDL/schema)
+npx supabase link --project-ref <PROD_REF> -p '<PROD_DB_PASSWORD>'
+npx supabase db dump --linked -f /tmp/oorjaman-prod-schema.sql -s public,auth,storage
+
+# 3) Restore into UAT
+npx supabase link --project-ref <UAT_REF> -p '<UAT_DB_PASSWORD>'
+psql "<UAT_DATABASE_URL>" -f /tmp/oorjaman-prod-schema.sql
+
+# 4) Mark migrations as applied on UAT (so future db push works)
+npx supabase migration repair --status applied <version>   # or repair all from prod list
+# Easier: after restore, run `npx supabase migration list` on both and align with `db push` if needed
+```
+
+Get **Database URL** and **DB password** from each project: Dashboard → **Settings → Database**.
+
+After schema exists on UAT:
+
+```bash
+npm run seed:dummy-users   # uses .env.uat.local
+```
+
+**Long-term fix (optional):** export Prod base DDL once into `supabase/migrations/20260401000000_initial_bootstrap.sql` so fresh environments need only `db push`.
+
+---
+
 ## Data: UAT vs PROD (not copied by migrations)
 
 |                               | UAT (OorjaMan UAT)                | PROD (OorjaMan Prod) |

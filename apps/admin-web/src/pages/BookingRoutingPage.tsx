@@ -23,7 +23,6 @@ import {
 } from "../lib/booking-routing-display";
 import { useSupabase } from "../lib/supabase-context";
 import { TablePaginationBar } from "../components/TablePaginationBar";
-import "../layouts/dashboard-layout.css";
 
 const PAGE_SIZE = 10;
 

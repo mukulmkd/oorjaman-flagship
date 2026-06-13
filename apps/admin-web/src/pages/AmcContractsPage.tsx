@@ -14,7 +14,6 @@ import { formatDisplayDateTime } from "@oorjaman/utils";
 import { Badge, Button, Card, PageHeader } from "@oorjaman/web-ui";
 import { Link, useSearchParams } from "react-router-dom";
 import { useSupabase } from "../lib/supabase-context";
-import "../layouts/dashboard-layout.css";
 import "./amc-contracts-page.css";
 
 const STATUS_OPTIONS: { value: "" | AmcContractStatus; label: string }[] = [

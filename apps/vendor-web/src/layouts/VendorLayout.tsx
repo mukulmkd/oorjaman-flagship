@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { authApi, vendorApi } from "@oorjaman/api";
-import { DropdownMenu, DropdownMenuItem } from "@oorjaman/web-ui";
+import { authApi, loadPortalSessionDisplay, vendorApi } from "@oorjaman/api";
+import { DropdownMenu, DropdownMenuItem, PortalSidebarBrand } from "@oorjaman/web-ui";
 import { VENDOR_DASH_TABS } from "../pages/vendor-dashboard/vendor-dash-tabs";
 import { NotificationCenterBell } from "../components/NotificationCenterBell";
 import { VendorBookingRealtime } from "../components/vendor-booking-realtime";
 import { VendorSettlementRealtime } from "../components/vendor-settlement-realtime";
 import { useSupabase } from "../lib/supabase-context";
-import "./dashboard-layout.css";
-
 export function VendorLayout() {
   const supabase = useSupabase();
   const navigate = useNavigate();
@@ -23,18 +21,11 @@ export function VendorLayout() {
       setSessionHint("Configure VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY");
       return;
     }
-    void supabase.auth.getSession().then(({ data }) => {
-      const u = data.session?.user;
-      if (!u) {
-        setSessionHint("Sign in required.");
-        setUserChip("?");
-        return;
-      }
-      const email = u.email ?? u.phone ?? u.id.slice(0, 8);
-      setSessionHint(`${email}`);
-      const chipSource = (u.email ?? u.phone ?? u.id).trim();
-      setUserChip(chipSource ? chipSource.slice(0, 2).toUpperCase() : "?");
-    });
+    void (async () => {
+      const { hint, chip } = await loadPortalSessionDisplay(supabase);
+      setSessionHint(hint);
+      setUserChip(chip);
+    })();
   }, [supabase]);
 
   useEffect(() => {
@@ -59,7 +50,7 @@ export function VendorLayout() {
   }, [supabase, location.pathname]);
 
   return (
-    <div className="dash-root">
+    <div className="dash-root" data-portal-persona="partner">
       {vendorId && dashboardAllowed ? (
         <>
           <VendorBookingRealtime vendorId={vendorId} />
@@ -67,10 +58,7 @@ export function VendorLayout() {
         </>
       ) : null}
       <aside className="dash-sidebar">
-        <div className="dash-brand">
-          Oorjaman
-          <span>Partner</span>
-        </div>
+        <PortalSidebarBrand persona="partner" />
         <nav className="dash-nav" aria-label="Vendor primary">
           <NavLink to="/" end className={({ isActive }) => (isActive ? "dash-nav-active" : "")}>
             Organisation &amp; application

@@ -49,17 +49,6 @@ export function formatNotificationChannelLabel(channel: string): string {
   return NOTIFICATION_CHANNEL_LABELS[channel] ?? snakeCaseToTitle(channel);
 }
 
-const PRICING_CATALOG_TABLE_LABELS: Record<string, string> = {
-  pricing_one_time_rates: "One-time visit rates",
-  pricing_amc_plans: "AMC maintenance plans",
-  pricing_tiers: "City-tier add-ons",
-  platform_settings: "Platform settings",
-};
-
-export function formatPricingCatalogTableLabel(tableName: string): string {
-  return PRICING_CATALOG_TABLE_LABELS[tableName] ?? tableName;
-}
-
 const SQL_OPERATION_LABELS: Record<string, string> = {
   insert: "Insert",
   update: "Update",

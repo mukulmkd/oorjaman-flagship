@@ -2,7 +2,10 @@ import type { BookingRow, BookingStatus } from "@oorjaman/api";
 
 export type BookingUiBucket = "pending" | "accepted" | "completed" | "ended";
 
-export type BookingStatusLabelContext = Pick<BookingRow, "status" | "vendor_id" | "technician_id">;
+export type BookingStatusLabelContext = Pick<
+  BookingRow,
+  "status" | "vendor_id" | "technician_id" | "technician_en_route_at"
+>;
 
 export function isValidBookingRow(row: BookingRow | null | undefined): row is BookingRow {
   return Boolean(row?.id && row?.status);
@@ -44,9 +47,11 @@ export function bookingStatusLabel(
     case "vendor_acknowledged":
       return "Partner acknowledged";
     case "accepted":
+      if (row?.technician_en_route_at) return "Technician on the way";
+      if (row?.technician_id) return "Technician assigned";
       return "Accepted";
     case "in_progress":
-      return "In progress";
+      return "Visit in progress";
     case "completed":
       return "Completed";
     case "cancelled":

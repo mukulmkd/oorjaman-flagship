@@ -33,7 +33,6 @@ import {
 import { webTypography } from "../styles/typography";
 import { useSupabase } from "../lib/supabase-context";
 import { TablePaginationBar } from "../components/TablePaginationBar";
-import "../layouts/dashboard-layout.css";
 
 const BUCKET_TABS: { id: AdminBookingsSubscriptionBucket; label: string; hint: string }[] = [
   {
@@ -203,10 +202,8 @@ function canReassignAmcBooking(row: BookingMonitoringEnriched): boolean {
 
 function detectOpsRisks(row: BookingMonitoringEnriched, now = new Date()): OpsRisk[] {
   const risks: OpsRisk[] = [];
-  const createdAt = new Date(row.created_at);
   const scheduledStart = new Date(row.scheduled_start);
   const scheduledEnd = new Date(row.scheduled_end);
-  const ageMs = now.getTime() - createdAt.getTime();
   const sinceStartMs = now.getTime() - scheduledStart.getTime();
   const sinceEndMs = now.getTime() - scheduledEnd.getTime();
 

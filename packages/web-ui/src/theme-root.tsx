@@ -2,6 +2,11 @@ import type { ReactNode } from "react";
 import { useLayoutEffect } from "react";
 import { colors } from "@oorjaman/config";
 
+import "./portal-base.css";
+import "./brand.css";
+import "./portal-dashboard.css";
+import "./portal-login.css";
+import "./portal-loading.css";
 import "./web-ui.css";
 
 /**

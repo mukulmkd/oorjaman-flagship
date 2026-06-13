@@ -22,7 +22,10 @@ export function VendorSettlementRealtime({ vendorId }: { vendorId: string | null
     const topic = `vendor-settlements-${vendorId}-${topicSuffix}`;
 
     const invalidateSettlements = () => {
-      void qc.invalidateQueries({ queryKey: queryKeys.vendors.dashboardSettlements() });
+      void qc.invalidateQueries({
+        queryKey: queryKeys.vendors.dashboardSettlements(),
+        refetchType: "active",
+      });
     };
 
     const channel = client

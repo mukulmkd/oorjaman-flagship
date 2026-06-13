@@ -17,6 +17,7 @@ import {
   takeSingleRow,
 } from "../result";
 import { syncUserDisplayNameFromTechnician } from "../users/user-display-name";
+import { mergeInviteFullNameIntoMetadata } from "./technician-display-name";
 import {
   offsetRangeForPage,
   type PagedParams,
@@ -24,10 +25,12 @@ import {
 } from "../page-range";
 import {
   getBookingById,
+  listVisibleBookings,
   readBookingServiceOtpMeta,
   updateBooking,
   type BookingPatch,
 } from "../bookings/booking-api";
+import { normalizeServiceOtpCode } from "../bookings/service-otp-codes";
 import { ensureVisitPayoutSettlement } from "../finance/vendor-settlement-api";
 import {
   adminVisitCompletedCopy,
@@ -133,7 +136,7 @@ function allPreStartSafetyAcked(ack: PreStartSafetyAck): boolean {
 }
 
 function normalizeCodeInput(value: string): string {
-  return value.trim().toUpperCase().replace(/\s+/g, "");
+  return normalizeServiceOtpCode(value);
 }
 
 function mergeBookingMetadata(
@@ -447,6 +450,45 @@ export async function requireMyTechnicianId(
 }
 
 /**
+ * Technician: share live location with the customer before on-site job start.
+ */
+export async function technicianMarkEnRoute(
+  client: SupabaseClient<Database>,
+  bookingId: string,
+): Promise<BookingRow> {
+  const technicianId = await requireMyTechnicianId(client);
+  const booking = await getBookingById(client, bookingId);
+
+  if (booking.technician_id !== technicianId) {
+    throw new SupabaseApiError("You are not assigned to this visit.");
+  }
+  if (booking.technician_en_route_at) {
+    return booking;
+  }
+  if (booking.status !== "accepted") {
+    throw new SupabaseApiError(
+      booking.status === "in_progress"
+        ? "This job is already in progress on site."
+        : "This visit cannot be marked en route right now.",
+    );
+  }
+
+  const now = new Date().toISOString();
+  return updateBooking(client, bookingId, { technician_en_route_at: now });
+}
+
+/** Bookings where foreground GPS should be sampled (en route only, before on-site start). */
+export async function listMyGpsTrackableBookings(
+  client: SupabaseClient<Database>,
+): Promise<BookingRow[]> {
+  const rows = await listVisibleBookings(client, {
+    status: "accepted",
+    limit: 10,
+  });
+  return rows.filter((b) => Boolean(b.technician_en_route_at));
+}
+
+/**
  * Record a single GPS sample for the current technician (RLS: own `technician_id` only).
  */
 export async function recordTechnicianLocation(
@@ -669,6 +711,14 @@ function payloadToUpdate(
  * Save technician onboarding wizard progress (`metadata.registration_draft`).
  * First save inserts a row with `verification_status = draft` so it is not treated as submitted for review.
  */
+async function metadataWithVendorInviteFullName(
+  client: SupabaseClient<Database>,
+  metadata: Json | null | undefined,
+): Promise<Json> {
+  const invite = await technicianGetMyInvite(client);
+  return mergeInviteFullNameIntoMetadata(metadata, invite?.full_name);
+}
+
 export async function saveTechnicianOnboardingDraft(
   client: SupabaseClient<Database>,
   input: { form: Json; stepIndex: number; vendorId?: string | null },
@@ -688,12 +738,13 @@ export async function saveTechnicianOnboardingDraft(
   const draftPatch: Json = { registration_draft: snapshot };
 
   if (!existing) {
+    const metadata = await metadataWithVendorInviteFullName(client, draftPatch);
     const row: Database["public"]["Tables"]["technicians"]["Insert"] = {
       user_id: userId,
       vendor_id: input.vendorId?.trim() || null,
       skills: [],
       verification_status: "draft",
-      metadata: draftPatch,
+      metadata,
       verification_submitted_at: null,
     };
     const { data, error } = await client
@@ -705,6 +756,7 @@ export async function saveTechnicianOnboardingDraft(
   }
 
   const merged = mergeTechnicianMetadata(existing.metadata, draftPatch);
+  const metadata = await metadataWithVendorInviteFullName(client, merged);
   const nextVendorId =
     input.vendorId !== undefined
       ? input.vendorId === null
@@ -715,7 +767,7 @@ export async function saveTechnicianOnboardingDraft(
   const { data, error } = await client
     .from("technicians")
     .update({
-      metadata: merged,
+      metadata,
       vendor_id: nextVendorId,
     })
     .eq("id", existing.id)
@@ -736,6 +788,7 @@ export async function submitTechnicianOnboarding(
 
   if (!existing) {
     const row = payloadToInsert(userId, input);
+    row.metadata = await metadataWithVendorInviteFullName(client, row.metadata);
     const { data, error } = await client
       .from("technicians")
       .insert(row)
@@ -763,7 +816,10 @@ export async function submitTechnicianOnboarding(
     patch.verification_status = "pending_review";
   }
 
-  patch.metadata = mergeDeclarationIntoMetadata(existing.metadata, input);
+  patch.metadata = await metadataWithVendorInviteFullName(
+    client,
+    mergeDeclarationIntoMetadata(existing.metadata, input),
+  );
 
   const { data, error } = await client
     .from("technicians")

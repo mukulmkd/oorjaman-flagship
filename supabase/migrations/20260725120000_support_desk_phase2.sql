@@ -1,6 +1,10 @@
 -- Support desk phase 2: priority, internal notes, macros, first-response tracking.
 
-create type public.support_conversation_priority as enum ('normal', 'high', 'urgent');
+do $$ begin
+  create type public.support_conversation_priority as enum ('normal', 'high', 'urgent');
+exception
+  when duplicate_object then null;
+end $$;
 
 alter table public.support_conversations
   add column if not exists priority public.support_conversation_priority not null default 'normal',

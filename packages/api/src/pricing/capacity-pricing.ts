@@ -5,8 +5,8 @@ import type {
   SubscriptionRow,
 } from "../database.types";
 
-/** Supported system sizes (no 7 kW or 9 kW). */
-export const ALLOWED_CAPACITY_KW = [3, 4, 5, 6, 8, 10] as const;
+/** Supported system sizes (no 7 kW). */
+export const ALLOWED_CAPACITY_KW = [3, 4, 5, 6, 8, 9, 10] as const;
 
 export type AllowedCapacityKw = (typeof ALLOWED_CAPACITY_KW)[number];
 
@@ -16,6 +16,7 @@ const KW_TO_TIER_CODE: Record<AllowedCapacityKw, string> = {
   5: "kw_5",
   6: "kw_6",
   8: "kw_8",
+  9: "kw_9",
   10: "kw_10",
 };
 
@@ -25,6 +26,7 @@ const TIER_CODE_TO_KW: Record<string, AllowedCapacityKw> = {
   kw_5: 5,
   kw_6: 6,
   kw_8: 8,
+  kw_9: 9,
   kw_10: 10,
 };
 
@@ -40,7 +42,7 @@ export function tierCodeFromCapacityKw(kw: number): string | null {
 
 /**
  * Map profile kW to an allowed tier. Exact match within 0.2 kW, else nearest allowed tier if within 0.75 kW.
- * Returns null when capacity is unsupported (e.g. 7 kW or 9 kW with no close match).
+ * Returns null when capacity is unsupported (e.g. 7 kW with no close match).
  */
 export function snapCapacityKwToAllowed(kw: number): AllowedCapacityKw | null {
   if (!Number.isFinite(kw) || kw <= 0) return null;
@@ -128,14 +130,27 @@ export function listAmcPlansForTier(
     .sort((a, b) => a.sort_order - b.sort_order || a.contract_months - b.contract_months);
 }
 
+export function formatAmcPlanSpLabel(
+  plan: Pick<PricingAmcPlanRow, "contract_months" | "visits_included">,
+): string | null {
+  if (plan.contract_months === 24 && plan.visits_included === 6) return "SP-2";
+  if (plan.contract_months === 12 && plan.visits_included === 3) return "SP-1";
+  return null;
+}
+
+export function computeAmcListPriceFromVisitRate(perVisitCents: number, visitsIncluded: number): number {
+  return Math.max(0, Math.round(perVisitCents)) * Math.max(0, Math.round(visitsIncluded));
+}
+
 export function formatAmcPlanSubtitle(plan: PricingAmcPlanRow): string {
+  const sp = formatAmcPlanSpLabel(plan);
   if (plan.contract_months === 24) {
-    return `${plan.visits_included} visits over 2 years`;
+    return sp ? `${sp}: 6 services in 2 years` : `${plan.visits_included} visits over 2 years`;
   }
   if (plan.visits_per_year != null) {
-    return `${plan.visits_per_year} times a year · 1 year`;
+    return sp ? `${sp}: ${plan.visits_per_year} services in 1 year` : `${plan.visits_per_year} times a year · 1 year`;
   }
-  return `${plan.visits_included} visits · 1 year`;
+  return sp ? `${sp}: ${plan.visits_included} services in 1 year` : `${plan.visits_included} visits · 1 year`;
 }
 
 /** Higher = more visits, longer contract, then admin sort order. */
@@ -162,10 +177,7 @@ export function readSubscriptionContractMonths(
 /** Treat subscription visit/term fields as the upgrade baseline when they exceed catalog. */
 export function buildEffectiveAmcPlanForUpgrade(
   catalogPlan: PricingAmcPlanRow | undefined,
-  subscription?: Pick<
-    SubscriptionRow,
-    "visits_included" | "metadata" | "plan_code" | "plan_name" | "billing_period"
-  > | null,
+  subscription?: Pick<SubscriptionRow, "visits_included" | "metadata"> | null,
 ): PricingAmcPlanRow | null {
   if (!catalogPlan) return null;
 

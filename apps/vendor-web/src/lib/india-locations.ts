@@ -4,8 +4,6 @@
  */
 import { City, Country, State, type ICity, type ICountry, type IState } from "country-state-city";
 
-export const INDIA_COUNTRY_CODE = "IN";
-
 export function listCountries(): ICountry[] {
   return Country.getAllCountries().sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -21,10 +19,6 @@ export function listCitiesForState(countryCode: string, stateCode: string): ICit
 
 export function countryByCode(code: string): ICountry | undefined {
   return Country.getCountryByCode(code);
-}
-
-export function stateByCode(countryCode: string, stateCode: string): IState | undefined {
-  return State.getStateByCodeAndCountry(stateCode, countryCode);
 }
 
 /** Match legacy saved state name to ISO code when code was missing. */

@@ -8,25 +8,16 @@ npm run brand:sync
 
 from the monorepo root. This folder receives copies for the Expo bundle.
 
-## Usage rules
+## Bundled assets
 
-| Asset | Tagline |
-|-------|---------|
-| `logo-icon.*` | No |
-| `logo-lockup-tagline.*` | Yes (`WE CLEAN. YOU GENERATE.`) |
+| Asset | Tagline | Used for |
+|-------|---------|----------|
+| `logo-icon.png` | No | Splash icon, composed lockup, loaders |
+| `sunburst.png` | No | Decorative background on splash |
 
-**Tagline required:** marketing, splash, in-app animated splash, letterhead, email, invoice, social.
+Splash and login use a **composed** lockup (`BrandWordmark` + tagline text), not a raster lockup PNG.
 
-**Tagline not used:** app icon, Android notification icon, compact in-app loader icon.
-
-## Source files
-
-- `svg/logo-icon.svg` — icon only
-- `svg/logo-lockup-tagline.svg` — lockup + tagline
-- `svg/notification-icon.svg` — white mono for Android notifications
-- `splash-progress.json` — Lottie progress bar for splash and `BrandLoader`
-
-## Regenerate PNGs
+## Regenerate sunburst PNG
 
 From `apps/customer-app`:
 
@@ -34,6 +25,4 @@ From `apps/customer-app`:
 npm run brand:generate
 ```
 
-This updates `assets/images/icon.png`, `adaptive-icon.png`, `splash-icon.png`, `notification-icon.png`, and `assets/brand/*.png`.
-
-Replace the SVGs with exports from your designer file, then re-run the script.
+This rasterizes `svg/sunburst.svg` into `sunburst.png`. Icons and notification assets come from `brand:sync`.

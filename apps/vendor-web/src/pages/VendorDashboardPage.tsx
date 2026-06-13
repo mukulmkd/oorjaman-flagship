@@ -8,6 +8,8 @@ import {
   createTechnicianDocumentSignedUrl,
   DEFAULT_TABLE_PAGE_SIZE,
   formatInrFromCents,
+  inviteFullNameByPhone,
+  inviteFullNameForTechnician,
   listVendorJobReports,
   listVendorPayments,
   queryKeys,
@@ -15,9 +17,12 @@ import {
   readBookingOpsMeta,
   readBookingRecipientMeta,
   technicianApi,
+  technicianAssignOptionLabel,
+  technicianDisplayLabel,
   vendorApi,
   isWithinVendorResponseWindow,
   vendorResponseDeadline,
+  type TechnicianDisplayExtras,
 } from "@oorjaman/api";
 import { formatDayChip, listSelectableDayKeys, slotsForDay, type BookingSlotOption } from "@oorjaman/utils";
 import { DocumentViewButton } from "../components/DocumentViewer";
@@ -62,39 +67,22 @@ function formatSiteAddress(addr: Json): string {
   return "-";
 }
 
-function readMetadataString(metadata: Json | null | undefined, key: string): string | null {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
-  const v = (metadata as Record<string, unknown>)[key];
-  return typeof v === "string" && v.trim() ? v.trim() : null;
+function technicianExtras(
+  technician: TechnicianRow,
+  inviteNamesByPhone: Map<string, string>,
+): TechnicianDisplayExtras {
+  return { inviteFullName: inviteFullNameForTechnician(technician, inviteNamesByPhone) };
 }
 
-/** Human-readable name for roster and booking labels (avoids raw UUID). */
-function technicianDisplayName(t: TechnicianRow): string {
-  const legalName = t.name_as_per_aadhaar?.trim();
-  const metaName =
-    legalName ||
-    readMetadataString(t.metadata, "full_name") ||
-    readMetadataString(t.metadata, "display_name") ||
-    readMetadataString(t.metadata, "invite_full_name");
-  const bank = t.bank_account_holder_name?.trim();
-  const personal = t.personal_phone?.trim();
-  const email = t.contact_email?.trim();
-  const code = t.employee_code?.trim();
-  const line = metaName || bank || personal || email || code;
-  return line ?? `Technician ${t.id.slice(0, 8)}`;
-}
-
-function technicianOptionLabel(t: TechnicianRow): string {
-  const name = technicianDisplayName(t);
-  const code = t.employee_code?.trim();
-  return code ? `${name} · ${code}` : name;
-}
-
-function techDisplayLabel(map: Map<string, TechnicianRow>, id: string | null): string {
+function techDisplayLabel(
+  map: Map<string, TechnicianRow>,
+  id: string | null,
+  inviteNamesByPhone: Map<string, string>,
+): string {
   if (!id) return "-";
   const t = map.get(id);
   if (!t) return id.slice(0, 8) + "…";
-  return technicianOptionLabel(t);
+  return technicianAssignOptionLabel(t, technicianExtras(t, inviteNamesByPhone));
 }
 
 function readPenaltyPaiseFromMeta(metadata: Json): number {
@@ -402,6 +390,10 @@ export default function VendorDashboardPage() {
   );
 
   const teamInvitesAll = useMemo(() => vendorTechInvitesQuery.data ?? [], [vendorTechInvitesQuery.data]);
+  const inviteNamesByPhone = useMemo(
+    () => inviteFullNameByPhone(teamInvitesAll),
+    [teamInvitesAll],
+  );
   const teamInvitesTotal = teamInvitesAll.length;
   const teamInvitesWindow = useMemo(
     () =>
@@ -929,7 +921,7 @@ export default function VendorDashboardPage() {
                               <td>{formatScheduleRange(b)}</td>
                               <td>{vdEllipsis(formatSiteAddress(b.service_site_address), 44)}</td>
                               <td>{serviceForLabel(b)}</td>
-                              <td>{techDisplayLabel(techById, b.technician_id)}</td>
+                              <td>{techDisplayLabel(techById, b.technician_id, inviteNamesByPhone)}</td>
                               <td>{opsWatchLabel(b) ?? "-"}</td>
                               <td>
                                 <Button size="sm" type="button" variant="outline" onClick={() => setVendorRowAction({ kind: "active", booking: b })}>
@@ -951,7 +943,7 @@ export default function VendorDashboardPage() {
             <VendorInsightsTab
               bookings={allBookingsQuery.data ?? []}
               jobReports={vendorJobReportsQuery.data}
-              technicianLabel={(id) => techDisplayLabel(techById, id)}
+              technicianLabel={(id) => techDisplayLabel(techById, id, inviteNamesByPhone)}
               jobReportsLoading={vendorJobReportsQuery.isLoading}
               jobReportsError={vendorJobReportsQuery.isError ? (vendorJobReportsQuery.error as Error) : null}
             />
@@ -1059,7 +1051,9 @@ export default function VendorDashboardPage() {
                         {teamRosterWindow.map((t) => (
                           <tr key={t.id}>
                             <td>
-                              <div style={{ fontWeight: webTypography.weight.semibold }}>{technicianDisplayName(t)}</div>
+                              <div style={{ fontWeight: webTypography.weight.semibold }}>
+                                {technicianDisplayLabel(t, technicianExtras(t, inviteNamesByPhone))}
+                              </div>
                               <div className="vd-caption" style={{ color: "var(--wb-muted-fg)" }}>
                                 {[t.personal_phone?.trim(), t.employee_code?.trim()].filter(Boolean).join(" · ") ||
                                   `ID ${t.id.slice(0, 8)}…`}
@@ -1090,7 +1084,7 @@ export default function VendorDashboardPage() {
                                 type="button"
                                 className="vd-icon-btn"
                                 title="View profile & approve or reject"
-                                aria-label={`View ${technicianDisplayName(t)}`}
+                                aria-label={`View ${technicianDisplayLabel(t, technicianExtras(t, inviteNamesByPhone))}`}
                                 onClick={() => {
                                   setTeamTechnicianDetailId(t.id);
                                   setVendorTeamRejectReason("");
@@ -1176,7 +1170,7 @@ export default function VendorDashboardPage() {
                               <td>{vdEllipsis(formatSiteAddress(b.service_site_address), 40)}</td>
                               <td>{serviceForLabel(b)}</td>
                               <td>{formatInr(bookingValueCents(b))}</td>
-                              <td>{techDisplayLabel(techById, b.technician_id)}</td>
+                              <td>{techDisplayLabel(techById, b.technician_id, inviteNamesByPhone)}</td>
                               <td>{vdEllipsis(cancelNote === "-" ? (opsWatchLabel(b) ?? "-") : cancelNote, 36)}</td>
                               <td>
                                 <Button size="sm" type="button" variant="outline" onClick={() => setVendorRowAction({ kind: "history", booking: b })}>
@@ -1415,7 +1409,7 @@ export default function VendorDashboardPage() {
                   <dt style={{ color: "var(--wb-muted-fg)" }}>Site</dt>
                   <dd style={{ margin: 0, lineHeight: 1.45 }}>{formatSiteAddress(b.service_site_address)}</dd>
                   <dt style={{ color: "var(--wb-muted-fg)" }}>Technician</dt>
-                  <dd style={{ margin: 0 }}>{techDisplayLabel(techById, b.technician_id)}</dd>
+                  <dd style={{ margin: 0 }}>{techDisplayLabel(techById, b.technician_id, inviteNamesByPhone)}</dd>
                 </dl>
                 <BookingSitePhotos booking={b} />
                 <div className="web-modal-actions">
@@ -1450,7 +1444,7 @@ export default function VendorDashboardPage() {
                   <dt style={{ color: "var(--wb-muted-fg)" }}>Value</dt>
                   <dd style={{ margin: 0 }}>{formatInr(bookingValueCents(b))}</dd>
                   <dt style={{ color: "var(--wb-muted-fg)" }}>Technician</dt>
-                  <dd style={{ margin: 0 }}>{techDisplayLabel(techById, b.technician_id)}</dd>
+                  <dd style={{ margin: 0 }}>{techDisplayLabel(techById, b.technician_id, inviteNamesByPhone)}</dd>
                 </dl>
                 {b.status === "cancelled" && (b.cancellation_reason || cc) ? (
                   <div
@@ -1490,13 +1484,12 @@ export default function VendorDashboardPage() {
         title="Invite technician"
         description="Phone must include at least 10 digits (country code optional). The technician opens the link and completes the usual onboarding."
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        <div className="web-modal-form">
           <label className="bm-label" htmlFor="vendor-invite-name">
             Name (optional)
             <input
               id="vendor-invite-name"
-              className="vd-input"
-              style={{ marginTop: 6 }}
+              className="web-input"
               placeholder="As it should appear on the invite"
               value={inviteName}
               onChange={(e) => setInviteName(e.target.value)}
@@ -1506,8 +1499,7 @@ export default function VendorDashboardPage() {
             Mobile (required)
             <input
               id="vendor-invite-phone"
-              className="vd-input"
-              style={{ marginTop: 6 }}
+              className="web-input"
               placeholder="+919876543210 or 9876543210"
               value={invitePhone}
               onChange={(e) => setInvitePhone(e.target.value)}
@@ -1519,8 +1511,7 @@ export default function VendorDashboardPage() {
             Email (optional)
             <input
               id="vendor-invite-email"
-              className="vd-input"
-              style={{ marginTop: 6 }}
+              className="web-input"
               type="email"
               autoComplete="email"
               placeholder="name@example.com"
@@ -1565,7 +1556,11 @@ export default function VendorDashboardPage() {
           setVendorTeamRejectReason("");
           reviewMut.reset();
         }}
-        title={teamTechnicianModal ? technicianDisplayName(teamTechnicianModal) : "Technician"}
+        title={
+          teamTechnicianModal
+            ? technicianDisplayLabel(teamTechnicianModal, technicianExtras(teamTechnicianModal, inviteNamesByPhone))
+            : "Technician"
+        }
         description={
           teamTechnicianModal
             ? [
@@ -1789,7 +1784,7 @@ export default function VendorDashboardPage() {
           >
             {verifiedVendorTechnicians.map((t) => (
               <option key={t.id} value={t.id}>
-                {technicianOptionLabel(t)}
+                {technicianAssignOptionLabel(t, technicianExtras(t, inviteNamesByPhone))}
               </option>
             ))}
           </select>

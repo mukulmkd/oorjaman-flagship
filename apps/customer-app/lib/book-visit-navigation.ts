@@ -41,13 +41,6 @@ export function bookVisitPaidHref(): string {
   return "/book?paidVisit=1";
 }
 
-export function amcPlanHref(serviceAddressId?: string | null): string {
-  const q = new URLSearchParams();
-  if (serviceAddressId?.trim()) q.set("addressId", serviceAddressId.trim());
-  const query = q.toString();
-  return query ? `/(main)/subscription?${query}` : "/(main)/subscription";
-}
-
 type AmcSubscriptionRouteParams = {
   addressId?: string;
   focus?: "upgrade";

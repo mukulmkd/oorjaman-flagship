@@ -6,10 +6,9 @@ import type {
 import type { OorjamanCreditsRedemptionPlan } from "./customer-credits-policy";
 import {
   creditsToPaise,
-  planOorjamanCreditsRedemption,
   VENDOR_LAST_HOUR_CANCEL_CUSTOMER_CREDITS,
 } from "./customer-credits-policy";
-import { SupabaseApiError, takeRows, takeSingleRow } from "../result";
+import { SupabaseApiError, takeRows } from "../result";
 
 export type CustomerOorjamanCreditsSummary = {
   balance_credits: number;

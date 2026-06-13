@@ -14,6 +14,7 @@ import {
   settlementKindLabel,
   settlementStatusLabel,
   settlementVisitChannelLabel,
+  visitGrossTaxableValuePaise,
   vendorApi,
   type VendorSettlementKind,
   type VendorSettlementAdminRow,
@@ -24,7 +25,6 @@ import { Badge, Button, Card, PageHeader } from "@oorjaman/web-ui";
 import { Link } from "react-router-dom";
 import { TablePaginationBar } from "../components/TablePaginationBar";
 import { useSupabase } from "../lib/supabase-context";
-import "../layouts/dashboard-layout.css";
 import "./finance-settlements-page.css";
 
 const PAGE_SIZE = 10;
@@ -168,7 +168,8 @@ export function FinanceSettlementsPage() {
           <Card padded>
             <h2 className="fin-settings-title">Platform settings</h2>
             <p className="dash-muted-line fin-settings-help">
-              Commission on visit gross (one-time checkout price or AMC per-visit allocation). Snapshotted when the
+              Commission on the GST-exclusive visit value (18% GST stripped from catalogue gross). One-time checkout
+              price or AMC per-visit allocation. Snapshotted when the
               payout row is created at visit completion. Revenue is recognized only after you mark the payout settled.
             </p>
             {platformSettingsQ.isPending ? (
@@ -440,10 +441,16 @@ function SettlementRow({
     row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
       ? (row.metadata as Record<string, unknown>).platform_fee_percent
       : null;
+  const taxableValuePaise =
+    row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+      ? (row.metadata as Record<string, unknown>).taxable_value_paise
+      : null;
   const channelLabel = settlementVisitChannelLabel(row);
   const breakdown =
     row.kind === "visit_payout"
-      ? `Gross ${formatInrFromPaise(row.visit_gross_paise ?? 0)} · OorjaMan fee ${formatInrFromPaise(row.platform_fee_paise ?? 0)}${typeof feePercent === "number" ? ` (${feePercent}%)` : ""
+      ? `Gross ${formatInrFromPaise(row.visit_gross_paise ?? 0)} · Fee base (ex-GST) ${formatInrFromPaise(
+          typeof taxableValuePaise === "number" ? taxableValuePaise : visitGrossTaxableValuePaise(row.visit_gross_paise ?? 0),
+        )} · OorjaMan fee ${formatInrFromPaise(row.platform_fee_paise ?? 0)}${typeof feePercent === "number" ? ` (${feePercent}%)` : ""
       }${row.status === "settled" ? " · Revenue recognized" : " · Revenue pending settle"}`
       : `Assessed ${formatInrFromPaise(row.penalty_assessed_paise ?? 0)}`;
 
@@ -517,7 +524,7 @@ function SettlementRow({
               ) : null}
             </>
           ) : null}
-          {row.status === "approved" || row.status === "pending_review" ? (
+          {row.status === "approved" ? (
             <Button
               type="button"
               size="sm"

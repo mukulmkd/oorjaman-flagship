@@ -246,6 +246,7 @@ with check (
 );
 
 drop policy if exists support_macros_admin on public.support_macros;
+drop policy if exists support_macros_desk on public.support_macros;
 create policy support_macros_desk
 on public.support_macros for all to authenticated
 using (public.is_support_desk_user())

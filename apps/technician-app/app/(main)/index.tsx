@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { bookingApi, queryKeys, technicianApi } from "@oorjaman/api";
+import { bookingApi, queryKeys, technicianApi, userApi } from "@oorjaman/api";
 import { Button, Card, Screen, SCREEN_EDGES_BENEATH_NATIVE_HEADER } from "@oorjaman/ui";
 import { colors, spacing } from "@oorjaman/config";
 import { fontFamily, fontSize, fontWeight } from "../../constants/fonts";
@@ -12,13 +12,8 @@ import { SupportChatHeaderButton } from "../../components/help-header-button";
 import { JobListCard } from "../../components/job-list-card";
 import { formatJobWhen, preferredWorkCity, stringifyAddress } from "../../lib/booking-display";
 import { pickNextJob } from "../../lib/job-list-filters";
+import { technicianGreetingName } from "../../lib/technician-display-name";
 import { supabase } from "../../lib/supabase";
-
-function displayName(tech: { name_as_per_aadhaar?: string | null } | null | undefined): string {
-  const n = tech?.name_as_per_aadhaar?.trim();
-  if (n) return n.split(/\s+/)[0] ?? n;
-  return "Partner";
-}
 
 export default function HomeTab() {
   const navigation = useNavigation();
@@ -31,6 +26,14 @@ export default function HomeTab() {
     enabled: Boolean(supabase),
   });
   const tech = techQ.data;
+
+  const userQ = useQuery({
+    queryKey: queryKeys.users.me(),
+    queryFn: () => userApi.getMyUserRecord(supabase!),
+    enabled: Boolean(supabase),
+  });
+
+  const greetingName = technicianGreetingName(tech, userQ.data);
 
   const vendorQ = useQuery({
     queryKey: queryKeys.vendors.detail(tech?.vendor_id ?? ""),
@@ -110,8 +113,7 @@ export default function HomeTab() {
         ) : null}
 
         <View style={styles.hero}>
-          <Text style={styles.hello}>Hello,</Text>
-          <Text style={styles.headline}>{displayName(tech)}</Text>
+          <Text style={styles.headline}>Hello, {greetingName}</Text>
           {tech?.employee_code?.trim() ? (
             <View style={styles.idPill}>
               <Text style={styles.idPillText}>{tech.employee_code.trim()}</Text>

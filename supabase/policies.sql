@@ -1468,6 +1468,8 @@ with check (
 
 drop policy if exists support_macros_admin on public.support_macros;
 
+drop policy if exists support_macros_desk on public.support_macros;
+
 create policy support_macros_desk
 on public.support_macros for all to authenticated
 using (public.is_support_desk_user())
@@ -2111,6 +2113,55 @@ with check (
       and b.vendor_id is not null
       and b.vendor_id = vendor_settlements.vendor_id
       and jr.technician_id = public.my_technician_id()
+  )
+);
+
+alter table public.customer_oorjaman_credit_grants enable row level security;
+
+alter table public.customer_oorjaman_credit_redemptions enable row level security;
+
+alter table public.vendor_deferred_penalties enable row level security;
+
+drop policy if exists customer_oorjaman_credit_grants_select on public.customer_oorjaman_credit_grants;
+
+create policy customer_oorjaman_credit_grants_select
+on public.customer_oorjaman_credit_grants for select to authenticated
+using (public.is_admin() or customer_id = public.my_customer_id());
+
+drop policy if exists customer_oorjaman_credit_redemptions_select on public.customer_oorjaman_credit_redemptions;
+
+create policy customer_oorjaman_credit_redemptions_select
+on public.customer_oorjaman_credit_redemptions for select to authenticated
+using (public.is_admin() or customer_id = public.my_customer_id());
+
+drop policy if exists vendor_deferred_penalties_select on public.vendor_deferred_penalties;
+
+create policy vendor_deferred_penalties_select
+on public.vendor_deferred_penalties for select to authenticated
+using (
+  public.is_admin()
+  or vendor_id = public.my_vendor_id()
+);
+
+drop policy if exists technician_documents_select_customer_assigned on storage.objects;
+
+create policy technician_documents_select_customer_assigned
+on storage.objects for select to authenticated
+using (
+  bucket_id = 'technician-documents'
+  and exists (
+    select 1
+    from public.bookings b
+    join public.customers c on c.id = b.customer_id
+    join public.technicians t on t.id = b.technician_id
+    where c.user_id = auth.uid()
+      and b.technician_id is not null
+      and b.status in (
+        'accepted'::public.booking_status,
+        'in_progress'::public.booking_status,
+        'completed'::public.booking_status
+      )
+      and t.doc_passport_url = storage.objects.name
   )
 );
 

@@ -5,7 +5,6 @@ import { DEFAULT_TABLE_PAGE_SIZE, queryKeys, technicianApi, vendorApi } from "@o
 import { Button, Card, PageHeader } from "@oorjaman/web-ui";
 import { TablePaginationBar } from "../components/TablePaginationBar";
 import { useSupabase } from "../lib/supabase-context";
-import "../layouts/dashboard-layout.css";
 
 type WatchRow =
   | {

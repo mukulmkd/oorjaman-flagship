@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../database.types";
 import * as customerApi from "../customers/customer-api";
 import * as technicianApi from "../technicians/technician-api";
-import { getMyUserRecord, getMyUserRecordWithRetry } from "../users/user-api";
+import { getMyUserRecordWithRetry } from "../users/user-api";
 
 /** Customer mobile app - partners must use the web portal, not this binary. */
 export type CustomerAppPostAuthPath =
@@ -43,6 +43,8 @@ export async function resolveCustomerAppPostAuthPath(
       return "/wrong-role";
     case "technician":
     case "admin":
+      return "/wrong-role";
+    default:
       return "/wrong-role";
   }
 }

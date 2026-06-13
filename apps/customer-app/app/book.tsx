@@ -80,6 +80,7 @@ import {
   BookVisitAmcAwaitingPartnerGate,
   BookVisitAmcChoiceGate,
 } from "../components/book-visit-amc-choice-gate";
+import { PriceGstBreakdown } from "../components/price-gst-breakdown";
 import { openSupportChat } from "../lib/support-chat-navigation";
 import { ServiceAddressPickerSheet } from "../components/service-address-picker-sheet";
 import {
@@ -250,12 +251,16 @@ function CapacityVisitPricingCard({
   tierLabel,
   capacityKw,
   typicalPanels,
+  cataloguePaise,
+  geoAddonPaise,
   amountPaise,
   perPanelPaise,
 }: {
   tierLabel: string;
   capacityKw: number;
   typicalPanels: number;
+  cataloguePaise: number;
+  geoAddonPaise: number;
   amountPaise: number;
   perPanelPaise: number;
 }) {
@@ -266,12 +271,17 @@ function CapacityVisitPricingCard({
         Fixed rate for your {capacityKw} kW system ({tierLabel}). Reference: {formatInrFromCents(perPanelPaise)} per panel.
       </Text>
       <Card variant="elevated" padded>
-        <PricingMoneyRow label={`${capacityKw} kW package (~${typicalPanels} panels)`} amountPaise={amountPaise} />
+        <PricingMoneyRow label={`${capacityKw} kW package (~${typicalPanels} panels)`} amountPaise={cataloguePaise} />
+        {geoAddonPaise > 0 ? (
+          <PricingMoneyRow label="City-tier add-on" amountPaise={geoAddonPaise} />
+        ) : null}
         <View style={pricingStyles.divider} />
         <View style={pricingStyles.totalRow}>
           <Text style={pricingStyles.totalLabel}>Estimated total</Text>
           <Text style={pricingStyles.totalValue}>{formatInrFromCents(amountPaise)}</Text>
         </View>
+        <View style={pricingStyles.divider} />
+        <PriceGstBreakdown totalPaise={amountPaise} />
       </Card>
     </View>
   );
@@ -1880,7 +1890,7 @@ export default function BookVisitModal() {
                   <Text style={styles.slaNoteText}>
                     {solarSizing.reason === "missing_details"
                       ? "Add installed capacity and panel count under Solar & site in Profile, then save. One-time pricing uses the same details as AMC."
-                      : `Your saved size is ${solarSizing.capacityKw} kW. We price 3, 4, 5, 6, 8, and 10 kW systems - update Profile to a supported band.`}
+                      : `Your saved size is ${solarSizing.capacityKw} kW. We price 3, 4, 5, 6, 8, 9, and 10 kW systems - update Profile to a supported band.`}
                   </Text>
                   <Pressable
                     accessibilityRole="button"
@@ -1917,6 +1927,8 @@ export default function BookVisitModal() {
                     tierLabel={pricingQuery.data.quote.tier_label}
                     capacityKw={pricingQuery.data.quote.capacity_kw}
                     typicalPanels={pricingQuery.data.quote.typical_panel_count}
+                    cataloguePaise={pricingQuery.data.quote.catalogue_visit_cents}
+                    geoAddonPaise={pricingQuery.data.quote.geo_visit_addon_cents}
                     amountPaise={pricingQuery.data.quote.amount_cents}
                     perPanelPaise={pricingQuery.data.quote.per_panel_rate_cents}
                   />
@@ -2122,6 +2134,7 @@ export default function BookVisitModal() {
                   <Text style={styles.paymentAmountValue}>
                     {formatInrFromCents(payableEstimatePaise)}
                   </Text>
+                  <PriceGstBreakdown totalPaise={payableEstimatePaise} />
                   {creditsDiscountPaise > 0 ? (
                     <Text style={styles.paymentAmountLabel}>
                       Includes {creditsRedemptionPlan.discount_credits} OorjaMan Credit

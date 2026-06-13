@@ -19,10 +19,13 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import {
   bookingApi,
+  isBookingGpsTrackable,
   customerBookingDisplayTitle,
   customerBookingRefModalSubtitle,
   customerBookingVisitDateVisible,
   formatInrFromCents,
+  INDIAN_GST_RATE_PERCENT,
+  splitGstFromInclusiveTotal,
   isAmcSubscriptionBooking,
   getBookingRoutingDefaults,
   HAPPY_CODE_REGENERATE_COOLDOWN_MS,
@@ -64,6 +67,7 @@ import {
   customerConfirmedBookingStatusHelp,
   isBookingAwaitingOorjamanPartnerAssignment,
 } from "../lib/booking-partner-messaging";
+import { AssignedTechnicianCard } from "../components/assigned-technician-card";
 import { supabase } from "../lib/supabase";
 import {
   formatDisplayDate,
@@ -105,10 +109,10 @@ function normalizePaymentChannelLabel(raw: string | null | undefined): string {
 }
 
 function buildServiceTaxInvoiceText(b: BookingRow): string {
-  const money =
-    b.final_price_cents != null
-      ? formatMoney(b.final_price_cents, b.currency)
-      : formatMoney(b.estimated_price_cents, b.currency);
+  const amountCents =
+    b.final_price_cents != null ? b.final_price_cents : b.estimated_price_cents;
+  const money = formatMoney(amountCents, b.currency);
+  const gst = splitGstFromInclusiveTotal(amountCents);
   const visitEnd = b.actual_end ?? b.scheduled_end;
   const visitWhen = formatDisplayDate(visitEnd);
   const bookingLabel = customerBookingDisplayTitle(b);
@@ -116,7 +120,9 @@ function buildServiceTaxInvoiceText(b: BookingRow): string {
     "Oorjaman - Service receipt (tax invoice summary)",
     `Booking: ${bookingLabel}`,
     `Service date: ${visitWhen}`,
-    `Amount (incl. taxes as applicable): ${money}`,
+    `Service value: ${formatInrFromCents(gst.taxable_value_cents)}`,
+    `GST (${INDIAN_GST_RATE_PERCENT}%): ${formatInrFromCents(gst.gst_cents)}`,
+    `Total (incl. GST): ${money}`,
     "",
     "Retain this for your records. For a GST-compliant invoice with IRN, email support if your organisation needs it.",
   ].join("\n");
@@ -222,7 +228,9 @@ function serviceForDetails(metadata: unknown): { name: string; extra?: string } 
   return { name, extra: parts || undefined };
 }
 
-const TRACK_STATUSES: BookingStatus[] = ["accepted", "in_progress", "completed"];
+function bookingShowsTechnicianProfile(row: BookingRow | null | undefined): boolean {
+  return Boolean(row?.technician_id && row.status !== "cancelled" && row.status !== "pending_payment");
+}
 
 const CUSTOMER_CANCELLABLE: BookingStatus[] = ["pending_payment", "confirmed", "accepted"];
 
@@ -422,14 +430,19 @@ export default function BookingDetailScreen() {
       }
       return "We’ve notified your service partner - they’ll confirm when ready.";
     }
-    if (bucket === "accepted") return "Your slot is locked in - watch here for technician assignment and arrival.";
+    if (bucket === "accepted") {
+      if (b.status === "in_progress") return "Your technician is on site and working on your visit.";
+      if (b.technician_en_route_at) return "Your technician is on the way. Open the map below to track their trip.";
+      if (b.technician_id) return "Your technician is assigned. You will see their details here when they head to your site.";
+      return "Your slot is locked in - watch here for technician assignment and arrival.";
+    }
     if (bucket === "completed") return "Visit finished - thanks for choosing OorjaMan.";
     if (b.status === "cancelled") return "This booking was cancelled.";
     return "";
   }, [b]);
 
-  const showTrack =
-    Boolean(b?.technician_id) && Boolean(b?.status && TRACK_STATUSES.includes(b.status));
+  const showTrack = Boolean(b && isBookingGpsTrackable(b));
+  const showTechnicianProfile = bookingShowsTechnicianProfile(b);
 
   const vendorSla = useMemo(() => {
     if (!b || b.status !== "confirmed") return null;
@@ -627,28 +640,29 @@ export default function BookingDetailScreen() {
                   Share this code when the technician arrives. They must verify this before starting service.
                 </Text>
                 {showHappyCode && serviceOtp.happyCode ? (
-                  <>
-                    <Text style={[styles.sectionTitle, styles.labelSpaced]}>Happy Code</Text>
+                  <View style={styles.happyCodeBlock}>
+                    <Text style={styles.sectionTitle}>Happy Code</Text>
                     <Text style={styles.visitCode}>{serviceOtp.happyCode}</Text>
-                    <Text style={styles.bodyMuted}>
+                    <Text style={styles.bodyMutedHappy}>
                       Share this at completion. It confirms service closure and unlocks final submission.
                     </Text>
                     {b.status === "in_progress" ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        loading={regenHappyCodeMut.isPending}
-                        onPress={() => void regenHappyCodeMut.mutateAsync()}
-                      >
-                        Regenerate Happy Code
-                      </Button>
+                      <View style={styles.regenRow}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          loading={regenHappyCodeMut.isPending}
+                          onPress={() => void regenHappyCodeMut.mutateAsync()}
+                        >
+                          Regenerate Happy Code
+                        </Button>
+                        <Text style={styles.cooldownMeta}>
+                          Cooldown: {Math.round(HAPPY_CODE_REGENERATE_COOLDOWN_MS / 60_000)} minutes between
+                          regenerations.
+                        </Text>
+                      </View>
                     ) : null}
-                    {b.status === "in_progress" ? (
-                      <Text style={styles.meta}>
-                        Cooldown: {Math.round(HAPPY_CODE_REGENERATE_COOLDOWN_MS / 60_000)} minutes between regenerations.
-                      </Text>
-                    ) : null}
-                  </>
+                  </View>
                 ) : null}
                 <View style={styles.codeActions}>
                   <Pressable
@@ -680,6 +694,16 @@ export default function BookingDetailScreen() {
             </View>
           ) : null}
 
+          {showTechnicianProfile ? (
+            <View style={styles.section}>
+              <AssignedTechnicianCard
+                bookingId={b.id}
+                enRouteAt={b.technician_en_route_at}
+                status={b.status}
+              />
+            </View>
+          ) : null}
+
           {showTrack ? (
             <View style={styles.section}>
               <Card variant="elevated" padded>
@@ -690,7 +714,11 @@ export default function BookingDetailScreen() {
                   style={({ pressed }) => [styles.trackBtn, pressed && styles.trackBtnPressed]}
                 >
                   <Text style={styles.trackBtnTitle}>Track technician</Text>
-                  <Text style={styles.trackBtnHint}>Last known location on map with your position</Text>
+                  <Text style={styles.trackBtnHint}>
+                    {b.technician_en_route_at
+                      ? "Live map refreshes every few seconds while they are en route"
+                      : "Map opens when your technician marks themselves en route"}
+                  </Text>
                 </Pressable>
               </Card>
             </View>
@@ -1271,6 +1299,29 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginBottom: spacing.sm,
   },
+  happyCodeBlock: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  bodyMutedHappy: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.md,
+    lineHeight: 22,
+    color: colors.mutedForeground,
+    marginBottom: spacing.sm,
+  },
+  regenRow: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  cooldownMeta: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+    color: colors.mutedForeground,
+  },
   bodyMuted: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.md,
@@ -1286,6 +1337,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
+    marginTop: spacing.lg,
   },
   codeBtn: {
     paddingVertical: spacing.sm,

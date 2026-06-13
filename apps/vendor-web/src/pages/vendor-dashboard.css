@@ -92,6 +92,7 @@
 .vd-select {
   width: 100%;
   max-width: 320px;
+  box-sizing: border-box;
   padding: 0.45rem 0.5rem;
   border-radius: 8px;
   border: 1px solid var(--wb-border);
@@ -253,6 +254,8 @@
 
 .vd-input {
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   min-height: 40px;
   border: 1px solid var(--wb-border);
   border-radius: 10px;

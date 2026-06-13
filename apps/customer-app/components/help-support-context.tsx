@@ -31,6 +31,3 @@ export function useHelpSupport(): HelpSupportState {
   }
   return ctx;
 }
-
-/** @deprecated Use {@link HelpSupportOpenContext} */
-export type HelpSupportContext = HelpSupportOpenContext;

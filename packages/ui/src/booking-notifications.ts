@@ -95,8 +95,18 @@ export async function notifyCustomerTechnicianAssigned(
 ): Promise<void> {
   await presentImmediate(
     "Technician assigned",
-    "A qualified technician is assigned to your visit. You will see their details in the app before they arrive on site.",
+    "Your technician is assigned. Open the booking to see their name and contact details.",
     { kind: "technician_assigned", bookingId },
+  );
+}
+
+export async function notifyCustomerTechnicianEnRoute(
+  bookingId: string,
+): Promise<void> {
+  await presentImmediate(
+    "Technician on the way",
+    "Your technician is heading to your site. Open the booking to track live location.",
+    { kind: "technician_en_route", bookingId },
   );
 }
 

@@ -15,13 +15,13 @@ import {
 } from "react-native-safe-area-context";
 import {
   AMC_PLAN_UPGRADE_DISCLAIMER,
-  formatAmcPlanSubtitle,
   formatInrFromCents,
   type PricingAmcPlanRow,
   type SubscriptionRow,
 } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
 import { Button, ModalSheetHeader } from "@oorjaman/ui";
+import { AmcPlanPriceLine } from "./amc-plan-price-line";
 import { fontFamily, fontSize } from "../constants/fonts";
 
 type Props = {
@@ -33,6 +33,7 @@ type Props = {
   /** Plan codes the customer may upgrade into (strictly higher packages). */
   upgradePlanCodes: string[];
   geoAddonCents: number;
+  visitRatePaise: number;
   geoTierLabel: string | null;
   loading?: boolean;
   onClose: () => void;
@@ -46,6 +47,7 @@ function AmcUpgradeSheetBody({
   currentPlanCode,
   upgradePlanCodes,
   geoAddonCents,
+  visitRatePaise,
   geoTierLabel,
   loading = false,
   onClose,
@@ -101,7 +103,6 @@ function AmcUpgradeSheetBody({
               const isCurrent = p.plan_code === currentPlanCode;
               const canUpgrade = upgradeCodeSet.has(p.plan_code);
               const picked = p.plan_code === selectedPlanCode;
-              const price = p.amount_cents + geoAddonCents;
               return (
                 <Pressable
                   key={p.id}
@@ -128,9 +129,11 @@ function AmcUpgradeSheetBody({
                         </View>
                       ) : null}
                     </View>
-                    <Text style={styles.planBody}>
-                      {formatAmcPlanSubtitle(p)} · {formatInrFromCents(price)} + taxes
-                    </Text>
+                    <AmcPlanPriceLine
+                      plan={p}
+                      visitRatePaise={visitRatePaise}
+                      geoAddonPaise={geoAddonCents}
+                    />
                     {geoAddonCents > 0 && geoTierLabel ? (
                       <Text style={styles.planAddonHint}>
                         Includes {formatInrFromCents(geoAddonCents)} city-tier add-on ({geoTierLabel}).

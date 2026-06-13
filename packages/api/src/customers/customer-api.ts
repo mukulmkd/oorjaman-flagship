@@ -29,7 +29,7 @@ export async function getMyCustomer(
 
 export async function ensureCustomerProfile(
   client: SupabaseClient<Database>,
-  input?: Pick<Database["public"]["Tables"]["customers"]["Insert"], "display_name" | "service_default_address" | "billing_address" | "notes">,
+  _input?: Pick<Database["public"]["Tables"]["customers"]["Insert"], "display_name" | "service_default_address" | "billing_address" | "notes">,
 ): Promise<CustomerRow> {
   const existing = await getMyCustomer(client);
   if (existing) {

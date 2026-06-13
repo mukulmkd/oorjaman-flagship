@@ -219,6 +219,7 @@ function HelpSupportModalBody({
       return;
     }
     if (!supabase || modalOpenSessionRef.current) return;
+    const sb = supabase;
     modalOpenSessionRef.current = true;
 
     let cancelled = false;
@@ -230,7 +231,7 @@ function HelpSupportModalBody({
 
     void (async () => {
       try {
-        const active = await supportApi.listActiveSupportConversationsForTechnician(supabase);
+        const active = await supportApi.listActiveSupportConversationsForTechnician(sb);
         if (cancelled) return;
         setActiveChats(active);
 
@@ -238,7 +239,7 @@ function HelpSupportModalBody({
           const fromActive = active.find((c) => c.id === convId);
           const conv =
             fromActive ??
-            (await supportApi.getSupportConversationById(supabase, convId).catch(() => null));
+            (await supportApi.getSupportConversationById(sb, convId).catch(() => null));
           if (cancelled || !conv) return false;
           setConversationId(conv.id);
           setModalView("thread");

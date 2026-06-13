@@ -1,0 +1,100 @@
+.web-brand-wordmark {
+  display: inline-block;
+  font-weight: var(--weight-bold, 700);
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--wb-fg, #0f2938);
+}
+
+.web-brand-wordmark--splash {
+  font-size: var(--type-xxl, 1.75rem);
+}
+
+.web-brand-wordmark--compact {
+  font-size: var(--type-md, 1rem);
+}
+
+.web-brand-wordmark__oorja {
+  color: #549048;
+}
+
+.web-brand-wordmark__man {
+  color: #1c4276;
+}
+
+.web-brand-tagline {
+  margin: 0.35rem 0 0;
+  font-size: var(--type-xs, 0.75rem);
+  font-weight: var(--weight-semibold, 600);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #9b9b9b;
+}
+
+.web-brand-persona {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: var(--type-xs, 0.75rem);
+  font-weight: var(--weight-semibold, 600);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.web-brand-persona--operations {
+  color: var(--wb-primary, #1f8660);
+  background: var(--wb-primary-muted, #e8f5ef);
+}
+
+.web-brand-persona--support {
+  color: #1c4276;
+  background: #e8eef8;
+}
+
+.web-brand-persona--partner {
+  color: #549048;
+  background: #eaf3e8;
+}
+
+.web-portal-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0 0.65rem 1rem;
+}
+
+.web-portal-sidebar-brand__icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+.web-portal-sidebar-brand__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.web-portal-sidebar-brand .web-brand-persona {
+  margin-top: 0.15rem;
+  padding: 0.1rem 0.45rem;
+}
+
+.web-portal-login-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 1.25rem;
+  max-width: 320px;
+}
+
+.web-portal-login-brand__icon {
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+  margin-bottom: 0.5rem;
+}

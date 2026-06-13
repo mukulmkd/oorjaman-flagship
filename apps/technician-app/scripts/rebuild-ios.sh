@@ -47,10 +47,8 @@ npm run brand:sync
 echo "==> Regenerate native ios/ from app.config.ts"
 npx expo prebuild --platform ios --clean
 
-echo "==> CocoaPods ($POD_BIN)"
-cd ios
-"$POD_BIN" install
-cd ..
+echo "==> CocoaPods (Hermes-safe install via scripts/pod-install.sh)"
+bash scripts/pod-install.sh
 
 echo "==> Build native app, install on Simulator, start Metro (cache cleared)"
 EXPO_NO_METRO_CACHE=1 npx expo run:ios "$@"

@@ -4,7 +4,6 @@ import { DEFAULT_TABLE_PAGE_SIZE, queryKeys, technicianApi } from "@oorjaman/api
 import { Button, Card, PageHeader } from "@oorjaman/web-ui";
 import { TablePaginationBar } from "../components/TablePaginationBar";
 import { useSupabase } from "../lib/supabase-context";
-import "../layouts/dashboard-layout.css";
 
 const REPORTS_SAMPLE = 500;
 

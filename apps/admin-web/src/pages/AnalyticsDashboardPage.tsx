@@ -16,9 +16,8 @@ import {
   adminFetchBookingsCreatedDaily,
   adminFetchPaymentStats,
   adminFetchRecognizedRevenueStats,
-  adminGetPlatformSettings,
   adminFetchSubscriptionStats,
-  normalizeVendorPlatformFeePercent,
+  getVendorPlatformFeePercent,
   adminFetchVendorPerformance,
   ANALYTICS_BUSINESS_PERIOD_LABELS,
   ANALYTICS_MAX_DAILY_FETCH_DAYS,
@@ -136,12 +135,12 @@ export function AnalyticsDashboardPage() {
     queryKey: queryKeys.admin.bookingsDaily(ANALYTICS_MAX_DAILY_FETCH_DAYS),
     queryFn: async () => {
       if (!supabase) throw new Error("Supabase not configured");
-      const [bookingStats, recognizedRevenue, payments, platformSettings, subscriptionStats, dailyBookings, vendorPerformance] =
+      const [bookingStats, recognizedRevenue, payments, platformFeePercent, subscriptionStats, dailyBookings, vendorPerformance] =
         await Promise.all([
           adminFetchBookingStats(supabase),
           adminFetchRecognizedRevenueStats(supabase),
           adminFetchPaymentStats(supabase),
-          adminGetPlatformSettings(supabase),
+          getVendorPlatformFeePercent(supabase),
           adminFetchSubscriptionStats(supabase),
           adminFetchBookingsCreatedDaily(supabase, { days: ANALYTICS_MAX_DAILY_FETCH_DAYS }),
           adminFetchVendorPerformance(supabase, { limit: VENDOR_TOP_N }),
@@ -150,7 +149,7 @@ export function AnalyticsDashboardPage() {
         bookingStats,
         recognizedRevenue,
         payments,
-        platformFeePercent: normalizeVendorPlatformFeePercent(platformSettings.vendor_platform_fee_percent),
+        platformFeePercent,
         subscriptionStats,
         dailyBookings,
         vendorPerformance,

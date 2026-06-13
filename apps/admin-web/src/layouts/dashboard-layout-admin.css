@@ -1,0 +1,190 @@
+/* Admin-only dashboard extensions (bookings monitor + shared form controls). */
+
+/* Bookings monitor: keep native table layout (no flex on <td>). */
+.bm-table.bm-table--bookings tbody td {
+  vertical-align: middle;
+  line-height: 1.4;
+}
+
+.bm-table.bm-table--bookings .bm-col-routing {
+  width: 10rem;
+  min-width: 10rem;
+}
+
+.bm-table.bm-table--bookings .bm-col-alerts {
+  width: 14rem;
+  min-width: 12rem;
+  max-width: 16rem;
+}
+
+.bm-table.bm-table--bookings .bm-col-action {
+  width: 5.75rem;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.bm-cell-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  min-height: 1.4em;
+}
+
+.bm-cell-stack--end {
+  align-items: flex-end;
+  width: 100%;
+}
+
+.bm-routing-chip {
+  display: inline-block;
+  max-width: 100%;
+  font-size: var(--type-xs);
+  line-height: 1.35;
+  padding: 0.3rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid var(--wb-border);
+  background: var(--wb-elevated);
+  color: var(--wb-fg);
+  text-decoration: none;
+  white-space: normal;
+  word-break: break-word;
+  cursor: help;
+  vertical-align: middle;
+}
+
+.bm-routing-chip--marketplace {
+  border-color: color-mix(in oklab, var(--wb-primary) 35%, var(--wb-border));
+  background: color-mix(in oklab, var(--wb-primary) 8%, var(--wb-card));
+}
+
+.bm-routing-chip--fallback {
+  border-color: #d8b06a;
+  background: #fffbeb;
+}
+
+.bm-routing-chip--preferred {
+  border-color: var(--wb-border);
+}
+
+.bm-alert-chip {
+  display: block;
+  margin: 0;
+  font-size: var(--type-xs);
+  line-height: 1.35;
+  color: var(--wb-muted-fg);
+  white-space: normal;
+  word-break: break-word;
+}
+
+.bm-alert-chip--more {
+  color: var(--wb-muted-fg);
+  font-style: italic;
+}
+
+.bm-alert-chip--high {
+  color: var(--wb-destructive);
+  font-weight: var(--weight-semibold);
+}
+
+.bm-alert-chip--med {
+  color: #9a6700;
+}
+
+.bm-alert-chip--muted {
+  color: var(--wb-muted-fg);
+  font-weight: var(--weight-regular);
+}
+
+.bm-muted-dash {
+  color: var(--wb-muted-fg);
+}
+
+.bm-status-tabs {
+  margin-top: 0.75rem;
+}
+
+.bm-status-tab-btn.is-active.bm-status-tab-btn--completed,
+.bm-status-tab-btn.is-active.bm-status-tab-btn--accepted,
+.bm-status-tab-btn.is-active.bm-status-tab-btn--in_progress {
+  border-color: #15803d;
+  background: rgb(22 163 74 / 0.08);
+}
+
+.bm-status-tab-btn.is-active.bm-status-tab-btn--cancelled {
+  border-color: #b91c1c;
+  background: rgb(185 28 28 / 0.08);
+}
+
+.bm-status-tab-btn.is-active.bm-status-tab-btn--confirmed,
+.bm-status-tab-btn.is-active.bm-status-tab-btn--vendor_acknowledged,
+.bm-status-tab-btn.is-active.bm-status-tab-btn--pending_payment {
+  border-color: #b45309;
+  background: rgb(180 83 9 / 0.08);
+}
+
+.vd-select {
+  width: 100%;
+  max-width: 320px;
+  padding: 0.5rem 2rem 0.5rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--wb-border);
+  background-color: var(--wb-card);
+  color: var(--wb-fg);
+  font: inherit;
+  font-size: var(--type-sm);
+  line-height: 1.35;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.55rem center;
+  background-size: 1rem;
+}
+
+.vd-select:hover {
+  border-color: color-mix(in srgb, var(--wb-border) 55%, var(--wb-fg));
+}
+
+.vd-select:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--wb-fg) 22%, transparent);
+  outline-offset: 1px;
+}
+
+.dash-card-grid .vd-select,
+select.vd-select.bm-select {
+  max-width: 100%;
+}
+
+.vd-select--wide {
+  max-width: min(28rem, 100%);
+}
+
+.vd-card-head {
+  padding: 1rem 1rem 0.75rem;
+}
+
+.vd-note {
+  margin: 0;
+  font-size: var(--type-sm);
+  color: var(--wb-muted-fg);
+  line-height: 1.45;
+}
+
+.vd-note-spaced {
+  margin: 0.75rem 0 0;
+}
+
+.vd-empty {
+  padding: 1.25rem 1rem;
+  font-size: var(--type-sm);
+  color: var(--wb-muted-fg);
+  margin: 0;
+}
+
+.bm-select {
+  max-width: 100%;
+}

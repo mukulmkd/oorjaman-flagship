@@ -10,7 +10,7 @@ Guide for **local development** vs **production** settings across the OorjaMan f
 
 | Topic                        | Rule                                                                                                                                                              |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Where secrets live**       | Per-app `.env` (mobile/web), repo-root `.env` (scripts only), Supabase **Edge Function secrets** (server), EAS **secrets** (CI builds). Never in git.             |
+| **Where secrets live**       | Per-app `.env.development.local` (UAT/local) and `.env.production.local` (prod builds); repo-root `.env.uat.local` / `.env.production.local` for scripts. Never in git. |
 | **Client vs server**         | `EXPO_PUBLIC_*` and `VITE_*` are embedded in the app at **build time** and are visible to users. Only the Supabase **anon** key belongs there-not `service_role`. |
 | **Dev vs prod Supabase**     | Use a separate Supabase project (or branch) for production. Same variable names; different URLs and keys.                                                         |
 | **Dummy auth**               | `*_USE_DUMMY_AUTH=true` is for **local QA only**. Must be **off** in production builds.                                                                           |
@@ -20,16 +20,24 @@ Guide for **local development** vs **production** settings across the OorjaMan f
 
 ## Where to put files
 
-| Location                   | Used by                                           |
-| -------------------------- | ------------------------------------------------- |
-| `apps/customer-app/.env`   | Customer Expo app                                 |
-| `apps/technician-app/.env` | Partner Expo app (OorjaMan Partner)               |
-| `apps/admin-web/.env`      | Admin Vite app                                    |
-| `apps/vendor-web/.env`     | Vendor Vite app                                   |
-| `apps/support-web/.env`    | Support Vite app                                  |
-| `.env` (repo root)         | `npm run seed:dummy-users` and other scripts only |
+Each app uses **mode-specific** env files (gitignored `.local` copies hold real secrets; committed `*.example` are templates).
 
-Copy from [`.env.example`](.env.example) and fill in values for your environment.
+| File | When it loads | Supabase project |
+|------|---------------|------------------|
+| `apps/*/\.env.development.local` | `npm run dev`, `npm run customer`, etc. | **OorjaMan UAT** |
+| `apps/*/\.env.production.local` | `npm run build` (Vite/Next prod mode) | **OorjaMan Prod** |
+| `.env.uat.local` (repo root) | `npm run seed:dummy-users` (default) | **UAT** |
+| `.env.production.local` (repo root) | `SEED_ENV=production npm run seed:dummy-users` | **Prod** |
+
+**Vite portals** (`admin-web`, `vendor-web`, `support-web`): copy `\.env.development.example` → `\.env.development.local` and `\.env.production.example` → `\.env.production.local`.
+
+**Expo apps** (`customer-app`, `technician-app`): same pattern. EAS store builds should use **EAS Secrets** for prod/UAT keys (see [DEPLOYMENT.md](DEPLOYMENT.md)).
+
+**Marketing** (`oorjaman-web`): `\.env.development.local` / `\.env.production.local`.
+
+**Vercel:** set `VITE_*` in the Vercel dashboard (not local files). See [VERCEL.md](VERCEL.md).
+
+Plain `\.env` files are stubs only — do not put secrets there.
 
 ---
 
@@ -40,9 +48,10 @@ Copy from [`.env.example`](.env.example) and fill in values for your environment
 1. `npm install`
 2. Create Supabase project (or run `supabase start` locally).
 3. `npm run db:push` - apply migrations.
-4. Copy env vars into each app `.env` (see tables below) - **development** column.
-5. `npm run seed:dummy-users` - requires root `.env` with `SUPABASE_SERVICE_ROLE_KEY`.
-6. Run apps: `npm run customer`, `npm run technician`, `npm run admin`, etc.
+4. Copy each app’s `\.env.development.example` → `\.env.development.local` (UAT keys from Dashboard → OorjaMan UAT → API).
+5. Copy root `\.env.uat.local.example` → `\.env.uat.local` (UAT `service_role` for scripts).
+6. `npm run seed:dummy-users` — uses `\.env.uat.local` by default.
+7. Run apps: `npm run customer`, `npm run technician`, `npm run admin`, etc.
 7. (Optional) Customer maps: `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` + native rebuild.
 8. (Optional) Customer remote push: EAS project id + edge function (see [Customer push](#customer-app--expo-push--notifications)).
 

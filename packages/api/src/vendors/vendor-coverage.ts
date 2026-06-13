@@ -157,8 +157,7 @@ export function validateVendorCoverageZones(zones: VendorServiceCoverageZone[]):
   if (zones.length === 0) {
     return "Add at least one service area where your team can take visits.";
   }
-  for (let i = 0; i < zones.length; i += 1) {
-    const z = zones[i];
+  for (const [i, z] of zones.entries()) {
     const label = z.city_name || z.state_name || `Area ${i + 1}`;
     if (!z.state_code.trim() || !z.state_name.trim()) {
       return `Select a state for “${label}”.`;

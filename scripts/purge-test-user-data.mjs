@@ -2,9 +2,7 @@
  * Purge transactional test data for one customer and/or one technician while
  * keeping profile rows (customers, technicians, users, auth, site photos, KYC docs).
  *
- * Requires in environment (repo root `.env`):
- *   SUPABASE_URL
- *   SUPABASE_SERVICE_ROLE_KEY
+ * Requires repo root `.env.uat.local` (default) or `.env.production.local` with SEED_ENV=production.
  *
  * Usage:
  *   npm run purge:test-data -- --customer-phone=+919000000401 --technician-phone=+919000000301 --yes
@@ -20,13 +18,14 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { config } from "dotenv";
 import { createInterface } from "readline";
-import { dirname, join } from "path";
+import { dirname } from "path";
 import { fileURLToPath } from "url";
+import { loadScriptEnv } from "./load-script-env.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-config({ path: join(__dirname, "..", ".env") });
+const { tier, path: envPath } = loadScriptEnv();
+if (envPath) console.log(`Using script env (${tier}): ${envPath}`);
 
 const url = process.env.SUPABASE_URL?.trim();
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();

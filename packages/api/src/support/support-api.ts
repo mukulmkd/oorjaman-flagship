@@ -2231,7 +2231,7 @@ export async function getSupportDeskTechnicianProfile(
     .single();
   if (techErr) throw new SupabaseApiError(techErr.message, techErr);
 
-  const [technicianBrief] = await attachVendorNamesToTechnicianBriefs(client, [
+  const briefs = await attachVendorNamesToTechnicianBriefs(client, [
     {
       id: technician.id,
       display_name: technician.name_as_per_aadhaar,
@@ -2241,6 +2241,10 @@ export async function getSupportDeskTechnicianProfile(
       vendor_id: technician.vendor_id,
     },
   ]);
+  const technicianBrief = briefs[0];
+  if (!technicianBrief) {
+    throw new SupabaseApiError("Technician profile could not be loaded.");
+  }
 
   const { data: convRows, error: convErr } = await client
     .from("support_conversations")

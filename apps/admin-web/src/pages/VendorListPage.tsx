@@ -19,7 +19,6 @@ import {
   tabStatuses,
   type VendorTab,
 } from "../lib/vendor-approval-utils";
-import "../layouts/dashboard-layout.css";
 
 const TAB_ITEMS: { id: VendorTab; label: string }[] = [
   { id: "pending", label: "Pending" },

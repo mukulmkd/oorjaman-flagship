@@ -6,10 +6,14 @@ import {
   notifyCustomerBookingAccepted,
   notifyCustomerJobCompleted,
   notifyCustomerTechnicianAssigned,
+  notifyCustomerTechnicianEnRoute,
 } from "@oorjaman/ui";
 import { supabase } from "../lib/supabase";
 
-type Snapshot = Pick<BookingRow, "id" | "status" | "technician_id" | "vendor_id">;
+type Snapshot = Pick<
+  BookingRow,
+  "id" | "status" | "technician_id" | "vendor_id" | "technician_en_route_at"
+>;
 
 /**
  * Subscribes to booking row updates for this customer: refreshes list/detail queries and
@@ -35,6 +39,7 @@ export function BookingRealtimeNotifications({ customerId }: { customerId: strin
         status: b.status,
         technician_id: b.technician_id,
         vendor_id: b.vendor_id,
+        technician_en_route_at: b.technician_en_route_at,
       });
     }
   }, [seedQuery.data]);
@@ -73,6 +78,7 @@ export function BookingRealtimeNotifications({ customerId }: { customerId: strin
             status: row.status,
             technician_id: row.technician_id,
             vendor_id: row.vendor_id,
+            technician_en_route_at: row.technician_en_route_at,
           });
 
           invalidateBookings();
@@ -84,6 +90,9 @@ export function BookingRealtimeNotifications({ customerId }: { customerId: strin
           }
           if (!prev.technician_id && row.technician_id) {
             void notifyCustomerTechnicianAssigned(row.id);
+          }
+          if (!prev.technician_en_route_at && row.technician_en_route_at) {
+            void notifyCustomerTechnicianEnRoute(row.id);
           }
           if (prev.status !== "completed" && row.status === "completed") {
             void notifyCustomerJobCompleted(row.id);

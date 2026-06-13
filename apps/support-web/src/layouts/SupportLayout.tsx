@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { authApi } from "@oorjaman/api";
-import { DropdownMenu, DropdownMenuItem } from "@oorjaman/web-ui";
+import { authApi, loadPortalSessionDisplay } from "@oorjaman/api";
+import { DropdownMenu, DropdownMenuItem, PortalSidebarBrand } from "@oorjaman/web-ui";
 import { SupportChatDock } from "../components/SupportChatDock";
 import { SupportDeskRealtime } from "../components/SupportDeskRealtime";
 import { ActiveChatProvider } from "../lib/active-chat-context";
 import { adminPortalUrl } from "../lib/portal-urls";
 import { useSupabase } from "../lib/supabase-context";
-import "./dashboard-layout.css";
-
 function navLinkClass({ isActive }: { isActive: boolean }): string {
   return isActive ? "dash-nav-active" : "";
 }
@@ -24,28 +22,18 @@ export function SupportLayout() {
       setSessionHint("Configure VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY");
       return;
     }
-    void supabase.auth.getSession().then(({ data }) => {
-      const u = data.session?.user;
-      if (!u) {
-        setSessionHint("Sign in required.");
-        setUserChip("?");
-        return;
-      }
-      const email = u.email ?? u.phone ?? u.id.slice(0, 8);
-      setSessionHint(email);
-      const chipSource = (u.email ?? u.phone ?? u.id).trim();
-      setUserChip(chipSource ? chipSource.slice(0, 2).toUpperCase() : "?");
-    });
+    void (async () => {
+      const { hint, chip } = await loadPortalSessionDisplay(supabase);
+      setSessionHint(hint);
+      setUserChip(chip);
+    })();
   }, [supabase]);
 
   return (
     <ActiveChatProvider>
-      <div className="dash-root">
+      <div className="dash-root" data-portal-persona="support">
         <aside className="dash-sidebar">
-          <div className="dash-brand">
-            Oorjaman
-            <span>Support</span>
-          </div>
+          <PortalSidebarBrand persona="support" />
           <nav className="dash-nav" aria-label="Support primary">
             <NavLink to="/insights" className={navLinkClass}>
               Insights

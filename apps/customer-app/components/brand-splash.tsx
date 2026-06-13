@@ -9,6 +9,7 @@ import {
 import { BrandSunburst } from "./brand-sunburst";
 import { BrandSplashWordmark } from "./brand-wordmark";
 
+/** Keep in sync with Android `expo-splash-screen` `imageWidth` (196dp pre-splash). */
 const O_SIZE = 196;
 /** Rays extend ~half the O width beyond the logo (kit reference). */
 const SUN_SIZE = Math.round(O_SIZE * 1.5);

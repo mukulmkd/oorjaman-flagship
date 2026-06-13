@@ -4,11 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "npm run brand:sync && vite --mode development",
+    "build": "npm run brand:sync && tsc -b && vite build --mode production",
+    "build:uat": "npm run brand:sync && tsc -b && vite build --mode development",
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "brand:sync": "node ../../scripts/sync-brand-assets.mjs"
   },
   "dependencies": {
     "@oorjaman/api": "*",

@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { authApi } from "@oorjaman/api";
-import { DropdownMenu, DropdownMenuItem } from "@oorjaman/web-ui";
+import { authApi, loadPortalSessionDisplay } from "@oorjaman/api";
+import { DropdownMenu, DropdownMenuItem, PortalSidebarBrand } from "@oorjaman/web-ui";
 import { NotificationCenterBell } from "../components/NotificationCenterBell";
 import { supportPortalUrl } from "../lib/portal-urls";
 import { useSupabase } from "../lib/supabase-context";
-import "./dashboard-layout.css";
+import "./dashboard-layout-admin.css";
 
 export function DashboardLayout() {
   const supabase = useSupabase();
@@ -40,27 +40,20 @@ export function DashboardLayout() {
       setSessionHint("Configure VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY");
       return;
     }
-    void supabase.auth.getSession().then(({ data }) => {
-      const u = data.session?.user;
-      if (!u) {
-        setSessionHint("Sign in required - use Supabase Auth (admin role in public.users).");
-        setUserChip("?");
-        return;
-      }
-      const email = u.email ?? u.phone ?? u.id.slice(0, 8);
-      setSessionHint(`${email}`);
-      const chipSource = (u.email ?? u.phone ?? u.id).trim();
-      setUserChip(chipSource ? chipSource.slice(0, 2).toUpperCase() : "?");
-    });
+    void (async () => {
+      const { hint, chip } = await loadPortalSessionDisplay(supabase, {
+        unsignedHint:
+          "Sign in required - use Supabase Auth (admin role in public.users).",
+      });
+      setSessionHint(hint);
+      setUserChip(chip);
+    })();
   }, [supabase]);
 
   return (
-    <div className="dash-root">
+    <div className="dash-root" data-portal-persona="operations">
       <aside className="dash-sidebar">
-        <div className="dash-brand">
-          Oorjaman
-          <span>Operations</span>
-        </div>
+        <PortalSidebarBrand persona="operations" />
         <nav className="dash-nav" aria-label="Primary">
           <Link
             to="/dashboard/operations"

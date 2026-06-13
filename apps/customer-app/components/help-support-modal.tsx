@@ -267,6 +267,7 @@ export function HelpSupportModalBody({
       return;
     }
     if (!supabase || modalOpenSessionRef.current) return;
+    const sb = supabase;
     modalOpenSessionRef.current = true;
 
     let cancelled = false;
@@ -278,7 +279,7 @@ export function HelpSupportModalBody({
 
     void (async () => {
       try {
-        const active = await supportApi.listActiveSupportConversationsForCustomer(supabase);
+        const active = await supportApi.listActiveSupportConversationsForCustomer(sb);
         if (cancelled) return;
         setActiveChats(active);
 
@@ -286,7 +287,7 @@ export function HelpSupportModalBody({
           const fromActive = active.find((c) => c.id === convId);
           const conv =
             fromActive ??
-            (await supportApi.getSupportConversationById(supabase, convId).catch(() => null));
+            (await supportApi.getSupportConversationById(sb, convId).catch(() => null));
           if (cancelled || !conv) return false;
           setConversationId(conv.id);
           setModalView("thread");
@@ -772,8 +773,6 @@ export function HelpSupportModalBody({
     </View>
   );
 }
-
-export type HelpSupportScreenProps = Props;
 
 export function HelpSupportModal(props: Props) {
   if (!props.visible) return null;

@@ -2,11 +2,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { listVisibleBookings } from "../bookings/booking-api";
 import type { BookingRow, CustomerSiteActivityEventRow, Database } from "../database.types";
 import { readBookingServiceAddressId } from "../subscriptions/subscription-address";
-import { SupabaseApiError, takeRows } from "../result";
+import { takeRows } from "../result";
 
 export type { CustomerSiteActivityEventRow, CustomerSiteActivityKind } from "../database.types";
 
-const TRACKABLE_STATUSES = ["accepted", "in_progress"] as const;
+const TRACKABLE_STATUSES = ["accepted"] as const;
+
+function isTrackableBookingRow(b: BookingRow): boolean {
+  if (!b.technician_id) return false;
+  return b.status === "accepted" && Boolean(b.technician_en_route_at);
+}
 
 export function readActivityReferenceCode(event: CustomerSiteActivityEventRow): string | null {
   if (!event.payload || typeof event.payload !== "object" || Array.isArray(event.payload)) return null;
@@ -18,8 +23,8 @@ export function isActivityMapTrackable(event: CustomerSiteActivityEventRow): boo
   return (
     event.booking_id != null &&
     (event.kind === "booking_status_accepted" ||
-      event.kind === "booking_status_in_progress" ||
-      event.kind === "booking_technician_assigned")
+      event.kind === "booking_technician_assigned" ||
+      event.kind === "booking_technician_en_route")
   );
 }
 
@@ -101,21 +106,14 @@ export async function getTrackableBookingForAddress(
     limit: 100,
   });
 
-  const atAddress = rows.filter((b) => bookingMatchesServiceAddress(b, addressId) && b.technician_id != null);
+  const atAddress = rows.filter(
+    (b) => bookingMatchesServiceAddress(b, addressId) && isTrackableBookingRow(b),
+  );
   if (atAddress.length === 0) return null;
 
-  const rank = (b: BookingRow) => {
-    const inProgress = b.status === "in_progress" ? 0 : 1;
-    const start = new Date(b.scheduled_start).getTime();
-    return [inProgress, -start] as const;
-  };
-
-  return [...atAddress].sort((a, b) => {
-    const [aProg, aStart] = rank(a);
-    const [bProg, bStart] = rank(b);
-    if (aProg !== bProg) return aProg - bProg;
-    return bStart - aStart;
-  })[0]!;
+  return [...atAddress].sort(
+    (a, b) => new Date(b.scheduled_start).getTime() - new Date(a.scheduled_start).getTime(),
+  )[0]!;
 }
 
 export async function subscribeCustomerSiteActivityForAddress(

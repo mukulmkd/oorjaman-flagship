@@ -6,7 +6,7 @@ This runbook covers:
 - **4 mobile installables** - Customer and Partner apps, each with a **PROD** (store) and **UAT** (internal QA) binary
 - **2 Supabase projects** - UAT database vs production database (same schema, different data)
 
-**Related docs:** [ENVIRONMENT.md](ENVIRONMENT.md) (all env vars), [SEO.md](SEO.md) (production marketing SEO only), [BILLING.md](BILLING.md) (Maps, push, store fees).
+**Related docs:** [VERCEL.md](VERCEL.md) (deploy portals to Vercel for testing), [ENVIRONMENT.md](ENVIRONMENT.md) (all env vars), [SEO.md](SEO.md) (production marketing SEO only), [BILLING.md](BILLING.md) (Maps, push, store fees).
 
 ---
 
@@ -201,13 +201,31 @@ Configured in `app.config.ts` (customer + technician) and `eas.json` profiles: `
 
 ### Environment files
 
-| File                                                                                              | Use                      |
-| ------------------------------------------------------------------------------------------------- | ------------------------ |
-| `apps/customer-app/.env`                                                                          | Local Metro / dev client |
-| `apps/technician-app/.env`                                                                        | Local Metro / dev client |
-| [`.env.example`](apps/customer-app/.env.example) / [technician](apps/technician-app/.env.example) | Templates                |
+Per-app **mode-specific** locals (gitignored). Do **not** put secrets in plain `.env` — use templates `*.example` → copy to `*.local`.
 
-**PROD** (`apps/customer-app/.env` for local testing against prod - rare):
+| File | When it loads |
+| ---- | ------------- |
+| `apps/customer-app/.env.development.local` | Local dev: `npm run customer`, `npx expo start`, `npx expo run:ios` |
+| `apps/customer-app/.env.production.local` | Prod-mode smoke tests / local prod builds |
+| `apps/technician-app/.env.development.local` | Same pattern for partner app |
+| `apps/technician-app/.env.production.local` | Partner prod-mode local |
+| [`.env.development.example`](apps/customer-app/.env.development.example) / [`.env.production.example`](apps/customer-app/.env.production.example) | Templates (customer) |
+| [technician examples](apps/technician-app/.env.development.example) | Templates (partner) |
+
+**UAT / local dev** (`apps/customer-app/.env.development.local`):
+
+```env
+EXPO_PUBLIC_DEPLOY_ENV=local
+EXPO_PUBLIC_SUPABASE_URL=https://<UAT_REF>.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<uat_anon>
+EXPO_PUBLIC_SITE_URL=http://localhost:3000
+EXPO_PUBLIC_USE_DUMMY_AUTH=true
+EXPO_PUBLIC_DUMMY_OTP_CODE=123456
+EXPO_PUBLIC_DUMMY_AUTH_PASSWORD=TestOtp123!
+# EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=   # see Google Maps section below
+```
+
+**PROD** (`apps/customer-app/.env.production.local` — rare local prod smoke test; store builds use EAS secrets):
 
 ```env
 EXPO_PUBLIC_DEPLOY_ENV=production
@@ -215,19 +233,10 @@ EXPO_PUBLIC_SUPABASE_URL=https://<PROD_REF>.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=<prod_anon>
 EXPO_PUBLIC_SITE_URL=https://oorjaman.com
 # NO dummy auth
+# EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=   # prod-restricted key; see Google Maps section below
 ```
 
-**UAT** (recommended for day-to-day QA):
-
-```env
-EXPO_PUBLIC_DEPLOY_ENV=uat
-EXPO_PUBLIC_SUPABASE_URL=https://<UAT_REF>.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=<uat_anon>
-EXPO_PUBLIC_SITE_URL=https://dev-oorjaman.oorjaman.com
-EXPO_PUBLIC_USE_DUMMY_AUTH=true
-EXPO_PUBLIC_DUMMY_OTP_CODE=123456
-EXPO_PUBLIC_DUMMY_AUTH_PASSWORD=TestOtp123!
-```
+For **UAT EAS binaries** (`EXPO_PUBLIC_DEPLOY_ENV=uat`), set env via EAS secrets / `eas.json` — not only `.env.development.local`. See EAS secrets table below.
 
 `EXPO_PUBLIC_*` values are **embedded at EAS build time**. Changing Supabase or site URL requires a **new build**, not an OTA content update alone (unless you adopt EAS Update with env-specific channels).
 
@@ -297,7 +306,7 @@ eas submit --profile production --platform all
 **Local dev (Metro, Expo Go limited):**
 
 ```bash
-npm run customer    # from repo root - uses apps/customer-app/.env
+npm run customer    # from repo root — loads apps/customer-app/.env.development.local
 npm run technician
 ```
 
@@ -318,14 +327,79 @@ Edge functions and Postgres `app.*_push_function_url` settings are **per Supabas
 
 UAT builds use the **`.uat` bundle IDs** - register separate FCM/APNs credentials in EAS for those IDs. See [docs/customer-push-setup.md](docs/customer-push-setup.md) and [docs/technician-push-setup.md](docs/technician-push-setup.md).
 
-### Google Maps (customer app only)
+### Google Maps (customer app — configure before store release)
 
-Restrict API keys in Google Cloud Console:
+In-app maps (technician live tracking, activity map preview, site photo GPS stamps) use **Google Maps on iOS and Android** via `react-native-maps` + `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`. Opening coordinates in the browser (`https://www.google.com/maps?q=lat,lng`) does **not** need this key.
 
-- **PROD key:** iOS bundle `com.oorjaman.customer`, Android package `com.oorjaman.customer`
-- **UAT key:** `com.oorjaman.customer.uat` (both platforms)
+**Defer until release prep** — local dev can skip the key (maps may fail or show blank tiles until configured). Complete this checklist before UAT/PROD EAS builds that need maps.
 
-See [BILLING.md](BILLING.md).
+#### 1. Create the key (Google Cloud Console)
+
+1. [Google Cloud Console](https://console.cloud.google.com/) → create or select a project (e.g. **OorjaMan**).
+2. **Billing** → enable billing on the project (Maps Platform requires it; monthly free credit applies — see [BILLING.md](BILLING.md)).
+3. **APIs & Services → Library** → enable:
+   - **Maps SDK for iOS**
+   - **Maps SDK for Android**
+   - **Maps Static API** (fallback when native map snapshot fails on site photos)
+4. **APIs & Services → Credentials → Create credentials → API key**.
+
+#### 2. Restrict the key
+
+Use **separate keys** for UAT vs PROD (recommended), or one key with all bundle IDs listed.
+
+| Tier | iOS bundle ID | Android package |
+| ---- | ------------- | --------------- |
+| **PROD** | `com.oorjaman.customer` | `com.oorjaman.customer` |
+| **UAT** | `com.oorjaman.customer.uat` | `com.oorjaman.customer.uat` |
+
+**Application restrictions:** add the iOS bundle IDs and Android package names for the tier(s) this key serves. For Android **release** builds, also add SHA-1 fingerprints from your signing keystore (EAS credentials / Play Console).
+
+**API restrictions:** limit to Maps SDK for iOS, Maps SDK for Android, and Maps Static API only.
+
+#### 3. Where to store the key
+
+Do **not** use plain `apps/customer-app/.env`. Use mode-specific locals or EAS:
+
+| Context | File / location | Key to use |
+| ------- | --------------- | ---------- |
+| Local dev (`npm run customer`, `expo run:ios`) | `apps/customer-app/.env.development.local` | Dev/UAT-restricted key (include `com.oorjaman.customer` if you build with `EXPO_PUBLIC_DEPLOY_ENV=local`) |
+| Local prod smoke test | `apps/customer-app/.env.production.local` | PROD-restricted key |
+| UAT EAS builds | EAS env / secret (`preview` or profile used by `uat`) | UAT-restricted key (`*.customer.uat`) |
+| Store PROD builds | EAS env / secret (`production`) | PROD-restricted key |
+
+```env
+EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=AIza...your_key_here
+```
+
+EAS CLI example (repeat per app / environment):
+
+```bash
+cd apps/customer-app
+eas env:create --name EXPO_PUBLIC_GOOGLE_MAPS_API_KEY --value "..." --environment production
+eas env:create --name EXPO_PUBLIC_GOOGLE_MAPS_API_KEY --value "..." --environment preview   # UAT
+```
+
+The key is read in `apps/customer-app/app.config.ts` and baked into **native** iOS/Android config at build time.
+
+#### 4. Rebuild after adding or changing the key
+
+Metro reload is **not** enough. Any change to `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` or `app.config.ts` maps config requires a **new native build**:
+
+```bash
+cd apps/customer-app
+npx expo run:ios          # local dev client
+# or
+eas build --profile uat --platform all
+eas build --profile production --platform all
+```
+
+#### 5. Verify
+
+- Technician tracking and activity map preview show **Google** map tiles (not Apple Maps on iOS).
+- Site photo stamps show Google tiles when GPS tagging runs.
+- Cloud Console → **APIs & Services → Metrics** shows map load activity (set budget alerts).
+
+**Cost / monitoring:** [BILLING.md](BILLING.md).
 
 ### App Store / Play listing URLs
 
@@ -425,7 +499,7 @@ Upload to the four `dev-*` folders.
 | ------------------------------------------------ | ----------------------------------------------- | ------------------------------------------------------------------ |
 | UI code only                                     | Rebuild + re-upload `dist/` or `out/`           | `eas build --profile uat` or `production`                          |
 | Env (`VITE_*`, `NEXT_PUBLIC_*`, `EXPO_PUBLIC_*`) | Rebuild web                                     | **New EAS build** (env baked in)                                   |
-| `app.config.ts` / bundle ID                      | -                                               | **New EAS build** + credentials if IDs changed                     |
+| `app.config.ts` / bundle ID / Google Maps key    | -                                               | **New EAS build** + credentials if IDs changed                     |
 | SQL migration                                    | `db:push` on UAT then PROD                      | Same - apps pick up schema on next API call                        |
 | Edge function                                    | `functions:deploy` on matching Supabase project | Same                                                               |
 | OTA JS-only fix (optional)                       | -                                               | `eas update --channel uat` / `production` if you enable EAS Update |
@@ -456,4 +530,4 @@ Default: **localhost** + UAT or local Supabase - see [ENVIRONMENT.md](ENVIRONMEN
 
 ---
 
-_Last updated: 2026-05-19 - 8 web hosts, customer/technician PROD/UAT EAS matrix, dual Supabase projects._
+_Last updated: 2026-05-19 — 8 web hosts, customer/technician PROD/UAT EAS matrix, dual Supabase projects, Google Maps release checklist._

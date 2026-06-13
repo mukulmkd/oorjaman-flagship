@@ -1,8 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@oorjaman/api";
 import { JOB_EVIDENCE_PHOTOS_BUCKET } from "@oorjaman/api";
-
-export const JOB_PHOTOS_BUCKET = JOB_EVIDENCE_PHOTOS_BUCKET;
+import { normalizeImageUploadMime } from "./normalize-image-upload-mime";
 
 function randomSuffix(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
@@ -23,9 +22,7 @@ export async function uploadJobPhotoFromUri(
   const response = await fetch(uri);
   const buf = await response.arrayBuffer();
   const rawMime = response.headers.get("content-type") ?? "image/jpeg";
-  const mime = rawMime.startsWith("image/") ? rawMime.split(";")[0]!.trim() : "image/jpeg";
-  const ext =
-    mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : mime.includes("jpeg") ? "jpg" : "jpg";
+  const { mime, ext } = normalizeImageUploadMime(rawMime, uri);
   const path = `${bookingId}/${phase}-${randomSuffix()}.${ext}`;
   const { error } = await client.storage.from(JOB_EVIDENCE_PHOTOS_BUCKET).upload(path, buf, {
     contentType: mime,

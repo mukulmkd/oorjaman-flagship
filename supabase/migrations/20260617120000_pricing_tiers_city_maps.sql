@@ -45,6 +45,7 @@ alter table public.pricing_rules
   alter column country_code set default 'IN';
 
 alter table public.pricing_rules drop constraint if exists pricing_rules_city_nonempty;
+alter table public.pricing_rules drop constraint if exists pricing_rules_tier_exclusive_city;
 
 alter table public.pricing_rules
   add constraint pricing_rules_city_nonempty check (city is null or length(trim(city)) > 0),

@@ -4,6 +4,7 @@ import {
   DEFAULT_VENDOR_PLATFORM_FEE_PERCENT,
   getVendorPlatformFeePercent,
 } from "../platform/platform-settings-api";
+import { INDIAN_GST_RATE_PERCENT, splitGstFromInclusiveTotal } from "../pricing/gst-breakdown";
 import { emitVendorSettlementStatusNotification } from "../notifications/vendor-settlement-notifications";
 import { SupabaseApiError, takeRows, takeSingleRow } from "../result";
 
@@ -30,27 +31,41 @@ export type VendorSettlementStatus = "pending_review" | "approved" | "settled" |
 
 export type VisitPayoutBreakdown = {
   grossPaise: number;
+  taxableValuePaise: number;
   platformFeePaise: number;
   netPayoutPaise: number;
   platformFeePercent: number;
+  gstRatePercent: number;
 };
 
 export function bookingVisitValuePaise(booking: Pick<BookingRow, "final_price_cents" | "estimated_price_cents">): number {
   return Math.max(0, booking.final_price_cents ?? booking.estimated_price_cents ?? 0);
 }
 
+/** GST-exclusive visit value from a GST-inclusive gross (catalogue prices include 18% GST). */
+export function visitGrossTaxableValuePaise(
+  grossPaise: number,
+  gstRatePercent = INDIAN_GST_RATE_PERCENT,
+): number {
+  return splitGstFromInclusiveTotal(grossPaise, gstRatePercent).taxable_value_cents;
+}
+
 export function computeVisitPayoutBreakdown(
   grossPaise: number,
   platformFeePercent = DEFAULT_VENDOR_PLATFORM_FEE_PERCENT,
+  gstRatePercent = INDIAN_GST_RATE_PERCENT,
 ): VisitPayoutBreakdown {
   const gross = Math.max(0, Math.round(grossPaise));
-  const platformFeePaise = Math.round(gross * (platformFeePercent / 100));
+  const taxableValuePaise = visitGrossTaxableValuePaise(gross, gstRatePercent);
+  const platformFeePaise = Math.round(taxableValuePaise * (platformFeePercent / 100));
   const netPayoutPaise = Math.max(0, gross - platformFeePaise);
   return {
     grossPaise: gross,
+    taxableValuePaise,
     platformFeePaise,
     netPayoutPaise,
     platformFeePercent,
+    gstRatePercent,
   };
 }
 
@@ -180,8 +195,26 @@ export async function vendorListMySettlements(
   client: SupabaseClient<Database>,
   filters?: { kind?: VendorSettlementKind; status?: VendorSettlementStatus; limit?: number },
 ): Promise<VendorSettlementRow[]> {
+  const { data: userData, error: userErr } = await client.auth.getUser();
+  if (userErr) throw new SupabaseApiError(userErr.message, userErr);
+  const uid = userData.user?.id;
+  if (!uid) return [];
+
+  const { data: vendor, error: vendorErr } = await client
+    .from("vendors")
+    .select("id")
+    .eq("user_id", uid)
+    .maybeSingle();
+  if (vendorErr) throw new SupabaseApiError(vendorErr.message, vendorErr);
+  if (!vendor?.id) return [];
+
   const limit = Math.min(300, Math.max(1, filters?.limit ?? 150));
-  let q = client.from("vendor_settlements").select("*").order("created_at", { ascending: false }).limit(limit);
+  let q = client
+    .from("vendor_settlements")
+    .select("*")
+    .eq("vendor_id", vendor.id)
+    .order("created_at", { ascending: false })
+    .limit(limit);
   if (filters?.kind) q = q.eq("kind", filters.kind);
   if (filters?.status) q = q.eq("status", filters.status);
   const { data, error } = await q;
@@ -229,12 +262,15 @@ export async function adminUpdateVendorSettlement(
       patch.approved_by = adminUserId;
     }
     if (input.status === "settled") {
+      if (row.status !== "approved") {
+        throw new SupabaseApiError(
+          row.status === "pending_review"
+            ? "Approve this settlement before marking it settled (after offline payment)."
+            : "Only approved settlements can be marked settled.",
+        );
+      }
       patch.settled_at = now;
       patch.settled_by = adminUserId;
-      if (!row.approved_at) {
-        patch.approved_at = now;
-        patch.approved_by = adminUserId;
-      }
     }
     if (input.status === "waived" && row.kind !== "cancellation_penalty") {
       throw new SupabaseApiError("Only cancellation penalties can be waived.");

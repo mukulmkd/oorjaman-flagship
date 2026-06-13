@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
+import { PortalLoadingScreen } from "@oorjaman/web-ui";
 import { useSupabase } from "../lib/supabase-context";
-import "../pages/admin-login.css";
 
 export function RequireSession({
   children,
@@ -38,7 +38,7 @@ export function RequireSession({
     );
   }
   if (loading) {
-    return <p className="al-gate">Checking session…</p>;
+    return <PortalLoadingScreen label="Checking session…" />;
   }
   if (!session) {
     return <Navigate to={loginPath} replace />;

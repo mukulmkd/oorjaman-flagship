@@ -37,6 +37,7 @@ export {
   type TechnicianAppPostAuthPath,
 } from "./auth/post-auth-routes";
 export * as userApi from "./users/user-api";
+export { resolvePortalSessionDisplay, loadPortalSessionDisplay } from "./users/session-display";
 export * as vendorApi from "./vendors/vendor-api";
 export {
   createEmptyCoverageZone,
@@ -182,11 +183,21 @@ export {
   type VendorAcceptBookingInput,
 } from "./bookings/booking-api";
 export {
+  allocateNumericHappyCode,
+  allocateNumericVisitCode,
+  normalizeServiceOtpCode,
+} from "./bookings/service-otp-codes";
+export {
   adminNotifyOverdueVendorResponses,
   isBookingAwaitingAdminFloat,
   postBookingConfirmedNotifications,
 } from "./bookings/booking-confirm-notifications";
 export * from "./bookings/customer-booking-payload";
+export {
+  getCustomerBookingTechnicianProfile,
+  isBookingGpsTrackable,
+  type CustomerBookingTechnicianProfile,
+} from "./bookings/customer-technician-profile";
 export * from "./bookings/vendor-fallback";
 export {
   DEFAULT_VENDOR_PLATFORM_FEE_PERCENT,
@@ -273,6 +284,16 @@ export {
   uploadTechnicianDocument,
 } from "./technicians/technician-documents";
 export type { TechnicianDocKind } from "./technicians/technician-documents";
+export {
+  inviteFullNameByPhone,
+  inviteFullNameForTechnician,
+  mergeInviteFullNameIntoMetadata,
+  technicianAssignOptionLabel,
+  technicianDisplayLabel,
+  technicianPhoneLookupKey,
+  technicianProfileName,
+  type TechnicianDisplayExtras,
+} from "./technicians/technician-display-name";
 export * as subscriptionApi from "./subscriptions/subscription-api";
 export {
   RENEWAL_NUDGE_EVENT_TYPE,
@@ -280,6 +301,7 @@ export {
   type RenewalNudgeChannelSummary,
   type RenewalNudgeQueueStats,
   type ScheduleAndSendRenewalNudgesResult,
+  type SubscriptionRenewalNudgeCandidate,
 } from "./subscriptions/subscription-renewal-nudges-api";
 export {
   bookingMatchesSubscriptionAddress,
@@ -323,6 +345,8 @@ export {
 } from "./pricing/capacity-pricing-api";
 export {
   ALLOWED_CAPACITY_KW,
+  computeAmcListPriceFromVisitRate,
+  formatAmcPlanSpLabel,
   formatAmcPlanSubtitle,
   isAllowedCapacityKw,
   isAmcPlanUpgradeFrom,
@@ -332,6 +356,11 @@ export {
   snapCapacityKwToAllowed,
   tierCodeFromCapacityKw,
 } from "./pricing/capacity-pricing";
+export {
+  INDIAN_GST_RATE_PERCENT,
+  splitGstFromInclusiveTotal,
+  type GstInclusiveBreakdown,
+} from "./pricing/gst-breakdown";
 export { computeAmcVisitSlots } from "./subscriptions/amc-booking-generation";
 export {
   getAmcVisitSlotById,
@@ -498,6 +527,7 @@ export {
   adminUpdateVendorSettlement,
   bookingVisitValuePaise,
   computeVisitPayoutBreakdown,
+  visitGrossTaxableValuePaise,
   DEFAULT_PLATFORM_FEE_PERCENT,
   ensureCancellationPenaltySettlement,
   ensureVisitPayoutSettlement,

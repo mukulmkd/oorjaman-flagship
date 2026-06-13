@@ -12,7 +12,7 @@ import { SupportChatRealtimeNotifications } from "./support-chat-realtime-notifi
 import { SupportNotificationResponse } from "./support-notification-response";
 import { TechnicianPushRegistration } from "./technician-push-registration";
 
-export type { HelpSupportOpenContext, HelpSupportContext, HelpSupportState } from "./help-support-context";
+export type { HelpSupportOpenContext, HelpSupportState } from "./help-support-context";
 export { useHelpSupport } from "./help-support-context";
 
 export function HelpSupportProvider({ children }: { children: ReactNode }) {

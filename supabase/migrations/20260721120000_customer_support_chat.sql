@@ -1,6 +1,10 @@
 -- Customer ↔ OorjaMan support chat (Realtime / WebSocket via Supabase).
 
-create type public.support_conversation_status as enum ('intake', 'queued', 'active', 'resolved');
+do $$ begin
+  create type public.support_conversation_status as enum ('intake', 'queued', 'active', 'resolved');
+exception
+  when duplicate_object then null;
+end $$;
 
 create table if not exists public.support_conversations (
   id uuid primary key default gen_random_uuid(),

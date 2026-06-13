@@ -9,7 +9,7 @@ import { supabase } from "../lib/supabase";
 const LOCATION_TICK_MS = 12_000;
 
 /**
- * Foreground-only GPS samples while the technician has an `in_progress` booking.
+ * Foreground-only GPS samples while the technician is en route (before on-site start).
  * Pauses in background (battery + no background location mode in app config).
  */
 export function TechnicianLocationTracker() {
@@ -25,8 +25,8 @@ export function TechnicianLocationTracker() {
   }, []);
 
   const activeJobQuery = useQuery({
-    queryKey: queryKeys.bookings.technicianActiveInProgress(),
-    queryFn: () => bookingApi.listVisibleBookings(supabase!, { status: "in_progress", limit: 5 }),
+    queryKey: queryKeys.bookings.technicianGpsTrackable(),
+    queryFn: () => technicianApi.listMyGpsTrackableBookings(supabase!),
     enabled: Boolean(supabase) && appActive,
     refetchInterval: appActive ? 25_000 : false,
     staleTime: 15_000,

@@ -13,7 +13,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import { bookingApi, queryKeys, technicianApi } from "@oorjaman/api";
+import { bookingApi, normalizeServiceOtpCode, queryKeys, technicianApi } from "@oorjaman/api";
 import type { BookingRow, Json } from "@oorjaman/api";
 import { readBookingOpsMeta, readBookingRecipientMeta } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
@@ -83,10 +83,6 @@ function readPreStartFromChecklist(checklist: Json | null | undefined): {
     },
     startSelfieUrl: typeof o.start_selfie_url === "string" ? o.start_selfie_url : null,
   };
-}
-
-function normalizeVisitCode(s: string): string {
-  return s.trim().toUpperCase();
 }
 
 function parsePhotoUrlArray(value: Json | null | undefined): string[] {
@@ -253,6 +249,7 @@ export default function JobExecutionWizardScreen() {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.bookings.list({ scope: "technician-assigned" }),
       });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.technicianGpsTrackable() });
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.technicianActiveInProgress() });
       void queryClient.invalidateQueries({ queryKey: queryKeys.jobReports.byBooking(bookingId!) });
       restoreWizardRef.current = false;
@@ -302,6 +299,7 @@ export default function JobExecutionWizardScreen() {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.bookings.list({ scope: "technician-assigned" }),
       });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.bookings.technicianGpsTrackable() });
       await queryClient.invalidateQueries({ queryKey: queryKeys.bookings.technicianActiveInProgress() });
       await queryClient.invalidateQueries({ queryKey: queryKeys.jobReports.all() });
       await queryClient.invalidateQueries({ queryKey: queryKeys.jobReports.byBooking(bookingId!) });
@@ -442,11 +440,11 @@ export default function JobExecutionWizardScreen() {
   const startCodeTarget = (serviceOtp?.startCode ?? b.booking_code ?? "").trim();
   const startCodeRequired = startCodeTarget.length > 0;
   const startCodeOk =
-    !startCodeRequired || normalizeVisitCode(visitCodeInput) === normalizeVisitCode(startCodeTarget);
+    !startCodeRequired || normalizeServiceOtpCode(visitCodeInput) === normalizeServiceOtpCode(startCodeTarget);
   const happyCodeRequired = Boolean(serviceOtp?.happyCode);
   const happyCodeOk =
     !happyCodeRequired ||
-    normalizeVisitCode(happyCodeInput) === normalizeVisitCode(serviceOtp?.happyCode ?? "");
+    normalizeServiceOtpCode(happyCodeInput) === normalizeServiceOtpCode(serviceOtp?.happyCode ?? "");
   const minStep = resumed ? 4 : 0;
 
   const primaryButton = (() => {
@@ -531,11 +529,12 @@ export default function JobExecutionWizardScreen() {
                 <Text style={styles.label}>Job Start Code (from customer app)</Text>
                 <TextInput
                   accessibilityLabel="Job Start Code from customer"
-                  autoCapitalize="characters"
+                  autoCapitalize="none"
                   autoCorrect={false}
+                  keyboardType="number-pad"
                   editable={!startAlreadyVerified}
                   onChangeText={setVisitCodeInput}
-                  placeholder="Same code customer sees after partner accepts"
+                  placeholder="6-digit code from customer app"
                   placeholderTextColor={colors.mutedForeground}
                   style={styles.codeInput}
                   value={visitCodeInput}
@@ -705,11 +704,12 @@ export default function JobExecutionWizardScreen() {
             </Text>
             <TextInput
               accessibilityLabel="Happy Code from customer"
-              autoCapitalize="characters"
+              autoCapitalize="none"
               autoCorrect={false}
+              keyboardType="number-pad"
               editable={!finalize.isPending}
               onChangeText={setHappyCodeInput}
-              placeholder="Customer Happy Code"
+              placeholder="4-digit Happy Code"
               placeholderTextColor={colors.mutedForeground}
               style={styles.codeInput}
               value={happyCodeInput}

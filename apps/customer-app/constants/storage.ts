@@ -13,8 +13,6 @@ export const STORAGE_KEY_LOCATION_PROMPT_DONE = `${PREFIX}location_prompt_done`;
 export const STORAGE_KEY_VENDOR_PREFS = `${PREFIX}vendor_preferences`;
 
 /** Partner registration intake (anonymous draft) - see `vendorIntakeApi` in `@oorjaman/api`. */
-export const STORAGE_KEY_VENDOR_INTAKE_ID = `${PREFIX}vendor_intake_id`;
-export const STORAGE_KEY_VENDOR_INTAKE_TOKEN = `${PREFIX}vendor_intake_token`;
 
 /** @deprecated Read only for one-time migration - preferences live on the customer row. */
 export type StoredVendorPreferences = {

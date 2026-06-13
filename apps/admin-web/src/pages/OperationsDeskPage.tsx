@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import {
   adminAssignAmcSubscriptionVendor,
@@ -31,7 +31,6 @@ import {
 import { formatOpsIssueLevel } from "../lib/ops-exceptions-display";
 import { supportPortalUrl } from "../lib/portal-urls";
 import { useSupabase } from "../lib/supabase-context";
-import "../layouts/dashboard-layout.css";
 import "./operations-desk-page.css";
 
 const EXCEPTION_SAMPLE = 500;
@@ -46,7 +45,6 @@ function mapTimeFilterToOpsQueue(timeFilter: OpsDeskTimeFilter): OpsExceptionsQu
 export function OperationsDeskPage() {
   const supabase = useSupabase();
   const navigate = useNavigate();
-  const qc = useQueryClient();
 
   const [timeFilter, setTimeFilter] = useState<OpsDeskTimeFilter>("needs_action");
   const [categoryFilter, setCategoryFilter] = useState<OpsDeskCategoryFilter>("all");

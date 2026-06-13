@@ -82,6 +82,3 @@ export const fontFamilies = {
   heading: fontFamily.bold,
   mono: fontFamily.medium,
 } as const;
-
-/** @deprecated Use `typography.size` */
-export const fontSizes = fontSize;

@@ -11,19 +11,12 @@ import {
   validateLoginNationalPhone,
 } from "@oorjaman/api";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Button, Card, Input, PhoneCountryLogin } from "@oorjaman/web-ui";
+import { Button, Card, Input, PhoneCountryLogin, PortalLoginBrand } from "@oorjaman/web-ui";
 import { useSupabase } from "../lib/supabase-context";
-import "./admin-login.css";
-
+import { vendorPortalOrigin } from "../lib/portal-urls";
 const OTP_LEN = 6;
 
 type SignInMethod = "phone" | "email";
-
-/** Partner portal origin (`VITE_VENDOR_PORTAL_URL`, default local dev port 5174). */
-function vendorPortalOrigin(): string {
-  const raw = import.meta.env.VITE_VENDOR_PORTAL_URL as string | undefined;
-  return typeof raw === "string" && raw.trim() ? raw.replace(/\/$/, "") : "http://localhost:5174";
-}
 
 /**
  * After successful OTP: staff only - vendors are sent to the partner portal app.
@@ -40,7 +33,7 @@ async function routeAfterAdminLogin(
     return;
   }
   if (row.role === "admin") {
-    navigate("/dashboard/analytics", { replace: true });
+    navigate("/dashboard/operations", { replace: true });
     return;
   }
   await authApi.signOut(supabase);
@@ -87,7 +80,7 @@ export default function AdminLoginPage() {
       if (!data.session) return;
       const row = await userApi.getMyUserRecord(supabase);
       if (row?.role === "admin") {
-        navigate("/dashboard/analytics", { replace: true });
+        navigate("/dashboard/operations", { replace: true });
         return;
       }
       if (row?.role === "vendor") {
@@ -237,8 +230,8 @@ export default function AdminLoginPage() {
 
   return (
     <div className="al-root">
+      <PortalLoginBrand persona="operations" />
       <Card padded className="al-card">
-        <h1 className="al-title">OorjaMan operations</h1>
         <p className="al-lede">
           Staff sign-in with a one-time code on your mobile number or email. Vendor partners use the separate partner
           portal.

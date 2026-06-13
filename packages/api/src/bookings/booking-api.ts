@@ -19,6 +19,11 @@ import {
   takeSingleRow,
 } from "../result";
 import {
+  allocateNumericHappyCode,
+  allocateNumericVisitCode,
+  normalizeServiceOtpCode,
+} from "./service-otp-codes";
+import {
   adminBookingCancelledCopy,
   adminMarketplaceFloatedCopy,
   adminReassignmentNeededCopy,
@@ -433,7 +438,7 @@ export function normalizeBookingReferenceCode(raw: string): string | null {
 }
 
 /**
- * Resolve booking by `reference_code` (OM-… / legacy BK-…) or vendor `booking_code` (VIS-…).
+ * Resolve booking by `reference_code` (OM-… / legacy BK-…) or numeric `booking_code` (Job Start Code).
  * Visible rows depend on RLS (technicians only see bookings assigned to them).
  */
 export async function getBookingByLookupCode(
@@ -478,6 +483,7 @@ export type BookingPatch = Partial<
     | "status"
     | "vendor_id"
     | "technician_id"
+    | "technician_en_route_at"
     | "scheduled_start"
     | "scheduled_end"
     | "actual_start"
@@ -582,12 +588,11 @@ function mergeBookingMetadata(
 }
 
 function normalizeCodeInput(value: string): string {
-  return value.trim().toUpperCase().replace(/\s+/g, "");
+  return normalizeServiceOtpCode(value);
 }
 
 function allocateHappyCode(): string {
-  const n = Math.floor(1000 + Math.random() * 9000);
-  return `HAP-${n}`;
+  return allocateNumericHappyCode();
 }
 
 export type BookingServiceOtpMeta = {
@@ -1104,20 +1109,11 @@ export async function vendorConfirmTechnicianReadinessForFallback(
   });
 }
 
-const BOOKING_CODE_PREFIX = "VIS-";
-const BOOKING_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
 async function allocateUniqueBookingCode(
   client: SupabaseClient<Database>,
 ): Promise<string> {
-  for (let attempt = 0; attempt < 16; attempt++) {
-    let code = BOOKING_CODE_PREFIX;
-    for (let i = 0; i < 6; i++) {
-      code +=
-        BOOKING_CODE_ALPHABET[
-          Math.floor(Math.random() * BOOKING_CODE_ALPHABET.length)
-        ]!;
-    }
+  for (let attempt = 0; attempt < 32; attempt++) {
+    const code = allocateNumericVisitCode();
     const { data } = await client
       .from("bookings")
       .select("id")
@@ -2674,8 +2670,11 @@ export async function customerRegenerateBookingHappyCode(
     const remSec = Math.ceil(
       (HAPPY_CODE_REGENERATE_COOLDOWN_MS - (nowMs - regenAtMs)) / 1000,
     );
+    const remMin = Math.ceil(remSec / 60);
     throw new SupabaseApiError(
-      `Please wait ${remSec}s before regenerating again.`,
+      remSec >= 60
+        ? `Please wait about ${remMin} minute${remMin === 1 ? "" : "s"} before regenerating again.`
+        : `Please wait ${remSec} seconds before regenerating again.`,
     );
   }
   const nowIso = new Date(nowMs).toISOString();

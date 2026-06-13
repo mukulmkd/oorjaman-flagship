@@ -14,7 +14,6 @@ import {
   bookingApi,
   customerApi,
   customerBookingVisitDateVisible,
-  formatAmcPlanSubtitle,
   formatInrFromCents,
   getActiveSubscriptionForAddress,
   getRenewalDueSubscriptionForAddress,
@@ -23,6 +22,7 @@ import {
   listAmcPlansForTier,
   listAmcUpgradePlansForSubscription,
   listPricingAmcPlans,
+  listPricingOneTimeRates,
   queryKeys,
   resolveGeoPricingTierAddons,
   readSubscriptionServiceAddressId,
@@ -59,6 +59,7 @@ import {
   SkeletonStack,
 } from "@oorjaman/ui";
 import { AmcUpgradeSheet } from "../../components/amc-upgrade-sheet";
+import { AmcPlanPriceLine } from "../../components/amc-plan-price-line";
 import { ServiceAddressPickerSheet } from "../../components/service-address-picker-sheet";
 import { fontFamily, fontSize } from "../../constants/fonts";
 import {
@@ -288,6 +289,20 @@ export default function SubscriptionAmcScreen() {
     queryFn: () => listPricingAmcPlans(supabase!),
     enabled: Boolean(supabase),
   });
+
+  const oneTimeRatesQuery = useQuery({
+    queryKey: [...queryKeys.pricing.capacityCatalog("IN"), "one-time-rates"],
+    queryFn: () => listPricingOneTimeRates(supabase!),
+    enabled: Boolean(supabase),
+  });
+
+  const visitRatePaise = useMemo(() => {
+    if (!solarSizing.ready) return 0;
+    const rate = (oneTimeRatesQuery.data ?? []).find(
+      (r) => r.capacity_tier_code === solarSizing.tierCode && r.is_active,
+    );
+    return rate?.amount_cents ?? 0;
+  }, [oneTimeRatesQuery.data, solarSizing]);
 
   const amcPlansForCapacity = useMemo((): PricingAmcPlanRow[] => {
     if (!solarSizing.ready) return [];
@@ -687,7 +702,7 @@ export default function SubscriptionAmcScreen() {
               <Text style={styles.metaLine}>
                 {solarSizing.reason === "missing_details"
                   ? "Add installed capacity (kW) and panel count under Solar & site in Profile, then tap Save changes. AMC uses the same details as one-time booking."
-                  : `Your saved size is ${solarSizing.capacityKw} kW. We service 3, 4, 5, 6, 8, and 10 kW systems only - pick one of these in Profile and save.`}
+                  : `Your saved size is ${solarSizing.capacityKw} kW. We service 3, 4, 5, 6, 8, 9, and 10 kW systems only - pick one of these in Profile and save.`}
               </Text>
               <View style={{ marginTop: spacing.md }}>
                 <Button variant="primary" size="md" onPress={() => router.push("/(main)/profile")}>
@@ -864,10 +879,12 @@ export default function SubscriptionAmcScreen() {
                         >
                           <View style={styles.planTextCol}>
                             <Text style={styles.planTitle}>{p.plan_name}</Text>
-                            <Text style={styles.planBody}>
-                              {formatAmcPlanSubtitle(p)} ·{" "}
-                              {geoAddonsQuery.isPending ? "…" : formatInrFromCents(p.amount_cents + amcTierAddonPaise)} + taxes
-                            </Text>
+                            <AmcPlanPriceLine
+                              plan={p}
+                              visitRatePaise={visitRatePaise}
+                              geoAddonPaise={amcTierAddonPaise}
+                              loading={geoAddonsQuery.isPending || oneTimeRatesQuery.isPending}
+                            />
                             {amcTierAddonPaise > 0 && !geoAddonsQuery.isPending ? (
                               <Text style={styles.planAddonHint}>
                                 Includes {formatInrFromCents(amcTierAddonPaise)} city-tier add-on
@@ -1088,6 +1105,7 @@ export default function SubscriptionAmcScreen() {
         currentPlanCode={activeForSelected?.plan_code ?? null}
         upgradePlanCodes={upgradePlansForActive.map((p) => p.plan_code)}
         geoAddonCents={amcTierAddonPaise}
+        visitRatePaise={visitRatePaise}
         geoTierLabel={geoAddonsQuery.data?.matched_tier_label ?? null}
         loading={upgradeMut.isPending}
         onClose={() => setUpgradeSheetOpen(false)}

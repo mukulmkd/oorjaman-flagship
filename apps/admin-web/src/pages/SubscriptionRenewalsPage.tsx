@@ -15,7 +15,6 @@ import { Badge, Button, Card, Modal, PageHeader } from "@oorjaman/web-ui";
 import { TablePaginationBar } from "../components/TablePaginationBar";
 import { formatNotificationChannelLabel } from "../lib/notification-labels";
 import { useSupabase } from "../lib/supabase-context";
-import "../layouts/dashboard-layout.css";
 import "./subscription-renewals-page.css";
 
 const RENEWAL_EVENTS_FETCH = 300;

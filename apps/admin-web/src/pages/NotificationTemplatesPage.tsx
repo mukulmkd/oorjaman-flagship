@@ -15,7 +15,6 @@ import { useSupabase } from "../lib/supabase-context";
 import { TablePaginationBar } from "../components/TablePaginationBar";
 import { Link } from "react-router-dom";
 import { formatNotificationChannelLabel, formatNotificationEventTypeLabel } from "../lib/notification-labels";
-import "../layouts/dashboard-layout.css";
 import "./notification-templates-page.css";
 
 const TPL_PAGE_SIZE = 10;
