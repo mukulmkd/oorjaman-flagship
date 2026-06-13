@@ -1,4 +1,4 @@
-# Vercel deployment — admin portals (testing)
+# Vercel deployment Guide — admin portals (testing)
 
 Step-by-step guide for deploying the three **Vite admin portals** (`admin-web`, `vendor-web`, `support-web`) to **Vercel** for internal testing, before production hosting on **GoDaddy**.
 
