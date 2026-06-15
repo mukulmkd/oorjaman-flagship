@@ -44,7 +44,8 @@ export function CustomerPushRegistration() {
     Boolean(custQ.data?.onboarding_completed_at);
 
   useEffect(() => {
-    if (!ready || !supabase || !backgroundPromptsAllowed) return;
+    const client = supabase;
+    if (!ready || !client || !backgroundPromptsAllowed) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -78,7 +79,7 @@ export function CustomerPushRegistration() {
           if (registeredTokenRef.current === token) return;
 
           const platform = Platform.OS === "ios" ? "ios" : Platform.OS === "android" ? "android" : "unknown";
-          await customerPushApi.upsertCustomerPushToken(supabase, {
+          await customerPushApi.upsertCustomerPushToken(client, {
             expo_push_token: token,
             platform,
           });

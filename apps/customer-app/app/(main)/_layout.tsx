@@ -69,14 +69,12 @@ export default function MainTabsLayout() {
   const notifyCustomerId =
     userQ.data?.role === "customer" && custQ.data?.onboarding_completed_at ? custQ.data.id : undefined;
 
-  const customerForGate = custQ.data;
-
   return (
     <>
       <BookingRealtimeNotifications customerId={notifyCustomerId} />
-      {showAddressGate ? (
+      {showAddressGate && custQ.data ? (
         <MandatoryServiceAddressGate
-          customer={customerForGate}
+          customer={custQ.data}
           onGateReleased={releaseBackgroundPrompts}
         />
       ) : null}
