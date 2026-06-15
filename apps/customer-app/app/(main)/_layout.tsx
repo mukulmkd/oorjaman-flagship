@@ -10,6 +10,7 @@ import { BookingRealtimeNotifications } from "../../components/booking-realtime-
 import { TabNavTitle } from "../../components/tab-nav-title";
 import { SupportChatHeaderButton } from "../../components/help-header-button";
 import { MandatoryServiceAddressGate } from "../../components/mandatory-service-address-gate";
+import { useCustomerPostLoginPrompts } from "../../components/customer-post-login-prompts";
 import { fontFamily, fontSize } from "../../constants/fonts";
 import { migrateLegacyVendorPreferencesToServer } from "../../lib/migrate-legacy-vendor-prefs";
 import { supabase } from "../../lib/supabase";
@@ -18,6 +19,7 @@ export default function MainTabsLayout() {
   const qc = useQueryClient();
   const legacyMigrateRanForCustomerRef = useRef<string | null>(null);
   const insets = useSafeAreaInsets();
+  const { releaseBackgroundPrompts } = useCustomerPostLoginPrompts();
   const userQ = useQuery({
     queryKey: queryKeys.users.me(),
     queryFn: () => userApi.getMyUserRecord(supabase!),
@@ -44,6 +46,15 @@ export default function MainTabsLayout() {
     });
   }, [supabase, qc, userQ.data?.role, custQ.data?.id, custQ.data?.onboarding_completed_at, custQ.data]);
 
+  const showAddressGate =
+    userQ.data?.role === "customer" &&
+    Boolean(custQ.data?.onboarding_completed_at) &&
+    custQ.data != null;
+
+  useEffect(() => {
+    if (!showAddressGate) releaseBackgroundPrompts();
+  }, [showAddressGate, releaseBackgroundPrompts]);
+
   if (!supabase || userQ.isPending || (userQ.data?.role === "customer" && custQ.isPending)) {
     return <TabShellSkeleton tabSlots={5} />;
   }
@@ -59,15 +70,16 @@ export default function MainTabsLayout() {
     userQ.data?.role === "customer" && custQ.data?.onboarding_completed_at ? custQ.data.id : undefined;
 
   const customerForGate = custQ.data;
-  const showAddressGate =
-    userQ.data?.role === "customer" &&
-    Boolean(customerForGate?.onboarding_completed_at) &&
-    customerForGate != null;
 
   return (
     <>
       <BookingRealtimeNotifications customerId={notifyCustomerId} />
-      {showAddressGate ? <MandatoryServiceAddressGate customer={customerForGate} /> : null}
+      {showAddressGate ? (
+        <MandatoryServiceAddressGate
+          customer={customerForGate}
+          onGateReleased={releaseBackgroundPrompts}
+        />
+      ) : null}
       <Tabs
       screenOptions={{
         headerShown: true,

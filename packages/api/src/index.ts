@@ -37,7 +37,7 @@ export {
   type TechnicianAppPostAuthPath,
 } from "./auth/post-auth-routes";
 export * as userApi from "./users/user-api";
-export { resolvePortalSessionDisplay, loadPortalSessionDisplay } from "./users/session-display";
+export { resolvePortalSessionDisplay, loadPortalSessionDisplay, authPhoneFromUser, resolveSignInAccountPhone, resolveSignInAccountEmail } from "./users/session-display";
 export * as vendorApi from "./vendors/vendor-api";
 export {
   createEmptyCoverageZone,

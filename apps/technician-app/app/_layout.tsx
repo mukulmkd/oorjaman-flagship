@@ -22,7 +22,6 @@ import {
   keepNativeSplashScreenVisible,
   MobileAuthSessionGuard,
   MobileOfflineGate,
-  MobileUatEnvironmentBanner,
 } from "@oorjaman/ui";
 
 installMobileAuthConsoleFilters();
@@ -67,7 +66,6 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <MobileUatEnvironmentBanner />
       <QueryProvider>
         <HelpSupportProvider>
         <MobileOfflineGate>

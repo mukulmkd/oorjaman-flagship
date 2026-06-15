@@ -17,7 +17,7 @@ import {
   EmptyStateCard,
   ErrorStateCard,
   Screen,
-  SCREEN_EDGES_BENEATH_NATIVE_HEADER,
+  SCREEN_EDGES_MODAL,
   useModalStackHeader,
 } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
@@ -48,7 +48,7 @@ export default function OorjamanCreditsScreen() {
   const isRefreshing = summaryQuery.isFetching || grantsQuery.isFetching;
 
   return (
-    <Screen edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+    <Screen edges={SCREEN_EDGES_MODAL}>
       {modalHeader}
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}

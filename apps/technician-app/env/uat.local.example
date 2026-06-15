@@ -1,0 +1,18 @@
+# UAT native builds (local APK / EAS). Copy to env/uat.local (gitignored).
+# Loaded by: node scripts/run-with-expo-env.mjs technician-app "<command>"
+#
+# Do NOT use apps/technician-app/.env.uat.local — Metro dev scans ./.env* and will
+# try to parse that file as JavaScript. Local Metro uses .env.development.local.
+
+EXPO_PUBLIC_DEPLOY_ENV=uat
+EXPO_PUBLIC_SUPABASE_URL=https://YOUR_UAT_PROJECT_REF.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your_uat_anon_key
+
+EXPO_PUBLIC_SITE_URL=https://oorjaman-admin.vercel.app
+
+EXPO_PUBLIC_USE_DUMMY_AUTH=true
+EXPO_PUBLIC_DUMMY_OTP_CODE=123456
+EXPO_PUBLIC_DUMMY_AUTH_PASSWORD=TestOtp123!
+
+# EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=
+# EXPO_PUBLIC_EAS_PROJECT_ID=

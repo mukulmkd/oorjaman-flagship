@@ -29,6 +29,8 @@ import {
   queryKeys,
   readAddressEntryGps,
   readSubscriptionCapacityTierCode,
+  resolveSignInAccountEmail,
+  resolveSignInAccountPhone,
   snapProfileCapacityInputToAllowedKw,
   subscriptionApi,
   type AmcTierRealignmentSummary,
@@ -167,6 +169,17 @@ export default function ProfileTab() {
   const userQuery = useQuery({
     queryKey: queryKeys.users.me(),
     queryFn: () => userApi.getMyUserRecord(supabase!),
+    enabled: Boolean(supabase),
+  });
+
+  const authUserQuery = useQuery({
+    queryKey: queryKeys.auth.user(),
+    queryFn: async () => {
+      if (!supabase) return null;
+      const { data, error } = await supabase.auth.getUser();
+      if (error) return null;
+      return data.user ?? null;
+    },
     enabled: Boolean(supabase),
   });
 
@@ -512,8 +525,8 @@ export default function ProfileTab() {
     [addressBookMut],
   );
 
-  const accountPhone = user?.phone?.trim() ?? "";
-  const accountEmail = user?.email?.trim() ?? "";
+  const accountPhone = resolveSignInAccountPhone(user, authUserQuery.data);
+  const accountEmail = resolveSignInAccountEmail(user, authUserQuery.data);
 
   if (!supabase) {
     return (

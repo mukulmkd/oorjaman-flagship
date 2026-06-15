@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { UserRow } from "../database.types";
 import { isDummyAuthEmail } from "../auth/auth-api";
 import { getMyUserRecord } from "./user-api";
@@ -9,6 +9,32 @@ function pickDisplayEmail(...candidates: (string | null | undefined)[]): string 
     if (email && !isDummyAuthEmail(email)) return email;
   }
   return null;
+}
+
+/** Phone from Supabase Auth session (direct field, then sign-up metadata). */
+export function authPhoneFromUser(authUser: User | null | undefined): string | null {
+  if (!authUser) return null;
+  const direct = authUser.phone?.trim();
+  if (direct) return direct;
+  const meta = authUser.user_metadata?.phone;
+  if (typeof meta === "string" && meta.trim()) return meta.trim();
+  return null;
+}
+
+/** Sign-in phone for profile UI: `public.users` after auth sync, then auth session. */
+export function resolveSignInAccountPhone(
+  publicUser: UserRow | null | undefined,
+  authUser: User | null | undefined,
+): string {
+  return publicUser?.phone?.trim() || authPhoneFromUser(authUser) || "";
+}
+
+/** Sign-in email for profile UI — hides dummy-auth synthetic addresses. */
+export function resolveSignInAccountEmail(
+  publicUser: UserRow | null | undefined,
+  authUser: User | null | undefined,
+): string {
+  return pickDisplayEmail(publicUser?.email, authUser?.email) ?? "";
 }
 
 /** Portal top-bar label: prefer public profile name/email over synthetic auth email. */
@@ -62,7 +88,7 @@ export async function loadPortalSessionDisplay(
     }
     return resolvePortalSessionDisplay({
       authEmail: u.email,
-      authPhone: u.phone,
+      authPhone: authPhoneFromUser(u),
       authUserId: u.id,
       publicFullName: row?.full_name,
       publicEmail: row?.email,

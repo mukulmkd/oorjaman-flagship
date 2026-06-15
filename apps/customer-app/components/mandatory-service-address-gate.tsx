@@ -14,13 +14,15 @@ import { supabase } from "../lib/supabase";
 
 type Props = {
   customer: CustomerRow;
+  /** Called when the user clears the session address gate (safe to show OS permission dialogs). */
+  onGateReleased?: () => void;
 };
 
 /**
  * Every app session: blocks main tabs until the user taps a saved address (or adds their first one).
  * Swiggy-style: no separate "continue" button on the sheet; optional GPS to prefill the add form.
  */
-export function MandatoryServiceAddressGate({ customer }: Props) {
+export function MandatoryServiceAddressGate({ customer, onGateReleased }: Props) {
   const qc = useQueryClient();
   const [sessionDismissed, setSessionDismissed] = useState(false);
   const prevIdRef = useRef(customer.id);
@@ -56,6 +58,7 @@ export function MandatoryServiceAddressGate({ customer }: Props) {
       onSave={async (nextEntries, nextDefaultId, extras) => {
         await addressMut.mutateAsync({ entries: nextEntries, defaultId: nextDefaultId, extras });
         setSessionDismissed(true);
+        onGateReleased?.();
       }}
     />
   );

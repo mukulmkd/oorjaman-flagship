@@ -21,6 +21,8 @@ node_modules/
 !**/.env.example
 !.env.*.example
 !**/.env.*.example
+**/env/uat.local
+!**/env/uat.local.example
 
 # Service account / mobile push keys (never commit)
 *.jks

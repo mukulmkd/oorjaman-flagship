@@ -2,21 +2,15 @@ import type { SupabaseCredentials } from "./client";
 
 const trim = (v: string | undefined) => (v == null ? undefined : v.trim());
 
-function readEnv(key: string): string | undefined {
-  const proc = (
-    globalThis as unknown as {
-      process?: { env?: Record<string, string | undefined> };
-    }
-  ).process;
-  return proc?.env?.[key];
-}
-
 /**
  * Expo / Node: `EXPO_PUBLIC_SUPABASE_*` at build time.
+ *
+ * Must use static `process.env.EXPO_PUBLIC_*` property access so Expo's release
+ * bundler can inline values into the APK. Dynamic `process.env[key]` is not inlined.
  */
 export function supabaseCredentialsFromProcessEnv(): SupabaseCredentials | null {
-  const url = trim(readEnv("EXPO_PUBLIC_SUPABASE_URL"));
-  const anonKey = trim(readEnv("EXPO_PUBLIC_SUPABASE_ANON_KEY"));
+  const url = trim(process.env.EXPO_PUBLIC_SUPABASE_URL);
+  const anonKey = trim(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
   if (!url || !anonKey) return null;
   return { url, anonKey };
 }
@@ -55,28 +49,6 @@ export type DummyAuthSettings = {
   password: string;
 };
 
-function mergeProcessAndFrameworkEnv(
-  frameworkEnv?: Record<string, string | boolean | undefined>,
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  const proc = (
-    globalThis as unknown as {
-      process?: { env?: Record<string, string | undefined> };
-    }
-  ).process?.env;
-  if (proc) {
-    for (const [k, v] of Object.entries(proc)) {
-      if (v !== undefined) out[k] = String(v);
-    }
-  }
-  if (frameworkEnv) {
-    for (const [k, v] of Object.entries(frameworkEnv)) {
-      if (v !== undefined && v !== null) out[k] = String(v);
-    }
-  }
-  return out;
-}
-
 /**
  * Resolves dummy-auth flags from `EXPO_PUBLIC_*` / `VITE_*` and optional `frameworkEnv`
  * (pass `import.meta.env` from Vite - it is not visible inside this package otherwise).
@@ -84,13 +56,16 @@ function mergeProcessAndFrameworkEnv(
 export function resolveDummyAuthSettings(
   frameworkEnv?: Record<string, string | boolean | undefined>,
 ): DummyAuthSettings {
-  const env = mergeProcessAndFrameworkEnv(frameworkEnv);
-  const enabled = env.EXPO_PUBLIC_USE_DUMMY_AUTH === "true" || env.VITE_USE_DUMMY_AUTH === "true";
-  const otpCode = (env.EXPO_PUBLIC_DUMMY_OTP_CODE ?? env.VITE_DUMMY_OTP_CODE ?? "123456").trim();
+  const enabled =
+    process.env.EXPO_PUBLIC_USE_DUMMY_AUTH === "true" ||
+    String(frameworkEnv?.VITE_USE_DUMMY_AUTH ?? "") === "true";
+  const otpCode = (
+    process.env.EXPO_PUBLIC_DUMMY_OTP_CODE ??
+    String(frameworkEnv?.VITE_DUMMY_OTP_CODE ?? "123456")
+  ).trim();
   const password = (
-    env.EXPO_PUBLIC_DUMMY_AUTH_PASSWORD ??
-    env.VITE_DUMMY_AUTH_PASSWORD ??
-    "TestOtp123!"
+    process.env.EXPO_PUBLIC_DUMMY_AUTH_PASSWORD ??
+    String(frameworkEnv?.VITE_DUMMY_AUTH_PASSWORD ?? "TestOtp123!")
   ).trim();
   return { enabled, otpCode, password };
 }

@@ -24,8 +24,7 @@ export const modalBodyInsetStyle: ViewStyle = {
 };
 
 /**
- * Fixed top inset for stack-presented modals (`presentation: "modal"`).
- * Do not use `safeArea.top` here - iOS modals often report the full status-bar inset and
- * the sheet chrome already clears it, which doubles the gap above the kicker title.
+ * Extra spacing below the status-bar inset when a modal is not wrapped in `Screen` with `SCREEN_EDGES_MODAL`.
+ * Prefer `SCREEN_EDGES_MODAL` on `Screen` instead of relying on this constant.
  */
 export const MODAL_STACK_HEADER_TOP_PADDING = spacing.md;

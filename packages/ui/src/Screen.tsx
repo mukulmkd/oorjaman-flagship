@@ -9,6 +9,9 @@ export const SCREEN_EDGES_ABOVE_TAB_BAR = ["top", "left", "right"] as const sati
 /** Tab screens that already use a native stack/tab header - skip top inset to avoid a gap under the header. */
 export const SCREEN_EDGES_BENEATH_NATIVE_HEADER = ["left", "right"] as const satisfies readonly Edge[];
 
+/** Full-screen stack modals with a custom in-screen header (`headerShown: false`). */
+export const SCREEN_EDGES_MODAL = ["top", "bottom", "left", "right"] as const satisfies readonly Edge[];
+
 /** Login, onboarding, and other flows without a bottom tab bar. */
 export const SCREEN_EDGES_FULL_SCREEN = ["top", "bottom", "left", "right"] as const satisfies readonly Edge[];
 

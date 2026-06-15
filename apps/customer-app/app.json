@@ -16,12 +16,9 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.oorjaman.customer"
+      "supportsTablet": true
     },
-    "android": {
-      "package": "com.oorjaman.customer"
-    },
+    "android": {},
     "plugins": [
       "expo-router",
       "expo-notifications",

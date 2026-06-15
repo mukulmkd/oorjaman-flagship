@@ -21,7 +21,7 @@ import {
   modalBodyInsetStyle,
   ModalCloseButton,
   Screen,
-  SCREEN_EDGES_BENEATH_NATIVE_HEADER,
+  SCREEN_EDGES_MODAL,
   SkeletonStack,
   useModalStackHeader,
 } from "@oorjaman/ui";
@@ -182,7 +182,7 @@ export default function TrackTechnicianScreen() {
 
   if (!supabase || !bookingId) {
     return (
-      <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
         {modalHeader}
         <View style={modalBodyInsetStyle}>
           <Text style={styles.muted}>Missing booking or Supabase configuration.</Text>
@@ -193,7 +193,7 @@ export default function TrackTechnicianScreen() {
 
   if (bookingQ.isPending || (trackable && (techLocQ.isPending || custQ.isPending))) {
     return (
-      <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
         {modalHeader}
         <View style={modalBodyInsetStyle}>
           <Card variant="muted" padded>
@@ -206,7 +206,7 @@ export default function TrackTechnicianScreen() {
 
   if (techLocQ.isError) {
     return (
-      <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
         {modalHeader}
         <View style={modalBodyInsetStyle}>
           <ErrorStateCard
@@ -222,7 +222,7 @@ export default function TrackTechnicianScreen() {
 
   if (Platform.OS === "web") {
     return (
-      <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
         {modalHeader}
         <View style={modalBodyInsetStyle}>
           <Text style={styles.body}>Maps are available on the iOS and Android apps.</Text>
@@ -252,7 +252,7 @@ export default function TrackTechnicianScreen() {
             };
 
     return (
-      <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
         {modalHeader}
         <View style={modalBodyInsetStyle}>
           <EmptyStateCard title={endedCopy.title} description={endedCopy.description} />

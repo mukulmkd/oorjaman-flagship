@@ -11,17 +11,19 @@ import {
 } from "react-native";
 import { router, type Href } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   authApi,
   buildLoginE164,
   DEFAULT_LOGIN_COUNTRY_DIAL,
   getDummyAuthUiHint,
   LOGIN_PHONE_COUNTRIES,
+  queryKeys,
   resolveCustomerAppPostAuthPath,
   validateLoginNationalPhone,
 } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
-import { LoginPhoneRow } from "@oorjaman/ui";
+import { LoginPhoneRow, OtpCodeInput, dismissOtpKeyboard } from "@oorjaman/ui";
 import { fontFamily, fontSize, fontWeight } from "../constants/fonts";
 import { BrandLockup } from "../components/brand-lockup";
 import { supabase } from "../lib/supabase";
@@ -31,6 +33,7 @@ const RESEND_SEC = 48;
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
+  const qc = useQueryClient();
   const otpRef = useRef<TextInput>(null);
   const autoVerifyOtpRef = useRef<string | null>(null);
 
@@ -63,15 +66,6 @@ export default function LoginScreen() {
     const t = setInterval(() => setCooldown((c) => Math.max(0, c - 1)), 1000);
     return () => clearInterval(t);
   }, [cooldown]);
-
-  const otpChars = useMemo(() => {
-    const chars = otp.split("").slice(0, OTP_LEN);
-    return Array.from({ length: OTP_LEN }, (_, i) => chars[i] ?? "");
-  }, [otp]);
-
-  const [otpInputFocused, setOtpInputFocused] = useState(false);
-  /** Index of the cell where the caret effectively sits (next empty or last filled). */
-  const activeOtpIndex = Math.min(otp.length, OTP_LEN - 1);
 
   const dummyHint = useMemo(() => getDummyAuthUiHint(), []);
 
@@ -117,16 +111,22 @@ export default function LoginScreen() {
       return;
     }
     setVerifying(true);
+    let navigated = false;
     try {
       await authApi.verifyPhoneOtp(supabase, e164, otp);
+      await dismissOtpKeyboard(otpRef.current);
       const path = await resolveCustomerAppPostAuthPath(supabase);
+      navigated = true;
       router.replace(path as Href);
+      void qc.invalidateQueries({ queryKey: queryKeys.users.me() });
+      void qc.invalidateQueries({ queryKey: queryKeys.auth.user() });
+      void qc.invalidateQueries({ queryKey: queryKeys.customers.mine() });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Invalid or expired code.");
     } finally {
-      setVerifying(false);
+      if (!navigated) setVerifying(false);
     }
-  }, [e164, otp]);
+  }, [e164, otp, qc]);
 
   useEffect(() => {
     if (!otpSent || otp.length !== OTP_LEN || verifying || sending || !e164 || !supabase) return;
@@ -194,50 +194,19 @@ export default function LoginScreen() {
         </View>
 
         <Text style={styles.otpSmsHint}>
-          After you send the code, tap the boxes - the cursor appears there as you type. On iPhone and many Android
-          phones, the code can autofill from SMS when the message contains a 6-digit code.
+          After you send the code, tap the boxes to enter your code. On iPhone and many Android phones, the code can
+          autofill from SMS when the message contains a 6-digit code.
         </Text>
 
-        <Pressable
-          style={styles.otpRowWrap}
-          onPress={() => {
-            if (otpSent && !verifying) otpRef.current?.focus();
-          }}
-          accessibilityRole="none"
-        >
-          <View style={styles.otpRow} pointerEvents="none">
-            {otpChars.map((ch, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.otpCell,
-                  ch ? styles.otpCellFilled : null,
-                  otpSent && otpInputFocused && i === activeOtpIndex ? styles.otpCellActive : null,
-                ]}
-              >
-                <Text style={styles.otpDigit}>{ch}</Text>
-              </View>
-            ))}
-          </View>
-          <TextInput
+        {!verifying ? (
+          <OtpCodeInput
             ref={otpRef}
             value={otp}
+            onChangeText={setOtp}
+            length={OTP_LEN}
             editable={otpSent && !verifying}
-            onChangeText={(t) => setOtp(t.replace(/\D/g, "").slice(0, OTP_LEN))}
-            onFocus={() => setOtpInputFocused(true)}
-            onBlur={() => setOtpInputFocused(false)}
-            keyboardType="number-pad"
-            textContentType="oneTimeCode"
-            autoComplete={Platform.OS === "android" ? "sms-otp" : undefined}
-            {...(Platform.OS === "android" ? { importantForAutofill: "yes" as const } : {})}
-            maxLength={OTP_LEN}
-            style={styles.otpOverlayInput}
-            {...(Platform.OS === "android" ? { cursorColor: colors.primary } : {})}
-            accessibilityLabel="One-time code"
-            accessibilityHint="Six digit SMS verification code"
-            selectionColor={colors.primary}
           />
-        </Pressable>
+        ) : null}
 
         <Pressable
           accessibilityRole="button"
@@ -357,52 +326,6 @@ const styles = StyleSheet.create({
   },
   linkMuted: {
     color: colors.mutedForeground,
-  },
-  otpRowWrap: {
-    position: "relative",
-    marginTop: spacing.sm,
-    minHeight: 52,
-  },
-  otpRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 8,
-    minHeight: 52,
-  },
-  otpCell: {
-    flex: 1,
-    maxWidth: 52,
-    aspectRatio: 1,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.background,
-  },
-  otpCellFilled: {
-    borderColor: colors.primary,
-    backgroundColor: colors.muted,
-  },
-  otpCellActive: {
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  otpDigit: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: fontSize.xl,
-    color: colors.foreground,
-  },
-  /** Covers the OTP cells; glyphs are invisible so digits show only in boxes - caret stays visible for feedback + SMS autofill. */
-  otpOverlayInput: {
-    ...StyleSheet.absoluteFillObject,
-    fontFamily: fontFamily.semiBold,
-    fontSize: 22,
-    color: "transparent",
-    textAlign: "center",
-    paddingHorizontal: spacing.xs,
-    letterSpacing: 10,
-    zIndex: 2,
   },
   primary: {
     marginTop: spacing.lg,

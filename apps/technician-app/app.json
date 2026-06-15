@@ -14,12 +14,9 @@
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.oorjaman.technician"
+      "supportsTablet": true
     },
-    "android": {
-      "package": "com.oorjaman.technician"
-    },
+    "android": {},
     "plugins": [
       "expo-router",
       [

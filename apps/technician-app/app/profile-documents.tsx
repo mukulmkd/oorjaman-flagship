@@ -9,7 +9,7 @@ import {
   Card,
   modalScrollContentStyle,
   Screen,
-  SCREEN_EDGES_BENEATH_NATIVE_HEADER,
+  SCREEN_EDGES_MODAL,
   useModalStackHeader,
 } from "@oorjaman/ui";
 import { DocumentViewerModal } from "../components/document-viewer-modal";
@@ -74,7 +74,7 @@ export default function ProfileDocumentsScreen() {
   }).length;
 
   return (
-    <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+    <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
       {modalHeader}
       {techQ.isPending ? (
         <View style={modalScrollContentStyle}>

@@ -57,7 +57,7 @@ import {
   modalBodyInsetStyle,
   modalScrollContentStyle,
   Screen,
-  SCREEN_EDGES_BENEATH_NATIVE_HEADER,
+  SCREEN_EDGES_MODAL,
   SkeletonStack,
   useModalStackHeader,
 } from "@oorjaman/ui";
@@ -504,7 +504,7 @@ export default function BookingDetailScreen() {
 
   if (!supabase || !bookingId) {
     return (
-      <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
         {modalHeader}
         <View style={modalBodyInsetStyle}>
           <Text style={styles.muted}>Missing booking or Supabase configuration.</Text>
@@ -515,7 +515,7 @@ export default function BookingDetailScreen() {
 
   if (userQuery.isPending) {
     return (
-      <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
         {modalHeader}
         <View style={modalBodyInsetStyle}>
           <Card variant="muted" padded>
@@ -528,7 +528,7 @@ export default function BookingDetailScreen() {
 
   if (query.isPending) {
     return (
-      <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
         {modalHeader}
         <View style={modalBodyInsetStyle}>
           <Card variant="muted" padded>
@@ -541,7 +541,7 @@ export default function BookingDetailScreen() {
 
   if (query.isError) {
     return (
-      <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
         {modalHeader}
         <View style={modalBodyInsetStyle}>
           <ErrorStateCard
@@ -557,7 +557,7 @@ export default function BookingDetailScreen() {
 
   if (!b) {
     return (
-      <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
         {modalHeader}
         <View style={modalBodyInsetStyle}>
           <EmptyStateCard
@@ -597,7 +597,7 @@ export default function BookingDetailScreen() {
     ) : null;
 
   return (
-    <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+    <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
       {modalHeader}
       <FadeInView style={styles.fadeFlex}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>

@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
 import { colors } from "@oorjaman/config";
 import { ModalSheetHeader } from "./ModalSheetHeader";
-import { MODAL_STACK_HEADER_TOP_PADDING } from "./modal-layout";
 
 export type ModalStackHeaderBarProps = {
   title: string;
@@ -47,6 +46,5 @@ const styles = StyleSheet.create({
   root: {
     flexShrink: 0,
     backgroundColor: colors.background,
-    paddingTop: MODAL_STACK_HEADER_TOP_PADDING,
   },
 });

@@ -14,7 +14,7 @@ import {
   modalBodyInsetStyle,
   modalScrollContentStyle,
   Screen,
-  SCREEN_EDGES_BENEATH_NATIVE_HEADER,
+  SCREEN_EDGES_MODAL,
   useModalStackHeader,
 } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
@@ -65,7 +65,7 @@ export default function RescheduleBookingScreen() {
 
   if (!supabase || !bookingId) {
     return (
-      <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
         {modalHeader}
         <View style={modalBodyInsetStyle}>
           <Text style={styles.muted}>Missing booking context.</Text>
@@ -76,7 +76,7 @@ export default function RescheduleBookingScreen() {
 
   if (query.isPending) {
     return (
-      <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
         {modalHeader}
         <View style={modalBodyInsetStyle}>
           <Card variant="muted" padded>
@@ -89,7 +89,7 @@ export default function RescheduleBookingScreen() {
 
   if (query.isError || !query.data) {
     return (
-      <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
         {modalHeader}
         <View style={modalBodyInsetStyle}>
           <ErrorStateCard
@@ -103,7 +103,7 @@ export default function RescheduleBookingScreen() {
   }
 
   return (
-    <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+    <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
       {modalHeader}
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 

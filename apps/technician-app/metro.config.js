@@ -22,6 +22,8 @@ const customerAppRoot = path.join(monorepoRoot, "apps", "customer-app");
 config.resolver.blockList = [
   ...(config.resolver.blockList ?? []),
   new RegExp(`${customerAppRoot.replace(/[/\\]/g, "[/\\\\]")}.*`),
+  // Legacy UAT env at app root breaks Metro (require.context loads ./.env* as JS).
+  /\.env\.uat\.local$/,
 ];
 
 module.exports = config;

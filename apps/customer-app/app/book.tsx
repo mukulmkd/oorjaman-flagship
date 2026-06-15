@@ -472,6 +472,7 @@ function describeRoutingForCustomer(p: RoutingPreviewOk): string {
 
 export default function BookVisitModal() {
   const insets = useSafeAreaInsets();
+  const modalShellStyle = { paddingTop: insets.top, paddingBottom: insets.bottom };
   const qc = useQueryClient();
   const params = useLocalSearchParams<{
     vendorId?: string | string[];
@@ -1448,7 +1449,7 @@ export default function BookVisitModal() {
 
   if (!supabase) {
     return (
-      <View style={[styles.flex, { paddingBottom: insets.bottom }]}>
+      <View style={[styles.flex, modalShellStyle]}>
         {modalHeader}
         <View style={styles.root}>
           <Text style={styles.muted}>Configure Supabase to book visits.</Text>
@@ -1459,7 +1460,7 @@ export default function BookVisitModal() {
 
   if (amcSlotId && amcSlotQuery.isError) {
     return (
-      <View style={[styles.flex, { paddingBottom: insets.bottom }]}>
+      <View style={[styles.flex, modalShellStyle]}>
         {modalHeader}
         <View style={styles.root}>
           <ErrorStateCard
@@ -1480,7 +1481,7 @@ export default function BookVisitModal() {
   if (showsAmcAwaitingPartnerGate && isAmcAwaitingPartnerAssignment(amcBookingGate)) {
     const serviceAddressId = subscriptionAddressIdForGate(amcBookingGate.subscription);
     return (
-      <View style={[styles.flex, { paddingBottom: insets.bottom }]}>
+      <View style={[styles.flex, modalShellStyle]}>
         {modalHeader}
         <View style={styles.root}>
           <BookVisitAmcAwaitingPartnerGate
@@ -1518,7 +1519,7 @@ export default function BookVisitModal() {
         ? gateAddressId
         : subscriptionAddressIdForGate(amcBookingGate.subscription);
     return (
-      <View style={[styles.flex, { paddingBottom: insets.bottom }]}>
+      <View style={[styles.flex, modalShellStyle]}>
         {modalHeader}
         <View style={styles.root}>
           <BookVisitAmcChoiceGate
@@ -1540,7 +1541,7 @@ export default function BookVisitModal() {
 
   if (!amcGateDataReady && !amcSlotId && !paidVisitConfirmed) {
     return (
-      <View style={[styles.flex, { paddingBottom: insets.bottom }]}>
+      <View style={[styles.flex, modalShellStyle]}>
         {modalHeader}
         <View style={styles.root}>
           <Card variant="muted" padded>
@@ -1553,7 +1554,7 @@ export default function BookVisitModal() {
 
   if (!mayBookOneTime && !amcSlotId) {
     return (
-      <View style={[styles.flex, { paddingBottom: insets.bottom }]}>
+      <View style={[styles.flex, modalShellStyle]}>
         {modalHeader}
         <View style={styles.root}>
           <Card variant="muted" padded>
@@ -1566,7 +1567,7 @@ export default function BookVisitModal() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.flex}
+      style={[styles.flex, modalShellStyle]}
       behavior={Platform.select({ ios: "padding", android: undefined })}
       keyboardVerticalOffset={Platform.OS === "ios" ? keyboardHeaderOffset : 0}
     >

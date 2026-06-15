@@ -544,7 +544,13 @@ export function HelpSupportModalBody({
       {fullscreen ? null : (
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close help" />
       )}
-      <View style={[styles.sheet, fullscreen && styles.sheetScreen]}>
+      <View
+        style={[
+          styles.sheet,
+          fullscreen && styles.sheetScreen,
+          fullscreen ? { paddingTop: insets.top } : null,
+        ]}
+      >
         <ModalSheetHeader
           title={sheetTitle}
           subtitle={sheetSubtitle}

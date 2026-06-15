@@ -14,7 +14,7 @@ import {
   Screen,
   SkeletonBar,
   modalScrollContentStyle,
-  SCREEN_EDGES_BENEATH_NATIVE_HEADER,
+  SCREEN_EDGES_MODAL,
   useModalStackHeader,
 } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
@@ -168,7 +168,7 @@ export default function PreferredPartnerModal() {
 
   if (!supabase) {
     return (
-      <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
         {modalHeader}
         <View style={modalScrollContentStyle}>
           <Text style={styles.muted}>Configure Supabase.</Text>
@@ -179,7 +179,7 @@ export default function PreferredPartnerModal() {
 
   if (customerQuery.isPending || vendorsQuery.isPending || completedVendorIdsQuery.isPending) {
     return (
-      <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
         {modalHeader}
         <View style={modalScrollContentStyle}>
           <Card variant="muted" padded>
@@ -194,7 +194,7 @@ export default function PreferredPartnerModal() {
 
   if (vendorsQuery.isError) {
     return (
-      <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
         {modalHeader}
         <View style={modalScrollContentStyle}>
           <ErrorStateCard
@@ -209,7 +209,7 @@ export default function PreferredPartnerModal() {
 
   if (completedVendorIdsQuery.isError) {
     return (
-      <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
         {modalHeader}
         <View style={modalScrollContentStyle}>
           <ErrorStateCard
@@ -224,7 +224,7 @@ export default function PreferredPartnerModal() {
 
   if ((vendorsQuery.data ?? []).length === 0) {
     return (
-      <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
         {modalHeader}
         <View style={modalScrollContentStyle}>
           <EmptyStateCard title="No approved partners yet" description="Check back soon - the list updates as partners are verified." />
@@ -234,7 +234,7 @@ export default function PreferredPartnerModal() {
   }
 
   return (
-    <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+    <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
       {modalHeader}
       <ScrollView
         contentContainerStyle={[modalScrollContentStyle, styles.scroll]}

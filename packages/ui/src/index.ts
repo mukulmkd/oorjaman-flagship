@@ -4,6 +4,7 @@ export * from "./Card";
 export * from "./FadeInView";
 export * from "./Input";
 export * from "./LoginPhoneRow";
+export * from "./OtpCodeInput";
 export * from "./mobile-auth-session-guard";
 export * from "./mobile-offline-gate";
 export * from "./ListStates";
