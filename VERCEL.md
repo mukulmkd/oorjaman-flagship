@@ -123,7 +123,7 @@ This does **not** rebuild when only `packages/api` changes (shared code). Use Op
 
 **Vercel exit codes (important):** **0** = skip build (deployment CANCELED), **1** = build runs.
 
-The script watches `apps/<portal>/`, `packages/`, brand sync script, and root lockfile.
+The script watches `apps/<portal>/`, `packages/`, `vercel.json`, brand sync script, and root lockfile.
 
 **Manual redeploy** from the dashboard always builds. First deploy on a new project also builds.
 
@@ -180,6 +180,24 @@ Click **Deploy** or push to your connected branch. Vercel builds and hosts the s
 
 ---
 
+## SPA routing (fix 404 on refresh)
+
+The portals use **React Router `BrowserRouter`** (clean URLs like `/login`, not `/#/login`). Client-side navigation works; a **hard refresh** asks the server for `/login` as a real file — Vercel returns **404** unless you add a fallback.
+
+Root [`vercel.json`](vercel.json) includes:
+
+```json
+"rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+```
+
+Vercel still serves real files first (`/assets/*`, `favicon.png`, etc.); only missing paths fall through to `index.html`, then React Router takes over.
+
+All three projects (admin, vendor, support) use this file when **Root Directory** is the repo root. **Push and redeploy** after changing `vercel.json`.
+
+**Local dev:** Vite dev server already does this — the issue appears only on static hosts (Vercel, GoDaddy). For GoDaddy, use `.htaccess` SPA rules — see [DEPLOYMENT.md](DEPLOYMENT.md).
+
+---
+
 ## Step 5 — Verify after deploy
 
 | Check | How |
@@ -187,7 +205,7 @@ Click **Deploy** or push to your connected branch. Vercel builds and hosts the s
 | Supabase project | DevTools → Network → requests go to **UAT** URL, not prod |
 | Login | Works with dummy OTP `123456` if dummy auth is on |
 | Cross-links | Admin ↔ Support ↔ Vendor links open correct Vercel URLs |
-| SPA routing | Deep routes work (e.g. `/dashboard/analytics`) — Vercel handles Vite SPA fallback |
+| SPA routing | Open `/login` directly or refresh on a deep route — should load the app, not Vercel **404** |
 
 ---
 

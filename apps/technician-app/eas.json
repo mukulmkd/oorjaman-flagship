@@ -14,6 +14,9 @@
     "uat": {
       "distribution": "internal",
       "channel": "uat",
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
         "EXPO_PUBLIC_DEPLOY_ENV": "uat"
       }

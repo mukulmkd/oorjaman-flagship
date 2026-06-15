@@ -59,14 +59,14 @@ Pick up the **latest open date** section when you resume work. Check boxes as yo
 
   ```bash
   cd apps/customer-app
-  eas build --profile uat --platform android
+  npx eas-cli build --profile uat --platform android
   ```
 
 - [ ] Partner app:
 
   ```bash
   cd apps/technician-app
-  eas build --profile uat --platform android
+  npx eas-cli build --profile uat --platform android
   ```
 
 - [ ] Share internal distribution links with teammates

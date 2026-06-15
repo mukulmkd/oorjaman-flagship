@@ -19,6 +19,7 @@ const watchPaths = [
   `apps/${app}`,
   "packages",
   "scripts/sync-brand-assets.mjs",
+  "vercel.json",
   "package.json",
   "package-lock.json",
   ".npmrc",

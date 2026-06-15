@@ -3,7 +3,7 @@
   "expo": false,
   "ignoreExportsUsedInFile": true,
   "ignore": ["**/*.d.ts"],
-  "ignoreBinaries": ["expo-router/entry"],
+  "ignoreBinaries": ["expo-router/entry", "eas-cli"],
   "ignoreDependencies": [
     "expo",
     "expo-system-ui",

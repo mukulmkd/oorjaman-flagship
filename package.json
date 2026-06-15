@@ -45,7 +45,11 @@
     "validate": "npm run typecheck && npm run knip",
     "android:local-props": "node scripts/android-local-properties.mjs",
     "android": "expo run:android",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "brand:sync:mobile": "npm run brand:sync && npm run brand:sync -w customer-app && npm run brand:sync -w technician-app",
+    "eas:android:uat:customer": "npm run brand:sync -w customer-app && cd apps/customer-app && npx eas-cli build --profile uat --platform android",
+    "eas:android:uat:technician": "npm run brand:sync -w technician-app && cd apps/technician-app && npx eas-cli build --profile uat --platform android",
+    "eas:android:uat": "npm run eas:android:uat:customer && npm run eas:android:uat:technician"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.49.1",
