@@ -15,7 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { formatDisplayDateTime } from "@oorjaman/utils";
 import { TablePaginationBar } from "../../components/TablePaginationBar";
-import { useSupabase } from "../../lib/supabase-context";
+import { useSupabase } from "../../lib/supabase-client";
 import { formatInr } from "./formatters";
 import { downloadCsv } from "./csv";
 import { bookingValueCents, estimateNetAfterPlatformFee } from "./metrics";
@@ -57,7 +57,7 @@ export function VendorFinanceTab({ bookings }: Props) {
   });
 
   const platformFeePercent = platformFeeQ.data ?? 10;
-  const settlements = settlementsQuery.data ?? [];
+  const settlements = useMemo(() => settlementsQuery.data ?? [], [settlementsQuery.data]);
   const settlementsTotal = settlements.length;
   const settlementsWindow = settlements.slice(
     (settlementsPage - 1) * DEFAULT_TABLE_PAGE_SIZE,

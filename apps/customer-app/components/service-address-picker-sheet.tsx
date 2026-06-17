@@ -35,13 +35,8 @@ type Props = {
     defaultId: string | null,
     extras?: ServiceAddressSaveExtras,
   ) => void | Promise<void>;
-  /** Non-dismissible backdrop, no Cancel in footer for optional mode, Android back ignored. */
-  mandatory?: boolean;
-  /**
-   * Session gate (Swiggy-style): no footer confirm button; tap a saved row to continue.
-   * First-time (no addresses): add form is required; after saving the first address we continue automatically.
-   */
-  mandatorySessionGate?: boolean;
+  /** Backdrop, header close, and Android back cannot dismiss without choosing an address. */
+  blockDismiss?: boolean;
 };
 
 function uid(): string {
@@ -54,15 +49,13 @@ function ServiceAddressPickerSheetBody({
   defaultId,
   onClose,
   onSave,
-  mandatory = false,
-  mandatorySessionGate = false,
+  blockDismiss = true,
 }: Props) {
   const insets = useSafeAreaInsets();
-  const blockDismiss = mandatory || mandatorySessionGate;
   const [draftEntries, setDraftEntries] = useState<ServiceAddressEntry[]>(entries);
-  const [draftDefaultId, setDraftDefaultId] = useState<string | null>(defaultId);
   const [adding, setAdding] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [savingEntryId, setSavingEntryId] = useState<string | null>(null);
+  const saving = savingEntryId !== null;
   const [gpsBusy, setGpsBusy] = useState(false);
   const [gpsExtras, setGpsExtras] = useState<ServiceAddressSaveExtras | null>(null);
   const [label, setLabel] = useState("");
@@ -73,41 +66,37 @@ function ServiceAddressPickerSheetBody({
   const [pincode, setPincode] = useState("");
 
   useEffect(() => {
-    if (!visible) return;
-    setDraftEntries(entries);
-    setDraftDefaultId(defaultId);
-    setGpsExtras(null);
-    if (mandatorySessionGate || mandatory) {
-      setAdding(entries.length === 0);
+    if (!visible) {
+      setSavingEntryId(null);
+      return;
     }
-  }, [visible, entries, defaultId, mandatory, mandatorySessionGate]);
+    setDraftEntries(entries);
+    setGpsExtras(null);
+    setAdding(entries.length === 0);
+  }, [visible, entries, defaultId]);
 
-  const canConfirm =
-    draftEntries.length > 0 &&
-    Boolean(draftDefaultId) &&
-    draftEntries.some((e) => e.id === draftDefaultId);
-
-  const commit = async (nextEntries: ServiceAddressEntry[], nextDefaultId: string | null, extras?: ServiceAddressSaveExtras) => {
+  const commit = async (
+    nextEntries: ServiceAddressEntry[],
+    nextDefaultId: string | null,
+    extras?: ServiceAddressSaveExtras,
+  ) => {
     if (!nextDefaultId || !nextEntries.some((e) => e.id === nextDefaultId)) return;
-    setSaving(true);
+    setSavingEntryId(nextDefaultId);
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
     try {
       await Promise.resolve(onSave(nextEntries, nextDefaultId, extras));
-      if (!mandatorySessionGate && !mandatory) onClose();
-      if (mandatory && !mandatorySessionGate) onClose();
       setGpsExtras(null);
     } finally {
-      setSaving(false);
+      setSavingEntryId(null);
     }
   };
 
   const onEntryPress = async (entryId: string) => {
     if (saving) return;
-    if (mandatorySessionGate) {
-      setAdding(false);
-      await commit(draftEntries, entryId, undefined);
-      return;
-    }
-    setDraftDefaultId(entryId);
+    setAdding(false);
+    await commit(draftEntries, entryId, undefined);
   };
 
   const onUseCurrentLocation = async () => {
@@ -135,8 +124,6 @@ function ServiceAddressPickerSheetBody({
     }
   };
 
-  const showFooterConfirm = !mandatorySessionGate;
-
   return (
     <View style={styles.modalRoot}>
       {blockDismiss ? (
@@ -155,15 +142,11 @@ function ServiceAddressPickerSheetBody({
         ]}
       >
         <ModalSheetHeader
-          title={
-            mandatorySessionGate || mandatory ? "Select service location" : "Choose service address"
-          }
+          title="Select service location"
           subtitle={
-            mandatorySessionGate && draftEntries.length === 0
+            draftEntries.length === 0
               ? "Add your site address or use current location, then you can continue."
-              : mandatory
-                ? "Add where you want service so we can match you with the right partner."
-                : undefined
+              : undefined
           }
           onClose={onClose}
           showClose={!blockDismiss}
@@ -176,39 +159,22 @@ function ServiceAddressPickerSheetBody({
           showsVerticalScrollIndicator={false}
         >
           {draftEntries.map((e) => {
-            const selected = draftDefaultId === e.id;
+            const rowBusy = savingEntryId === e.id;
             return (
               <Card key={e.id} variant="elevated" padded>
                 <Pressable
                   onPress={() => void onEntryPress(e.id)}
-                  style={[styles.entryPress, !mandatorySessionGate && selected && styles.entrySelected]}
+                  style={styles.entryPress}
                   disabled={saving}
                   accessibilityRole="button"
                   accessibilityLabel={`${e.label}. ${serviceAddressFormatted(e.address)}`}
-                  accessibilityState={{ selected }}
                 >
                   <Text style={styles.entryLabel}>{e.label}</Text>
                   <Text style={styles.entryAddress}>{serviceAddressFormatted(e.address)}</Text>
-                  {mandatorySessionGate && saving ? (
+                  {rowBusy ? (
                     <ActivityIndicator style={styles.rowSpinner} color={colors.primary} />
                   ) : null}
                 </Pressable>
-                {!mandatorySessionGate ? (
-                  <View style={styles.entryActions}>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onPress={() => {
-                        const next = draftEntries.filter((x) => x.id !== e.id);
-                        setDraftEntries(next);
-                        if (draftDefaultId === e.id) setDraftDefaultId(next[0]?.id ?? null);
-                        if (mandatory && next.length === 0) setAdding(true);
-                      }}
-                    >
-                      Remove
-                    </Button>
-                  </View>
-                ) : null}
               </Card>
             );
           })}
@@ -241,7 +207,10 @@ function ServiceAddressPickerSheetBody({
                   loading={saving}
                   onPress={() => {
                     if (!label.trim()) {
-                      Alert.alert("Address label required", "Enter a short label so you can recognize this site in lists and headers.");
+                      Alert.alert(
+                        "Address label required",
+                        "Enter a short label so you can recognize this site in lists and headers.",
+                      );
                       return;
                     }
                     if (!line1.trim() || !city.trim() || !state.trim() || pincode.trim().length !== 6) return;
@@ -271,7 +240,6 @@ function ServiceAddressPickerSheetBody({
                     const wasEmpty = draftEntries.length === 0;
                     const nextEntries = [...draftEntries, next];
                     setDraftEntries(nextEntries);
-                    setDraftDefaultId(next.id);
                     setAdding(false);
                     setLabel("");
                     setLine1("");
@@ -280,7 +248,7 @@ function ServiceAddressPickerSheetBody({
                     setState("");
                     setPincode("");
                     const extras = gpsExtras ?? undefined;
-                    if (mandatorySessionGate && wasEmpty) {
+                    if (wasEmpty) {
                       void commit(nextEntries, next.id, extras);
                     } else {
                       setGpsExtras(null);
@@ -289,7 +257,7 @@ function ServiceAddressPickerSheetBody({
                 >
                   Save address
                 </Button>
-                {!(mandatory && draftEntries.length === 0) && !(mandatorySessionGate && draftEntries.length === 0) ? (
+                {draftEntries.length > 0 ? (
                   <Button
                     variant="outline"
                     size="sm"
@@ -309,31 +277,6 @@ function ServiceAddressPickerSheetBody({
             </Button>
           )}
         </ScrollView>
-        {showFooterConfirm ? (
-          <View style={[styles.footer, mandatory && styles.footerMandatory]}>
-            {!mandatory ? (
-              <View style={styles.footerBtnCell}>
-                <Button variant="outline" size="md" style={styles.footerBtnStretch} onPress={onClose}>
-                  Cancel
-                </Button>
-              </View>
-            ) : null}
-            <View style={[styles.footerBtnCell, mandatory && styles.footerBtnCellFull]}>
-              <Button
-                style={mandatory ? styles.footerPrimaryFull : styles.footerBtnStretch}
-                size="md"
-                disabled={!canConfirm || saving}
-                onPress={() => void commit(draftEntries, draftDefaultId, gpsExtras ?? undefined)}
-              >
-                {saving ? (
-                  <ActivityIndicator color={colors.primaryForeground} />
-                ) : (
-                  "Use selected"
-                )}
-              </Button>
-            </View>
-          </View>
-        ) : null}
       </View>
     </View>
   );
@@ -345,7 +288,7 @@ function ServiceAddressPickerSheetBody({
  * so the dimming layer and sheet cover the tab bar strip.
  */
 export function ServiceAddressPickerSheet(props: Props) {
-  const blockDismiss = props.mandatory || props.mandatorySessionGate;
+  const blockDismiss = props.blockDismiss ?? true;
   return (
     <Modal
       visible={props.visible}
@@ -356,7 +299,7 @@ export function ServiceAddressPickerSheet(props: Props) {
       navigationBarTranslucent={Platform.OS === "android"}
     >
       <SafeAreaProvider initialMetrics={initialWindowMetrics ?? undefined}>
-        <ServiceAddressPickerSheetBody {...props} />
+        <ServiceAddressPickerSheetBody {...props} blockDismiss={blockDismiss} />
       </SafeAreaProvider>
     </Modal>
   );
@@ -381,22 +324,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     gap: spacing.sm,
   },
-  handle: {
-    alignSelf: "center",
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.border,
-    marginBottom: spacing.xs,
-  },
-  title: { fontFamily: fontFamily.semiBold, fontSize: fontSize.lg, color: colors.foreground },
-  subtitle: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    lineHeight: 20,
-    color: colors.mutedForeground,
-    marginTop: -4,
-  },
   list: { maxHeight: 420 },
   listContent: { gap: spacing.sm, paddingBottom: spacing.sm },
   entryPress: {
@@ -405,18 +332,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.xs,
   },
-  entrySelected: {
-    backgroundColor: colors.primaryMuted,
-  },
   entryLabel: { fontFamily: fontFamily.medium, fontSize: fontSize.md, color: colors.foreground },
   entryAddress: { fontFamily: fontFamily.regular, fontSize: fontSize.sm, color: colors.mutedForeground },
   entryActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm },
   gap: { height: spacing.xs },
-  footer: { flexDirection: "row", gap: spacing.sm, justifyContent: "space-between", alignItems: "stretch" },
-  footerMandatory: { flexDirection: "column", alignItems: "stretch" },
-  footerBtnCell: { flex: 1, minWidth: 0 },
-  footerBtnCellFull: { flex: 1, width: "100%" },
-  footerBtnStretch: { alignSelf: "stretch", width: "100%" },
-  footerPrimaryFull: { alignSelf: "stretch", width: "100%" },
   rowSpinner: { marginTop: spacing.sm },
 });

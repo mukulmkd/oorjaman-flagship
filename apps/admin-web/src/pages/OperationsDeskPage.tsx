@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import {
   adminAssignAmcSubscriptionVendor,
-  adminFetchOpsDeskSummary,
+  adminFetchOpsDeskSummaryLight,
   adminGetBookingMonitoringRows,
   adminListAmcAwaitingPartnerAssignments,
   adminListOpsBookingExceptions,
   adminListOpsBookingExceptionsPaged,
   adminNotifyOverdueVendorResponses,
   adminResetBookingOtpLock,
+  buildOpsDeskSummary,
   DEFAULT_TABLE_PAGE_SIZE,
   queryKeys,
   vendorApi,
@@ -30,7 +31,8 @@ import {
 } from "../lib/ops-desk-display";
 import { formatOpsIssueLevel } from "../lib/ops-exceptions-display";
 import { supportPortalUrl } from "../lib/portal-urls";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
+import { invalidateAdminBookingOpsQueries } from "../lib/invalidate-admin-queries";
 import "./operations-desk-page.css";
 
 const EXCEPTION_SAMPLE = 500;
@@ -44,6 +46,7 @@ function mapTimeFilterToOpsQueue(timeFilter: OpsDeskTimeFilter): OpsExceptionsQu
 
 export function OperationsDeskPage() {
   const supabase = useSupabase();
+  const qc = useQueryClient();
   const navigate = useNavigate();
 
   const [timeFilter, setTimeFilter] = useState<OpsDeskTimeFilter>("needs_action");
@@ -63,9 +66,9 @@ export function OperationsDeskPage() {
     setLegacyPage(1);
   }, [timeFilter, categoryFilter]);
 
-  const summaryQuery = useQuery({
-    queryKey: queryKeys.bookings.opsDeskSummary(),
-    queryFn: () => adminFetchOpsDeskSummary(supabase!),
+  const summaryLightQuery = useQuery({
+    queryKey: [...queryKeys.bookings.opsDeskSummary(), "light"] as const,
+    queryFn: () => adminFetchOpsDeskSummaryLight(supabase!),
     enabled: Boolean(supabase),
     refetchInterval: 60_000,
   });
@@ -94,13 +97,15 @@ export function OperationsDeskPage() {
   const monitorQuery = useQuery({
     queryKey: queryKeys.bookings.adminMonitoring("all", MONITOR_SAMPLE),
     queryFn: () => adminGetBookingMonitoringRows(supabase!, "all", { limit: MONITOR_SAMPLE }),
-    enabled: Boolean(supabase && timeFilter === "needs_action"),
+    enabled: Boolean(supabase),
+    staleTime: 60_000,
   });
 
   const amcQuery = useQuery({
     queryKey: queryKeys.bookings.opsDeskAmcAwaitingPartner(),
     queryFn: () => adminListAmcAwaitingPartnerAssignments(supabase!),
-    enabled: Boolean(supabase && timeFilter === "needs_action"),
+    enabled: Boolean(supabase),
+    staleTime: 60_000,
   });
 
   const vendorsQuery = useQuery({
@@ -144,19 +149,29 @@ export function OperationsDeskPage() {
     [inboxRowsAll, inboxPage],
   );
 
+  const summary = useMemo(() => {
+    if (!summaryLightQuery.data) return undefined;
+    return buildOpsDeskSummary({
+      light: summaryLightQuery.data,
+      monitorRows: monitorQuery.data ?? [],
+      amcRows: amcQuery.data ?? [],
+    });
+  }, [summaryLightQuery.data, monitorQuery.data, amcQuery.data]);
+
+  const summaryPending =
+    summaryLightQuery.isPending || monitorQuery.isPending || amcQuery.isPending;
+
   const resetOtpMut = useMutation({
     mutationFn: async (bookingId: string) => adminResetBookingOtpLock(supabase!, bookingId),
-    onSuccess: async () => {
-      await monitorQuery.refetch();
-      await summaryQuery.refetch();
+    onSuccess: () => {
+      void invalidateAdminBookingOpsQueries(qc);
     },
   });
 
   const overdueScanMut = useMutation({
     mutationFn: () => adminNotifyOverdueVendorResponses(supabase!, { limit: 200 }),
-    onSuccess: async () => {
-      await exceptionsSampleQuery.refetch();
-      await summaryQuery.refetch();
+    onSuccess: () => {
+      void invalidateAdminBookingOpsQueries(qc);
     },
   });
 
@@ -171,28 +186,21 @@ export function OperationsDeskPage() {
       adminAssignAmcSubscriptionVendor(supabase!, subscriptionId, vendorId, {
         reassignOpenBookings: true,
       }),
-    onSuccess: async () => {
+    onSuccess: () => {
       setAmcAssignTarget(null);
       setAmcAssignVendorId("");
-      await amcQuery.refetch();
-      await summaryQuery.refetch();
+      void invalidateAdminBookingOpsQueries(qc);
     },
   });
 
   async function refreshDesk() {
     if (supabase) {
       await overdueScanMut.mutateAsync().catch(() => undefined);
+      return;
     }
-    await Promise.all([
-      summaryQuery.refetch(),
-      exceptionsSampleQuery.refetch(),
-      exceptionsPagedQuery.refetch(),
-      monitorQuery.refetch(),
-      amcQuery.refetch(),
-    ]);
+    await invalidateAdminBookingOpsQueries(qc);
   }
 
-  const summary = summaryQuery.data;
   const activeTab = OPS_DESK_TIME_TABS.find((t) => t.id === timeFilter);
 
   function handlePrimaryAction(row: OpsDeskInboxRow) {
@@ -243,19 +251,19 @@ export function OperationsDeskPage() {
           <div className="ops-desk-kpi-row">
             <Card padded className="ops-desk-kpi-card">
               <div className="ops-desk-kpi-value">
-                {summaryQuery.isPending ? "…" : (summary?.bookingExceptionsActionable ?? 0)}
+                {summaryPending ? "…" : (summary?.bookingExceptionsActionable ?? 0)}
               </div>
               <div className="ops-desk-kpi-label">Visits need action</div>
             </Card>
             <Card padded className="ops-desk-kpi-card">
               <div className="ops-desk-kpi-value">
-                {summaryQuery.isPending ? "…" : (summary?.onsiteBlocked ?? 0)}
+                {summaryPending ? "…" : (summary?.onsiteBlocked ?? 0)}
               </div>
               <div className="ops-desk-kpi-label">On-site OTP blocked</div>
             </Card>
             <Card padded className="ops-desk-kpi-card">
               <div className="ops-desk-kpi-value">
-                {summaryQuery.isPending ? "…" : (summary?.amcAwaitingPartner ?? 0)}
+                {summaryPending ? "…" : (summary?.amcAwaitingPartner ?? 0)}
               </div>
               <div className="ops-desk-kpi-label">AMC awaiting partner</div>
             </Card>

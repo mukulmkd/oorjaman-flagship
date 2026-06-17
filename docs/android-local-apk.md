@@ -2,7 +2,7 @@
 
 Build installable APKs on your Mac for teammate QA, without uploading to Expo build servers.
 
-**Related:** [DEPLOYMENT.md](../DEPLOYMENT.md) (EAS cloud), [ENVIRONMENT.md](../ENVIRONMENT.md), [TODO.md](../TODO.md)
+**Related:** [DEPLOYMENT.md](../project-docs/DEPLOYMENT.md) (EAS cloud), [ENVIRONMENT.md](../project-docs/ENVIRONMENT.md), [TODO.md](../project-docs/TODO.md)
 
 ---
 
@@ -58,7 +58,7 @@ Minimum in each `apps/<app>/env/uat.local`:
 EXPO_PUBLIC_DEPLOY_ENV=uat
 EXPO_PUBLIC_SUPABASE_URL=https://<UAT_REF>.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=<uat_anon>
-EXPO_PUBLIC_SITE_URL=https://<your-admin-vercel-url>
+EXPO_PUBLIC_SITE_URL=https://dev-oorjaman.oorjaman.com
 EXPO_PUBLIC_USE_DUMMY_AUTH=true
 EXPO_PUBLIC_DUMMY_OTP_CODE=123456
 EXPO_PUBLIC_DUMMY_AUTH_PASSWORD=TestOtp123!
@@ -92,11 +92,19 @@ Signed with the debug keystore (fine for internal UAT). Slightly smaller than de
 npm run android:apk:uat:customer
 ```
 
-**APK location:**
+**APK location** (Gradle output, unchanged):
 
 ```text
 apps/customer-app/android/app/build/outputs/apk/release/app-release.apk
 ```
+
+**Shareable copy** (dated filename, created automatically after each UAT build):
+
+```text
+apps/customer-app/dist/OorjaMan-Customer-UAT-DDMMYYYY.apk
+```
+
+Example: a build on **17 June 2026** → `OorjaMan-Customer-UAT-17062026.apk` (date is always **today** when Gradle finishes).
 
 ### Technician (Partner)
 
@@ -104,15 +112,21 @@ apps/customer-app/android/app/build/outputs/apk/release/app-release.apk
 npm run android:apk:uat:technician
 ```
 
-**APK location:**
+**APK location** (Gradle output, unchanged):
 
 ```text
 apps/technician-app/android/app/build/outputs/apk/release/app-release.apk
 ```
 
+**Shareable copy** (dated filename):
+
+```text
+apps/technician-app/dist/OorjaMan-Technician-UAT-DDMMYYYY.apk
+```
+
 ### Share
 
-- AirDrop / Drive / Slack the `.apk` file.
+- AirDrop / Drive / Slack the dated `.apk` from `apps/<app>/dist/` (e.g. `OorjaMan-Customer-UAT-17062026.apk` if built on 17 June 2026).
 - On phone: enable **Install unknown apps** for the browser/files app.
 - UAT package IDs install **alongside** any prod build.
 

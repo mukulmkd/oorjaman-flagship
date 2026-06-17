@@ -14,7 +14,8 @@ import { formatDisplayDate, formatDisplayDateTime } from "@oorjaman/utils";
 import { Badge, Button, Card, Modal, PageHeader } from "@oorjaman/web-ui";
 import { TablePaginationBar } from "../components/TablePaginationBar";
 import { formatNotificationChannelLabel } from "../lib/notification-labels";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
+import { invalidateAdminRenewalQueries } from "../lib/invalidate-admin-queries";
 import "./subscription-renewals-page.css";
 
 const RENEWAL_EVENTS_FETCH = 300;
@@ -71,7 +72,7 @@ export function SubscriptionRenewalsPage() {
   const expiringQuery = useQuery({
     queryKey: queryKeys.subscriptions.renewalCandidates(daysAhead),
     queryFn: () => subscriptionApi.adminListSubscriptionRenewalNudgeCandidates(supabase!, { daysAhead, limit: 300 }),
-    enabled: Boolean(supabase),
+    enabled: Boolean(supabase && audienceTab === "expiring_soon"),
   });
 
   const lapsedQuery = useQuery({
@@ -81,7 +82,7 @@ export function SubscriptionRenewalsPage() {
         daysSinceEnded,
         limit: 300,
       }),
-    enabled: Boolean(supabase),
+    enabled: Boolean(supabase && audienceTab === "lapsed"),
   });
 
   const channelSummaryQuery = useQuery({
@@ -110,7 +111,7 @@ export function SubscriptionRenewalsPage() {
     setSelectedIds([]);
   }, [audienceTab, daysAhead, daysSinceEnded]);
 
-  const candidatesAll = candidatesQuery.data ?? [];
+  const candidatesAll = useMemo(() => candidatesQuery.data ?? [], [candidatesQuery.data]);
   const candidatesTotal = candidatesAll.length;
   const candidatesWindow = useMemo(
     () =>
@@ -153,12 +154,7 @@ export function SubscriptionRenewalsPage() {
   );
 
   const invalidateRenewalData = async () => {
-    await Promise.all([
-      candidatesQuery.refetch(),
-      queueStatsQuery.refetch(),
-      eventsQuery.refetch(),
-      qc.invalidateQueries({ queryKey: queryKeys.subscriptions.renewalQueueStats() }),
-    ]);
+    await invalidateAdminRenewalQueries(qc);
   };
 
   const queueMut = useMutation({

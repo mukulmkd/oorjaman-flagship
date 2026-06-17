@@ -7,14 +7,22 @@ export type SitePhotoGeocode = {
 };
 
 export async function reverseGeocodeSitePhoto(lat: number, lng: number): Promise<SitePhotoGeocode> {
-  const rows = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+  const coordFallback = (): SitePhotoGeocode => ({
+    line1: "India",
+    cityRegion: `Near ${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+    fullAddress: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+  });
+
+  let rows: Location.LocationGeocodedAddress[] = [];
+  try {
+    rows = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+  } catch {
+    return coordFallback();
+  }
+
   const g = rows[0];
   if (!g) {
-    return {
-      line1: "India",
-      cityRegion: `Near ${lat.toFixed(5)}, ${lng.toFixed(5)}`,
-      fullAddress: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-    };
+    return coordFallback();
   }
 
   const city = [g.city, g.subregion, g.district].filter(Boolean).join(", ");

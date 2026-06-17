@@ -5,8 +5,8 @@ import { PageHeader } from "@oorjaman/web-ui";
 import { CustomerContextPanel } from "../components/CustomerContextPanel";
 import { ParticipantContextPanel } from "../components/ParticipantContextPanel";
 import { SupportSlaBadges } from "../components/SupportSlaBadges";
-import { useActiveChat } from "../lib/active-chat-context";
-import { useSupabase } from "../lib/supabase-context";
+import { useActiveChat } from "../lib/use-active-chat";
+import { useSupabase } from "../lib/supabase-client";
 import "./support-inbox.css";
 import "../components/support-chat-dock.css";
 

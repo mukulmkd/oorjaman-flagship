@@ -22,6 +22,8 @@ export const queryKeys = {
   auth: {
     session: () => [...queryKeys.root, "auth", "session"] as const,
     user: () => [...queryKeys.root, "auth", "user"] as const,
+    /** Combined session + public.users profile for web portal chrome and gates. */
+    portalSession: () => [...queryKeys.root, "auth", "portal-session"] as const,
   },
 
   users: {

@@ -66,18 +66,6 @@ export {
   VENDOR_INTAKE_SESSION_TOKEN_KEY,
 } from "./vendors/vendor-intake-api";
 export {
-  emitVendorApprovalNotificationPlaceholder,
-  type VendorApprovalNotificationPlaceholderPayload,
-  type VendorApprovalNotificationPlaceholderRecord,
-  type VendorApprovalNotificationDecision,
-} from "./notifications/vendor-approval-notifications";
-export {
-  emitTechnicianInviteNotificationPlaceholder,
-  type TechnicianInviteChannel,
-  type TechnicianInviteNotificationPayload,
-  type TechnicianInviteNotificationRecord,
-} from "./notifications/technician-invite-notifications";
-export {
   emitMarketplaceNotificationEvents,
   readMarketplaceBroadcastFilter,
   type MarketplaceNotificationChannel,
@@ -92,10 +80,13 @@ export {
 } from "./notifications/notification-events-api";
 export {
   adminFetchOpsDeskSummary,
+  adminFetchOpsDeskSummaryLight,
   adminListAmcAwaitingPartnerAssignments,
   adminListRecentFailedNotificationEvents,
+  buildOpsDeskSummary,
   type OpsAmcAwaitingPartnerRow,
   type OpsDeskSummary,
+  type OpsDeskSummaryLight,
 } from "./operations/ops-desk-api";
 export {
   countUnreadInAppNotifications,
@@ -234,7 +225,6 @@ export {
 export {
   adminFetchBookingStats,
   adminFetchBookingsCreatedDaily,
-  adminFetchRevenueStats,
   adminFetchRecognizedRevenueStats,
   adminFetchFinanceDashboardStats,
   adminFetchPaymentStats,
@@ -304,6 +294,7 @@ export {
   type SubscriptionRenewalNudgeCandidate,
 } from "./subscriptions/subscription-renewal-nudges-api";
 export {
+  bookingBelongsToServiceAddress,
   bookingMatchesSubscriptionAddress,
   getActiveSubscriptionForAddress,
   getRenewalDueSubscriptionForAddress,
@@ -426,7 +417,6 @@ export type {
   SupportConversationClosureSummary,
   SupportConversationContext,
   SupportConversationEventWithActor,
-  SupportConversationWithCustomer,
   SupportConversationWithParticipant,
   SupportDeskAgent,
   SupportDeskCustomerBrief,
@@ -513,22 +503,12 @@ export {
   type AmcContractStatus,
 } from "./finance/amc-contract-api";
 export {
-  adminListAmcWallets,
-  ensureAmcWalletForSubscription,
-  fundAmcWalletFromPayment,
-  getAmcWalletBySubscriptionId,
-  listAmcWalletEntries,
-  releaseAmcWalletVisitPayout,
-  type AmcWalletAdminRow,
-} from "./finance/amc-wallet-api";
-export {
   adminBackfillVisitPayoutSettlements,
   adminListVendorSettlements,
   adminUpdateVendorSettlement,
   bookingVisitValuePaise,
   computeVisitPayoutBreakdown,
   visitGrossTaxableValuePaise,
-  DEFAULT_PLATFORM_FEE_PERCENT,
   ensureCancellationPenaltySettlement,
   ensureVisitPayoutSettlement,
   formatInrFromPaise,

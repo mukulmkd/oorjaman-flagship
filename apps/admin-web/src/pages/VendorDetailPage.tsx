@@ -13,7 +13,7 @@ import {
   TextArea,
 } from "@oorjaman/web-ui";
 import { DocumentViewButton } from "../components/DocumentViewer";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 import {
   approvalBadgeTone,
   formatSubmittedAt,

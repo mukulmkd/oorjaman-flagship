@@ -86,16 +86,6 @@
   cursor: not-allowed;
 }
 
-.al-dummy {
-  padding: 0.65rem 0.75rem;
-  border-radius: 10px;
-  background: #ecfdf5;
-  color: #065f46;
-  font-size: var(--type-sm);
-  margin-bottom: 1rem;
-  line-height: 1.45;
-}
-
 .al-error {
   color: #b91c1c;
   margin: 0 0 0.75rem;

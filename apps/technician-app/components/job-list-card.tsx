@@ -4,7 +4,7 @@ import { Card } from "@oorjaman/ui";
 import { colors, spacing } from "@oorjaman/config";
 import { jobStatusLabel, jobUiBucket } from "../lib/job-status";
 import { formatJobWhen, opsWatchLabel, serviceForLabel, stringifyAddress } from "../lib/booking-display";
-import { fontFamily, fontSize, fontWeight } from "../constants/fonts";
+import { fontFamily, fontSize } from "../constants/fonts";
 
 function StatusChip({ status }: { status: BookingStatus }) {
   const bucket = jobUiBucket(status);

@@ -1,6 +1,14 @@
-# Vercel deployment Guide — admin portals (testing)
+# Vercel deployment guide — UAT admin portals (live)
 
-Step-by-step guide for deploying the three **Vite admin portals** (`admin-web`, `vendor-web`, `support-web`) to **Vercel** for internal testing, before production hosting on **GoDaddy**.
+Step-by-step guide for the three **Vite portals** (`admin-web`, `vendor-web`, `support-web`) on **Vercel**. This is the **current UAT hosting** for ops QA; production moves to **GoDaddy** later with a separate Supabase project.
+
+**Status (2026-05-20):** Deployed and verified.
+
+| Portal | URL |
+| ------ | --- |
+| Admin | https://oorjaman-admin.vercel.app |
+| Vendor | https://oorjaman-vendor.vercel.app |
+| Support | https://oorjaman-support.vercel.app |
 
 **Related docs:**
 
@@ -81,7 +89,7 @@ Confirmed working **admin** setup (repo root, not `apps/admin-web` as root):
 
 `No Output Directory named "dist" found after the Build completed`
 
-Do **not** add per-app `vercel.json` files — admin has none.
+Do **not** add per-app `vercel.json` files — use root [`vercel.json`](vercel.json) only (SPA rewrites + security headers).
 
 Vendor `build:uat` runs `prebuild:uat` (ensures `country-state-city` if CI skipped it) then `brand:sync:web` and `vite build --mode uat` (no `tsc` on deploy).
 
@@ -168,7 +176,7 @@ VITE_DUMMY_AUTH_PASSWORD=TestOtp123!
 Seed dummy users in **UAT** (local machine only — uses `service_role`, never in Vercel):
 
 ```bash
-# root .env: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY = UAT
+# root .env.uat.local: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY = UAT
 npm run seed:dummy-users
 ```
 
@@ -353,4 +361,4 @@ Full tables: [ENVIRONMENT.md](ENVIRONMENT.md).
 
 ---
 
-_Last updated: 2026-05-19 — Vercel testing for admin-web, vendor-web, support-web._
+_Last updated: 2026-05-20 — live UAT on Vercel; three projects; UAT Supabase + dummy auth._

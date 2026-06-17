@@ -14,7 +14,6 @@ import {
   View,
 } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import {
@@ -39,7 +38,6 @@ import {
   readBookingCustomerCancellationMeta,
   readBookingOpsMeta,
   readBookingRecipientMeta,
-  readBookingVendorReassignmentMeta,
   technicianApi,
   userApi,
   vendorResponseDeadline,
@@ -61,7 +59,7 @@ import {
   SkeletonStack,
   useModalStackHeader,
 } from "@oorjaman/ui";
-import { fontFamily, fontSize, fontWeight } from "../constants/fonts";
+import { fontFamily, fontSize } from "../constants/fonts";
 import { bookingSupportMailto } from "../lib/support";
 import {
   customerConfirmedBookingStatusHelp,
@@ -274,7 +272,6 @@ export default function BookingDetailScreen() {
   const serviceOtp = b ? bookingApi.readBookingServiceOtpMeta(b.metadata) : null;
   const serviceFor = b ? serviceForDetails(b.metadata) : null;
   const opsMeta = b ? readBookingOpsMeta(b.metadata) : null;
-  const vendorReassignMeta = b ? readBookingVendorReassignmentMeta(b.metadata) : null;
 
   const customerQuery = useQuery({
     queryKey: queryKeys.customers.mine(),

@@ -23,13 +23,11 @@ import {
 import { hideNativeSplashScreenOnce } from "@oorjaman/ui/safe-splash-screen";
 
 installMobileAuthConsoleFilters();
-import { SupportChatHeaderButton } from "../components/help-header-button";
 import { supabase } from "../lib/supabase";
 import { HelpSupportProvider } from "../components/help-support-provider";
 import { CustomerPostLoginPromptsProvider } from "../components/customer-post-login-prompts";
 import { SitePhotoStampProvider } from "../components/site-photo-stamp-provider";
 import { initBookingNotificationHandler, initSupportChatNotificationHandler } from "@oorjaman/ui";
-import { fontFamily, fontSize } from "../constants/fonts";
 
 initBookingNotificationHandler();
 initSupportChatNotificationHandler();

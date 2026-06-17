@@ -280,28 +280,20 @@ async function main() {
   const v1 = ids["vendor:+919000000201"];
   const v2 = ids["vendor:+919000000202"];
 
-  const { error: delVendorsErr } = await admin.from("vendors").delete().in("user_id", [v1, v2]);
-  if (delVendorsErr) throw delVendorsErr;
-
-  const { error: ins1 } = await admin.from("vendors").insert({
-    user_id: v1,
-    business_name: vendor1.fullName,
+  const vendorSeedRow = (userId, def) => ({
+    user_id: userId,
+    business_name: def.fullName,
     approval_status: "approved",
     reviewed_at: now,
     approved_at: now,
-    contact_phone: vendor1.phone,
+    contact_phone: def.phone,
   });
-  if (ins1) throw ins1;
 
-  const { error: ins2 } = await admin.from("vendors").insert({
-    user_id: v2,
-    business_name: vendor2.fullName,
-    approval_status: "approved",
-    reviewed_at: now,
-    approved_at: now,
-    contact_phone: vendor2.phone,
-  });
-  if (ins2) throw ins2;
+  const { error: upsertVendorsErr } = await admin.from("vendors").upsert(
+    [vendorSeedRow(v1, vendor1), vendorSeedRow(v2, vendor2)],
+    { onConflict: "user_id" },
+  );
+  if (upsertVendorsErr) throw upsertVendorsErr;
 
   const { data: venRows, error: vq } = await admin.from("vendors").select("id,user_id").in("user_id", [v1, v2]);
   if (vq) throw vq;

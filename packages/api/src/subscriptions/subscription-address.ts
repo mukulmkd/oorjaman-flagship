@@ -1,4 +1,4 @@
-import type { CustomerRow, Json, SubscriptionRow } from "../database.types";
+import type { BookingRow, CustomerRow, Json, SubscriptionRow } from "../database.types";
 import { formattedSiteAddressFromJson } from "../bookings/customer-booking-payload";
 import {
   buildServiceSiteAddressFromEntry,
@@ -122,6 +122,21 @@ export function readBookingServiceAddressId(metadata: Json): string | null {
     return null;
   const v = (metadata as Record<string, unknown>).service_address_id;
   return typeof v === "string" && v.trim() ? v.trim() : null;
+}
+
+/** Whether a booking belongs to a saved service address (metadata id or AMC subscription at that site). */
+export function bookingBelongsToServiceAddress(
+  booking: BookingRow,
+  serviceAddressId: string,
+  options?: { subscriptionIdAtAddress?: string | null },
+): boolean {
+  const id = serviceAddressId.trim();
+  if (!id) return false;
+  const metaAddr = readBookingServiceAddressId(booking.metadata);
+  if (metaAddr) return metaAddr === id;
+  const subId = options?.subscriptionIdAtAddress?.trim();
+  if (subId && booking.subscription_id === subId) return true;
+  return false;
 }
 
 export function bookingMatchesSubscriptionAddress(

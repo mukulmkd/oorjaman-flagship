@@ -27,7 +27,7 @@ import {
 import type { Json, TechnicianDocKind, TechnicianRow, VendorRow } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
 import { AppScaffold, Button, Input, Screen, SCREEN_EDGES_FULL_SCREEN } from "@oorjaman/ui";
-import { fontFamily, fontSize, fontWeight } from "../constants/fonts";
+import { fontFamily, fontSize } from "../constants/fonts";
 import {
   allOnboardingSafetyAcksChecked,
   emptyOnboardingSafetyAcks,
@@ -35,6 +35,7 @@ import {
   type OnboardingSafetyAckKey,
 } from "../lib/onboarding-safety-acks";
 import { supabase } from "../lib/supabase";
+import { navigateToTechnicianMainAfterApproval } from "../lib/technician-approval-toast";
 
 type PickedDoc = { uri: string; name: string; mime: string | null };
 
@@ -599,6 +600,26 @@ export default function TechnicianOnboardingScreen() {
 
   const user = userQuery.data;
   const wrongRole = user && user.role !== "technician";
+  const hasActiveDraft = technicianApi.technicianHasActiveOnboardingDraft(tech);
+  const canAccessMainApp =
+    technicianApi.technicianIsFullyOnboarded(tech) && !hasActiveDraft;
+
+  useEffect(() => {
+    if (
+      techQuery.isPending ||
+      userQuery.isPending ||
+      vendorAccessQuery.isPending ||
+      !canAccessMainApp
+    ) {
+      return;
+    }
+    navigateToTechnicianMainAfterApproval();
+  }, [
+    canAccessMainApp,
+    techQuery.isPending,
+    userQuery.isPending,
+    vendorAccessQuery.isPending,
+  ]);
 
   const setField = <K extends keyof FormFields>(key: K, value: FormFields[K]) => {
     setForm((f: FormFields) => ({ ...f, [key]: value }));
@@ -657,25 +678,10 @@ export default function TechnicianOnboardingScreen() {
     return <Redirect href="/pending-vendor-review" />;
   }
 
-  /** Must match `(main)/_layout.tsx` and `resolveTechnicianAppPostAuthPath` - platform + employer approval. */
-  const hasActiveDraft = technicianApi.technicianHasActiveOnboardingDraft(tech);
-  const canAccessMainApp =
-    technicianApi.technicianIsFullyOnboarded(tech) && !hasActiveDraft;
-
   if (canAccessMainApp) {
     return (
       <Screen edges={SCREEN_EDGES_FULL_SCREEN}>
-        <Text style={styles.title}>You’re verified</Text>
-        <Text style={styles.body}>You can access assigned jobs.</Text>
-        <View style={styles.sectionTop}>
-          <Button
-            variant="primary"
-            size="lg"
-            onPress={() => router.replace("/(main)/jobs")}
-          >
-            Continue to jobs
-          </Button>
-        </View>
+        <ActivityIndicator style={styles.loading} color={colors.primary} />
       </Screen>
     );
   }

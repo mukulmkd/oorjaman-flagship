@@ -9,7 +9,7 @@
     "brand:sync": "node ../../scripts/sync-brand-assets.mjs",
     "brand:sync:web": "node ../../scripts/sync-brand-assets.mjs --web-only",
     "prebuild:uat": "node ../../scripts/ensure-country-state-city.mjs",
-    "build:uat": "npm run brand:sync:web && vite build --mode uat",
+    "build:uat": "npm run brand:sync:web && tsc -b && vite build --mode uat",
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint ."

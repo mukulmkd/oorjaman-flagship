@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { bookingApi, queryKeys, technicianApi, userApi } from "@oorjaman/api";
 import { Button, Card, Screen, SCREEN_EDGES_BENEATH_NATIVE_HEADER } from "@oorjaman/ui";
 import { colors, spacing } from "@oorjaman/config";
-import { fontFamily, fontSize, fontWeight } from "../../constants/fonts";
+import { fontFamily, fontSize } from "../../constants/fonts";
 import { SupportChatHeaderButton } from "../../components/help-header-button";
 import { JobListCard } from "../../components/job-list-card";
 import { formatJobWhen, preferredWorkCity, stringifyAddress } from "../../lib/booking-display";

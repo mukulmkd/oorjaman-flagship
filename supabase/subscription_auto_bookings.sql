@@ -2,7 +2,7 @@
 -- AMC subscriptions → auto-generated booking visits
 -- =============================================================================
 -- Legacy: visit generation used to run here via trigger. Scheduling and vendor
--- Routing now lives in the app (`packages/api` → `syncAmcBookingsForSubscription`).
+-- Visit scheduling now lives in the app (`packages/api` → `scheduleAmcVisitSlot`).
 -- First AMC visit is created without `vendor_id` (`metadata.marketplace.awaiting_admin_float`);
 -- ops floats it to partners like other default-vendor rows. Later AMC visits resolve a single partner via `resolveBookingVendor`.
 --

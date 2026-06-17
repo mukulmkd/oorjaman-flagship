@@ -2,7 +2,7 @@
 
 Field-support chat uses **Expo Push** for notifications when the OorjaMan Partner app is killed or in the background.
 
-For the full dev vs production matrix (all env vars and apps), see [**ENVIRONMENT.md**](../ENVIRONMENT.md).
+For the full dev vs production matrix (all env vars and apps), see [**ENVIRONMENT.md**](../project-docs/ENVIRONMENT.md).
 
 Customer app push (separate outbox and function): [**customer-push-setup.md**](customer-push-setup.md).
 
@@ -17,7 +17,7 @@ Includes technician support audience (`20260732120000_support_technician_audienc
 ## 2. EAS project ID (client)
 
 1. Create/link an EAS project: `npx eas init` in `apps/technician-app`.
-2. Set `EXPO_PUBLIC_EAS_PROJECT_ID` in `apps/technician-app/.env` (same value as EAS `projectId`).
+2. Set `EXPO_PUBLIC_EAS_PROJECT_ID` in `apps/technician-app/.env.development.local` or EAS secrets (same value as EAS `projectId`).
 
 The partner app can use the **same** EAS project as the customer app or a separate one; use separate projects if you want isolated push credentials per app.
 

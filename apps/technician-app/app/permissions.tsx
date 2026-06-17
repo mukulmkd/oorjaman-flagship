@@ -5,7 +5,7 @@ import * as Location from "expo-location";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, spacing } from "@oorjaman/config";
-import { fontFamily, fontSize, fontWeight } from "../constants/fonts";
+import { fontFamily, fontSize } from "../constants/fonts";
 import { STORAGE_KEY_LOCATION_PROMPT_DONE } from "../constants/storage";
 
 export default function PermissionsScreen() {

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate the non-technical UAT test guide (Word) in the repo root.
+Generate the non-technical UAT test guide (Word) in project-docs/.
 
 Run: python3 scripts/generate-e2e-test-doc.py
 Requires: python-docx (use a venv: pip install python-docx)
@@ -18,7 +18,7 @@ from docx.oxml.ns import qn
 from docx.shared import Inches, Pt
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = REPO_ROOT / "OorjaMan-E2E-Test-Guide.docx"
+OUTPUT = REPO_ROOT / "project-docs" / "OorjaMan-E2E-Test-Guide.docx"
 
 # --- UAT access (update here when URLs or APK names change) ---
 ADMIN_PORTAL_URL = "https://oorjaman-admin.vercel.app"

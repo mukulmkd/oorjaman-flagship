@@ -12,7 +12,6 @@ export {
   fundAmcWalletFromPayment as fundAmcContractFromPayment,
   releaseAmcWalletVisitPayout as releaseAmcContractVisitPayout,
   type AmcWalletAdminRow as AmcContractAdminRow,
-  type AmcWalletAdminRow,
 } from "./amc-wallet-api";
 
 import type { AmcWalletRow, AmcWalletStatus } from "../database.types";

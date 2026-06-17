@@ -5,7 +5,7 @@ import { authApi, resolveTechnicianAppPostAuthPath, userApi } from "@oorjaman/ap
 import type { UserRole } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
 import { Button, Screen, SCREEN_EDGES_FULL_SCREEN } from "@oorjaman/ui";
-import { fontFamily, fontSize, fontWeight } from "../constants/fonts";
+import { fontFamily, fontSize } from "../constants/fonts";
 import { supabase } from "../lib/supabase";
 
 function hintForRole(role: UserRole | undefined): { title: string; body: string } {

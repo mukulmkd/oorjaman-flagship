@@ -41,6 +41,7 @@ const config: ExpoConfig = {
       backgroundColor: "#ffffff",
     },
     package: isUat ? "com.oorjaman.customer.uat" : "com.oorjaman.customer",
+    permissions: ["android.permission.CAMERA"],
     ...(googleMapsApiKey
       ? {
           config: {

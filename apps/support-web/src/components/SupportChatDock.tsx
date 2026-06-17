@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys, supportApi } from "@oorjaman/api";
-import { useActiveChat } from "../lib/active-chat-context";
-import { useSupabase } from "../lib/supabase-context";
+import { useActiveChat } from "../lib/use-active-chat";
+import { useSupabase } from "../lib/supabase-client";
 import { SupportChatPanel } from "./SupportChatPanel";
 import "./support-chat-dock.css";
 

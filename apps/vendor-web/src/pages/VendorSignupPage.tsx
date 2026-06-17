@@ -1,11 +1,10 @@
 import { webTypography } from "./../styles/typography";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   authApi,
   buildLoginE164,
   DEFAULT_LOGIN_COUNTRY_DIAL,
-  getDummyAuthUiHint,
   LOGIN_PHONE_COUNTRIES,
   uploadVendorIntakeDocument,
   userApi,
@@ -18,7 +17,7 @@ import type { VendorIntakeSignupForm } from "@oorjaman/api";
 import type { Json } from "@oorjaman/api";
 import type { VendorDocKind } from "@oorjaman/api";
 import { Button, Card, Input, PhoneCountryLogin, TextArea } from "@oorjaman/web-ui";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 import "./vendor-signup.css";
 
 const SECTION_ORDER = [
@@ -162,8 +161,6 @@ export default function VendorSignupPage() {
   const [draftToken, setDraftToken] = useState<string | null>(null);
   const [intakeHydrated, setIntakeHydrated] = useState(false);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
-
-  const dummyHint = useMemo(() => getDummyAuthUiHint(import.meta.env), []);
 
   useEffect(() => {
     if (!supabase || intakeHydrated) return;
@@ -571,7 +568,6 @@ export default function VendorSignupPage() {
 
           {currentSection === "partner_login" ? (
             <>
-              {dummyHint ? <div className="vs-dummy">{dummyHint}</div> : null}
               <div className="vs-fields">
                 <p className="vs-hint" style={{ marginTop: 0 }}>
                   After approval, you will sign in with this email and mobile number (OTP / magic link - same as partner

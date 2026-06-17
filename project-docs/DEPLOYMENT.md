@@ -1,30 +1,64 @@
-# Deployment - PROD vs UAT (8 web hosts + 4 mobile apps, 2 Supabase projects)
+# Deployment — PROD vs UAT (8 web hosts + 4 mobile apps, 2 Supabase projects, Vercel UAT portals)
 
 This runbook covers:
 
-- **8 web URLs** on GoDaddy (4 production + 4 UAT)
-- **4 mobile installables** - Customer and Partner apps, each with a **PROD** (store) and **UAT** (internal QA) binary
-- **2 Supabase projects** - UAT database vs production database (same schema, different data)
+- **8 web URLs** on GoDaddy (4 production + 4 UAT) — **target** layout for marketing + long-term portal hosting
+- **3 Vercel projects** — **current UAT** hosting for admin / vendor / support portals (see [VERCEL.md](VERCEL.md))
+- **4 mobile installables** — Customer and Partner apps, each with a **PROD** (store) and **UAT** (internal QA) binary
+- **2 Supabase projects** — UAT database vs production database (same schema, different data)
 
-**Related docs:** [VERCEL.md](VERCEL.md) (deploy portals to Vercel for testing), [ENVIRONMENT.md](ENVIRONMENT.md) (all env vars), [SEO.md](SEO.md) (production marketing SEO only), [BILLING.md](BILLING.md) (Maps, push, store fees).
+**Related docs:** [VERCEL.md](VERCEL.md) (UAT portals on Vercel — **live today**), [ENVIRONMENT.md](ENVIRONMENT.md) (all env vars), [SUPABASE-UAT-PROD.md](SUPABASE-UAT-PROD.md) (migrations), [SEO.md](SEO.md) (production marketing SEO only), [BILLING.md](BILLING.md) (Supabase, Vercel, EAS, Maps, store fees).
 
 ---
 
 ## At a glance
 
-| Surface                      | PROD                               | UAT                                            |
-| ---------------------------- | ---------------------------------- | ---------------------------------------------- |
-| Marketing web                | `oorjaman.com`                     | `dev-oorjaman.oorjaman.com` (noindex)          |
-| Admin / vendor / support web | `admin.*`, `vendor.*`, `support.*` | `dev-admin.*`, `dev-vendor.*`, `dev-support.*` |
-| Customer app (iOS/Android)   | App Store / Play - **OorjaMan**    | Internal / TestFlight - **OorjaMan (UAT)**     |
-| Partner app (iOS/Android) | Store - **OorjaMan Partner**    | Internal - **OorjaMan Partner (UAT)**       |
-| Supabase                     | `oorjaman-prod` project            | `oorjaman-uat` project                         |
+| Surface                      | PROD                               | UAT (today)                                                                 | UAT (GoDaddy, planned)                         |
+| ---------------------------- | ---------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------- |
+| Marketing web                | `oorjaman.com`                     | Local / not on Vercel yet                                                   | `dev-oorjaman.oorjaman.com` (noindex)          |
+| Admin / vendor / support web | `admin.*`, `vendor.*`, `support.*` | **Vercel:** `oorjaman-admin/vendor/support.vercel.app` ([VERCEL.md](VERCEL.md)) | `dev-admin.*`, `dev-vendor.*`, `dev-support.*` |
+| Customer app (iOS/Android)   | App Store / Play — **OorjaMan**    | Internal / TestFlight / APK — **OorjaMan (UAT)**                            | Same                                           |
+| Partner app (iOS/Android)    | Store — **OorjaMan Partner**       | Internal — **OorjaMan Partner (UAT)**                                       | Same                                           |
+| Supabase                     | `OorjaMan Prod` project            | **`OorjaMan UAT`** project (all dev + Vercel + UAT mobile)                  | Same UAT project                               |
+
+### Web portal deployment path (admin / vendor / support)
+
+```
+Local dev          → localhost:5173–5175 + apps/*/.env.development.local
+UAT (current)      → Vercel + VITE_* in Dashboard (or apps/*/.env.uat.local for local build:uat)
+GoDaddy UAT        → dev-*.oorjaman.com + rebuild with dev host cross-links (when you leave Vercel)
+GoDaddy PROD       → *.oorjaman.com + Prod Supabase + no dummy auth
+```
+
+**Live Vercel UAT URLs (2026-05-20):**
+
+| Portal  | URL |
+| ------- | --- |
+| Admin   | https://oorjaman-admin.vercel.app |
+| Vendor  | https://oorjaman-vendor.vercel.app |
+| Support | https://oorjaman-support.vercel.app |
+
+Assign custom domains in Vercel (e.g. `dev-admin.oorjaman.com`) when DNS is ready — update `VITE_*_PORTAL_URL` and redeploy all three projects so cross-links stay consistent.
 
 ---
 
-## URL matrix (8 web hosts)
+## URL matrix (8 GoDaddy web hosts + 3 Vercel UAT portals)
 
-All hosts below use **HTTPS**. Replace `oorjaman.com` if your apex domain differs.
+### Vercel — UAT portals (current)
+
+Static Vite SPAs; Supabase called from the browser with the **anon** key. Root [`vercel.json`](vercel.json) handles SPA rewrites.
+
+| Portal  | Vercel project (example) | Build command | Output |
+| ------- | ------------------------ | ------------- | ------ |
+| Admin   | `oorjaman-admin`         | `npm run build:uat -w admin-web` | `apps/admin-web/dist` |
+| Vendor  | `oorjaman-vendor`        | `npm run build:uat -w vendor-web` | `apps/vendor-web/dist` |
+| Support | `oorjaman-support`       | `npm run build:uat -w support-web` | `apps/support-web/dist` |
+
+Monorepo settings (each project): **Root Directory** = repo root; **Install** = `npm install`; **Node** = 20.x. Full steps: [VERCEL.md](VERCEL.md).
+
+### GoDaddy — marketing + future portal hosting (target)
+
+All GoDaddy hosts below use **HTTPS**. Replace `oorjaman.com` if your apex domain differs.
 
 | Tier     | App       | Hostname                            | Build output             |
 | -------- | --------- | ----------------------------------- | ------------------------ |
@@ -49,7 +83,7 @@ Use **two separate Supabase projects** so UAT never writes to production data.
 
 | Project                                                                      | Purpose                   | Used by                                                          |
 | ---------------------------------------------------------------------------- | ------------------------- | ---------------------------------------------------------------- |
-| **OorjaMan UAT** (rename your current **OorjaMan** project in the dashboard) | Staging / UAT             | All 4 UAT web builds, UAT mobile builds, local dev (recommended) |
+| **OorjaMan UAT** (rename your current **OorjaMan** project in the dashboard) | Staging / UAT             | Local dev, **Vercel portals**, UAT mobile, `npm run seed:dummy-users` |
 | **OorjaMan Prod** (new project)                                              | Live customers & partners | All 4 PROD web builds, store mobile builds                       |
 
 **Migrations, RLS, views, cron:** applied from `supabase/migrations/` via `npm run db:push` on **each** project (UAT first, then Prod). Full runbook: **[SUPABASE-UAT-PROD.md](SUPABASE-UAT-PROD.md)**.
@@ -89,7 +123,7 @@ Schema comes from migrations (`db:push`). **Data** is not copied automatically.
 
 | Approach              | When to use                                                                                         |
 | --------------------- | --------------------------------------------------------------------------------------------------- |
-| **Fresh UAT**         | Seed test users only: root `.env` with UAT `SUPABASE_SERVICE_ROLE_KEY` → `npm run seed:dummy-users` |
+| **Fresh UAT**         | Seed test users only: root `.env.uat.local` with UAT `SUPABASE_SERVICE_ROLE_KEY` → `npm run seed:dummy-users` |
 | **pg_dump / restore** | You need a realistic copy of prod (PII - restrict access)                                           |
 
 **pg_dump (advanced):**
@@ -118,14 +152,31 @@ In each project: **Authentication → URL configuration**
 
 | Setting       | PROD project                                                                                                                    | UAT project                                                                                                                                              |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Site URL      | `https://oorjaman.com`                                                                                                          | `https://dev-oorjaman.oorjaman.com`                                                                                                                      |
-| Redirect URLs | `https://oorjaman.com/**`, `https://admin.oorjaman.com/**`, `https://vendor.oorjaman.com/**`, `https://support.oorjaman.com/**` | `https://dev-oorjaman.oorjaman.com/**`, `https://dev-admin.oorjaman.com/**`, `https://dev-vendor.oorjaman.com/**`, `https://dev-support.oorjaman.com/**` |
+| Site URL      | `https://oorjaman.com`                                                                                                          | `https://oorjaman-admin.vercel.app` (or primary Vercel admin URL)                                                                                        |
+| Redirect URLs | `https://oorjaman.com/**`, `https://admin.oorjaman.com/**`, `https://vendor.oorjaman.com/**`, `https://support.oorjaman.com/**` | **Vercel (required today):** `https://oorjaman-admin.vercel.app/**`, `https://oorjaman-vendor.vercel.app/**`, `https://oorjaman-support.vercel.app/**`, `https://*.vercel.app/**` |
+|               |                                                                                                                                 | **GoDaddy UAT (when used):** `https://dev-oorjaman.oorjaman.com/**`, `https://dev-admin.oorjaman.com/**`, `https://dev-vendor.oorjaman.com/**`, `https://dev-support.oorjaman.com/**` |
+
+> Normal portal login uses in-app OTP (`verifyOtp`) with dummy auth on UAT — redirect URLs matter for magic links and future OAuth. See [VERCEL.md](VERCEL.md#supabase-changes-uat-project).
 
 ---
 
 ## Environment files (per tier)
 
-Copy templates from [`.env.example`](.env.example). Use **separate** `.env` (or CI secrets) per tier - do not commit real values.
+Copy templates from each app’s `*.example` files. Use **separate** gitignored `.local` copies per tier — do not commit real values.
+
+### Vite portals — three env modes (`admin-web`, `vendor-web`, `support-web`)
+
+| File | Vite mode | When loaded | Portal URLs | Supabase |
+| ---- | --------- | ----------- | ----------- | -------- |
+| `.env.development.local` | `development` | `npm run admin` / `vendor` / `support` | `http://localhost:5173–5175` | **UAT** |
+| `.env.uat.local` | `uat` | `npm run build:uat -w <portal>` (local UAT build smoke test) | **Vercel** or `dev-*.oorjaman.com` | **UAT** |
+| `.env.production.local` | `production` | `npm run build -w <portal>` (GoDaddy prod) | `https://admin/vendor/support.oorjaman.com` | **Prod** |
+
+Templates: `apps/<portal>/.env.development.example`, `.env.uat.example`, `.env.production.example`.
+
+**Vercel:** set the same `VITE_*` names in the Dashboard (Production + Preview scopes) — Vercel does **not** read your local `.env.uat.local`. See [VERCEL.md](VERCEL.md#step-3--environment-variables-per-vercel-project).
+
+**Repo-root scripts only:** `.env.uat.local` (from [`.env.uat.local.example`](.env.uat.local.example)) — `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` for `npm run seed:dummy-users`, **not** used by Vite apps at runtime.
 
 ### Shared flags
 
@@ -153,20 +204,37 @@ NEXT_PUBLIC_SITE_URL=https://dev-oorjaman.oorjaman.com
 NEXT_PUBLIC_VENDOR_PORTAL_URL=https://dev-vendor.oorjaman.com
 ```
 
-### Vite portals - `apps/admin-web/.env`, `vendor-web`, `support-web`
+### Vite portals — example values
 
-**PROD (same Supabase pair in all three files):**
+**Local development** (`apps/admin-web/.env.development.local` — same pattern for vendor/support):
 
 ```env
-VITE_DEPLOY_ENV=production
-VITE_SUPABASE_URL=https://<PROD_REF>.supabase.co
-VITE_SUPABASE_ANON_KEY=<prod_anon_key>
-VITE_ADMIN_PORTAL_URL=https://admin.oorjaman.com
-VITE_VENDOR_PORTAL_URL=https://vendor.oorjaman.com
-VITE_SUPPORT_PORTAL_URL=https://support.oorjaman.com
+VITE_DEPLOY_ENV=uat
+VITE_SUPABASE_URL=https://<UAT_REF>.supabase.co
+VITE_SUPABASE_ANON_KEY=<uat_anon_key>
+VITE_ADMIN_PORTAL_URL=http://localhost:5173
+VITE_VENDOR_PORTAL_URL=http://localhost:5174
+VITE_SUPPORT_PORTAL_URL=http://localhost:5175
+VITE_USE_DUMMY_AUTH=true
+VITE_DUMMY_OTP_CODE=123456
+VITE_DUMMY_AUTH_PASSWORD=TestOtp123!
 ```
 
-**UAT:**
+**UAT build for Vercel** (set in Vercel Dashboard **or** `apps/admin-web/.env.uat.local` for local `build:uat`):
+
+```env
+VITE_DEPLOY_ENV=uat
+VITE_SUPABASE_URL=https://<UAT_REF>.supabase.co
+VITE_SUPABASE_ANON_KEY=<uat_anon_key>
+VITE_ADMIN_PORTAL_URL=https://oorjaman-admin.vercel.app
+VITE_VENDOR_PORTAL_URL=https://oorjaman-vendor.vercel.app
+VITE_SUPPORT_PORTAL_URL=https://oorjaman-support.vercel.app
+VITE_USE_DUMMY_AUTH=true
+VITE_DUMMY_OTP_CODE=123456
+VITE_DUMMY_AUTH_PASSWORD=TestOtp123!
+```
+
+**GoDaddy UAT** (when migrating off Vercel — swap cross-links to `dev-*.oorjaman.com`):
 
 ```env
 VITE_DEPLOY_ENV=uat
@@ -175,6 +243,18 @@ VITE_SUPABASE_ANON_KEY=<uat_anon_key>
 VITE_ADMIN_PORTAL_URL=https://dev-admin.oorjaman.com
 VITE_VENDOR_PORTAL_URL=https://dev-vendor.oorjaman.com
 VITE_SUPPORT_PORTAL_URL=https://dev-support.oorjaman.com
+```
+
+**PROD (GoDaddy — same Supabase pair in all three portal builds):**
+
+```env
+VITE_DEPLOY_ENV=production
+VITE_SUPABASE_URL=https://<PROD_REF>.supabase.co
+VITE_SUPABASE_ANON_KEY=<prod_anon_key>
+VITE_ADMIN_PORTAL_URL=https://admin.oorjaman.com
+VITE_VENDOR_PORTAL_URL=https://vendor.oorjaman.com
+VITE_SUPPORT_PORTAL_URL=https://support.oorjaman.com
+# Do not set VITE_USE_DUMMY_AUTH or VITE_DUMMY_* on prod
 ```
 
 ---
@@ -314,12 +394,12 @@ Use a **development** EAS build (`eas build --profile development`) for push not
 
 ### Mobile ↔ Supabase ↔ web alignment
 
-| Test flow      | Customer app                | Backend         | Web consoles                             |
-| -------------- | --------------------------- | --------------- | ---------------------------------------- |
-| UAT end-to-end | UAT build → UAT Supabase    | `oorjaman-uat`  | `dev-admin`, `dev-vendor`, `dev-support` |
-| Production     | Store build → PROD Supabase | `oorjaman-prod` | `admin`, `vendor`, `support`             |
+| Test flow      | Customer app                | Backend         | Web consoles                                                                 |
+| -------------- | --------------------------- | --------------- | ---------------------------------------------------------------------------- |
+| UAT end-to-end | UAT build → UAT Supabase    | OorjaMan UAT    | **Vercel:** admin / vendor / support `.vercel.app` (or GoDaddy `dev-*` later) |
+| Production     | Store build → PROD Supabase | OorjaMan Prod   | GoDaddy `admin`, `vendor`, `support`                                         |
 
-A **UAT customer app must not** point at production Supabase (and vice versa). Seed UAT users with root `.env` + `npm run seed:dummy-users` against the **UAT** service role key.
+A **UAT customer app must not** point at production Supabase (and vice versa). Seed UAT users with root `.env.uat.local` + `npm run seed:dummy-users` against the **UAT** service role key.
 
 ### Push notifications (both tiers)
 
@@ -331,7 +411,7 @@ UAT builds use the **`.uat` bundle IDs** - register separate FCM/APNs credential
 
 In-app maps (technician live tracking, activity map preview, site photo GPS stamps) use **Google Maps on iOS and Android** via `react-native-maps` + `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`. Opening coordinates in the browser (`https://www.google.com/maps?q=lat,lng`) does **not** need this key.
 
-**Defer until release prep** — local dev can skip the key (maps may fail or show blank tiles until configured). Complete this checklist before UAT/PROD EAS builds that need maps.
+**Defer until release prep** — local dev can skip the key (site photo stamps use **OpenStreetMap** HTTP fallback; in-app Google tiles stay blank until configured). Complete this checklist before UAT/PROD EAS builds that need **Google-branded** map tiles.
 
 #### 1. Create the key (Google Cloud Console)
 
@@ -462,7 +542,19 @@ Enable **SSL** on all eight. Redirect `www.oorjaman.com` → `https://oorjaman.c
 
 From repo root after `npm install`:
 
-### Production
+### Vercel UAT (admin / vendor / support — current)
+
+Push to GitHub → Vercel auto-builds, **or** build locally to verify:
+
+```bash
+npm run build:uat -w admin-web
+npm run build:uat -w vendor-web
+npm run build:uat -w support-web
+```
+
+Output: `apps/<portal>/dist/` (upload not needed when using Git-connected Vercel projects). Env: set `VITE_*` in Vercel Dashboard — see [VERCEL.md](VERCEL.md).
+
+### GoDaddy — production
 
 ```bash
 # Marketing
@@ -477,7 +569,7 @@ npm run build -w support-web
 
 Upload: `out/` → prod marketing folder; each `dist/` → matching prod subdomain folder.
 
-### UAT
+### GoDaddy — UAT (when not using Vercel for portals)
 
 ```bash
 NEXT_PUBLIC_DEPLOY_ENV=uat NEXT_PUBLIC_SITE_URL=https://dev-oorjaman.oorjaman.com \
@@ -489,45 +581,57 @@ npm run build -w vendor-web
 npm run build -w support-web
 ```
 
-Upload to the four `dev-*` folders.
+NEXT_PUBLIC_DEPLOY_ENV=uat NEXT_PUBLIC_SITE_URL=https://dev-oorjaman.oorjaman.com \
+  npm run build:godaddy -w oorjaman-web
+
+# Portal UAT builds — use apps/*/.env.uat.local with dev-*.oorjaman.com cross-links
+npm run build:uat -w admin-web
+npm run build:uat -w vendor-web
+npm run build:uat -w support-web
+```
+
+Upload to the four `dev-*` GoDaddy folders. **Portals:** skip this step while hosted on Vercel.
 
 ---
 
 ## Redeploy checklist
 
-| Change                                           | Web                                             | Mobile (customer / technician)                                     |
-| ------------------------------------------------ | ----------------------------------------------- | ------------------------------------------------------------------ |
-| UI code only                                     | Rebuild + re-upload `dist/` or `out/`           | `eas build --profile uat` or `production`                          |
-| Env (`VITE_*`, `NEXT_PUBLIC_*`, `EXPO_PUBLIC_*`) | Rebuild web                                     | **New EAS build** (env baked in)                                   |
-| `app.config.ts` / bundle ID / Google Maps key    | -                                               | **New EAS build** + credentials if IDs changed                     |
-| SQL migration                                    | `db:push` on UAT then PROD                      | Same - apps pick up schema on next API call                        |
-| Edge function                                    | `functions:deploy` on matching Supabase project | Same                                                               |
-| OTA JS-only fix (optional)                       | -                                               | `eas update --channel uat` / `production` if you enable EAS Update |
-| Copy prod → UAT data                             | `pg_dump` / restore                             | Reinstall UAT app; no mobile redeploy required                     |
+| Change                                           | Vercel UAT portals                              | GoDaddy web                                     | Mobile (customer / technician)                                     |
+| ------------------------------------------------ | ----------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------ |
+| UI code only                                     | Push → auto redeploy (or manual Redeploy)       | Rebuild + re-upload `dist/` or `out/`           | `eas build --profile uat` or `production`                          |
+| Env (`VITE_*`, `NEXT_PUBLIC_*`, `EXPO_PUBLIC_*`) | Update Vercel env → **Redeploy** (baked in)     | Rebuild web on CI/build machine                 | **New EAS build** (env baked in)                                   |
+| `app.config.ts` / bundle ID / Google Maps key    | —                                               | —                                               | **New EAS build** + credentials if IDs changed                       |
+| SQL migration                                    | `npm run db:push` on UAT then PROD              | Same                                            | Same — apps pick up schema on next API call                        |
+| Edge function                                    | `functions:deploy` on matching Supabase project | Same                                            | Same                                                               |
+| OTA JS-only fix (optional)                       | —                                               | —                                               | `eas update --channel uat` / `production` if you enable EAS Update |
+| Copy prod → UAT data                             | —                                               | `pg_dump` / restore                             | Reinstall UAT app; no mobile redeploy required                     |
 
 ---
 
 ## Quick verification
 
-| Check                                        | PROD                                 | UAT                           |
-| -------------------------------------------- | ------------------------------------ | ----------------------------- |
-| Marketing `robots.txt`                       | Allows crawl, lists sitemap          | `Disallow: /`                 |
-| Login on admin portal                        | Prod Supabase project in Network tab | UAT project ref               |
-| Cross-links                                  | Point to `*.oorjaman.com`            | Point to `dev-*.oorjaman.com` |
-| Dummy auth (web + mobile)                    | Off                                  | Optional on for QA            |
-| Customer app name on home screen             | **OorjaMan**                         | **OorjaMan (UAT)**            |
-| Can install customer + UAT customer together | N/A (only prod on store phone)       | Yes - different bundle IDs    |
-| Mobile yellow banner                         | Hidden                               | **UAT - not production**      |
-| Legal link in customer app                   | `oorjaman.com`                       | `dev-oorjaman.oorjaman.com`   |
+| Check                                        | PROD                                 | UAT (Vercel)                                      | UAT (GoDaddy, when used)      |
+| -------------------------------------------- | ------------------------------------ | ------------------------------------------------- | ----------------------------- |
+| Marketing `robots.txt`                       | Allows crawl, lists sitemap          | N/A until marketing deployed                      | `Disallow: /`                 |
+| Login on admin portal                        | Prod Supabase project in Network tab | UAT project ref; dummy OTP `123456` if enabled    | Same                          |
+| Cross-links                                  | Point to `*.oorjaman.com`            | Point to `*.vercel.app` (all three consistent)    | Point to `dev-*.oorjaman.com` |
+| SPA deep link refresh                        | `.htaccess` on GoDaddy               | `vercel.json` rewrites — no 404 on `/login`       | `.htaccess`                   |
+| Dummy auth (web + mobile)                    | Off                                  | Optional on for QA                                | Optional                      |
+| Customer app name on home screen             | **OorjaMan**                         | **OorjaMan (UAT)**                                | Same                          |
+| Can install customer + UAT customer together | N/A (only prod on store phone)       | Yes — different bundle IDs                        | Same                          |
+| Mobile yellow banner                         | Hidden                               | **UAT — not production**                          | Same                          |
+| Legal link in customer app                   | `oorjaman.com`                       | `dev-oorjaman.oorjaman.com`                       | Same                          |
 
 ---
 
 ## Local development
 
-Default: **localhost** + UAT or local Supabase - see [ENVIRONMENT.md](ENVIRONMENT.md). Portal ports: admin `5173`, vendor `5174`, support `5175`, marketing `3000`.
+Default: **localhost** + **OorjaMan UAT** Supabase — see [ENVIRONMENT.md](ENVIRONMENT.md). Portal ports: admin `5173`, vendor `5174`, support `5175`, marketing `3000`.
+
+For **parity with Vercel UAT**, open the deployed portals at `oorjaman-admin/vendor/support.vercel.app` after seeding dummy users (`npm run seed:dummy-users` with root `.env.uat.local`).
 
 `NEXT_PUBLIC_DEPLOY_ENV` unset locally → treated as `local` (marketing pages can still be indexed in dev builds; use `uat` locally to test the non-SEO banner).
 
 ---
 
-_Last updated: 2026-05-19 — 8 web hosts, customer/technician PROD/UAT EAS matrix, dual Supabase projects, Google Maps release checklist._
+_Last updated: 2026-05-20 — Vercel UAT portals live; GoDaddy 8-host target; three-mode Vite env files; dual Supabase; EAS/mobile matrix._

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Tabs, Redirect } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -9,23 +10,35 @@ import { fontFamily, fontSize } from "../../constants/fonts";
 import { supabase } from "../../lib/supabase";
 import { TechnicianLocationTracker } from "../../components/technician-location-tracker";
 import { TechnicianBookingRealtime } from "../../components/technician-booking-realtime";
+import { TechnicianApprovalToast } from "../../components/technician-approval-toast";
+import { consumeTechnicianApprovalToastPending } from "../../lib/technician-approval-toast";
 import { SupportChatHeaderButton } from "../../components/help-header-button";
 import { TabNavTitle } from "../../components/tab-nav-title";
 
 export default function MainTabsLayout() {
   const insets = useSafeAreaInsets();
+  const [showApprovalToast, setShowApprovalToast] = useState(false);
   const q = useQuery({
     queryKey: queryKeys.technicians.me(),
     queryFn: () => technicianApi.getMyTechnicianProfile(supabase!),
     enabled: Boolean(supabase),
   });
 
+  const tech = q.data;
+  const isOnboarded = technicianApi.technicianIsFullyOnboarded(tech);
+
+  useEffect(() => {
+    if (!isOnboarded) return;
+    if (consumeTechnicianApprovalToastPending()) {
+      setShowApprovalToast(true);
+    }
+  }, [isOnboarded]);
+
   if (!supabase || (q.isLoading && q.data === undefined)) {
     return <TabShellSkeleton tabSlots={5} />;
   }
 
-  const tech = q.data;
-  if (!technicianApi.technicianIsFullyOnboarded(tech)) {
+  if (!isOnboarded) {
     if (technicianApi.technicianShowsPendingReviewScreen(tech)) {
       return <Redirect href="/pending-vendor-review" />;
     }
@@ -34,6 +47,10 @@ export default function MainTabsLayout() {
 
   return (
     <>
+      <TechnicianApprovalToast
+        visible={showApprovalToast}
+        onDismiss={() => setShowApprovalToast(false)}
+      />
       <TechnicianLocationTracker />
       <TechnicianBookingRealtime technicianId={tech?.id} />
       <Tabs

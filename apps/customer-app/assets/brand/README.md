@@ -17,6 +17,8 @@ from the monorepo root. This folder receives copies for the Expo bundle.
 
 Splash and login use a **composed** lockup (`BrandWordmark` + tagline text), not a raster lockup PNG.
 
+**Ops collateral (cards, letterhead, email, invoice):** Admin **Dashboard → Brand print** on https://oorjaman-admin.vercel.app/dashboard/brand-collateral — see [brand/README.md](../../../../brand/README.md).
+
 ## Regenerate sunburst PNG
 
 From `apps/customer-app`:

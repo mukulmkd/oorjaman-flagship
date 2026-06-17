@@ -50,8 +50,6 @@ export function MandatoryServiceAddressGate({ customer, onGateReleased }: Props)
   return (
     <ServiceAddressPickerSheet
       visible={!sessionDismissed}
-      mandatory
-      mandatorySessionGate
       entries={entries}
       defaultId={defaultId}
       onClose={() => {}}

@@ -2,27 +2,32 @@
 
 Support chat uses **Expo Push** for notifications when the app is killed or in the background.
 
-For the full dev vs production matrix (all env vars and apps), see [**ENVIRONMENT.md**](../ENVIRONMENT.md).
+For the full dev vs production matrix (all env vars and apps), see [**ENVIRONMENT.md**](../project-docs/ENVIRONMENT.md).
 
 Partner app push (separate function and outbox): [**technician-push-setup.md**](technician-push-setup.md).
 
 ## 1. Apply migrations
 
 ```bash
-supabase db push
+npm run db:push
 ```
 
-Includes `20260730130000_support_customer_unread.sql` and `20260731120000_customer_expo_push.sql`.
+Includes `20260730130000_support_customer_unread.sql` and `20260731120000_customer_expo_push.sql`. Use **OorjaMan UAT** project first — see [SUPABASE-UAT-PROD.md](../project-docs/SUPABASE-UAT-PROD.md).
 
 ## 2. EAS project ID (client)
 
 1. Create/link an EAS project: `npx eas init` in `apps/customer-app`.
-2. Set `EXPO_PUBLIC_EAS_PROJECT_ID` in `apps/customer-app/.env` (same value as EAS `projectId`).
+2. Set `EXPO_PUBLIC_EAS_PROJECT_ID` in `apps/customer-app/.env.development.local` or EAS secrets (same value as EAS `projectId`).
 
 ## 3. Deploy edge function
 
 ```bash
 npm run functions:deploy -- send-customer-expo-push
+```
+
+Set secrets in Supabase Dashboard → Edge Functions → Secrets (or CLI):
+
+```bash
 supabase secrets set PUSH_DISPATCH_SECRET="<random-secret>"
 ```
 

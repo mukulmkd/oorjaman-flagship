@@ -33,7 +33,7 @@ import {
   useModalStackHeader,
 } from "@oorjaman/ui";
 import { ModalHeaderSupportTrailing } from "../../../../components/modal-header-support-trailing";
-import { fontFamily, fontSize, fontWeight } from "../../../../constants/fonts";
+import { fontFamily, fontSize } from "../../../../constants/fonts";
 import { supabase } from "../../../../lib/supabase";
 import { pickJobEvidenceImageUri } from "../../../../lib/job-evidence-picker";
 import { uploadAndLinkJobReportPhoto } from "../../../../lib/job-evidence-upload";
@@ -435,7 +435,6 @@ export default function JobExecutionWizardScreen() {
 
   const safetyDone = resumed || allSafetyChecked(safety);
   const selfieDone = resumed || Boolean(startSelfieUrl);
-  const stepLabel = STEPS[step] ?? "safety";
 
   const startCodeTarget = (serviceOtp?.startCode ?? b.booking_code ?? "").trim();
   const startCodeRequired = startCodeTarget.length > 0;

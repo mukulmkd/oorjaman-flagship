@@ -21,7 +21,7 @@ import {
 import { Button, Card, Input, PageHeader, TableRowsSkeleton } from "@oorjaman/web-ui";
 import { CatalogueAuditHistoryButton } from "../components/CatalogueAuditHistory";
 import { filterCatalogAuditForScope } from "../lib/pricing-catalog-audit";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 import "./service-capacity-pricing-page.css";
 
 function paiseToRupeeInput(paise: number): string {
@@ -61,7 +61,7 @@ export function ServiceCapacityPricingPage() {
     enabled: Boolean(supabase),
   });
 
-  const catalogAuditRows = auditQ.data ?? [];
+  const catalogAuditRows = useMemo(() => auditQ.data ?? [], [auditQ.data]);
   const lateCancelAuditRows = useMemo(
     () => filterCatalogAuditForScope(catalogAuditRows, { kind: "platform_settings" }),
     [catalogAuditRows],
@@ -83,7 +83,7 @@ export function ServiceCapacityPricingPage() {
     if (!platformSettingsQ.isSuccess || !platformSettingsQ.data) return;
     const paise = Math.max(0, Math.round(Number(platformSettingsQ.data.customer_late_cancel_fee_paise) || 0));
     setLateCancelFeeRupeeText(paiseToRupeeInput(paise));
-  }, [platformSettingsQ.isSuccess, platformSettingsQ.data?.customer_late_cancel_fee_paise]);
+  }, [platformSettingsQ.isSuccess, platformSettingsQ.data]);
 
   const saveLateCancelFeeMut = useMutation({
     mutationFn: async () => {
@@ -378,6 +378,7 @@ function LateCancelFeeRow({
       <td>
         <Input
           label=""
+          aria-label="Late-cancellation fee in rupees"
           value={feeRupeeText}
           onChange={(e) => onFeeChange(e.target.value)}
           inputMode="decimal"
@@ -427,10 +428,10 @@ function OneTimeVisitRow({
         ~{tier.typical_panel_count} panels · {tier.capacity_kw} kW
       </td>
       <td>
-        <Input label="" value={visit} onChange={(e) => setVisit(e.target.value)} inputMode="decimal" />
+        <Input label="" aria-label={`${tier.label} visit amount`} value={visit} onChange={(e) => setVisit(e.target.value)} inputMode="decimal" />
       </td>
       <td>
-        <Input label="" value={perPanel} onChange={(e) => setPerPanel(e.target.value)} inputMode="decimal" />
+        <Input label="" aria-label={`${tier.label} per panel rate`} value={perPanel} onChange={(e) => setPerPanel(e.target.value)} inputMode="decimal" />
       </td>
       <td className="scp-col-history">
         <CatalogueAuditHistoryButton rows={auditRows} />
@@ -476,10 +477,10 @@ function TierAddonTableRow({
       </td>
       <td className="bm-cell-mono">{tier.code}</td>
       <td>
-        <Input label="" value={visit} onChange={(e) => setVisit(e.target.value)} inputMode="decimal" />
+        <Input label="" aria-label={`${tier.label} visit add-on`} value={visit} onChange={(e) => setVisit(e.target.value)} inputMode="decimal" />
       </td>
       <td>
-        <Input label="" value={amc} onChange={(e) => setAmc(e.target.value)} inputMode="decimal" />
+        <Input label="" aria-label={`${tier.label} AMC add-on`} value={amc} onChange={(e) => setAmc(e.target.value)} inputMode="decimal" />
       </td>
       <td className="scp-col-history">
         <CatalogueAuditHistoryButton rows={auditRows} />
@@ -536,11 +537,11 @@ function AmcPlanTableRow({
       <td className="bm-cell-mono">{tier.code}</td>
       <td className="bm-cell-mono">{plan.plan_code}</td>
       <td>
-        <Input label="" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input label="" aria-label={`${plan.plan_code} display name`} value={name} onChange={(e) => setName(e.target.value)} />
       </td>
       <td style={{ fontSize: "0.85rem", maxWidth: 200 }}>{coverage}</td>
       <td style={{ minWidth: 120 }}>
-        <Input label="" value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" />
+        <Input label="" aria-label={`${plan.plan_code} annual amount`} value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" />
       </td>
       <td className="scp-col-history">
         <CatalogueAuditHistoryButton rows={auditRows} />

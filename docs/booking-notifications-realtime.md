@@ -1,6 +1,8 @@
 # Booking & ops notifications (real-time vs scheduled)
 
-## In-app (admin & vendor) - **real-time**
+Admin and vendor portals subscribe to **`notification_events`** via Supabase Realtime. On **Vercel UAT**, open https://oorjaman-admin.vercel.app or https://oorjaman-vendor.vercel.app — bells update without refresh when connected.
+
+## In-app (admin & vendor) — **real-time**
 
 When the API (or the scheduled SQL scan) inserts a row into `notification_events` with:
 
@@ -44,17 +46,21 @@ Supabase Dashboard → **Edge Functions** → **`scan-vendor-response-overdue`**
 Deploy:
 
 ```bash
-supabase functions deploy scan-vendor-response-overdue
+npm run functions:deploy -- scan-vendor-response-overdue
 ```
 
 Secrets: `SUPABASE_SERVICE_ROLE_KEY` (auto), `CRON_DISPATCH_SECRET` or `PUSH_DISPATCH_SECRET`.
+
+---
+
+_Last updated: 2026-05-20 — admin/vendor on Vercel UAT._
 
 ## Email / SMS / WhatsApp - **not instant by default**
 
 `marketplace_broadcast` and similar multi-channel events are often `status = 'queued'`. Delivery requires:
 
 ```bash
-supabase functions deploy process-notification-events
+npm run functions:deploy -- process-notification-events
 ```
 
 and a cron (or manual **Process queue** on Operations) to drain the queue.

@@ -202,7 +202,7 @@ export async function createBookingAsCustomer(
   const { data: userData } = await client.auth.getUser();
   const uid = requireSessionUserId(userData.user?.id);
 
-  if (!input.subscription_id && (input.status ?? "pending_payment") === "pending_payment") {
+  if (!input.subscription_id) {
     const { assertCustomerMayBookOneTimeVisit, readServiceAddressIdFromBookingMetadata } =
       await import("../subscriptions/amc-visit-booking-eligibility");
     await assertCustomerMayBookOneTimeVisit(client, {
@@ -424,57 +424,6 @@ export async function getLastTechnicianLocationForBooking(
 
   if (error) throw new SupabaseApiError(error.message, error);
   return data ?? null;
-}
-
-/** Normalize OM-/BK-/VIS- style tokens for lookup (trim, collapse spaces, uppercase). */
-export function normalizeBookingLookupCode(raw: string): string | null {
-  const t = raw.trim().replace(/\s+/g, "").toUpperCase();
-  return t.length > 0 ? t : null;
-}
-
-/** @deprecated Use {@link normalizeBookingLookupCode}. */
-export function normalizeBookingReferenceCode(raw: string): string | null {
-  return normalizeBookingLookupCode(raw);
-}
-
-/**
- * Resolve booking by `reference_code` (OM-… / legacy BK-…) or numeric `booking_code` (Job Start Code).
- * Visible rows depend on RLS (technicians only see bookings assigned to them).
- */
-export async function getBookingByLookupCode(
-  client: SupabaseClient<Database>,
-  rawCode: string,
-): Promise<BookingRow | null> {
-  const code = normalizeBookingLookupCode(rawCode);
-  if (!code) return null;
-
-  const byRef = await client
-    .from("bookings")
-    .select("*")
-    .eq("reference_code", code)
-    .maybeSingle();
-  if (byRef.error) throw new SupabaseApiError(byRef.error.message, byRef.error);
-  if (byRef.data) return byRef.data;
-
-  const byVisit = await client
-    .from("bookings")
-    .select("*")
-    .eq("booking_code", code)
-    .maybeSingle();
-  if (byVisit.error)
-    throw new SupabaseApiError(byVisit.error.message, byVisit.error);
-  return byVisit.data ?? null;
-}
-
-/**
- * Resolve booking by reference code visible to the current session (RLS).
- * Same as {@link getBookingByLookupCode} (supports OM-, legacy BK-, and VIS- codes).
- */
-export async function getBookingByReferenceCode(
-  client: SupabaseClient<Database>,
-  rawCode: string,
-): Promise<BookingRow | null> {
-  return getBookingByLookupCode(client, rawCode);
 }
 
 export type BookingPatch = Partial<
@@ -1214,6 +1163,7 @@ export async function vendorAcceptBookingRequest(
 
   const updated = await updateBooking(client, bookingId, {
     status: "accepted",
+    vendor_id: vendorId,
     technician_id: techId,
     booking_code,
     metadata,
@@ -2258,6 +2208,77 @@ async function isVendorAvailableForBookingSlot(
   return (count ?? 0) < capacity;
 }
 
+const userDisplayLabelCache = new Map<string, string>();
+const inflightUserLabelRequests = new Map<string, Promise<Map<string, string>>>();
+
+function sortedIdsKey(ids: readonly string[]): string {
+  return [...ids].sort().join("\0");
+}
+
+function userDisplayLabelFromRow(u: {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+}): string {
+  return (
+    (typeof u.full_name === "string" && u.full_name.trim()) ||
+    (typeof u.email === "string" && u.email.trim()) ||
+    u.id.slice(0, 8)
+  );
+}
+
+async function loadUserDisplayLabels(
+  client: SupabaseClient<Database>,
+  userIds: readonly string[],
+): Promise<Map<string, string>> {
+  const unique = [...new Set(userIds)];
+  const resolved = new Map<string, string>();
+  const missing: string[] = [];
+
+  for (const id of unique) {
+    const cached = userDisplayLabelCache.get(id);
+    if (cached) resolved.set(id, cached);
+    else missing.push(id);
+  }
+
+  if (missing.length === 0) return resolved;
+
+  const batchKey = sortedIdsKey(missing);
+  let inflight = inflightUserLabelRequests.get(batchKey);
+  if (!inflight) {
+    inflight = (async () => {
+      const { data: users, error } = await client
+        .from("users")
+        .select("id, full_name, email")
+        .in("id", missing);
+      if (error) throw new SupabaseApiError(error.message, error);
+      const loaded = new Map<string, string>();
+      for (const u of users ?? []) {
+        const label = userDisplayLabelFromRow(u);
+        userDisplayLabelCache.set(u.id, label);
+        loaded.set(u.id, label);
+      }
+      for (const id of missing) {
+        if (!loaded.has(id)) {
+          const fallback = id.slice(0, 8);
+          userDisplayLabelCache.set(id, fallback);
+          loaded.set(id, fallback);
+        }
+      }
+      return loaded;
+    })().finally(() => {
+      inflightUserLabelRequests.delete(batchKey);
+    });
+    inflightUserLabelRequests.set(batchKey, inflight);
+  }
+
+  const loaded = await inflight;
+  for (const id of unique) {
+    resolved.set(id, userDisplayLabelCache.get(id) ?? loaded.get(id) ?? id.slice(0, 8));
+  }
+  return resolved;
+}
+
 async function enrichBookingsWithVendorTechnicianLabels(
   client: SupabaseClient<Database>,
   rows: BookingRow[],
@@ -2293,21 +2314,7 @@ async function enrichBookingsWithVendorTechnicianLabels(
     if (techErr) throw new SupabaseApiError(techErr.message, techErr);
 
     const userIds = [...new Set((techs ?? []).map((t) => t.user_id))];
-    const userLabelById = new Map<string, string>();
-    if (userIds.length > 0) {
-      const { data: users, error: userErr } = await client
-        .from("users")
-        .select("id, full_name, email")
-        .in("id", userIds);
-      if (userErr) throw new SupabaseApiError(userErr.message, userErr);
-      for (const u of users ?? []) {
-        const label =
-          (typeof u.full_name === "string" && u.full_name.trim()) ||
-          (typeof u.email === "string" && u.email.trim()) ||
-          u.id.slice(0, 8);
-        userLabelById.set(u.id, label);
-      }
-    }
+    const userLabelById = await loadUserDisplayLabels(client, userIds);
 
     for (const t of techs ?? []) {
       technicianLabelById.set(

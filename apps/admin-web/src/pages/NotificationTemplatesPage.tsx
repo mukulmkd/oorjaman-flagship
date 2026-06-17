@@ -11,7 +11,7 @@ import {
 } from "@oorjaman/api";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Badge, Button, Card, Input, Modal, PageHeader, TextArea } from "@oorjaman/web-ui";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 import { TablePaginationBar } from "../components/TablePaginationBar";
 import { Link } from "react-router-dom";
 import { formatNotificationChannelLabel, formatNotificationEventTypeLabel } from "../lib/notification-labels";
@@ -67,7 +67,7 @@ export function NotificationTemplatesPage() {
   const previewMut = useMutation({
     mutationFn: async () => {
       if (!supabase || !editTemplate) throw new Error("Open a template with Action → Edit to preview.");
-      let parsed: Record<string, string | number | boolean | null | undefined> = {};
+      let parsed: Record<string, string | number | boolean | null | undefined>;
       try {
         parsed = JSON.parse(previewContextJson) as Record<string, string | number | boolean | null | undefined>;
       } catch {

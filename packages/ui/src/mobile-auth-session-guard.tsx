@@ -27,7 +27,7 @@ import type { Database } from "@oorjaman/api";
 
 type Props = {
   client: SupabaseClient<Database> | null;
-  /** Route to open when session is invalid, e.g. `/login` or `/technician-login`. */
+  /** Route to open when session is invalid, e.g. `/login`. */
   loginHref: string;
   /** Top-level segment for signed-in area, usually `(main)`. */
   protectedSegment?: string;

@@ -70,22 +70,6 @@ export async function listCustomerSiteActivityPageForAddress(
   };
 }
 
-/** @deprecated Prefer {@link listCustomerSiteActivityPageForAddress} for mobile timelines. */
-export async function listCustomerSiteActivityForAddress(
-  client: SupabaseClient<Database>,
-  params: {
-    service_address_id: string;
-    limit?: number;
-  },
-): Promise<CustomerSiteActivityEventRow[]> {
-  const page = await listCustomerSiteActivityPageForAddress(client, {
-    service_address_id: params.service_address_id,
-    offset: 0,
-    limit: Math.min(Math.max(params.limit ?? 80, 1), 200),
-  });
-  return page.items;
-}
-
 export function bookingMatchesServiceAddress(booking: BookingRow, serviceAddressId: string): boolean {
   const addrId = readBookingServiceAddressId(booking.metadata);
   return addrId === serviceAddressId.trim();

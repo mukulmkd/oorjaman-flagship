@@ -1,18 +1,23 @@
-import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { authApi, loadPortalSessionDisplay } from "@oorjaman/api";
+import { authApi } from "@oorjaman/api";
 import { DropdownMenu, DropdownMenuItem, PortalSidebarBrand } from "@oorjaman/web-ui";
 import { NotificationCenterBell } from "../components/NotificationCenterBell";
+import { useAdminPortalSession } from "../hooks/use-admin-portal-session";
 import { supportPortalUrl } from "../lib/portal-urls";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 import "./dashboard-layout-admin.css";
 
 export function DashboardLayout() {
   const supabase = useSupabase();
   const navigate = useNavigate();
   const location = useLocation();
-  const [sessionHint, setSessionHint] = useState<string>("Checking session…");
-  const [userChip, setUserChip] = useState<string>("?");
+  const sessionQuery = useAdminPortalSession();
+  const sessionHint = !supabase
+    ? "Configure VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY"
+    : sessionQuery.isLoading
+      ? "Checking session…"
+      : (sessionQuery.data?.hint ?? "Session unavailable");
+  const userChip = sessionQuery.data?.chip ?? "?";
   const vendorApprovalNavActive =
     location.pathname.startsWith("/dashboard/vendor-approval") ||
     location.pathname.startsWith("/dashboard/vendor-registration");
@@ -34,21 +39,8 @@ export function DashboardLayout() {
     location.pathname.startsWith("/dashboard/service-pricing");
   const analyticsNavActive = location.pathname.startsWith("/dashboard/analytics");
   const featureMgmtNavActive = location.pathname.startsWith("/dashboard/feature-management");
+  const brandCollateralNavActive = location.pathname.startsWith("/dashboard/brand-collateral");
   const financeNavActive = location.pathname.startsWith("/dashboard/finance");
-  useEffect(() => {
-    if (!supabase) {
-      setSessionHint("Configure VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY");
-      return;
-    }
-    void (async () => {
-      const { hint, chip } = await loadPortalSessionDisplay(supabase, {
-        unsignedHint:
-          "Sign in required - use Supabase Auth (admin role in public.users).",
-      });
-      setSessionHint(hint);
-      setUserChip(chip);
-    })();
-  }, [supabase]);
 
   return (
     <div className="dash-root" data-portal-persona="operations">
@@ -114,6 +106,9 @@ export function DashboardLayout() {
           </Link>
           <Link to="/dashboard/feature-management" className={featureMgmtNavActive ? "dash-nav-active" : ""}>
             Feature management
+          </Link>
+          <Link to="/dashboard/brand-collateral" className={brandCollateralNavActive ? "dash-nav-active" : ""}>
+            Branding
           </Link>
           <Link to="/dashboard/subscription-renewals" className={renewalNavActive ? "dash-nav-active" : ""}>
             Renewal reminders

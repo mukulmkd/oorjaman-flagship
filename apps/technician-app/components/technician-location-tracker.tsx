@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { AppState, type AppStateStatus, Platform } from "react-native";
 import * as Location from "expo-location";
 import { useQuery } from "@tanstack/react-query";
-import { bookingApi, queryKeys, technicianApi } from "@oorjaman/api";
+import { queryKeys, technicianApi } from "@oorjaman/api";
 import { supabase } from "../lib/supabase";
 
 /** ~12s - middle of the 10-15s window; balanced accuracy limits GPS wake-ups. */

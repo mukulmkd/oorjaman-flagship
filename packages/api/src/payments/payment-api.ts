@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BookingRow, Database, PaymentRow, SubscriptionRow } from "../database.types";
+import { createBookingAsCustomer, type CreateBookingInput } from "../bookings/booking-api";
 import { fundAmcWalletFromPayment } from "../finance/amc-wallet-api";
 import { emitAdminAmcAwaitingPartnerNotification } from "../notifications/amc-notifications";
 import { customerAbandonUnpaidCheckoutBooking } from "../bookings/booking-api";
@@ -162,6 +163,50 @@ export async function completeDummyPaymentSuccess(
   const notifiedBooking = await postBookingConfirmedNotifications(client, booking);
 
   return { booking: notifiedBooking, payment: payUpdated };
+}
+
+/**
+ * One-time visit: create the booking and successful payment together after checkout succeeds.
+ * No `pending_payment` row is written — incomplete checkouts stay in the app only.
+ */
+export async function createPaidOneTimeBookingCheckout(
+  client: SupabaseClient<Database>,
+  params: {
+    bookingInput: CreateBookingInput;
+    amountPaise: number;
+    paymentMethod?: string;
+  },
+): Promise<{ booking: BookingRow; payment: PaymentRow }> {
+  const booking = await createBookingAsCustomer(client, {
+    ...params.bookingInput,
+    status: "confirmed",
+  });
+
+  const paidAt = new Date().toISOString();
+  const method = params.paymentMethod?.trim() || "UPI";
+  const amount = Math.max(0, Math.round(params.amountPaise));
+
+  const { data, error } = await client
+    .from("payments")
+    .insert({
+      customer_id: booking.customer_id,
+      booking_id: booking.id,
+      amount,
+      status: "success",
+    })
+    .select()
+    .single();
+
+  const paymentInserted = takeSingleRow(data, error);
+
+  const { data: payUpdated, error: payUpdateErr } = await client
+    .from("payments")
+    .update({ paid_at: paidAt, payment_method: method })
+    .eq("id", paymentInserted.id)
+    .select()
+    .single();
+
+  return { booking, payment: takeSingleRow(payUpdated, payUpdateErr) };
 }
 
 /** Pending payment for AMC subscription (wallet funding). */

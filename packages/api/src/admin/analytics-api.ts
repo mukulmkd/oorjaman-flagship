@@ -336,14 +336,6 @@ export async function adminFetchPaymentStats(client: SupabaseClient<Database>): 
   };
 }
 
-/** @deprecated Use adminFetchRecognizedRevenueStats or adminFetchPaymentStats. */
-export async function adminFetchRevenueStats(client: SupabaseClient<Database>): Promise<{
-  total_revenue_cents: number;
-  revenue_per_day: RevenueDayPoint[];
-}> {
-  return adminFetchRecognizedRevenueStats(client);
-}
-
 export async function adminFetchSubscriptionStats(client: SupabaseClient<Database>): Promise<SubscriptionStatsRow> {
   const { data, error } = await client.from("subscription_stats").select("*").single();
   return takeSingleRow(data, error);

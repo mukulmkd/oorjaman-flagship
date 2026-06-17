@@ -28,7 +28,7 @@ import {
 } from "@oorjaman/api";
 import { Button, Card, Input, PageHeader, TableRowsSkeleton } from "@oorjaman/web-ui";
 import { TablePaginationBar } from "../components/TablePaginationBar";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 
 function paiseToRupeeInput(paise: number): string {
   const v = paise / 100;
@@ -125,7 +125,7 @@ export function PricingManagementPage() {
     setLegacyRulesPage(1);
   }, [countryCode]);
 
-  const cityTierRowsAll = cityTiersQuery.data ?? [];
+  const cityTierRowsAll = useMemo(() => cityTiersQuery.data ?? [], [cityTiersQuery.data]);
   const cityTierTotal = cityTierRowsAll.length;
   const cityTierWindow = useMemo(
     () =>

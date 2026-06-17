@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { authApi, userApi } from "@oorjaman/api";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 import { PortalLoadingScreen } from "@oorjaman/web-ui";
 import { adminPortalUrl } from "../lib/portal-urls";
 

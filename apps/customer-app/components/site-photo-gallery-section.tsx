@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,12 +14,12 @@ import {
 } from "react-native";
 import {
   MAX_SITE_PHOTOS_PER_ADDRESS,
+  isTransientNetworkError,
   patchAddressEntryGps,
   patchAddressEntrySitePhotos,
   queryKeys,
   signSitePhotoRecords,
   type SitePhotoRecord,
-  type SitePhotoWithSignedUrl,
 } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
 import { Button } from "@oorjaman/ui";
@@ -165,6 +166,10 @@ export function SitePhotoGallerySection({
       };
       setDisplay((prev) => [...prev, optimistic]);
 
+      if (Platform.OS === "android") {
+        await new Promise<void>((resolve) => setTimeout(resolve, 450));
+      }
+
       const record = await uploadCustomerSitePhotoFromUri(supabase, {
         customerUserId,
         serviceAddressId: addressId,
@@ -176,11 +181,26 @@ export function SitePhotoGallerySection({
       const nextPhotos = [...photos.filter((p) => !p.id.startsWith("pending-")), record];
       let nextEntries = patchAddressEntrySitePhotos(entries, addressId, nextPhotos);
       nextEntries = patchAddressEntryGps(nextEntries, addressId, pick.geo);
-      await persistEntries(nextEntries);
+      try {
+        await persistEntries(nextEntries);
+      } catch (e: unknown) {
+        if (isTransientNetworkError(e)) {
+          await new Promise<void>((resolve) => setTimeout(resolve, 900));
+          await persistEntries(nextEntries);
+        } else {
+          throw e;
+        }
+      }
       onGpsChange(pick.geo.lat, pick.geo.lng, pick.geo.accuracy_m ?? null);
     } catch (e: unknown) {
       setDisplay((prev) => prev.filter((p) => !p.id.startsWith("pending-")));
-      Alert.alert("Could not add photo", e instanceof Error ? e.message : "Please try again.");
+      const message = e instanceof Error ? e.message : "Please try again.";
+      Alert.alert(
+        "Could not add photo",
+        isTransientNetworkError(e)
+          ? "Could not reach the server. Check mobile data or Wi‑Fi and try again."
+          : message,
+      );
     } finally {
       setFlowBusy(false);
     }

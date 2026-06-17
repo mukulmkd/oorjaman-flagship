@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, spacing } from "@oorjaman/config";
-import { fontFamily, fontSize, fontWeight } from "../constants/fonts";
+import { fontFamily, fontSize } from "../constants/fonts";
 import { STORAGE_KEY_LOCATION_PROMPT_DONE } from "../constants/storage";
 import { ensureForegroundLocationAccess, isExpoGoHost } from "../lib/location-access";
 

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { vendorApi } from "@oorjaman/api";
 import { PortalLoadingScreen } from "@oorjaman/web-ui";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 
 /**
  * Renders children only when the current user has an **approved** vendor profile.

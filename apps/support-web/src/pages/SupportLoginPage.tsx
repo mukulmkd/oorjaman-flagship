@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   authApi,
   buildLoginE164,
-  getDummyAuthUiHint,
   LOGIN_PHONE_COUNTRIES,
   DEFAULT_LOGIN_COUNTRY_DIAL,
   supportApi,
@@ -13,7 +12,7 @@ import {
 } from "@oorjaman/api";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Button, Card, Input, PhoneCountryLogin, PortalLoginBrand } from "@oorjaman/web-ui";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 const OTP_LEN = 6;
 
 type SignInMethod = "phone" | "email";
@@ -64,7 +63,6 @@ export default function SupportLoginPage() {
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
-  const dummyHint = useMemo(() => getDummyAuthUiHint(import.meta.env), []);
   const viteEnv = import.meta.env;
 
   useEffect(() => {
@@ -247,7 +245,6 @@ export default function SupportLoginPage() {
           </button>
         </div>
 
-        {dummyHint ? <div className="al-dummy">{dummyHint}</div> : null}
         {error ? <p className="al-error">{error}</p> : null}
 
         {method === "phone" ? (

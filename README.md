@@ -6,12 +6,12 @@ OorjaMan is a solar rooftop care platform: homeowners and businesses book cleani
 
 | Audience               | App                                  | Role                                                                                                                                                                                                                               |
 | ---------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Customers**          | `customer-app` (Expo, iOS/Android)   | Register a site, save service addresses and site photos, book one-off or AMC visits, pick preferred partners, pay, track technicians, chat with support - **store (PROD)** and **UAT** binaries per [DEPLOYMENT.md](DEPLOYMENT.md) |
-| **Field partners**     | `technician-app` (Expo, iOS/Android) — **OorjaMan Partner** | View assigned jobs, navigate to sites, run visit workflows (safety checks, evidence photos, OTP/happy codes), share live location during active visits - **PROD / UAT** builds per [DEPLOYMENT.md](DEPLOYMENT.md)                  |
+| **Customers**          | `customer-app` (Expo, iOS/Android)   | Register a site, save service addresses and site photos, book one-off or AMC visits, pick preferred partners, pay, track technicians, chat with support - **store (PROD)** and **UAT** binaries per [DEPLOYMENT.md](project-docs/DEPLOYMENT.md) |
+| **Field partners**     | `technician-app` (Expo, iOS/Android) — **OorjaMan Partner** | View assigned jobs, navigate to sites, run visit workflows (safety checks, evidence photos, OTP/happy codes), share live location during active visits - **PROD / UAT** builds per [DEPLOYMENT.md](project-docs/DEPLOYMENT.md)                  |
 | **Partners / vendors** | `vendor-web` (Vite)                  | Manage technicians, accept or reject booking requests, marketplace jobs, subscriptions, documents, and day-to-day partner operations                                                                                               |
 | **Platform admins**    | `admin-web` (Vite)                   | Vendor approval, pricing & capacity catalog, booking monitoring, analytics, notifications, routing defaults, technician verification                                                                                               |
 | **Support desk**       | `support-web` (Vite)                 | Inbox for customer chats, insights, customer search with booking context, floating chat dock for active conversations                                                                                                              |
-| **Public website**     | `oorjaman-web` (Next.js)             | Marketing, SEO, legal policies at **https://oorjaman.com** - UAT at **dev-oorjaman.oorjaman.com** (noindex) - see [**DEPLOYMENT.md**](DEPLOYMENT.md), [**SEO.md**](SEO.md)                                                         |
+| **Public website**     | `oorjaman-web` (Next.js)             | Marketing, SEO, legal policies at **https://oorjaman.com** - UAT at **dev-oorjaman.oorjaman.com** (noindex) - see [**DEPLOYMENT.md**](project-docs/DEPLOYMENT.md), [**SEO.md**](project-docs/SEO.md)                                                         |
 
 Backend data and auth are provided by **Supabase** (Postgres, Row Level Security, Realtime, Storage, Edge Functions). Business logic shared across apps lives in `packages/api`; UI tokens and components live in `packages/config`, `packages/ui` (mobile), and `packages/web-ui` (web).
 
@@ -41,18 +41,27 @@ oorjaman-flagship/
 ├── scripts/               # DB seed, repair, push helpers
 ├── .env.example           # Env templates (copy per app)
 ├── .env.deployment.example # PROD vs UAT URL + Supabase matrix (no secrets)
-├── DEPLOYMENT.md          # 8 hosts (4 PROD + 4 UAT), GoDaddy, dual Supabase
-├── VERCEL.md              # Deploy admin/vendor/support portals to Vercel (testing)
-├── SUPABASE-UAT-PROD.md   # OorjaMan UAT vs Prod: migrations, RLS, db push workflow
-├── ENVIRONMENT.md         # Dev vs production env & build settings (all apps)
-└── BILLING.md             # Third-party services & API keys checklist
+├── project-docs/          # Deployment, env, billing, run guides, test Word docs (see project-docs/README.md)
+│   ├── README.md          # Index of all project-level docs
+│   ├── RUNNING-APPS.md    # All run modes: local, debug, UAT, prod, Expo Go
+│   ├── DEPLOYMENT.md      # PROD vs UAT matrix
+│   ├── VERCEL.md          # UAT admin/vendor/support on Vercel
+│   ├── SUPABASE-UAT-PROD.md
+│   ├── ENVIRONMENT.md
+│   ├── BILLING.md
+│   ├── SECURITY-VERCEL.md
+│   ├── SEO.md
+│   ├── EMAILS.md
+│   ├── TODO.md
+│   ├── OorjaMan-Functional-Test-Spec.docx
+│   └── OorjaMan-E2E-Test-Guide.docx
 ```
 
 ## Tech stack
 
 - **Monorepo:** npm workspaces (`apps/*`, `packages/*`)
 - **Mobile:** Expo SDK 54, Expo Router, React Native, TanStack Query
-- **Web:** React 19, Vite 6, React Router, TanStack Query
+- **Web:** React 19, Vite 8, React Router, TanStack Query
 - **Backend:** Supabase (Postgres + Auth + Realtime + Storage)
 - **Language:** TypeScript throughout
 
@@ -70,9 +79,11 @@ npm install
 
 Do **not** commit real `.env` files.
 
-- **Full guide (dev vs production, all apps):** [**ENVIRONMENT.md**](ENVIRONMENT.md)
-- **Templates:** [`.env.example`](.env.example) → per-app `.env` and optional repo-root `.env` for seed scripts
-- **Paid APIs (maps, etc.):** [BILLING.md](BILLING.md)
+- **Full guide:** [**ENVIRONMENT.md**](project-docs/ENVIRONMENT.md)
+- **Templates:** per-app `*.example` → gitignored `*.local` (see [Where to put files](project-docs/ENVIRONMENT.md#where-to-put-files))
+- **UAT portals on Vercel:** set `VITE_*` in Vercel Dashboard — [VERCEL.md](project-docs/VERCEL.md)
+- **Scripts (seed):** root `.env.uat.local` from [`.env.uat.local.example`](.env.uat.local.example)
+- **Paid APIs:** [BILLING.md](project-docs/BILLING.md)
 
 ### 3. Database
 
@@ -86,9 +97,9 @@ npm run db:push          # interactive
 npm run db:push:yes      # non-interactive
 ```
 
-**UAT + Prod:** use two Supabase projects (current **OorjaMan** → UAT, new **OorjaMan Prod**). Push the same migrations to both - UAT first, then Prod. See [**SUPABASE-UAT-PROD.md**](SUPABASE-UAT-PROD.md).
+**UAT + Prod:** use two Supabase projects (current **OorjaMan** → UAT, new **OorjaMan Prod**). Push the same migrations to both - UAT first, then Prod. See [**SUPABASE-UAT-PROD.md**](project-docs/SUPABASE-UAT-PROD.md).
 
-Seed local test users (requires root `.env` with `SUPABASE_SERVICE_ROLE_KEY`):
+Seed local test users (requires root `.env.uat.local` with `SUPABASE_SERVICE_ROLE_KEY`):
 
 ```bash
 npm run seed:dummy-users
@@ -123,15 +134,37 @@ git add supabase/schema.sql supabase/policies.sql
 
 ### 4. Run apps
 
-| Command              | App               | Typical URL / target                             |
-| -------------------- | ----------------- | ------------------------------------------------ |
-| `npm run customer`   | Customer mobile   | Expo dev tools → iOS/Android simulator or device |
-| `npm run technician` | Partner mobile (OorjaMan Partner) | Same                                             |
-| `npm run admin`      | Admin web         | http://localhost:5173                            |
-| `npm run vendor`     | Vendor web        | http://localhost:5174                            |
-| `npm run support`    | Support web       | http://localhost:5175                            |
+**Full guide (all modes):** [**RUNNING-APPS.md**](project-docs/RUNNING-APPS.md) — local Metro, Expo Go, debug native + device logs, UAT APK, EAS UAT/prod, Android & iOS for **customer** and **partner** apps.
 
-Before mobile `typecheck` or after a clean clone, regenerate Expo Router types:
+#### Web (local)
+
+| Command              | App               | URL / target                         |
+| -------------------- | ----------------- | ------------------------------------ |
+| `npm run admin`      | Admin web         | http://localhost:5173              |
+| `npm run vendor`     | Vendor web        | http://localhost:5174                |
+| `npm run support`    | Support web       | http://localhost:5175                |
+| `npm run web`        | Marketing site    | http://localhost:3000                |
+
+**UAT portals (deployed):** https://oorjaman-admin.vercel.app · https://oorjaman-vendor.vercel.app · https://oorjaman-support.vercel.app — [VERCEL.md](project-docs/VERCEL.md).
+
+#### Mobile — quick pick
+
+| Goal | Customer | Partner |
+|------|----------|---------|
+| **Metro** (fast JS) | `npm run customer` | `npm run technician` |
+| **Debug on device + terminal logs** | `cd apps/customer-app && npx expo run:android --device` | `cd apps/technician-app && npx expo run:android --device` |
+| **iOS Simulator** | `cd apps/customer-app && npx expo run:ios` | `cd apps/technician-app && npx expo run:ios` |
+| **UAT APK** (share, no laptop) | `npm run android:apk:uat:customer` | `npm run android:apk:uat:technician` |
+| **UAT EAS** | `npm run eas:android:uat:customer` | `npm run eas:android:uat:technician` |
+| **Store / prod** | `cd apps/customer-app && npx eas-cli build --profile production --platform all` | same in `technician-app` |
+
+**Env:** local Metro → `apps/<app>/.env.development.local` · UAT APK/EAS → `apps/<app>/env/uat.local` · see [ENVIRONMENT.md](project-docs/ENVIRONMENT.md).
+
+**Expo Go** (scan QR from Metro) is **not** enough for camera, maps, or push — use `expo run:*` or a UAT/production native build ([RUNNING-APPS.md](project-docs/RUNNING-APPS.md#expo-go-vs-development-build)).
+
+**Android USB logs:** `adb reverse tcp:8081 tcp:8081` then run the app. Setup: [RUNNING-APPS.md](project-docs/RUNNING-APPS.md#android--customer-app).
+
+Before mobile `typecheck` or after a clean clone:
 
 ```bash
 npm run expo:types
@@ -143,7 +176,11 @@ npm run expo:types
 | ------------------------------------ | ------------------------------------------------------------- |
 | `npm run typecheck`                  | Typecheck all workspaces (mobile apps run `expo:types` first) |
 | `npm run lint`                       | Lint where configured per workspace                           |
-| `npm run build`                      | Production build for all three web apps                       |
+| `npm run build`                      | Production build for all web apps (portals prod mode + marketing) |
+| `npm run build:uat -w admin-web`     | UAT portal build (same as Vercel)                                 |
+| `npm run android:apk:uat:customer` / `technician` | UAT release APK (embedded JS, share with QA) |
+| `npm run eas:android:uat:customer` / `technician` | UAT EAS Android build (cloud) |
+| `npm run seed:dummy-users`           | UAT test users (root `.env.uat.local`)                            |
 | `npm run db:push` / `db:push:yes`    | Apply `supabase/migrations/` to the linked Supabase project   |
 | `npm run db:reference`               | Regenerate `schema.sql` and `policies.sql` from migrations      |
 | `npm run db:status`                  | Local Supabase CLI status                                     |
@@ -163,14 +200,25 @@ Import from workspace packages in apps (no publish step in dev):
 
 ## Documentation
 
-- [**SUPABASE-UAT-PROD.md**](SUPABASE-UAT-PROD.md) - dual Supabase projects, `db push` workflow, keeping `schema.sql` / `policies.sql` in sync
-- [**DEPLOYMENT.md**](DEPLOYMENT.md) - PROD vs UAT web hosts, mobile EAS builds, GoDaddy
-- [**VERCEL.md**](VERCEL.md) - deploy admin, vendor, and support portals to Vercel for testing (env vars, Supabase setup)
-- [**ENVIRONMENT.md**](ENVIRONMENT.md) - environment variables and settings for **development** vs **production** builds (mobile, web, Supabase, push)
-- [**BILLING.md**](BILLING.md) - paid third-party services (e.g. Google Maps), env vars, and setup notes
-- [**docs/customer-push-setup.md**](docs/customer-push-setup.md) - customer support chat remote push (Expo + edge function)
-- [**docs/technician-push-setup.md**](docs/technician-push-setup.md) - technician support chat remote push (Expo + edge function)
-- Per-app READMEs under `apps/*` are mostly upstream templates; this file is the project overview
+Project-level guides live in [**project-docs/**](project-docs/README.md). The root [README.md](README.md) links the essentials; see the index for the full list.
+
+| Doc | Purpose |
+| --- | ------- |
+| [DEPLOYMENT.md](project-docs/DEPLOYMENT.md) | PROD vs UAT matrix: **Vercel UAT portals (live)**, GoDaddy target, mobile EAS |
+| [VERCEL.md](project-docs/VERCEL.md) | Three Vercel projects, env vars, Supabase auth URLs |
+| [SUPABASE-UAT-PROD.md](project-docs/SUPABASE-UAT-PROD.md) | Dual Supabase projects, `db:push`, migration workflow |
+| [ENVIRONMENT.md](project-docs/ENVIRONMENT.md) | All env vars: local / UAT / production |
+| [BILLING.md](project-docs/BILLING.md) | Supabase, Vercel, EAS, Maps, Apple/Google store |
+| [SECURITY-VERCEL.md](project-docs/SECURITY-VERCEL.md) | Portal + Supabase security on Vercel |
+| [SEO.md](project-docs/SEO.md) | Marketing site SEO & GoDaddy deploy |
+| [EMAILS.md](project-docs/EMAILS.md) | Business email setup & DNS |
+| [RUNNING-APPS.md](project-docs/RUNNING-APPS.md) | **All run modes:** local, debug, UAT, prod, Expo Go — Android & iOS |
+| [TODO.md](project-docs/TODO.md) | Release & ops checklist |
+| [docs/android-local-apk.md](docs/android-local-apk.md) | UAT APK without EAS cloud |
+| [docs/customer-push-setup.md](docs/customer-push-setup.md) | Customer support push |
+| [docs/technician-push-setup.md](docs/technician-push-setup.md) | Partner support push |
+| [docs/booking-notifications-realtime.md](docs/booking-notifications-realtime.md) | Admin/vendor realtime bells |
+| Per-app [README.md](apps/admin-web/README.md) under `apps/*` | Quick start per app |
 
 ## License
 

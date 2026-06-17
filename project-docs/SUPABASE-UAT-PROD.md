@@ -34,14 +34,14 @@ Every schema or policy change should be a **new file** under `supabase/migration
 3. Copy and save:
    - **Project URL** → UAT `EXPO_PUBLIC_SUPABASE_URL` / `VITE_SUPABASE_URL`
    - **Project ref** (subdomain in URL, e.g. `abcdefghij` from `https://abcdefghij.supabase.co`)
-   - **anon** and **service_role** keys (service_role → root `.env` only)
+   - **anon** and **service_role** keys (service_role → root `.env.uat.local` only)
 
 ### 2. Create production project
 
 1. Dashboard → **New project** → name **OorjaMan Prod**, region same as UAT if possible.
 2. Save **prod** URL, ref, anon, service_role separately (password manager / `.env.deployment.example`).
 
-### 3. Record refs in repo-root `.env` (gitignored)
+### 3. Record refs in repo-root `.env.uat.local` (gitignored)
 
 ```env
 # Scripts only - never commit
@@ -121,7 +121,7 @@ Set **Edge Function secrets** (`PUSH_DISPATCH_SECRET`, etc.) separately in each 
 
 ### Postgres settings (per project)
 
-Some features use database-level settings (push URLs, cron). Run the SQL from [ENVIRONMENT.md](ENVIRONMENT.md) and [docs/customer-push-setup.md](docs/customer-push-setup.md) **once per project**, with that project’s function URL and secrets.
+Some features use database-level settings (push URLs, cron). Run the SQL from [ENVIRONMENT.md](ENVIRONMENT.md) and [docs/customer-push-setup.md](../docs/customer-push-setup.md) **once per project**, with that project’s function URL and secrets.
 
 ---
 
@@ -171,7 +171,7 @@ npm run seed:dummy-users   # uses .env.uat.local
 **Fresh UAT data:**
 
 ```bash
-# root .env: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY = UAT
+# root .env.uat.local: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY = UAT
 npm run seed:dummy-users
 ```
 
@@ -183,11 +183,13 @@ npm run seed:dummy-users
 
 ## App configuration matrix
 
-| App / host                               | Supabase project  |
-| ---------------------------------------- | ----------------- |
-| `dev-*.oorjaman.com` + UAT mobile builds | **OorjaMan UAT**  |
-| `oorjaman.com`, `admin.*`, store mobile  | **OorjaMan Prod** |
-| Local dev (recommended)                  | **UAT**           |
+| App / host | Supabase project |
+| ---------- | ---------------- |
+| **Vercel UAT** (`oorjaman-*.vercel.app`) | **OorjaMan UAT** |
+| Local dev (recommended) | **OorjaMan UAT** |
+| UAT mobile (EAS `uat`, local APK) | **OorjaMan UAT** |
+| GoDaddy `dev-*.oorjaman.com` (when used) | **OorjaMan UAT** |
+| GoDaddy prod (`oorjaman.com`, `admin.*`, store mobile) | **OorjaMan Prod** |
 
 ---
 
@@ -277,7 +279,7 @@ All policies live in **migration SQL** (search `create policy` in `supabase/migr
 - [ ] `db push` all migrations on PROD
 - [ ] `migration list` matches UAT
 - [ ] Deploy all edge functions + secrets on PROD
-- [ ] Auth redirect URLs → production domains ([DEPLOYMENT.md](DEPLOYMENT.md))
+- [ ] Auth redirect URLs → production domains + Vercel UAT if still used ([DEPLOYMENT.md](DEPLOYMENT.md))
 - [ ] PROD web/mobile env → prod URL + anon only
 - [ ] UAT env still → current (renamed) UAT project
 - [ ] Do **not** seed dummy users on PROD unless intentional
@@ -286,6 +288,9 @@ All policies live in **migration SQL** (search `create policy` in `supabase/migr
 
 ## Related
 
-- [DEPLOYMENT.md](DEPLOYMENT.md) - 8 web hosts + mobile PROD/UAT
-- [ENVIRONMENT.md](ENVIRONMENT.md) - env var tables
-- `npm run db:push` / `npm run db:push:yes` - apply migrations to whichever project is currently **linked**
+- [DEPLOYMENT.md](DEPLOYMENT.md) — Vercel UAT portals (live) + GoDaddy target + mobile PROD/UAT
+- [VERCEL.md](VERCEL.md) — portal hosting on Vercel
+- [ENVIRONMENT.md](ENVIRONMENT.md) — env var tables
+- `npm run db:push` / `npm run db:push:yes` — apply migrations to whichever project is currently **linked**
+
+_Last updated: 2026-05-20._

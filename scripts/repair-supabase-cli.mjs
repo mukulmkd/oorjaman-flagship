@@ -15,9 +15,9 @@ function readSupabaseVersion() {
     const pkg = JSON.parse(
       readFileSync(path.join(repoRoot, "node_modules", "supabase", "package.json"), "utf8"),
     );
-    return pkg.version ?? "2.105.0";
+    return pkg.version ?? "2.106.0";
   } catch {
-    return "2.105.0";
+    return "2.106.0";
   }
 }
 

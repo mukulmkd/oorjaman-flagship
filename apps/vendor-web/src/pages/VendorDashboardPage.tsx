@@ -45,7 +45,7 @@ import {
 } from "@oorjaman/web-ui";
 import { BookingSitePhotos } from "../components/BookingSitePhotos";
 import { TablePaginationBar } from "../components/TablePaginationBar";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 import "./vendor-dashboard.css";
 
 function formatSiteAddress(addr: Json): string {

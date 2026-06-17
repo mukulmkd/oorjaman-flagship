@@ -2,7 +2,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BookingRow, Database, Json, VendorSettlementRow } from "../database.types";
 import {
   DEFAULT_VENDOR_PLATFORM_FEE_PERCENT,
-  getVendorPlatformFeePercent,
 } from "../platform/platform-settings-api";
 import { INDIAN_GST_RATE_PERCENT, splitGstFromInclusiveTotal } from "../pricing/gst-breakdown";
 import { emitVendorSettlementStatusNotification } from "../notifications/vendor-settlement-notifications";
@@ -22,9 +21,6 @@ function readPenaltyTierFromBookingMetadata(metadata: Json | null | undefined): 
   if (!row || typeof row !== "object" || Array.isArray(row)) return null;
   return typeof (row as Record<string, unknown>).tier === "string" ? String((row as Record<string, unknown>).tier) : null;
 }
-
-/** @deprecated Use {@link DEFAULT_VENDOR_PLATFORM_FEE_PERCENT} or {@link getVendorPlatformFeePercent}. */
-export const DEFAULT_PLATFORM_FEE_PERCENT = DEFAULT_VENDOR_PLATFORM_FEE_PERCENT;
 
 export type VendorSettlementKind = "visit_payout" | "cancellation_penalty";
 export type VendorSettlementStatus = "pending_review" | "approved" | "settled" | "waived";

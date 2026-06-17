@@ -2,6 +2,15 @@
 
 All apps derive icons and logos from **`brand/source/`** at the repo root.
 
+**Print & stationery** (letterhead, business cards, email signatures, invoice) — generate in the **admin portal**, not from files in this repo:
+
+| Workflow | How |
+|----------|-----|
+| **Primary** | Admin → **Dashboard → Brand print** — https://oorjaman-admin.vercel.app/dashboard/brand-collateral (or `npm run admin`) |
+| **Optional CLI** | `npm run brand:print` → writes gitignored files under [`brand/print/`](print/README.md) (company-default contact only) |
+
+Shared layout code: **`packages/utils/src/brand-print/`**. Logo masters: **`brand/source/`**. Print outputs are **not** synced into mobile/web apps.
+
 ## Drop your files here
 
 Put your designer exports in `brand/source/` using these names:
@@ -64,3 +73,44 @@ npm run brand:generate -w customer-app
 ```
 
 Edit `apps/customer-app/assets/brand/svg/sunburst.svg`, then run the command above. Logo icons and lockups always come from **`brand:sync`**.
+
+---
+
+## Print specifications
+
+Generate collateral from **`brand/source/`** masters via **Admin → Brand print** (see above). Specs for designers and printers:
+
+| Item | Size | Bleed | Safe margin | Notes |
+|------|------|-------|-------------|--------|
+| **Letterhead** | A4 — 210 × 297 mm | 3 mm (if full-bleed bg) | 20 mm | PDF/X-1a for print; lockup in header |
+| **Business card** | 90 × 54 mm (India) or 85 × 55 mm (ISO) | 3 mm | 5 mm inside trim | 300 DPI; separate front/back PDFs |
+| **Email signature** | ~600 px max width | — | — | HTML from Admin Brand print (hosted logo URL for live email) |
+
+### Colours (hex — convert to CMYK with your printer)
+
+| Token | Hex | Use |
+|-------|-----|-----|
+| Oorja green | `#549048` | “Oorja” in wordmark |
+| Man navy | `#1C4276` | “Man”, headings |
+| Tagline grey | `#9B9B9B` | Tagline |
+| Primary UI green | `#1f8660` | Links, accents in email sig |
+| Body text | `#0f2938` | Letter copy |
+| Secondary text | `#516a7b` | Titles, footer |
+
+Source of truth in code: `packages/config/src/brand.ts`, `packages/config/src/colors.ts`.
+
+### Typography
+
+| Use | Font | Weight |
+|-----|------|--------|
+| Headings, name on card | Plus Jakarta Sans | SemiBold (600) |
+| Body, letter text | Plus Jakarta Sans | Regular (400) |
+| Print fallback | Arial, Helvetica | — |
+
+### What not to do
+
+- Do **not** put letterhead or card PDFs under `apps/*` — apps only consume `npm run brand:sync` outputs.
+- Do **not** use `logo-icon.png` alone on letterhead when the full lockup fits — use `logo-lockup-tagline.png`.
+- Do **not** embed UAT or internal URLs in customer-facing print or email signatures.
+
+Folder details: [print/letterhead/](print/letterhead/README.md) · [print/business-card/](print/business-card/README.md) · [print/email-signature/](print/email-signature/README.md)

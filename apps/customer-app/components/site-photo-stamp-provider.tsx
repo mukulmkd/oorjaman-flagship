@@ -12,6 +12,7 @@ import {
   Image,
   InteractionManager,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   View,
@@ -29,16 +30,21 @@ import {
   type SitePhotoGeocode,
 } from "../lib/site-photo-geocode";
 import { downloadStaticMapFallback } from "../lib/site-photo-static-map";
+import { getGoogleMapsApiKey } from "../lib/google-maps";
 import { SitePhotoMapSnapshot } from "./site-photo-map-snapshot";
 
 const STAMP_WIDTH = 720;
 const MAP_BOX = 140;
 const MIN_STAMP_BYTES = 5_000;
+/** Android MapView snapshots are blank without a native Google Maps key — use HTTP tiles instead. */
+const preferHttpMapFallback = Platform.OS === "android" && !getGoogleMapsApiKey();
 
 type StampInput = {
   photoUri: string;
   geo: SitePhotoCaptureGeo;
   siteLabel?: string;
+  photoWidth?: number;
+  photoHeight?: number;
 };
 
 type StampJob = StampInput & {
@@ -179,11 +185,21 @@ export function SitePhotoStampProvider({ children }: { children: ReactNode }) {
       const pick = await pickSitePhotoWithGeo(source);
       if (!pick) return null;
 
+      if (Platform.OS === "android") {
+        await new Promise<void>((resolve) => {
+          InteractionManager.runAfterInteractions(() => {
+            setTimeout(resolve, 300);
+          });
+        });
+      }
+
       try {
         const stampedUri = await stampSitePhoto({
           photoUri: pick.uri,
           geo: pick.geo,
           siteLabel: siteLabel?.trim() || undefined,
+          photoWidth: pick.width > 0 ? pick.width : undefined,
+          photoHeight: pick.height > 0 ? pick.height : undefined,
         });
         return { ...pick, uri: stampedUri };
       } catch {
@@ -196,15 +212,34 @@ export function SitePhotoStampProvider({ children }: { children: ReactNode }) {
   const jobKey = job ? `${job.photoUri}:${job.geo.lat}:${job.geo.lng}` : null;
 
   useEffect(() => {
+    if (!job || mapUri || !preferHttpMapFallback) return;
+    let cancelled = false;
+    void (async () => {
+      const fallback = await downloadStaticMapFallback(job.geo.lat, job.geo.lng, MAP_BOX);
+      if (!cancelled && fallback) {
+        setMapUri(fallback);
+      } else if (!cancelled) {
+        setAssetsReady((s) => ({ ...s, map: true }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [jobKey, mapUri]);
+
+  useEffect(() => {
     if (!job) return;
     let cancelled = false;
     void (async () => {
       try {
-        await Image.prefetch(job.photoUri);
-        const [geocode, size] = await Promise.all([
-          reverseGeocodeSitePhoto(job.geo.lat, job.geo.lng),
-          getImageSize(job.photoUri),
-        ]);
+        if (Platform.OS !== "android") {
+          await Image.prefetch(job.photoUri);
+        }
+        const geocode = await reverseGeocodeSitePhoto(job.geo.lat, job.geo.lng);
+        const size =
+          job.photoWidth && job.photoHeight
+            ? { width: job.photoWidth, height: job.photoHeight }
+            : await getImageSize(job.photoUri);
         if (cancelled) return;
         const photoHeight = Math.max(360, Math.round((size.height / size.width) * STAMP_WIDTH));
         setMeta({
@@ -278,7 +313,7 @@ export function SitePhotoStampProvider({ children }: { children: ReactNode }) {
         <View style={styles.modalRoot}>
           {job && meta ? (
             <>
-              {!mapUri ? (
+              {!mapUri && !preferHttpMapFallback ? (
                 <View style={styles.mapSnapshotLayer} pointerEvents="none">
                   <SitePhotoMapSnapshot
                     lat={job.geo.lat}

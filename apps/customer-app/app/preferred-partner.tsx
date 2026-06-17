@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { bookingApi, customerApi, queryKeys, vendorApi } from "@oorjaman/api";
 import type { VendorRow } from "@oorjaman/api";

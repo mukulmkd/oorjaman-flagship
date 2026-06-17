@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import { getGoogleMapsApiKey } from "../lib/google-maps";
 
 type Props = {
   lat: number;
@@ -55,12 +56,15 @@ export function SitePhotoMapSnapshot({ lat, lng, size, onReady, onFail }: Props)
     return null;
   }
 
+  const googleKey = getGoogleMapsApiKey();
+  const mapProvider = googleKey ? PROVIDER_GOOGLE : undefined;
+
   return (
     <View style={[styles.wrap, { width: size, height: size }]} collapsable={false}>
       <MapView
         ref={mapRef}
         style={{ width: size, height: size }}
-        provider={PROVIDER_GOOGLE}
+        provider={mapProvider}
         mapType="standard"
         initialRegion={region}
         onMapReady={capture}

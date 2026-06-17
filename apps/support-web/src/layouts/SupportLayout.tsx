@@ -6,7 +6,7 @@ import { SupportChatDock } from "../components/SupportChatDock";
 import { SupportDeskRealtime } from "../components/SupportDeskRealtime";
 import { ActiveChatProvider } from "../lib/active-chat-context";
 import { adminPortalUrl } from "../lib/portal-urls";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 function navLinkClass({ isActive }: { isActive: boolean }): string {
   return isActive ? "dash-nav-active" : "";
 }

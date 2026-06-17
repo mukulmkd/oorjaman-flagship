@@ -12,6 +12,7 @@ import { colors, spacing } from "@oorjaman/config";
 import { Button, Screen, SCREEN_EDGES_FULL_SCREEN } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { supabase } from "../lib/supabase";
+import { navigateFromTechnicianPostAuthPath, navigateToTechnicianMainAfterApproval } from "../lib/technician-approval-toast";
 
 export default function PendingVendorReviewScreen() {
   const techQuery = useQuery({
@@ -28,7 +29,7 @@ export default function PendingVendorReviewScreen() {
       try {
         const path = await resolveTechnicianAppPostAuthPath(supabase);
         if (path !== "/pending-vendor-review") {
-          router.replace(path);
+          navigateFromTechnicianPostAuthPath(path);
         }
       } catch {
         /* stay on screen */
@@ -41,12 +42,12 @@ export default function PendingVendorReviewScreen() {
     const r = await techQuery.refetch();
     const row = r.data;
     if (technicianApi.technicianIsFullyOnboarded(row)) {
-      router.replace("/(main)");
+      navigateToTechnicianMainAfterApproval();
       return;
     }
     if (!technicianApi.technicianShowsPendingReviewScreen(row)) {
       const path = await resolveTechnicianAppPostAuthPath(supabase);
-      router.replace(path);
+      navigateFromTechnicianPostAuthPath(path);
     }
   }, [techQuery]);
 

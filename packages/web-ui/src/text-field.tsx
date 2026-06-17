@@ -1,17 +1,22 @@
-import type { InputHTMLAttributes, TextareaHTMLAttributes } from "react";
+import { useId, type InputHTMLAttributes, type TextareaHTMLAttributes } from "react";
 
 export type TextAreaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
   label: string;
 };
 
 export function TextArea({ label, id, className, ...rest }: TextAreaProps) {
-  const fid = id ?? label.replace(/\s+/g, "-").toLowerCase();
+  const autoId = useId();
+  const fieldId = id?.trim() ? id : autoId;
+  const labelText = label.trim();
+
   return (
     <div className={className}>
-      <label className="web-field-label" htmlFor={fid}>
-        {label}
-      </label>
-      <textarea id={fid} className="web-textarea" {...rest} />
+      {labelText ? (
+        <label className="web-field-label" htmlFor={fieldId}>
+          {label}
+        </label>
+      ) : null}
+      <textarea id={fieldId} className="web-textarea" {...rest} />
     </div>
   );
 }
@@ -21,13 +26,18 @@ export type InputProps = InputHTMLAttributes<HTMLInputElement> & {
 };
 
 export function Input({ label, id, className, ...rest }: InputProps) {
-  const fid = id ?? label.replace(/\s+/g, "-").toLowerCase();
+  const autoId = useId();
+  const fieldId = id?.trim() ? id : autoId;
+  const labelText = label.trim();
+
   return (
     <div className={className}>
-      <label className="web-field-label" htmlFor={fid}>
-        {label}
-      </label>
-      <input id={fid} className="web-input" {...rest} />
+      {labelText ? (
+        <label className="web-field-label" htmlFor={fieldId}>
+          {label}
+        </label>
+      ) : null}
+      <input id={fieldId} className="web-input" {...rest} />
     </div>
   );
 }

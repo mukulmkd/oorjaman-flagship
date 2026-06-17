@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { Pressable, type PressableProps } from "react-native";
+import { Pressable } from "react-native";
 
 type ReanimatedModule = typeof import("react-native-reanimated");
 type AnimatedPressableComponent = ComponentType<Record<string, unknown>>;

@@ -15,9 +15,6 @@
     "eslint-config-next",
     "@react-navigation/native"
   ],
-  "ignoreIssues": {
-    "packages/api/**": ["exports", "types"]
-  },
   "workspaces": {
     ".": {
       "entry": ["scripts/**/*.{mjs,js}"],

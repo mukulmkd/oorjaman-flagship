@@ -75,10 +75,3 @@ export const fontSize = {
   "2xl": typography.size.xxl,
   "3xl": typography.size.display,
 } as const;
-
-/** @deprecated Use `typography.family` */
-export const fontFamilies = {
-  sans: fontFamily.regular,
-  heading: fontFamily.bold,
-  mono: fontFamily.medium,
-} as const;

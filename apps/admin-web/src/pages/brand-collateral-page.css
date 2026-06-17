@@ -1,0 +1,149 @@
+.bc-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) 1fr;
+  gap: 1.25rem;
+  align-items: start;
+  margin-top: 1rem;
+}
+
+@media (max-width: 960px) {
+  .bc-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bc-grid--letterhead {
+  grid-template-columns: 1fr;
+}
+
+.bc-section-title {
+  margin: 0 0 0.35rem;
+  font-size: var(--wb-text-md, 1rem);
+  font-weight: 600;
+}
+
+.bc-section-hint,
+.bc-muted,
+.bc-footnote {
+  margin: 0;
+  font-size: var(--wb-text-sm, 0.875rem);
+  color: var(--wb-muted-fg);
+  line-height: 1.45;
+}
+
+.bc-fields {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.bc-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.bc-label {
+  font-size: var(--wb-text-sm, 0.875rem);
+  font-weight: 500;
+  color: var(--wb-fg);
+}
+
+.bc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+}
+
+.bc-error {
+  margin: 0.85rem 0 0;
+  color: var(--wb-destructive, #dc2626);
+  font-size: var(--wb-text-sm, 0.875rem);
+}
+
+.bc-preview-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.bc-preview-figure {
+  margin: 0;
+  text-align: center;
+}
+
+.bc-preview-figure figcaption {
+  margin-top: 0.35rem;
+  font-size: var(--wb-text-xs, 0.75rem);
+  color: var(--wb-muted-fg);
+}
+
+.bc-card-preview {
+  width: min(100%, 531px);
+  height: auto;
+  border-radius: 0;
+  box-shadow: 0 8px 24px rgba(15, 41, 56, 0.12);
+  border: 1px solid var(--wb-border);
+  background: #fff;
+  image-rendering: auto;
+}
+
+.bc-downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.bc-footnote {
+  margin-top: 1rem;
+}
+
+.bc-email-preview {
+  display: block;
+  width: 100%;
+  min-height: 180px;
+  margin: 1rem 0;
+  padding-top: 4px;
+  border: 1px solid var(--wb-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.bc-setup-steps {
+  margin: 0 0 1rem;
+  padding-left: 1.35rem;
+  color: var(--wb-fg, #0f2938);
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.bc-setup-steps li {
+  margin-bottom: 0.55rem;
+}
+
+.bc-setup-steps strong {
+  font-weight: 600;
+  color: var(--wb-fg, #0f2938);
+}
+
+.bc-setup-steps code {
+  font-size: 0.88em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #1c4276;
+  background: #eef2f6;
+  padding: 0.12rem 0.4rem;
+  border-radius: 4px;
+}
+
+.bc-doc-preview {
+  display: block;
+  width: 100%;
+  min-height: 520px;
+  margin: 1rem 0;
+  border: 1px solid var(--wb-border);
+  border-radius: 8px;
+  background: #f8fafb;
+}

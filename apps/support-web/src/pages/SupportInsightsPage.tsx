@@ -6,7 +6,7 @@ import {
   inboxPathFromCategoryInsight,
   inboxPathFromInsightCard,
 } from "../lib/support-inbox-url";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 import "./support-inbox.css";
 
 const CATEGORY_LABELS: Record<string, string> = {

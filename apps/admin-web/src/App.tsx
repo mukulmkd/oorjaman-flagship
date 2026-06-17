@@ -21,6 +21,7 @@ import { AnalyticsDashboardPage } from "./pages/AnalyticsDashboardPage";
 import { FeatureManagementPage } from "./pages/FeatureManagementPage";
 import { AmcContractsPage } from "./pages/AmcContractsPage";
 import { FinanceSettlementsPage } from "./pages/FinanceSettlementsPage";
+import { BrandCollateralPage } from "./pages/BrandCollateralPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 
 export default function App() {
@@ -53,6 +54,7 @@ export default function App() {
         <Route path="trust-safety" element={<TrustSafetyPage />} />
         <Route path="notifications" element={<NotificationTemplatesPage />} />
         <Route path="feature-management" element={<FeatureManagementPage />} />
+        <Route path="brand-collateral" element={<BrandCollateralPage />} />
         <Route path="subscription-renewals" element={<SubscriptionRenewalsPage />} />
         <Route path="bookings" element={<BookingMonitoringPage />} />
         <Route path="support" element={<Navigate to="/dashboard/operations" replace />} />

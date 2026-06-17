@@ -104,25 +104,36 @@ export async function adminListAmcAwaitingPartnerAssignments(
   });
 }
 
-export async function adminFetchOpsDeskSummary(
+export type OpsDeskSummaryLight = Pick<
+  OpsDeskSummary,
+  "bookingExceptionsActionable" | "notificationsFailed24h"
+>;
+
+export function buildOpsDeskSummary(input: {
+  light: OpsDeskSummaryLight;
+  monitorRows: Awaited<ReturnType<typeof adminGetBookingMonitoringRows>>;
+  amcRows: OpsAmcAwaitingPartnerRow[];
+}): OpsDeskSummary {
+  return {
+    ...input.light,
+    onsiteBlocked: countOtpRiskFromMonitor(input.monitorRows),
+    amcAwaitingPartner: input.amcRows.length,
+  };
+}
+
+/** KPI counts that do not require loading monitor rows or AMC assignment lists. */
+export async function adminFetchOpsDeskSummaryLight(
   client: SupabaseClient<Database>,
-): Promise<OpsDeskSummary> {
+): Promise<OpsDeskSummaryLight> {
   const nowIso = new Date().toISOString();
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [
-    actionableRes,
-    amcRows,
-    failedNotifs,
-    monitorRows,
-  ] = await Promise.all([
+  const [actionableRes, failedNotifs] = await Promise.all([
     client
       .from("ops_booking_exceptions")
       .select("booking_id", { count: "exact", head: true })
       .gte("scheduled_end", nowIso),
-    adminListAmcAwaitingPartnerAssignments(client, { limit: 200 }),
     adminCountNotificationEvents(client, { status: "failed", sinceIso: since24h }),
-    adminGetBookingMonitoringRows(client, "all", { limit: 500 }),
   ]);
 
   if (actionableRes.error) {
@@ -131,10 +142,20 @@ export async function adminFetchOpsDeskSummary(
 
   return {
     bookingExceptionsActionable: actionableRes.count ?? 0,
-    onsiteBlocked: countOtpRiskFromMonitor(monitorRows),
-    amcAwaitingPartner: amcRows.length,
     notificationsFailed24h: failedNotifs,
   };
+}
+
+export async function adminFetchOpsDeskSummary(
+  client: SupabaseClient<Database>,
+): Promise<OpsDeskSummary> {
+  const [light, amcRows, monitorRows] = await Promise.all([
+    adminFetchOpsDeskSummaryLight(client),
+    adminListAmcAwaitingPartnerAssignments(client, { limit: 200 }),
+    adminGetBookingMonitoringRows(client, "all", { limit: 500 }),
+  ]);
+
+  return buildOpsDeskSummary({ light, amcRows, monitorRows });
 }
 
 /** Recent failed notification events for platform health surfaces. */

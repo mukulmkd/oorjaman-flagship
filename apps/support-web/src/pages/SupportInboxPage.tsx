@@ -23,9 +23,10 @@ import {
   playNotificationChime,
   setNotificationSoundMuted,
 } from "../lib/notification-sound";
-import { shouldDeskNotifyForConversation, useActiveChat } from "../lib/active-chat-context";
+import { shouldDeskNotifyForConversation } from "../lib/active-chat-notify";
+import { useActiveChat } from "../lib/use-active-chat";
 import { parseInboxDrillDown } from "../lib/support-inbox-url";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 import "./support-inbox.css";
 
 const INBOX_TABS: { id: SupportInboxFilter; label: string }[] = [
@@ -101,7 +102,7 @@ export function SupportInboxPage() {
     refetchInterval: 60_000,
   });
 
-  const conversations = inboxQ.data ?? [];
+  const conversations = useMemo(() => inboxQ.data ?? [], [inboxQ.data]);
 
   useEffect(() => {
     setFilter(drillDown.filter);

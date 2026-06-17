@@ -45,9 +45,6 @@ export type VendorRegistrationPayload = {
   metadata?: Json | null;
 };
 
-/** @deprecated Use VendorRegistrationPayload */
-export type VendorRegistrationInput = VendorRegistrationPayload;
-
 function mergeVendorMetadata(existing: Json | null | undefined, patch: Json | null | undefined): Json {
   const a =
     typeof existing === "object" && existing !== null && !Array.isArray(existing)

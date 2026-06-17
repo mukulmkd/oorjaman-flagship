@@ -29,7 +29,6 @@ import {
   queryKeys,
   readAddressEntryGps,
   readSubscriptionCapacityTierCode,
-  resolveSignInAccountEmail,
   resolveSignInAccountPhone,
   snapProfileCapacityInputToAllowedKw,
   subscriptionApi,
@@ -39,7 +38,7 @@ import {
 } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
 import { Button, Screen, SCREEN_EDGES_BENEATH_NATIVE_HEADER } from "@oorjaman/ui";
-import { fontFamily, fontSize, fontWeight } from "../../constants/fonts";
+import { fontFamily, fontSize } from "../../constants/fonts";
 import { ServiceAddressPickerSheet } from "../../components/service-address-picker-sheet";
 import { SitePhotoGallerySection } from "../../components/site-photo-gallery-section";
 import {
@@ -526,7 +525,6 @@ export default function ProfileTab() {
   );
 
   const accountPhone = resolveSignInAccountPhone(user, authUserQuery.data);
-  const accountEmail = resolveSignInAccountEmail(user, authUserQuery.data);
 
   if (!supabase) {
     return (
@@ -895,6 +893,7 @@ export default function ProfileTab() {
             setAddr({ ...parsed, label: selected.label.trim() || parsed.label });
           }
           await addressBookMut.mutateAsync({ entries, defaultId, extras });
+          setAddressSheetOpen(false);
         }}
       />
     </Screen>

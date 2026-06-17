@@ -1,8 +1,20 @@
 # Environment & build configuration
 
-Guide for **local development** vs **production** settings across the OorjaMan flagship monorepo. Use this when onboarding, pointing apps at a Supabase project, or preparing EAS / Vite production builds.
+Guide for **local development**, **UAT** (Vercel portals + UAT mobile), and **production** settings across the OorjaMan flagship monorepo.
 
-**Do not commit real `.env` files.** Templates: [`.env.example`](.env.example). **PROD vs UAT (8 URLs, 2 Supabase projects):** [**DEPLOYMENT.md**](DEPLOYMENT.md), [`.env.deployment.example`](.env.deployment.example). Paid third-party services: [**BILLING.md**](BILLING.md).
+**Do not commit real `.env` files.** Templates: per-app `*.example` → gitignored `*.local`. **Deployment matrix:** [**DEPLOYMENT.md**](DEPLOYMENT.md), [`.env.deployment.example`](../.env.deployment.example). **Vercel UAT portals:** [**VERCEL.md**](VERCEL.md). Paid services: [**BILLING.md**](BILLING.md).
+
+---
+
+## Deployment tiers (quick map)
+
+| Tier | Web portals | Marketing | Mobile | Supabase |
+| ---- | ----------- | --------- | ------ | -------- |
+| **Local dev** | `localhost:5173–5175` · `.env.development.local` | `localhost:3000` | Metro · `.env.development.local` | **OorjaMan UAT** |
+| **UAT (live)** | **Vercel** · env in Dashboard (or `.env.uat.local` for local `build:uat`) | GoDaddy `dev-oorjaman` (when deployed) | EAS `uat` / local APK · `env/uat.local` | **OorjaMan UAT** |
+| **Production** | GoDaddy `admin/vendor/support` · `.env.production.local` | `oorjaman.com` | Store · EAS `production` | **OorjaMan Prod** |
+
+**Live Vercel UAT URLs:** https://oorjaman-admin.vercel.app · https://oorjaman-vendor.vercel.app · https://oorjaman-support.vercel.app
 
 ---
 
@@ -24,20 +36,16 @@ Each app uses **mode-specific** env files (gitignored `.local` copies hold real 
 
 | File | When it loads | Supabase project |
 |------|---------------|------------------|
-| `apps/*/\.env.development.local` | `npm run dev`, `npm run customer`, etc. | **OorjaMan UAT** |
-| `apps/*/\.env.production.local` | `npm run build` (Vite/Next prod mode) | **OorjaMan Prod** |
+| `apps/*/.env.development.local` | `npm run dev`, `npm run customer`, etc. | **OorjaMan UAT** |
+| `apps/*/.env.uat.local` | `npm run build:uat -w <portal>` (local UAT build smoke test) | **OorjaMan UAT** |
+| `apps/*/.env.production.local` | `npm run build` (Vite/Next prod mode) | **OorjaMan Prod** |
+| `apps/<expo-app>/env/uat.local` | UAT APK / EAS via `run-with-expo-env.mjs` | **OorjaMan UAT** |
 | `.env.uat.local` (repo root) | `npm run seed:dummy-users` (default) | **UAT** |
 | `.env.production.local` (repo root) | `SEED_ENV=production npm run seed:dummy-users` | **Prod** |
 
-**Vite portals** (`admin-web`, `vendor-web`, `support-web`): copy `\.env.development.example` → `\.env.development.local` and `\.env.production.example` → `\.env.production.local`.
+**Vite portals** (`admin-web`, `vendor-web`, `support-web`): copy `.env.development.example`, `.env.uat.example`, and `.env.production.example` → matching `.local` files.
 
-**Expo apps** (`customer-app`, `technician-app`): same pattern. EAS store builds should use **EAS Secrets** for prod/UAT keys (see [DEPLOYMENT.md](DEPLOYMENT.md)).
-
-**Marketing** (`oorjaman-web`): `\.env.development.local` / `\.env.production.local`.
-
-**Vercel:** set `VITE_*` in the Vercel dashboard (not local files). See [VERCEL.md](VERCEL.md).
-
-Plain `\.env` files are stubs only — do not put secrets there.
+**Vercel (UAT portals live):** set the same `VITE_*` names in the **Vercel Dashboard** (Production + Preview). Vercel does not read local `.env.uat.local`. See [VERCEL.md](VERCEL.md).
 
 ---
 
@@ -52,8 +60,8 @@ Plain `\.env` files are stubs only — do not put secrets there.
 5. Copy root `\.env.uat.local.example` → `\.env.uat.local` (UAT `service_role` for scripts).
 6. `npm run seed:dummy-users` — uses `\.env.uat.local` by default.
 7. Run apps: `npm run customer`, `npm run technician`, `npm run admin`, etc.
-7. (Optional) Customer maps: `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` + native rebuild.
-8. (Optional) Customer remote push: EAS project id + edge function (see [Customer push](#customer-app--expo-push--notifications)).
+8. (Optional) Customer maps + site photo stamps: `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` + native rebuild ([RUNNING-APPS.md — Site photos](RUNNING-APPS.md#customer-app--site-photos-camera-gps-stamp-upload), [BILLING.md](BILLING.md)).
+9. (Optional) Customer remote push: EAS project id + edge function (see [Customer push](#customer-app--expo-push--notifications)).
 
 ### Production release
 
@@ -62,7 +70,7 @@ Plain `\.env` files are stubs only — do not put secrets there.
 3. **Edge functions deployed** with production secrets.
 4. **Database push dispatch** configured (customer support push).
 5. **EAS production builds** for customer (and technician if shipping) with production `EXPO_PUBLIC_*`.
-6. **Web apps** built with production `VITE_*` and deployed to your host (Vercel, Netlify, S3, etc.).
+6. **Web portals** — UAT on Vercel today ([VERCEL.md](VERCEL.md)); production on GoDaddy with production `VITE_*` ([DEPLOYMENT.md](DEPLOYMENT.md)).
 7. **Google Maps** key restricted to production bundle IDs / SHA-1 ([BILLING.md](BILLING.md)).
 8. **Apple Developer** + APNs via EAS for iOS push ([Customer push](#customer-app--expo-push--notifications)).
 
@@ -76,7 +84,7 @@ Same logical project per environment; values differ between dev and prod.
 | ---------------- | --------------------- | ------------------------------------------------------- | ---------------------------- |
 | Project URL      | Dev project URL       | Prod project URL                                        | Dashboard → Settings → API   |
 | Anon key         | Dev anon key          | Prod anon key                                           | Safe in client apps with RLS |
-| Service role key | Dev only, root `.env` | **Server only** - Edge secrets, CI, never in mobile/web | Full DB access               |
+| Service role key | Dev only, root `.env.uat.local` | **Server only** - Edge secrets, CI, never in mobile/web | Full DB access               |
 
 **Exposed in clients as:**
 
@@ -245,19 +253,19 @@ Detail: [docs/technician-push-setup.md](docs/technician-push-setup.md).
 
 ---
 
-## 5. Web apps (Vite)
+## 5. Web apps (Vite portals)
 
 Shared pattern for `admin-web`, `vendor-web`, `support-web`.
 
-| Variable                  | Development             | Production                       | Required    |
-| ------------------------- | ----------------------- | -------------------------------- | ----------- |
-| `VITE_SUPABASE_URL`       | Dev URL                 | Prod URL                         | Yes         |
-| `VITE_SUPABASE_ANON_KEY`  | Dev anon                | Prod anon                        | Yes         |
-| `VITE_USE_DUMMY_AUTH`     | `true` optional         | **off**                          | No          |
-| `VITE_DUMMY_OTP_*`        | QA values               | **omit**                         | No          |
-| `VITE_ADMIN_PORTAL_URL`   | `http://localhost:5173` | `https://admin.yourdomain.com`   | Cross-links |
-| `VITE_VENDOR_PORTAL_URL`  | `http://localhost:5174` | `https://vendor.yourdomain.com`  | Cross-links |
-| `VITE_SUPPORT_PORTAL_URL` | `http://localhost:5175` | `https://support.yourdomain.com` | Cross-links |
+| Variable | Local dev | UAT (Vercel / `build:uat`) | Production (GoDaddy) | Required |
+| -------- | --------- | ---------------------------- | -------------------- | -------- |
+| `VITE_DEPLOY_ENV` | `uat` | `uat` | `production` | Yes |
+| `VITE_SUPABASE_URL` | UAT URL | UAT URL | Prod URL | Yes |
+| `VITE_SUPABASE_ANON_KEY` | UAT anon | UAT anon | Prod anon | Yes |
+| `VITE_USE_DUMMY_AUTH` | `true` optional | `true` optional (Vercel QA) | **off** | No |
+| `VITE_ADMIN_PORTAL_URL` | `http://localhost:5173` | `https://oorjaman-admin.vercel.app` | `https://admin.oorjaman.com` | Cross-links |
+| `VITE_VENDOR_PORTAL_URL` | `http://localhost:5174` | `https://oorjaman-vendor.vercel.app` | `https://vendor.oorjaman.com` | Cross-links |
+| `VITE_SUPPORT_PORTAL_URL` | `http://localhost:5175` | `https://oorjaman-support.vercel.app` | `https://support.oorjaman.com` | Cross-links |
 
 **Local ports (default):**
 
@@ -267,14 +275,22 @@ Shared pattern for `admin-web`, `vendor-web`, `support-web`.
 | Vendor  | `npm run vendor`  | http://localhost:5174 |
 | Support | `npm run support` | http://localhost:5175 |
 
-**Production build:**
+**UAT build (Vercel or local verify):**
 
 ```bash
-npm run build -w admin-web    # or vendor-web / support-web
-# output: apps/<app>/dist - deploy with your host’s env injection for VITE_*
+npm run build:uat -w admin-web    # uses apps/admin-web/.env.uat.local if present
+npm run build:uat -w vendor-web
+npm run build:uat -w support-web
+# output: apps/<app>/dist
 ```
 
-Set `VITE_*` in the hosting provider (Vercel, etc.) at build time-they are not read from `.env` on the server at runtime unless you rebuild.
+**Production build (GoDaddy):**
+
+```bash
+npm run build -w admin-web    # uses .env.production.local
+```
+
+Set `VITE_*` in **Vercel Dashboard** for deployed UAT — values are embedded at build time, not read at runtime.
 
 ---
 
@@ -368,7 +384,7 @@ Use **development**, **preview**, and **production** EAS build profiles (`eas.js
 | Task             | Command                    | When                                        |
 | ---------------- | -------------------------- | ------------------------------------------- |
 | Apply migrations | `npm run db:push`          | After pull, before testing new features     |
-| Seed test users  | `npm run seed:dummy-users` | Dev only; needs service role in root `.env` |
+| Seed test users  | `npm run seed:dummy-users` | Dev/UAT only; needs service role in root `.env.uat.local` |
 | Local Supabase   | `npm run db:status`        | Optional local stack                        |
 
 Production: run migrations against the **production** project only from a controlled CI/CD or release process-never point a dev `.env` at prod for seed scripts.
@@ -387,14 +403,18 @@ Production: run migrations against the **production** project only from a contro
 | `VITE_SUPABASE_URL`               | admin, vendor, support | Dev             | Prod                |
 | `VITE_SUPABASE_ANON_KEY`          | admin, vendor, support | Dev             | Prod                |
 | `VITE_USE_DUMMY_AUTH`             | admin, vendor, support | optional `true` | **off**             |
-| `VITE_*_PORTAL_URL`               | web cross-links        | localhost ports | HTTPS domains       |
+| `VITE_*_PORTAL_URL`               | web cross-links        | localhost ports | Vercel `.vercel.app` (UAT) → GoDaddy prod |
 
 ---
 
 ## Related docs
 
-- [README.md](README.md) - monorepo overview and run commands
-- [.env.example](.env.example) - copy-paste templates
-- [BILLING.md](BILLING.md) - Google Maps and other paid APIs
-- [docs/customer-push-setup.md](docs/customer-push-setup.md) - customer support chat remote push
-- [docs/technician-push-setup.md](docs/technician-push-setup.md) - technician support chat remote push
+- [README.md](README.md) — monorepo overview and run commands
+- [DEPLOYMENT.md](DEPLOYMENT.md) — full PROD vs UAT matrix
+- [VERCEL.md](VERCEL.md) — live UAT portal deployment
+- [.env.deployment.example](../.env.deployment.example) — copy-paste matrix (no secrets)
+- [BILLING.md](BILLING.md) — Google Maps and other paid APIs
+- [docs/customer-push-setup.md](docs/customer-push-setup.md) — customer support chat remote push
+- [docs/technician-push-setup.md](docs/technician-push-setup.md) — technician support chat remote push
+
+_Last updated: 2026-05-20 — three-tier env files, Vercel UAT portals live._

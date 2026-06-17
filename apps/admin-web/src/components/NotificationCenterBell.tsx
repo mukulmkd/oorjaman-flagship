@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import type { NotificationAudience } from "@oorjaman/api";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 import { useNotificationCenter } from "../hooks/use-notification-center";
 import "./notification-center.css";
 

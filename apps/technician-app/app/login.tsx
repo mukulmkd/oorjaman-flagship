@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
@@ -15,13 +14,12 @@ import {
   authApi,
   buildLoginE164,
   DEFAULT_LOGIN_COUNTRY_DIAL,
-  getDummyAuthUiHint,
   LOGIN_PHONE_COUNTRIES,
   resolveTechnicianAppPostAuthPath,
   validateLoginNationalPhone,
 } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
-import { LoginPhoneRow, OtpCodeInput, dismissOtpKeyboard } from "@oorjaman/ui";
+import { LoginPhoneRow, OtpCodeInput, dismissOtpKeyboard, KeyboardFormScreen, type KeyboardFormScreenRef } from "@oorjaman/ui";
 import { BrandLockup } from "../components/brand-lockup";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { supabase } from "../lib/supabase";
@@ -32,6 +30,7 @@ const RESEND_SEC = 48;
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const otpRef = useRef<TextInput>(null);
+  const formRef = useRef<KeyboardFormScreenRef>(null);
   const autoVerifyOtpRef = useRef<string | null>(null);
 
   const [countryDial, setCountryDial] = useState(DEFAULT_LOGIN_COUNTRY_DIAL);
@@ -64,8 +63,6 @@ export default function LoginScreen() {
     return () => clearInterval(t);
   }, [cooldown]);
 
-  const dummyHint = useMemo(() => getDummyAuthUiHint(), []);
-
   const sendOtp = useCallback(async () => {
     setError(null);
     if (!supabase) {
@@ -89,6 +86,7 @@ export default function LoginScreen() {
       setOtpSent(true);
       setCooldown(RESEND_SEC);
       otpRef.current?.focus();
+      requestAnimationFrame(() => formRef.current?.scrollToEnd(true));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Could not send code. Try again.");
     } finally {
@@ -134,16 +132,15 @@ export default function LoginScreen() {
     cooldown > 0 ? `Resend code (${cooldown}s)` : otpSent ? "Resend code" : "Send code";
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.select({ ios: "padding", android: undefined })}
+    <KeyboardFormScreen
+      ref={formRef}
+      scrollToEndOnKeyboard
+      keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      contentContainerStyle={[
+        styles.root,
+        { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.md },
+      ]}
     >
-      <View
-        style={[
-          styles.root,
-          { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.md },
-        ]}
-      >
         <View style={styles.brandHeader}>
           <BrandLockup iconSize={96} />
         </View>
@@ -153,12 +150,6 @@ export default function LoginScreen() {
           Use the mobile number your employer or OorjaMan operations registered for you. We'll text a
           one-time code to verify.
         </Text>
-
-        {dummyHint ? (
-          <View style={styles.dummyBanner}>
-            <Text style={styles.dummyBannerText}>{dummyHint}</Text>
-          </View>
-        ) : null}
 
         {error ? (
           <View style={styles.errorBanner}>
@@ -230,18 +221,12 @@ export default function LoginScreen() {
           New partner? Use the same sign-in above. After your number is verified, we’ll walk you through
           onboarding.
         </Text>
-      </View>
-    </KeyboardAvoidingView>
+    </KeyboardFormScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   root: {
-    flex: 1,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },
@@ -272,20 +257,6 @@ const styles = StyleSheet.create({
     color: colors.mutedForeground,
     marginBottom: spacing.sm,
   },
-  dummyBanner: {
-    padding: spacing.sm,
-    borderRadius: 12,
-    backgroundColor: "#ecfdf5",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#a7f3d0",
-    marginBottom: spacing.xs,
-  },
-  dummyBannerText: {
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.sm,
-    lineHeight: 20,
-    color: "#065f46",
-  },
   errorBanner: {
     padding: spacing.sm,
     borderRadius: 12,
@@ -305,18 +276,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.foreground,
     marginTop: spacing.sm,
-  },
-  input: {
-    marginTop: spacing.xs,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.lg,
-    color: colors.foreground,
-    backgroundColor: colors.muted,
   },
   otpHeader: {
     flexDirection: "row",

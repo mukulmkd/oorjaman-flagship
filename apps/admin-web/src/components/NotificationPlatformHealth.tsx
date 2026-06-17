@@ -10,7 +10,7 @@ import {
 import { formatDisplayDateTime } from "@oorjaman/utils";
 import { Button, Card } from "@oorjaman/web-ui";
 import { formatNotificationEventTypeLabel } from "../lib/notification-labels";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 
 const FAILED_HOURS = 168;
 const EVENT_PAGE_SIZE = 10;
@@ -49,11 +49,11 @@ export function NotificationPlatformHealth() {
   const processMut = useMutation({
     mutationFn: () => adminProcessNotificationQueue(supabase!, { limit: 80 }),
     onSuccess: async () => {
-      await failedCountQuery.refetch();
-      await eventsPagedQuery.refetch();
       await qc.invalidateQueries({
-        predicate: (q) =>
-          Array.isArray(q.queryKey) && (q.queryKey as unknown[]).includes("notification-events-paged"),
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && (key as unknown[]).includes("notification-events");
+        },
       });
       await qc.invalidateQueries({ queryKey: queryKeys.bookings.opsDeskSummary() });
     },

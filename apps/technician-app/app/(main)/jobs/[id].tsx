@@ -29,7 +29,7 @@ import {
   useModalStackHeader,
 } from "@oorjaman/ui";
 import { ModalHeaderSupportTrailing } from "../../../components/modal-header-support-trailing";
-import { fontFamily, fontSize, fontWeight } from "../../../constants/fonts";
+import { fontFamily, fontSize } from "../../../constants/fonts";
 import { BookingSitePhotos } from "../../../components/booking-site-photos";
 import { ensureForegroundLocationEnabled } from "../../../lib/location-permission";
 import { openGoogleMapsForCoordinates } from "../../../lib/open-google-maps";

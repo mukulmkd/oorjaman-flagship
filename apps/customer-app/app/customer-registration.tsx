@@ -18,7 +18,7 @@ import { customerApi, queryKeys, userApi } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
 import { Button, FadeInView, Input, Screen, SCREEN_EDGES_FULL_SCREEN } from "@oorjaman/ui";
 import { Ionicons } from "@expo/vector-icons";
-import { fontFamily, fontSize, fontWeight } from "../constants/fonts";
+import { fontFamily, fontSize } from "../constants/fonts";
 import {
   ACCESS_OPTS,
   type Addr,

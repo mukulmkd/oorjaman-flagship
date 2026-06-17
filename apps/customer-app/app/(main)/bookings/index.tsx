@@ -13,14 +13,17 @@ import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import {
   bookingApi,
+  bookingBelongsToServiceAddress,
   customerApi,
   customerBookingDisplayTitle,
   customerBookingVisitDateVisible,
+  getActiveSubscriptionForAddress,
   queryKeys,
   shouldHideAmcBookingFromCustomerList,
   readBookingOpsMeta,
   readBookingRecipientMeta,
   readBookingVendorReassignmentMeta,
+  subscriptionApi,
   technicianApi,
   userApi,
 } from "@oorjaman/api";
@@ -46,6 +49,10 @@ import { supabase } from "../../../lib/supabase";
 import { formatDisplayDateTime } from "@oorjaman/utils";
 import { TabNavTitle } from "../../../components/tab-nav-title";
 import { SupportChatHeaderButton } from "../../../components/help-header-button";
+import {
+  readServiceAddressBook,
+  serviceAddressFormatted,
+} from "../../../lib/service-address-book";
 
 const BOOKINGS_PAGE_SIZE = 4;
 
@@ -126,6 +133,29 @@ export default function MyBookingsScreen() {
     enabled: Boolean(supabase),
   });
 
+  const subscriptionsQuery = useQuery({
+    queryKey: queryKeys.subscriptions.list(),
+    queryFn: () => subscriptionApi.listVisibleSubscriptions(supabase!),
+    enabled: Boolean(supabase),
+  });
+
+  const addressBook = useMemo(
+    () => readServiceAddressBook(customerQuery.data ?? null),
+    [customerQuery.data],
+  );
+
+  const selectedAddressId = addressBook.defaultId ?? addressBook.entries[0]?.id ?? null;
+
+  const selectedEntry = useMemo(
+    () => addressBook.entries.find((e) => e.id === selectedAddressId) ?? null,
+    [addressBook.entries, selectedAddressId],
+  );
+
+  const subscriptionAtAddress = useMemo(() => {
+    if (!selectedAddressId) return null;
+    return getActiveSubscriptionForAddress(subscriptionsQuery.data ?? [], selectedAddressId);
+  }, [selectedAddressId, subscriptionsQuery.data]);
+
   const roleReady = userQuery.isSuccess;
 
   const query = useQuery({
@@ -137,8 +167,10 @@ export default function MyBookingsScreen() {
   useFocusEffect(
     useCallback(() => {
       if (supabase) void query.refetch();
-    }, [query, supabase]),
+      if (supabase) void customerQuery.refetch();
+    }, [query, customerQuery, supabase]),
   );
+
   const reportsQuery = useQuery({
     queryKey: queryKeys.jobReports.list({ limit: 400 }),
     queryFn: () => technicianApi.listVisibleJobReports(supabase!, { limit: 400 }),
@@ -151,9 +183,17 @@ export default function MyBookingsScreen() {
       sortBookingsByScheduledStartDesc(
         (query.data ?? [])
           .filter(isValidBookingRow)
-          .filter((b) => !shouldHideAmcBookingFromCustomerList(b)),
+          .filter((b) => b.status !== "pending_payment")
+          .filter((b) => !shouldHideAmcBookingFromCustomerList(b))
+          .filter((b) =>
+            selectedAddressId
+              ? bookingBelongsToServiceAddress(b, selectedAddressId, {
+                  subscriptionIdAtAddress: subscriptionAtAddress?.id ?? null,
+                })
+              : true,
+          ),
       ),
-    [query.data],
+    [query.data, selectedAddressId, subscriptionAtAddress?.id],
   );
 
   const [visibleCount, setVisibleCount] = useState(BOOKINGS_PAGE_SIZE);
@@ -239,8 +279,25 @@ export default function MyBookingsScreen() {
       contentContainerStyle={styles.listContent}
       header={
         <View style={styles.header}>
+          <View
+            accessibilityRole="text"
+            accessibilityLabel={
+              selectedEntry
+                ? `Service site ${selectedEntry.label}, ${serviceAddressFormatted(selectedEntry.address)}`
+                : "No service site selected"
+            }
+            style={styles.addressChip}
+          >
+            <Text style={styles.addressChipLabel}>Service site</Text>
+            <Text style={styles.addressChipValue} numberOfLines={2}>
+              {selectedEntry
+                ? `${selectedEntry.label} · ${serviceAddressFormatted(selectedEntry.address)}`
+                : "Add a service address on Home"}
+            </Text>
+          </View>
           <Text style={styles.lede}>
-            Sorted by visit date (newest first). Up to four at a time; use Load more when you have more than four. Pull down to refresh.
+            Visits for your selected service site (change it from Home), sorted by visit date (newest first). Pull down
+            to refresh.
           </Text>
           <Button
             variant="outline"
@@ -282,8 +339,8 @@ export default function MyBookingsScreen() {
             ListEmptyComponent={
               <View style={styles.emptyWrap}>
                 <EmptyStateCard
-                  title="No bookings yet"
-                  description="Request a slot with an approved partner - you'll track status here from pending through completion."
+                  title="No bookings for this site"
+                  description="Request a slot for this address — you'll track status here from pending through completion."
                   action={
                     <Button
                       variant="primary"
@@ -352,6 +409,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: { gap: spacing.sm, paddingTop: 0 },
+  addressChip: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.muted,
+  },
+  addressChipLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.mutedForeground,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: spacing["3xs"],
+  },
+  addressChipValue: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+    color: colors.foreground,
+  },
   kicker: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,

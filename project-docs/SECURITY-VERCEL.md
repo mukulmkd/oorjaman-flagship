@@ -100,13 +100,13 @@ Example: rate-limit anonymous traffic to static assets if you see scanner noise 
 
 ## Checklists
 
-### UAT on Vercel (current)
+### UAT on Vercel (current — live)
 
-- [ ] UAT Supabase URL + anon key in env only
-- [ ] Redirect URLs include your three portal hosts (+ `https://*.vercel.app/**` only if you need preview auth)
-- [ ] Dummy auth acceptable for internal testers only
-- [ ] `vercel.json` headers deployed (check Response Headers)
-- [ ] Optional: Deployment Protection or Firewall if not fully public UAT
+- [x] UAT Supabase URL + anon key in Vercel env only
+- [x] Redirect URLs include three portal hosts + `https://*.vercel.app/**`
+- [x] Dummy auth for internal testers (`VITE_USE_DUMMY_AUTH=true`)
+- [x] `vercel.json` security headers deployed
+- [ ] Optional: Deployment Protection if URLs should not be public
 
 ### Production (GoDaddy / prod domains)
 
@@ -122,3 +122,5 @@ Example: rate-limit anonymous traffic to static assets if you see scanner noise 
 ## Changing headers later
 
 Edit root `vercel.json`, push, redeploy. If you add `Content-Security-Policy`, test in a **Preview** deployment first — CSP is the most common cause of “app loads but Supabase/auth breaks.”
+
+_Last updated: 2026-05-20 — UAT portals live on Vercel._

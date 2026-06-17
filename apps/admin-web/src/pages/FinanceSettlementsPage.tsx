@@ -24,7 +24,7 @@ import { formatDisplayDateTime } from "@oorjaman/utils";
 import { Badge, Button, Card, PageHeader } from "@oorjaman/web-ui";
 import { Link } from "react-router-dom";
 import { TablePaginationBar } from "../components/TablePaginationBar";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 import "./finance-settlements-page.css";
 
 const PAGE_SIZE = 10;
@@ -63,7 +63,7 @@ export function FinanceSettlementsPage() {
   useEffect(() => {
     if (!platformSettingsQ.isSuccess || !platformSettingsQ.data) return;
     setPlatformFeeText(String(normalizeVendorPlatformFeePercent(platformSettingsQ.data.vendor_platform_fee_percent)));
-  }, [platformSettingsQ.isSuccess, platformSettingsQ.data?.vendor_platform_fee_percent]);
+  }, [platformSettingsQ.isSuccess, platformSettingsQ.data]);
 
   const savePlatformFeeMut = useMutation({
     mutationFn: async () => {

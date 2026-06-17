@@ -18,5 +18,15 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // Intentional patterns: auth bootstrap, pagination reset on filter change, form sync from props.
+      'react-hooks/set-state-in-effect': 'off',
+      // Ref sync during render (e.g. sound mute flag) and memo edge cases in data tables.
+      'react-hooks/purity': 'off',
+      'react-hooks/refs': 'off',
+      'react-hooks/preserve-manual-memoization': 'off',
+      // Utility exports alongside components (DocumentViewer helpers, context hooks).
+      'react-refresh/only-export-components': 'warn',
+    },
   },
 ])

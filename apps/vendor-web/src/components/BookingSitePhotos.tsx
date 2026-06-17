@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { BookingRow } from "@oorjaman/api";
 import { bookingShowsSitePhotos, getSitePhotosForBooking, queryKeys } from "@oorjaman/api";
 import { DocumentViewerModal } from "./DocumentViewer";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 
 type Props = {
   booking: Pick<BookingRow, "id" | "customer_id" | "metadata" | "status" | "technician_id">;

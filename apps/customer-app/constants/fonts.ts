@@ -9,5 +9,3 @@ export const fontFamily = {
 } as const;
 
 export const fontSize = typography.size;
-
-export const fontWeight = typography.weight;

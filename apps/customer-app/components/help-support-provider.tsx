@@ -6,7 +6,6 @@ import { CustomerPushRegistration } from "./customer-push-registration";
 import {
   HelpSupportCtx,
   type HelpSupportOpenContext,
-  type HelpSupportState,
 } from "./help-support-context";
 import { HelpSupportModal } from "./help-support-modal";
 import { SupportChatRealtimeNotifications } from "./support-chat-realtime-notifications";

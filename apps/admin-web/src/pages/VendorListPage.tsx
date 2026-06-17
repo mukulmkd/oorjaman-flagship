@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { DEFAULT_TABLE_PAGE_SIZE, queryKeys, vendorApi } from "@oorjaman/api";
@@ -11,7 +11,7 @@ import {
   Tabs,
 } from "@oorjaman/web-ui";
 import { TablePaginationBar } from "../components/TablePaginationBar";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 import {
   approvalBadgeTone,
   formatSubmittedAt,
@@ -53,15 +53,21 @@ export function VendorListPage() {
     placeholderData: (prev) => prev,
   });
 
-  const rows = query.data?.rows ?? [];
+  const rows = useMemo(() => query.data?.rows ?? [], [query.data?.rows]);
   const total = query.data?.total ?? 0;
+  const vendorIds = useMemo(() => rows.map((v) => v.id), [rows]);
+  const vendorIdsKey = useMemo(() => [...vendorIds].sort().join(","), [vendorIds]);
 
   const statsQuery = useQuery({
-    queryKey: queryKeys.vendors.publicStats(rows.map((v) => v.id).join(",")),
-    queryFn: () => vendorApi.listVendorPublicStats(supabase!, rows.map((v) => v.id)),
-    enabled: Boolean(supabase && rows.length > 0),
+    queryKey: queryKeys.vendors.publicStats(vendorIdsKey),
+    queryFn: () => vendorApi.listVendorPublicStats(supabase!, vendorIds),
+    enabled: Boolean(supabase && vendorIds.length > 0 && !query.isFetching),
   });
-  const statsByVendorId = new Map((statsQuery.data ?? []).map((s) => [s.vendor_id, s] as const));
+  const statsByVendorId = useMemo(
+    () => new Map((statsQuery.data ?? []).map((s) => [s.vendor_id, s] as const)),
+    [statsQuery.data],
+  );
+  const statsLoading = statsQuery.isPending || statsQuery.isFetching;
 
   return (
     <>
@@ -165,15 +171,27 @@ export function VendorListPage() {
                           </td>
                           <td>{formatSubmittedAt(v.submitted_at)}</td>
                           <td>
-                            <div>{(statsByVendorId.get(v.id)?.total_jobs ?? 0).toString()} services</div>
-                            <div className="dash-mono" style={{ fontSize: "var(--type-xs)", color: "var(--wb-muted-fg)" }}>
-                              {statsByVendorId.get(v.id)?.avg_rating != null
-                                ? `${statsByVendorId.get(v.id)!.avg_rating!.toFixed(1)} / 5`
-                                : "No rating"}
-                              {statsByVendorId.get(v.id)?.rating_count
-                                ? ` (${statsByVendorId.get(v.id)!.rating_count})`
-                                : ""}
-                            </div>
+                            {statsLoading ? (
+                              <div className="dash-mono" style={{ fontSize: "var(--type-xs)", color: "var(--wb-muted-fg)" }}>
+                                Loading…
+                              </div>
+                            ) : statsQuery.isError ? (
+                              <div className="dash-mono" style={{ fontSize: "var(--type-xs)", color: "var(--wb-destructive)" }}>
+                                Stats unavailable
+                              </div>
+                            ) : (
+                              <>
+                                <div>{(statsByVendorId.get(v.id)?.total_jobs ?? 0).toString()} services</div>
+                                <div className="dash-mono" style={{ fontSize: "var(--type-xs)", color: "var(--wb-muted-fg)" }}>
+                                  {statsByVendorId.get(v.id)?.avg_rating != null
+                                    ? `${statsByVendorId.get(v.id)!.avg_rating!.toFixed(1)} / 5`
+                                    : "No rating"}
+                                  {statsByVendorId.get(v.id)?.rating_count
+                                    ? ` (${statsByVendorId.get(v.id)!.rating_count})`
+                                    : ""}
+                                </div>
+                              </>
+                            )}
                           </td>
                           <td>
                             <Button

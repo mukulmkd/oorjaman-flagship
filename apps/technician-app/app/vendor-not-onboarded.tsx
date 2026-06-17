@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import { authApi } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
 import { Button, Screen, SCREEN_EDGES_FULL_SCREEN } from "@oorjaman/ui";
-import { fontFamily, fontSize, fontWeight } from "../constants/fonts";
+import { fontFamily, fontSize } from "../constants/fonts";
 import { supabase } from "../lib/supabase";
 
 /**

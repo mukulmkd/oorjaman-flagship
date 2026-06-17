@@ -5,9 +5,9 @@ import {
   listSupportConversationEvents,
   queryKeys,
   type SupportConversationRow,
-  type SupportConversationWithCustomer,
+  type SupportConversationWithParticipant,
 } from "@oorjaman/api";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 
 function formatWhen(iso: string): string {
   try {
@@ -24,7 +24,7 @@ function formatWhen(iso: string): string {
 }
 
 type Props = {
-  conversation: SupportConversationWithCustomer | SupportConversationRow;
+  conversation: SupportConversationWithParticipant | SupportConversationRow;
 };
 
 export function SupportConversationDeskMeta({ conversation }: Props) {

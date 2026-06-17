@@ -13,7 +13,7 @@ import { ResolveConversationDialog } from "./ResolveConversationDialog";
 import { SupportComposer } from "./SupportComposer";
 import { SupportThreadToolbar } from "./SupportThreadToolbar";
 import { playNotificationChime } from "../lib/notification-sound";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 
 function formatWhen(iso: string): string {
   try {

@@ -68,3 +68,26 @@ export function buildGoogleStaticMapImageUrl(
   });
   return `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`;
 }
+
+/** No API key — used when Google Static Maps is not configured (local dev / missing env). */
+export function buildOpenStreetMapStaticUrl(lat: number, lng: number, size: number): string {
+  const s = Math.min(640, Math.max(120, Math.round(size)));
+  const q = new URLSearchParams({
+    center: `${lat},${lng}`,
+    zoom: "16",
+    size: `${s}x${s}`,
+    maptype: "mapnik",
+  });
+  return `https://staticmap.openstreetmap.de/staticmap.php?${q.toString()}&markers=${lat},${lng},red`;
+}
+
+/** Single OSM raster tile centered on the coordinates (last-resort when static map HTTP fails). */
+export function buildOpenStreetMapTileUrl(lat: number, lng: number, zoom = 16): string {
+  const n = 2 ** zoom;
+  const x = Math.floor(((lng + 180) / 360) * n);
+  const latRad = (lat * Math.PI) / 180;
+  const y = Math.floor(
+    ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n,
+  );
+  return `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
+}

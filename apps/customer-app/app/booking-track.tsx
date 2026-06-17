@@ -3,7 +3,6 @@ import { Platform, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE, type Region } from "react-native-maps";
 import { useQuery } from "@tanstack/react-query";
 import * as Location from "expo-location";
-import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   bookingApi,
@@ -25,7 +24,7 @@ import {
   SkeletonStack,
   useModalStackHeader,
 } from "@oorjaman/ui";
-import { fontFamily, fontSize, fontWeight } from "../constants/fonts";
+import { fontFamily, fontSize } from "../constants/fonts";
 import { SupportChatHeaderButton } from "../components/help-header-button";
 import { supabase } from "../lib/supabase";
 

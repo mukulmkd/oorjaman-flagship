@@ -593,9 +593,6 @@ function supportDeskVendorDisplayName(vendor: {
   return vendor.trade_name?.trim() || vendor.business_name?.trim() || null;
 }
 
-/** @deprecated Use {@link SupportConversationWithParticipant} */
-export type SupportConversationWithCustomer = SupportConversationWithParticipant;
-
 export function isTechnicianSupportConversation(
   conversation: Pick<SupportConversationRow, "participant_audience"> &
     Partial<Pick<SupportConversationRow, "technician_id">>,
@@ -714,7 +711,7 @@ async function attachParticipantsToSupportConversations(
 export async function listSupportConversationsForAdminWithCustomer(
   client: SupabaseClient<Database>,
   options?: { status?: SupportConversationStatus | SupportConversationStatus[]; limit?: number },
-): Promise<SupportConversationWithCustomer[]> {
+): Promise<SupportConversationWithParticipant[]> {
   const rows = await listSupportConversationsForAdmin(client, options);
   return attachParticipantsToSupportConversations(client, rows);
 }
@@ -727,14 +724,6 @@ export async function getSupportConversationForDeskWithParticipant(
   const [withParticipant] = await attachParticipantsToSupportConversations(client, [row]);
   if (!withParticipant) throw new SupabaseApiError("Conversation not found.");
   return withParticipant;
-}
-
-/** @deprecated Use {@link getSupportConversationForDeskWithParticipant} */
-export async function getSupportConversationForDeskWithCustomer(
-  client: SupabaseClient<Database>,
-  conversationId: string,
-): Promise<SupportConversationWithParticipant> {
-  return getSupportConversationForDeskWithParticipant(client, conversationId);
 }
 
 export type SupportInboxFilter = "queued" | "mine" | "open" | "unassigned" | "resolved";
@@ -1936,7 +1925,7 @@ export async function searchSupportDesk(
   client: SupabaseClient<Database>,
   query: string,
   options?: { limit?: number },
-): Promise<SupportConversationWithCustomer[]> {
+): Promise<SupportConversationWithParticipant[]> {
   const q = sanitizeSupportDeskSearchQuery(query.trim());
   const limit = Math.min(Math.max(options?.limit ?? 40, 1), 80);
   if (q.length < 2) return [];
@@ -2021,7 +2010,7 @@ export type SupportDeskCustomerSearchHit = SupportDeskCustomerBrief & {
 
 export type SupportDeskCustomerProfile = {
   customer: SupportDeskCustomerBrief;
-  conversations: SupportConversationWithCustomer[];
+  conversations: SupportConversationWithParticipant[];
   primary_conversation_id: string | null;
   desk_context: SupportDeskCustomerContext | null;
 };

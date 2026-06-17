@@ -3,12 +3,12 @@ import {
   queryKeys,
   supportApi,
   type SupportConversationPriority,
-  type SupportConversationWithCustomer,
+  type SupportConversationWithParticipant,
 } from "@oorjaman/api";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 
 type Props = {
-  conversation: SupportConversationWithCustomer;
+  conversation: SupportConversationWithParticipant;
   agentUserId: string | null;
   onUpdated: () => void;
   compact?: boolean;

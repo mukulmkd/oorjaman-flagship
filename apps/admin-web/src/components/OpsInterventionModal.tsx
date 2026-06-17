@@ -22,7 +22,7 @@ import {
 } from "../lib/ops-exceptions-display";
 import { OPS_ISSUE_LABELS } from "../lib/booking-routing-display";
 import { webTypography } from "../styles/typography";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 
 export type OpsInterventionTarget = {
   bookingId: string;
@@ -48,7 +48,7 @@ export function OpsInterventionModal({ target, onClose, onSuccess }: Props) {
     if (!target) return;
     setView("menu");
     setAssignVendorId(target.presetVendorId?.trim() ?? "");
-  }, [target?.bookingId, target?.presetVendorId]);
+  }, [target]);
 
   const bookingQuery = useQuery({
     queryKey: [...queryKeys.bookings.all(), "ops-intervention", target?.bookingId] as const,
@@ -93,14 +93,22 @@ export function OpsInterventionModal({ target, onClose, onSuccess }: Props) {
   const floatMut = useMutation({
     mutationFn: async (bookingId: string) => adminFloatDefaultVendorBooking(supabase!, bookingId),
     onSuccess: async () => {
-      await bookingQuery.refetch();
+      if (target?.bookingId) {
+        await qc.invalidateQueries({
+          queryKey: [...queryKeys.bookings.all(), "ops-intervention", target.bookingId] as const,
+        });
+      }
       await refreshQueues();
     },
   });
   const refloatMut = useMutation({
     mutationFn: async (bookingId: string) => adminRefloatMarketplaceBooking(supabase!, bookingId),
     onSuccess: async () => {
-      await bookingQuery.refetch();
+      if (target?.bookingId) {
+        await qc.invalidateQueries({
+          queryKey: [...queryKeys.bookings.all(), "ops-intervention", target.bookingId] as const,
+        });
+      }
       await refreshQueues();
     },
   });
@@ -108,7 +116,11 @@ export function OpsInterventionModal({ target, onClose, onSuccess }: Props) {
     mutationFn: async ({ bookingId, type }: { bookingId: string; type: OpsIssueType }) =>
       adminFlagBookingOpsIssue(supabase!, bookingId, type),
     onSuccess: async () => {
-      await bookingQuery.refetch();
+      if (target?.bookingId) {
+        await qc.invalidateQueries({
+          queryKey: [...queryKeys.bookings.all(), "ops-intervention", target.bookingId] as const,
+        });
+      }
     },
   });
 

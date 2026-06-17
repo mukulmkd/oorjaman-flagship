@@ -1,6 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { BookingRow, Database, SubscriptionRow } from "../database.types";
-import { SupabaseApiError } from "../result";
+import type { SubscriptionRow } from "../database.types";
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
@@ -36,16 +34,4 @@ export function computeAmcVisitSlots(
   }
 
   return out;
-}
-
-/**
- * @deprecated Removed - AMC bookings are created only via {@link scheduleAmcVisitSlot}.
- */
-export async function syncAmcBookingsForSubscription(
-  _client: SupabaseClient<Database>,
-  _subscription: SubscriptionRow,
-): Promise<BookingRow[]> {
-  throw new SupabaseApiError(
-    "Auto-generating AMC bookings is disabled. Customers schedule each visit from their AMC plan.",
-  );
 }

@@ -1,24 +1,39 @@
-# Expo Router Example
+# customer-app — OorjaMan (Customer)
 
-Use [`expo-router`](https://docs.expo.dev/router/introduction/) to build native navigation using files in the `app/` directory.
+Expo Router mobile app (iOS/Android) for homeowners and businesses: book visits, AMC, track technicians, support chat, site photos.
 
-## Launch your own
+## Run locally
 
-[![Launch with Expo](https://github.com/expo/examples/blob/master/.gh-assets/launch.svg?raw=true)](https://launch.expo.dev/?github=https://github.com/expo/examples/tree/master/with-router)
+Full matrix (debug, UAT, prod, Expo Go, Android & iOS): [**RUNNING-APPS.md**](../../project-docs/RUNNING-APPS.md).
 
-## 🚀 How to use
+```bash
+cp apps/customer-app/.env.development.example apps/customer-app/.env.development.local
+# UAT Supabase; EXPO_PUBLIC_DEPLOY_ENV=local; optional dummy auth
 
-```sh
-npx create-expo-app -e with-router
+npm run customer    # from repo root — Metro
+# Physical device + terminal logs:
+# cd apps/customer-app && adb reverse tcp:8081 tcp:8081 && npx expo run:android --device
 ```
 
-## Deploy
+Legal links use `EXPO_PUBLIC_SITE_URL` (localhost or `https://dev-oorjaman.oorjaman.com` / production marketing).
 
-Deploy on all platforms with Expo Application Services (EAS).
+## UAT builds
 
-- Deploy the website: `npx eas-cli deploy` - [Learn more](https://docs.expo.dev/eas/hosting/get-started/)
-- Deploy on iOS and Android using: `npx eas-cli build` - [Learn more](https://expo.dev/eas)
+| Method | Command |
+| ------ | ------- |
+| EAS cloud | `npm run eas:android:uat:customer` or `cd apps/customer-app && eas build --profile uat` |
+| Local APK (no EAS cloud) | `npm run android:apk:uat:customer` |
 
-## 📝 Notes
+UAT env file: `apps/customer-app/env/uat.local` (see [docs/android-local-apk.md](../../docs/android-local-apk.md)).
 
-- [Expo Router: Docs](https://docs.expo.dev/router/introduction/)
+Package ID (UAT): `com.oorjaman.customer.uat` · display name **OorjaMan (UAT)**.
+
+## Production (store)
+
+`eas build --profile production` with Prod Supabase, no dummy auth, restricted Maps key — [DEPLOYMENT.md](../../project-docs/DEPLOYMENT.md).
+
+## Docs
+
+- [ENVIRONMENT.md](../../project-docs/ENVIRONMENT.md) — `EXPO_PUBLIC_*`
+- [docs/customer-push-setup.md](../../docs/customer-push-setup.md) — support chat push
+- [BILLING.md](../../project-docs/BILLING.md) — Google Maps, EAS, store fees

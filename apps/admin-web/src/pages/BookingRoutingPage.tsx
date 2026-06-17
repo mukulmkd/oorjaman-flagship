@@ -21,7 +21,8 @@ import {
   getRoutingDisplay,
   ROUTING_REASON_LABELS,
 } from "../lib/booking-routing-display";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
+import { invalidateAdminBookingRoutingQueries } from "../lib/invalidate-admin-queries";
 import { TablePaginationBar } from "../components/TablePaginationBar";
 
 const PAGE_SIZE = 10;
@@ -113,7 +114,7 @@ export function BookingRoutingPage() {
     },
     onSuccess: async () => {
       setActionRow(null);
-      await qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
+      await invalidateAdminBookingRoutingQueries(qc);
     },
   });
 

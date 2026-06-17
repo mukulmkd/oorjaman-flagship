@@ -1,24 +1,32 @@
-# Expo Router Example
+# technician-app — OorjaMan Partner (Field)
 
-Use [`expo-router`](https://docs.expo.dev/router/introduction/) to build native navigation using files in the `app/` directory.
+Expo Router mobile app for field partners: assigned jobs, visit workflow, OTP/happy codes, live location, support chat.
 
-## Launch your own
+## Run locally
 
-[![Launch with Expo](https://github.com/expo/examples/blob/master/.gh-assets/launch.svg?raw=true)](https://launch.expo.dev/?github=https://github.com/expo/examples/tree/master/with-router)
+```bash
+cp apps/technician-app/.env.development.example apps/technician-app/.env.development.local
 
-## 🚀 How to use
-
-```sh
-npx create-expo-app -e with-router
+npm run technician    # from repo root
 ```
 
-## Deploy
+## UAT builds
 
-Deploy on all platforms with Expo Application Services (EAS).
+| Method | Command |
+| ------ | ------- |
+| EAS cloud | `npm run eas:android:uat:technician` |
+| Local APK | `npm run android:apk:uat:technician` |
 
-- Deploy the website: `npx eas-cli deploy` - [Learn more](https://docs.expo.dev/eas/hosting/get-started/)
-- Deploy on iOS and Android using: `npx eas-cli build` - [Learn more](https://expo.dev/eas)
+UAT env: `apps/technician-app/env/uat.local` — [docs/android-local-apk.md](../../docs/android-local-apk.md).
 
-## 📝 Notes
+Package ID (UAT): `com.oorjaman.technician.uat` · display name **OorjaMan Partner (UAT)**.
 
-- [Expo Router: Docs](https://docs.expo.dev/router/introduction/)
+## Production (store)
+
+`eas build --profile production` — [DEPLOYMENT.md](../../project-docs/DEPLOYMENT.md).
+
+## Docs
+
+- [ENVIRONMENT.md](../../project-docs/ENVIRONMENT.md)
+- [docs/technician-push-setup.md](../../docs/technician-push-setup.md)
+- [BILLING.md](../../project-docs/BILLING.md)

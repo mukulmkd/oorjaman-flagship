@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys, supportApi, type SupportConversationRow } from "@oorjaman/api";
-import { shouldDeskNotifyForConversation, useActiveChat } from "../lib/active-chat-context";
+import { shouldDeskNotifyForConversation } from "../lib/active-chat-notify";
+import { useActiveChat } from "../lib/use-active-chat";
 import {
   isNotificationSoundMuted,
   playNotificationChime,
 } from "../lib/notification-sound";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 import "./support-chat-dock.css";
 
 type DeskToast = {

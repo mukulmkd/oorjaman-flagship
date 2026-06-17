@@ -31,7 +31,8 @@ import {
   OPS_ISSUE_LABELS,
 } from "../lib/booking-routing-display";
 import { webTypography } from "../styles/typography";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
+import { invalidateAdminBookingMonitoringQueries } from "../lib/invalidate-admin-queries";
 import { TablePaginationBar } from "../components/TablePaginationBar";
 
 const BUCKET_TABS: { id: AdminBookingsSubscriptionBucket; label: string; hint: string }[] = [
@@ -334,8 +335,7 @@ export function BookingMonitoringPage() {
   const floatMut = useMutation({
     mutationFn: async (bookingId: string) => adminFloatDefaultVendorBooking(supabase!, bookingId),
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
-      await query.refetch();
+      await invalidateAdminBookingMonitoringQueries(qc, bucketTab);
       setBookingAction(null);
       setAssignVendorId("");
     },
@@ -343,8 +343,7 @@ export function BookingMonitoringPage() {
   const refloatMut = useMutation({
     mutationFn: async (bookingId: string) => adminRefloatMarketplaceBooking(supabase!, bookingId),
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
-      await query.refetch();
+      await invalidateAdminBookingMonitoringQueries(qc, bucketTab);
       setBookingAction(null);
       setAssignVendorId("");
     },
@@ -353,8 +352,7 @@ export function BookingMonitoringPage() {
     mutationFn: async ({ bookingId, type }: { bookingId: string; type: OpsIssueType }) =>
       adminFlagBookingOpsIssue(supabase!, bookingId, type),
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
-      await query.refetch();
+      await invalidateAdminBookingMonitoringQueries(qc, bucketTab);
       setBookingAction(null);
     },
   });
@@ -374,8 +372,7 @@ export function BookingMonitoringPage() {
     onSuccess: async () => {
       setBookingAction(null);
       setAssignVendorId("");
-      await qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
-      await query.refetch();
+      await invalidateAdminBookingMonitoringQueries(qc, bucketTab);
     },
   });
 

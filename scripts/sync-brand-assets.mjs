@@ -737,6 +737,12 @@ async function main() {
     await emitWebIcon(join(pub, "favicon.png"), 32, isVendorPortal ? 0.9 : undefined);
     await emitWebIcon(join(pub, "apple-touch-icon.png"), 180, isVendorPortal ? 0.9 : undefined);
     await emitWebIcon(join(pub, "logo-icon.png"), 256, isVendorPortal ? 0.9 : undefined);
+    if (lockupTaglineSrc) {
+      await emitLockup(join(pub, "logo-lockup-tagline.png"), lockupTaglineSrc, 720);
+      if (app === "admin-web") {
+        await emitLockup(join(pub, "logo-lockup-tagline-print.png"), lockupTaglineSrc, 2800);
+      }
+    }
     if (app === "oorjaman-web") {
       await emitLockup(join(pub, "og-default.png"), lockupTaglineSrc, 1200);
     }

@@ -6,7 +6,7 @@ import { VENDOR_DASH_TABS } from "../pages/vendor-dashboard/vendor-dash-tabs";
 import { NotificationCenterBell } from "../components/NotificationCenterBell";
 import { VendorBookingRealtime } from "../components/vendor-booking-realtime";
 import { VendorSettlementRealtime } from "../components/vendor-settlement-realtime";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 export function VendorLayout() {
   const supabase = useSupabase();
   const navigate = useNavigate();

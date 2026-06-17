@@ -1,9 +1,8 @@
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import type { Session } from "@supabase/supabase-js";
 import { PortalLoadingScreen } from "@oorjaman/web-ui";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
+import { useAdminPortalSession } from "../hooks/use-admin-portal-session";
 
 export function RequireSession({
   children,
@@ -14,33 +13,17 @@ export function RequireSession({
   loginPath?: string;
 }) {
   const supabase = useSupabase();
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
-    void supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next);
-    });
-    return () => sub.subscription.unsubscribe();
-  }, [supabase]);
+  const sessionQuery = useAdminPortalSession();
 
   if (!supabase) {
     return (
       <p className="al-gate">Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.</p>
     );
   }
-  if (loading) {
+  if (sessionQuery.isLoading) {
     return <PortalLoadingScreen label="Checking session…" />;
   }
-  if (!session) {
+  if (!sessionQuery.data?.session) {
     return <Navigate to={loginPath} replace />;
   }
   return <>{children}</>;

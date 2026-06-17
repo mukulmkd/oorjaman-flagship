@@ -1,4 +1,4 @@
-import type { SupportConversationWithCustomer, SupportDeskCustomerContext } from "@oorjaman/api";
+import type { SupportConversationWithParticipant, SupportDeskCustomerContext } from "@oorjaman/api";
 import { adminPortalUrl } from "../lib/portal-urls";
 import { SupportConversationDeskMeta } from "./SupportConversationDeskMeta";
 
@@ -17,7 +17,7 @@ function formatWhen(iso: string): string {
 }
 
 type Props = {
-  conversation: SupportConversationWithCustomer;
+  conversation: SupportConversationWithParticipant;
   context: SupportDeskCustomerContext | undefined;
   loading: boolean;
 };

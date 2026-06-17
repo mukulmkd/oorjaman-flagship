@@ -11,7 +11,7 @@ import {
   TableRowsSkeleton,
 } from "@oorjaman/web-ui";
 import { TablePaginationBar } from "../components/TablePaginationBar";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
 import {
   cityFromRegisteredAddress,
   formatIntakeExperienceLine,

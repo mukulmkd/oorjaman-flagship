@@ -9,7 +9,7 @@ import { SupportChatHeaderButton } from "../../components/help-header-button";
 import { customerFirstName } from "../../lib/customer-first-name";
 import { Screen, Button } from "@oorjaman/ui";
 import { colors, spacing } from "@oorjaman/config";
-import { fontFamily, fontSize, fontWeight } from "../../constants/fonts";
+import { fontFamily, fontSize } from "../../constants/fonts";
 import { supabase } from "../../lib/supabase";
 import {
   buildAddressBookPatch,
@@ -180,6 +180,7 @@ export default function HomeTab() {
         onClose={() => setPickerOpen(false)}
         onSave={async (nextEntries, nextDefaultId, extras) => {
           await addressMut.mutateAsync({ entries: nextEntries, defaultId: nextDefaultId, extras });
+          setPickerOpen(false);
         }}
       />
     </Screen>

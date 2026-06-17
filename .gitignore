@@ -1,5 +1,8 @@
 # =============================================================================
 # OorjaMan flagship monorepo - single root gitignore (all apps + packages)
+.venv-docgen/
+.venv-docx/
+.github/
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -163,6 +166,14 @@ apps/technician-app/android/
 *.dex
 *.keystore
 !**/android/app/debug.keystore
+
+# -----------------------------------------------------------------------------
+# Brand print CLI outputs (gitignored — generate via Admin → Brand print or npm run brand:print)
+# -----------------------------------------------------------------------------
+brand/print/**/*.pdf
+brand/print/**/*.png
+brand/print/**/*.svg
+brand/print/**/*.html
 
 # -----------------------------------------------------------------------------
 # Shared build output (packages, if added later)

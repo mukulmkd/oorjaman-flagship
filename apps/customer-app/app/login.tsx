@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
@@ -16,15 +15,14 @@ import {
   authApi,
   buildLoginE164,
   DEFAULT_LOGIN_COUNTRY_DIAL,
-  getDummyAuthUiHint,
   LOGIN_PHONE_COUNTRIES,
   queryKeys,
   resolveCustomerAppPostAuthPath,
   validateLoginNationalPhone,
 } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
-import { LoginPhoneRow, OtpCodeInput, dismissOtpKeyboard } from "@oorjaman/ui";
-import { fontFamily, fontSize, fontWeight } from "../constants/fonts";
+import { LoginPhoneRow, OtpCodeInput, dismissOtpKeyboard, KeyboardFormScreen, type KeyboardFormScreenRef } from "@oorjaman/ui";
+import { fontFamily, fontSize } from "../constants/fonts";
 import { BrandLockup } from "../components/brand-lockup";
 import { supabase } from "../lib/supabase";
 
@@ -35,6 +33,7 @@ export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const otpRef = useRef<TextInput>(null);
+  const formRef = useRef<KeyboardFormScreenRef>(null);
   const autoVerifyOtpRef = useRef<string | null>(null);
 
   const [countryDial, setCountryDial] = useState(DEFAULT_LOGIN_COUNTRY_DIAL);
@@ -67,8 +66,6 @@ export default function LoginScreen() {
     return () => clearInterval(t);
   }, [cooldown]);
 
-  const dummyHint = useMemo(() => getDummyAuthUiHint(), []);
-
   const sendOtp = useCallback(async () => {
     setError(null);
     if (!supabase) {
@@ -92,6 +89,7 @@ export default function LoginScreen() {
       setOtpSent(true);
       setCooldown(RESEND_SEC);
       otpRef.current?.focus();
+      requestAnimationFrame(() => formRef.current?.scrollToEnd(true));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Could not send code. Try again.");
     } finally {
@@ -140,105 +138,92 @@ export default function LoginScreen() {
     cooldown > 0 ? `Resend code (${cooldown}s)` : otpSent ? "Resend code" : "Send code";
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.select({ ios: "padding", android: undefined })}
+    <KeyboardFormScreen
+      ref={formRef}
+      scrollToEndOnKeyboard
+      keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      contentContainerStyle={[
+        styles.root,
+        { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.md },
+      ]}
     >
-      <View
-        style={[
-          styles.root,
-          { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.md },
-        ]}
-      >
-        <View style={styles.brandHeader}>
-          <BrandLockup iconSize={96} />
+      <View style={styles.brandHeader}>
+        <BrandLockup iconSize={96} />
+      </View>
+      <Text style={styles.title}>Sign in with mobile</Text>
+      <Text style={styles.lede}>
+        We'll text you a one-time code. Standard SMS rates may apply from your carrier.
+      </Text>
+
+      {error ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{error}</Text>
         </View>
-        <Text style={styles.title}>Sign in with mobile</Text>
-        <Text style={styles.lede}>
-          We'll text you a one-time code. Standard SMS rates may apply from your carrier.
-        </Text>
+      ) : null}
 
-        {dummyHint ? (
-          <View style={styles.dummyBanner}>
-            <Text style={styles.dummyBannerText}>{dummyHint}</Text>
-          </View>
-        ) : null}
+      <LoginPhoneRow
+        countries={LOGIN_PHONE_COUNTRIES}
+        countryDialCode={countryDial}
+        onCountryDialCodeChange={setCountryDial}
+        nationalDigits={nationalPhone}
+        onNationalDigitsChange={setNationalPhone}
+        editable={!verifying}
+      />
 
-        {error ? (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : null}
-
-        <LoginPhoneRow
-          countries={LOGIN_PHONE_COUNTRIES}
-          countryDialCode={countryDial}
-          onCountryDialCodeChange={setCountryDial}
-          nationalDigits={nationalPhone}
-          onNationalDigitsChange={setNationalPhone}
-          editable={!verifying}
-        />
-
-        <View style={styles.otpHeader}>
-          <Text style={styles.label}>One-time code</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={resendLabel}
-            disabled={sending || verifying || cooldown > 0}
-            onPress={() => void sendOtp()}
-          >
-            <Text style={[styles.link, (sending || cooldown > 0 || verifying) && styles.linkMuted]}>
-              {sending ? "Sending…" : resendLabel}
-            </Text>
-          </Pressable>
-        </View>
-
-        <Text style={styles.otpSmsHint}>
-          After you send the code, tap the boxes to enter your code. On iPhone and many Android phones, the code can
-          autofill from SMS when the message contains a 6-digit code.
-        </Text>
-
-        {!verifying ? (
-          <OtpCodeInput
-            ref={otpRef}
-            value={otp}
-            onChangeText={setOtp}
-            length={OTP_LEN}
-            editable={otpSent && !verifying}
-          />
-        ) : null}
-
+      <View style={styles.otpHeader}>
+        <Text style={styles.label}>One-time code</Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Verify and continue"
-          disabled={verifying || otp.length !== OTP_LEN || !otpSent}
-          onPress={() => void verify()}
-          style={({ pressed }) => [
-            styles.primary,
-            (verifying || otp.length !== OTP_LEN || !otpSent) && styles.primaryDisabled,
-            pressed && !(verifying || otp.length !== OTP_LEN || !otpSent) && styles.primaryPressed,
-          ]}
+          accessibilityLabel={resendLabel}
+          disabled={sending || verifying || cooldown > 0}
+          onPress={() => void sendOtp()}
         >
-          {verifying ? (
-            <ActivityIndicator color={colors.primaryForeground} />
-          ) : (
-            <Text style={styles.primaryLabel}>Verify & continue</Text>
-          )}
+          <Text style={[styles.link, (sending || cooldown > 0 || verifying) && styles.linkMuted]}>
+            {sending ? "Sending…" : resendLabel}
+          </Text>
         </Pressable>
-
-        <Text style={styles.hint}>Signed-in sessions persist across app restarts on this device.</Text>
       </View>
-    </KeyboardAvoidingView>
+
+      <Text style={styles.otpSmsHint}>
+        After you send the code, tap the boxes to enter your code. On iPhone and many Android phones, the code can
+        autofill from SMS when the message contains a 6-digit code.
+      </Text>
+
+      {!verifying ? (
+        <OtpCodeInput
+          ref={otpRef}
+          value={otp}
+          onChangeText={setOtp}
+          length={OTP_LEN}
+          editable={otpSent && !verifying}
+        />
+      ) : null}
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Verify and continue"
+        disabled={verifying || otp.length !== OTP_LEN || !otpSent}
+        onPress={() => void verify()}
+        style={({ pressed }) => [
+          styles.primary,
+          (verifying || otp.length !== OTP_LEN || !otpSent) && styles.primaryDisabled,
+          pressed && !(verifying || otp.length !== OTP_LEN || !otpSent) && styles.primaryPressed,
+        ]}
+      >
+        {verifying ? (
+          <ActivityIndicator color={colors.primaryForeground} />
+        ) : (
+          <Text style={styles.primaryLabel}>Verify & continue</Text>
+        )}
+      </Pressable>
+
+      <Text style={styles.hint}>Signed-in sessions persist across app restarts on this device.</Text>
+    </KeyboardFormScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   root: {
-    flex: 1,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },
@@ -260,20 +245,6 @@ const styles = StyleSheet.create({
     color: colors.mutedForeground,
     marginBottom: spacing.sm,
   },
-  dummyBanner: {
-    padding: spacing.sm,
-    borderRadius: 12,
-    backgroundColor: "#ecfdf5",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#a7f3d0",
-    marginBottom: spacing.xs,
-  },
-  dummyBannerText: {
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.sm,
-    lineHeight: 20,
-    color: "#065f46",
-  },
   errorBanner: {
     padding: spacing.sm,
     borderRadius: 12,
@@ -293,18 +264,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.foreground,
     marginTop: spacing.sm,
-  },
-  input: {
-    marginTop: spacing.xs,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.lg,
-    color: colors.foreground,
-    backgroundColor: colors.muted,
   },
   otpSmsHint: {
     fontFamily: fontFamily.regular,

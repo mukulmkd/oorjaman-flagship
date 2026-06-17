@@ -2,7 +2,9 @@
 
 Canonical production URL: **https://oorjaman.com**
 
-UAT marketing: **https://dev-oorjaman.oorjaman.com** - not indexed (`NEXT_PUBLIC_DEPLOY_ENV=uat`). See [**DEPLOYMENT.md**](DEPLOYMENT.md).
+UAT marketing: **https://dev-oorjaman.oorjaman.com** — not indexed (`NEXT_PUBLIC_DEPLOY_ENV=uat`). Partner portal CTA can point to **https://oorjaman-vendor.vercel.app** until GoDaddy UAT is live.
+
+**Ops portals (UAT):** Admin/vendor/support run on Vercel today — not part of this Next.js app. See [VERCEL.md](VERCEL.md).
 
 App: `apps/oorjaman-web` (Next.js 15, App Router, static/SSG pages).
 
@@ -96,7 +98,7 @@ npm run build:godaddy -w oorjaman-web
 | **Google Business Profile**    | Off-site                                                         | Tie to registered entity address                                |
 | **Real pricing on web**        | Optional Supabase read                                           | Today pricing is narrative only                                 |
 | **Logo / favicon**             | `app/icon.tsx`, `public/`                                        | Replace gradient placeholder in header                          |
-| **Partner portal URL**         | `NEXT_PUBLIC_VENDOR_PORTAL_URL`                                  | `/partners` CTA                                                 |
+| **Partner portal URL**         | `NEXT_PUBLIC_VENDOR_PORTAL_URL`                                  | `/partners` CTA — UAT: `https://oorjaman-vendor.vercel.app`; prod: `https://vendor.oorjaman.com` |
 | **Partner app legal links** | Same as customer                                                 | Point to same `publicLegalUrls`                                 |
 | **Structured data audit**      | [Rich Results Test](https://search.google.com/test/rich-results) | After each major release                                        |
 | **Lighthouse pass**            | CI or manual                                                     | Target ≥ 90 mobile Performance/SEO                              |
@@ -147,4 +149,4 @@ Root `package.json` `build` includes `oorjaman-web` for CI.
 
 ---
 
-_Last updated: 2026-05-19 - Phases 0-3 complete for oorjaman.com / GoDaddy static path._
+_Last updated: 2026-05-20 — Phases 0–3 complete; Vercel UAT vendor portal link; GoDaddy static path._

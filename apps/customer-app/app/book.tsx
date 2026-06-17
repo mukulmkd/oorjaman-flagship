@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,7 +12,6 @@ import {
   View,
 } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
 import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -49,7 +48,7 @@ import {
   vendorApi,
   vendorCoversCustomerSignals,
 } from "@oorjaman/api";
-import type { Json, VendorRow, VendorRoutingResolution, VisitPriceBreakdown } from "@oorjaman/api";
+import type { Json, VendorRow, VendorRoutingResolution } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
 import {
   BOOKING_TIMEZONE,
@@ -75,7 +74,7 @@ import {
   SkeletonBar,
   useModalStackHeader,
 } from "@oorjaman/ui";
-import { fontFamily, fontSize, fontWeight } from "../constants/fonts";
+import { fontFamily, fontSize } from "../constants/fonts";
 import {
   BookVisitAmcAwaitingPartnerGate,
   BookVisitAmcChoiceGate,
@@ -227,12 +226,6 @@ function BookVendorSkeletonRow() {
   );
 }
 
-function formatKwDisplay(kw: number): string {
-  if (!Number.isFinite(kw)) return "0";
-  const rounded = Math.round(kw * 100) / 100;
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/\.?0+$/, "");
-}
-
 function PricingMoneyRow({ label, amountPaise }: { label: string; amountPaise: number }) {
   return (
     <View style={pricingStyles.moneyRow}>
@@ -241,11 +234,6 @@ function PricingMoneyRow({ label, amountPaise }: { label: string; amountPaise: n
     </View>
   );
 }
-
-type VisitPricingCardProps = {
-  breakdown: VisitPriceBreakdown;
-  profileCity: string | null;
-};
 
 function CapacityVisitPricingCard({
   tierLabel,
@@ -283,56 +271,6 @@ function CapacityVisitPricingCard({
         <View style={pricingStyles.divider} />
         <PriceGstBreakdown totalPaise={amountPaise} />
       </Card>
-    </View>
-  );
-}
-
-function VisitPricingCard({ breakdown, profileCity }: VisitPricingCardProps) {
-  const m = breakdown.multiplier;
-  const mLabel = Number.isInteger(m) ? String(m) : m.toFixed(4).replace(/\.?0+$/, "");
-  const cityLine = profileCity?.trim() || null;
-
-  const areaHint = breakdown.matched_tier_label
-    ? `${breakdown.matched_tier_label} - applies to visits in your area`
-    : breakdown.matched_city
-      ? `Rates for ${breakdown.matched_city.trim()}`
-      : "Standard visit rates for your area";
-
-  return (
-    <View style={pricingStyles.block}>
-      <Text style={pricingStyles.pricingTitle}>Price estimate</Text>
-      <Text style={pricingStyles.pricingCaption}>
-        Transparent breakdown before you confirm. Your assigned partner may review site details before the visit.
-      </Text>
-      <Card variant="elevated" padded>
-        <PricingMoneyRow label="Base visit" amountPaise={breakdown.base_paise} />
-        <PricingMoneyRow
-          label={`Panels (${breakdown.panel_count} × rate)`}
-          amountPaise={breakdown.panels_line_paise}
-        />
-        <PricingMoneyRow
-          label={`System size (${formatKwDisplay(breakdown.capacity_kw)} kW × rate)`}
-          amountPaise={breakdown.kw_line_paise}
-        />
-        <View style={pricingStyles.divider} />
-        <PricingMoneyRow label="Subtotal from visit details" amountPaise={breakdown.subtotal_paise} />
-        <View style={pricingStyles.locationRow}>
-          <View style={pricingStyles.locationTextCol}>
-            <Text style={pricingStyles.moneyLabel}>Area rate (multiplier)</Text>
-            <Text style={pricingStyles.locationHint}>{areaHint}</Text>
-          </View>
-          <Text style={pricingStyles.multiplierBadge}>×{mLabel}</Text>
-        </View>
-        <View style={pricingStyles.divider} />
-        <View style={pricingStyles.totalRow}>
-          <Text style={pricingStyles.totalLabel}>Estimated total</Text>
-          <Text style={pricingStyles.totalValue}>{formatInrFromCents(breakdown.final_paise)}</Text>
-        </View>
-      </Card>
-      <Text style={pricingStyles.footnote}>
-        This estimate uses the panel count, system size, and city saved on your profile
-        {cityLine ? ` (${cityLine})` : ""}. Amounts are in Indian rupees (₹).
-      </Text>
     </View>
   );
 }
@@ -379,28 +317,6 @@ const pricingStyles = StyleSheet.create({
     backgroundColor: colors.border,
     marginVertical: spacing.sm,
   },
-  locationRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  locationTextCol: {
-    flex: 1,
-  },
-  locationHint: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    lineHeight: 16,
-    color: colors.mutedForeground,
-    marginTop: 2,
-  },
-  multiplierBadge: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: fontSize.md,
-    color: colors.primary,
-  },
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -416,13 +332,6 @@ const pricingStyles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xl,
     color: colors.foreground,
-  },
-  footnote: {
-    marginTop: spacing.sm,
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    lineHeight: 17,
-    color: colors.mutedForeground,
   },
 });
 
@@ -506,11 +415,7 @@ export default function BookVisitModal() {
   const [addressPickerOpen, setAddressPickerOpen] = useState(false);
   const [notes, setNotes] = useState("");
   const addressPrefilledRef = useRef(false);
-  /** Set when a `pending_payment` booking row is created at checkout (before or after the payment row exists). */
-  const checkoutDraftBookingIdRef = useRef<string | null>(null);
-  const [pendingPaymentId, setPendingPaymentId] = useState<string | null>(null);
   const [paymentFailedBanner, setPaymentFailedBanner] = useState(false);
-  const [paymentSessionError, setPaymentSessionError] = useState<string | null>(null);
   const [bookingFor, setBookingFor] = useState<"self" | "other">("self");
   const [bookingPlanMode, setBookingPlanMode] = useState<"one_time" | "amc">("one_time");
   const [recipientName, setRecipientName] = useState("");
@@ -1058,27 +963,12 @@ export default function BookVisitModal() {
   const payableEstimatePaise = Math.max(0, afterCreditsPaise - compensationDiscountPaise);
 
   const abandonCheckoutIfNeeded = useCallback(async () => {
-    if (!supabase || bookingPlanMode !== "one_time") return;
-    try {
-      if (pendingPaymentId) {
-        await paymentApi.abandonPendingCheckout(supabase, pendingPaymentId);
-      } else if (checkoutDraftBookingIdRef.current) {
-        await bookingApi.customerAbandonUnpaidCheckoutBooking(supabase, checkoutDraftBookingIdRef.current);
-      }
-    } catch {
-      /* still allow leaving the screen */
-    }
-    checkoutDraftBookingIdRef.current = null;
-    setPendingPaymentId(null);
-    await qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
-    await qc.invalidateQueries({ queryKey: queryKeys.payments.all() });
-  }, [supabase, bookingPlanMode, pendingPaymentId, qc]);
+    setPaymentFailedBanner(false);
+  }, []);
 
   const requestCloseBooking = useCallback(() => {
     const message =
-      bookingPlanMode === "one_time" && step === 3
-        ? "A visit request is created when you open the payment step (before you pay). Leaving cancels any unpaid checkout draft. Earlier wizard steps are not kept."
-        : "Your selections on this screen are not saved after you leave.";
+      "Your selections on this screen are not saved after you leave.";
     Alert.alert("Leave booking?", message, [
       { text: "Stay", style: "cancel" },
       {
@@ -1091,7 +981,155 @@ export default function BookVisitModal() {
           })(),
       },
     ]);
-  }, [bookingPlanMode, step, abandonCheckoutIfNeeded]);
+  }, [abandonCheckoutIfNeeded]);
+
+  const buildOneTimeCheckoutPayload = useCallback(async () => {
+    if (!supabase) throw new Error("Supabase is not configured.");
+    const bookedAt = new Date();
+    if ((vendorPick.mode === "preferred" && !vendorId) || !dayKey || !slot) {
+      throw new Error("Complete scheduling before payment.");
+    }
+    if (!address.trim()) {
+      throw new Error("Enter the service site address on the previous step.");
+    }
+    if (!isSlotValidAt(dayKey, slot, bookedAt)) {
+      throw new Error("This slot is no longer available - go back and choose another time.");
+    }
+    const customer = await customerApi.ensureCustomerProfile(supabase);
+    const fresh = await customerApi.getMyCustomer(supabase);
+    const defaults = await getBookingRoutingDefaults(supabase);
+    const customerFallbackVendorId = readFallbackVendorIdFromCustomer(fresh ?? customer);
+    const approved = vendorsQuery.data ?? [];
+    if (approved.length === 0) {
+      throw new Error("Approved partners list not loaded - try again.");
+    }
+    if (!pricingQuery.data) {
+      throw new Error("Price estimate not ready - try again.");
+    }
+    const signals = customerLocationSignalsFromCustomer(fresh ?? customer);
+    const filterPincode = signals.pincode?.replace(/\D/g, "").slice(0, 6) || null;
+    const routing =
+      vendorPick.mode === "any"
+        ? null
+        : resolveBookingVendor({
+            requestedVendorId: vendorId!,
+            customerFallbackVendorId,
+            platformDefaultVendorId: defaults.defaultVendorId,
+            signals,
+            approvedVendors: approved,
+          });
+    const scheduleSlotMeta = {
+      day_key: dayKey,
+      slot_id: slot.id,
+      label: slot.label,
+    } as Json;
+    const preferredAvailable =
+      routing?.resolvedVendorId && vendorPick.mode === "preferred"
+        ? await vendorApi.isVendorAvailableForSlot(supabase, {
+            vendorId: routing.resolvedVendorId,
+            dayKey,
+            slotId: slot.id,
+          })
+        : true;
+    const useDefaultMarketplace = vendorPick.mode === "any" || !preferredAvailable;
+    const estimatePaise = payableEstimatePaise;
+    const serviceAddressId =
+      selectedServiceAddressId ?? addressBook.defaultId ?? addressBook.entries[0]?.id ?? null;
+    const payload = buildCustomerBookingCreateInput({
+      customerId: customer.id,
+      vendorId: useDefaultMarketplace ? null : (routing?.resolvedVendorId ?? null),
+      scheduledStart: slot.scheduledStart,
+      scheduledEnd: slot.scheduledEnd,
+      customer: fresh ?? customer,
+      siteAddressText: address.trim(),
+      customerNotes: notes.trim() || null,
+      serviceAddressId,
+      estimatedPricePaise: estimatePaise,
+      initialStatus: "confirmed",
+      vendorRouting: {
+        requested_vendor_id: routing?.requestedVendorId ?? null,
+        resolved_vendor_id: useDefaultMarketplace ? null : (routing?.resolvedVendorId ?? null),
+        used_fallback: useDefaultMarketplace ? true : (routing?.usedFallback ?? false),
+        reason: useDefaultMarketplace ? "default_vendor_marketplace" : (routing?.reason ?? "default_vendor_marketplace"),
+      },
+      extraMetadata: {
+        pricing_final_paise: pricingQuery.data.estimate.final_paise,
+        pricing_subtotal_paise: pricingQuery.data.estimate.subtotal_paise,
+        pricing_multiplier: pricingQuery.data.estimate.multiplier,
+        pricing_matched_city: pricingQuery.data.estimate.matched_city,
+        pricing_matched_tier_code: pricingQuery.data.estimate.matched_tier_code,
+        pricing_matched_tier_label: pricingQuery.data.estimate.matched_tier_label,
+        pricing_country_code: pricingQuery.data.estimate.pricing_country_code,
+        booking_recipient: buildBookingRecipientMeta({
+          isSelf: bookingFor === "self",
+          recipientName: bookingFor === "other" ? recipientName : null,
+          recipientPhone: bookingFor === "other" ? recipientPhone : null,
+          recipientAltPhone: bookingFor === "other" ? recipientAltPhone : null,
+          relationship: bookingFor === "other" ? recipientRelation : null,
+          notifyRecipient: bookingFor === "other",
+        }) as unknown as Json,
+        schedule_slot: scheduleSlotMeta,
+        ...(useDefaultMarketplace
+          ? {
+              marketplace: {
+                mode: "default_vendor",
+                floated: false,
+                awaiting_admin_float: true,
+                accept_window_hours: 1,
+                post_7pm_admin_queue: true,
+                auto_routed_from_preferred_unavailable: vendorPick.mode === "preferred" && !preferredAvailable,
+                broadcast_filter: "customer_pin",
+                filter_pincode: filterPincode,
+                filter_city: signals.city?.trim() || null,
+              } as Json,
+            }
+          : {}),
+        ...(creditsDiscountPaise > 0
+          ? {
+              oorjaman_credits_planned: {
+                discount_paise: creditsDiscountPaise,
+                discount_credits: creditsRedemptionPlan.discount_credits,
+              } as Json,
+            }
+          : {}),
+        ...(availableCompensation && compensationDiscountPaise > 0
+          ? {
+              compensation_applied: {
+                coupon_id: availableCompensation.couponId,
+                coupon_code: availableCompensation.couponCode,
+                source_booking_id: availableCompensation.sourceBookingId,
+                discount_paise: compensationDiscountPaise,
+              } as Json,
+            }
+          : {}),
+        payment_dummy: true,
+      },
+    });
+    return { payload, estimatePaise, approved, customerId: customer.id };
+  }, [
+    supabase,
+    vendorPick.mode,
+    vendorId,
+    dayKey,
+    slot,
+    address,
+    notes,
+    vendorsQuery.data,
+    pricingQuery.data,
+    payableEstimatePaise,
+    selectedServiceAddressId,
+    addressBook.defaultId,
+    addressBook.entries,
+    bookingFor,
+    recipientName,
+    recipientPhone,
+    recipientAltPhone,
+    recipientRelation,
+    creditsDiscountPaise,
+    creditsRedemptionPlan.discount_credits,
+    availableCompensation,
+    compensationDiscountPaise,
+  ]);
 
   const modalHeader = useModalStackHeader({
     title: "Book a visit",
@@ -1110,233 +1148,31 @@ export default function BookVisitModal() {
 
   useEffect(() => {
     if (step < 3) {
-      setPendingPaymentId(null);
       setPaymentFailedBanner(false);
-      setPaymentSessionError(null);
     }
   }, [step]);
 
-  useEffect(() => {
-    if (step !== 3 || bookingPlanMode !== "one_time" || !supabase || !customerQuery.data?.id || !pricingQuery.data) return;
-    if (pendingPaymentId) return;
-    if (paymentSessionError) return;
-    let cancelled = false;
-    let draftBookingId: string | null = null;
-    void (async () => {
-      try {
-        const bookedAt = new Date();
-        if ((vendorPick.mode === "preferred" && !vendorId) || !dayKey || !slot) {
-          throw new Error("Complete scheduling before payment.");
-        }
-        if (!address.trim()) {
-          throw new Error("Enter the service site address on the previous step.");
-        }
-        if (!isSlotValidAt(dayKey, slot, bookedAt)) {
-          throw new Error("This slot is no longer available - go back and choose another time.");
-        }
-        const customer = await customerApi.ensureCustomerProfile(supabase);
-        const fresh = await customerApi.getMyCustomer(supabase);
-        const defaults = await getBookingRoutingDefaults(supabase);
-        const customerFallbackVendorId = readFallbackVendorIdFromCustomer(fresh ?? customer);
-        const approved = vendorsQuery.data ?? [];
-        if (approved.length === 0) {
-          throw new Error("Approved partners list not loaded - try again.");
-        }
-        const signals = customerLocationSignalsFromCustomer(fresh ?? customer);
-        const filterPincode = signals.pincode?.replace(/\D/g, "").slice(0, 6) || null;
-        const routing =
-          vendorPick.mode === "any"
-            ? null
-            : resolveBookingVendor({
-              requestedVendorId: vendorId!,
-              customerFallbackVendorId,
-              platformDefaultVendorId: defaults.defaultVendorId,
-              signals,
-              approvedVendors: approved,
-            });
-        const scheduleSlotMeta = {
-          day_key: dayKey,
-          slot_id: slot.id,
-          label: slot.label,
-        } as Json;
-        const preferredAvailable =
-          routing?.resolvedVendorId && vendorPick.mode === "preferred"
-            ? await vendorApi.isVendorAvailableForSlot(supabase, {
-              vendorId: routing.resolvedVendorId,
-              dayKey,
-              slotId: slot.id,
-            })
-            : true;
-        const useDefaultMarketplace = vendorPick.mode === "any" || !preferredAvailable;
-        const nowIso = new Date().toISOString();
-        const estimatePaise = payableEstimatePaise;
-        const serviceAddressId =
-          selectedServiceAddressId ?? addressBook.defaultId ?? addressBook.entries[0]?.id ?? null;
-        const payload = buildCustomerBookingCreateInput({
-          customerId: customer.id,
-          vendorId: useDefaultMarketplace ? null : (routing?.resolvedVendorId ?? null),
-          scheduledStart: slot.scheduledStart,
-          scheduledEnd: slot.scheduledEnd,
-          customer: fresh ?? customer,
-          siteAddressText: address.trim(),
-          customerNotes: notes.trim() || null,
-          serviceAddressId,
-          estimatedPricePaise: estimatePaise,
-          vendorRouting: {
-            requested_vendor_id: routing?.requestedVendorId ?? null,
-            resolved_vendor_id: useDefaultMarketplace ? null : (routing?.resolvedVendorId ?? null),
-            used_fallback: useDefaultMarketplace ? true : (routing?.usedFallback ?? false),
-            reason: useDefaultMarketplace ? "default_vendor_marketplace" : (routing?.reason ?? "default_vendor_marketplace"),
-          },
-          extraMetadata:
-            pricingQuery.data != null
-              ? {
-                pricing_final_paise: pricingQuery.data.estimate.final_paise,
-                pricing_subtotal_paise: pricingQuery.data.estimate.subtotal_paise,
-                pricing_multiplier: pricingQuery.data.estimate.multiplier,
-                pricing_matched_city: pricingQuery.data.estimate.matched_city,
-                pricing_matched_tier_code: pricingQuery.data.estimate.matched_tier_code,
-                pricing_matched_tier_label: pricingQuery.data.estimate.matched_tier_label,
-                pricing_country_code: pricingQuery.data.estimate.pricing_country_code,
-                booking_recipient: buildBookingRecipientMeta({
-                  isSelf: bookingFor === "self",
-                  recipientName: bookingFor === "other" ? recipientName : null,
-                  recipientPhone: bookingFor === "other" ? recipientPhone : null,
-                  recipientAltPhone: bookingFor === "other" ? recipientAltPhone : null,
-                  relationship: bookingFor === "other" ? recipientRelation : null,
-                  notifyRecipient: bookingFor === "other",
-                }) as unknown as Json,
-                schedule_slot: scheduleSlotMeta,
-                ...(useDefaultMarketplace
-                  ? {
-                    marketplace: {
-                      mode: "default_vendor",
-                      floated: false,
-                      awaiting_admin_float: true,
-                      accept_window_hours: 1,
-                      post_7pm_admin_queue: true,
-                      auto_routed_from_preferred_unavailable: vendorPick.mode === "preferred" && !preferredAvailable,
-                      broadcast_filter: "customer_pin",
-                      filter_pincode: filterPincode,
-                      filter_city: signals.city?.trim() || null,
-                    } as Json,
-                  }
-                  : {}),
-                ...(creditsDiscountPaise > 0
-                  ? {
-                      oorjaman_credits_planned: {
-                        discount_paise: creditsDiscountPaise,
-                        discount_credits: creditsRedemptionPlan.discount_credits,
-                      } as Json,
-                    }
-                  : {}),
-                ...(availableCompensation && compensationDiscountPaise > 0
-                  ? {
-                    compensation_applied: {
-                      coupon_id: availableCompensation.couponId,
-                      coupon_code: availableCompensation.couponCode,
-                      source_booking_id: availableCompensation.sourceBookingId,
-                      discount_paise: compensationDiscountPaise,
-                    } as Json,
-                  }
-                  : {}),
-                payment_dummy: true,
-              }
-              : { payment_dummy: true },
-        });
-        const booking = await bookingApi.createBookingAsCustomer(supabase, payload);
-        draftBookingId = booking.id;
-        checkoutDraftBookingIdRef.current = booking.id;
-        if (cancelled) {
-          await bookingApi.customerAbandonUnpaidCheckoutBooking(supabase, booking.id).catch(() => { });
-          checkoutDraftBookingIdRef.current = null;
-          return;
-        }
-        const pay = await paymentApi.createPendingPayment(supabase, {
-          customerId: customer.id,
-          bookingId: booking.id,
-          amountPaise: estimatePaise,
-        });
-        if (cancelled) {
-          await paymentApi.abandonPendingCheckout(supabase, pay.id).catch(() => { });
-          checkoutDraftBookingIdRef.current = null;
-          return;
-        }
-        if (!cancelled) {
-          setPendingPaymentId(pay.id);
-          setPaymentFailedBanner(false);
-        }
-      } catch (e) {
-        if (draftBookingId && supabase) {
-          void bookingApi.customerAbandonUnpaidCheckoutBooking(supabase, draftBookingId).catch(() => { });
-        }
-        checkoutDraftBookingIdRef.current = null;
-        if (!cancelled) {
-          setPaymentSessionError((e as Error).message);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    step,
-    pendingPaymentId,
-    customerQuery.data?.id,
-    pricingQuery.data,
-    supabase,
-    paymentSessionError,
-    vendorId,
-    vendorPick.mode,
-    bookingPlanMode,
-    dayKey,
-    slot,
-    address,
-    notes,
-    bookingFor,
-    recipientName,
-    recipientPhone,
-    recipientAltPhone,
-    recipientRelation,
-    vendorsQuery.data,
-    availableCompensation,
-    compensationDiscountPaise,
-    creditsDiscountPaise,
-    creditsRedemptionPlan.discount_credits,
-    payableEstimatePaise,
-  ]);
-
   const failPaymentMut = useMutation({
     mutationFn: async () => {
-      if (!supabase) throw new Error("Supabase is not configured.");
-      if (!pendingPaymentId) throw new Error("No active payment session.");
-      await paymentApi.markDummyPaymentFailed(supabase, pendingPaymentId);
+      /* Simulated decline only — no booking row exists until Pay Now succeeds. */
     },
     onSuccess: () => {
       setPaymentFailedBanner(true);
-      setPendingPaymentId(null);
     },
   });
 
   const paySuccessMut = useMutation({
     mutationFn: async () => {
-      const bookedAt = new Date();
       if (!supabase) throw new Error("Supabase is not configured.");
-      if (!pendingPaymentId) throw new Error("Payment session not ready - wait a moment or go back.");
-      if ((vendorPick.mode === "preferred" && !vendorId) || !dayKey || !slot) {
-        throw new Error("Complete each step before submitting.");
-      }
-      if (!address.trim()) throw new Error("Enter the site address.");
-      if (!isSlotValidAt(dayKey, slot, bookedAt)) {
-        throw new Error("This slot is no longer available - choose another time.");
-      }
-      const approved = vendorsQuery.data ?? [];
-      const { booking, payment } = await paymentApi.completeDummyPaymentSuccess(supabase, pendingPaymentId, {
+      const { payload, estimatePaise, approved, customerId } = await buildOneTimeCheckoutPayload();
+      const { booking, payment } = await paymentApi.createPaidOneTimeBookingCheckout(supabase, {
+        bookingInput: payload,
+        amountPaise: estimatePaise,
         paymentMethod: randomDummyIndianPaymentMethod(),
       });
-      if (customerQuery.data?.id && creditsDiscountPaise > 0) {
+      if (creditsDiscountPaise > 0) {
         await redeemCustomerOorjamanCredits(supabase, {
-          customer_id: customerQuery.data.id,
+          customer_id: customerId,
           booking_id: booking.id,
           payment_id: payment.id,
           payable_paise: grossEstimatePaise,
@@ -2152,66 +1988,46 @@ export default function BookVisitModal() {
               </View>
             ) : null}
 
-            {paymentSessionError ? (
-              <View style={styles.pricingErrorWrap}>
-                <ErrorStateCard
-                  title="Couldn't start payment"
-                  message={paymentSessionError}
-                  onRetry={() => {
-                    setPendingPaymentId(null);
-                    setPaymentSessionError(null);
-                  }}
-                />
-              </View>
-            ) : null}
-
             {paymentFailedBanner ? (
               <View style={styles.failBanner}>
                 <Card variant="muted" padded>
                   <Text style={styles.failBannerTitle}>Payment failed</Text>
                   <Text style={styles.failBannerBody}>
-                    This was a simulated decline. A new payment session will load automatically - try Pay Now (Success) when
-                    you&apos;re ready.
+                    This was a simulated decline. Nothing was saved — try Pay Now (Success) when you&apos;re ready.
                   </Text>
                 </Card>
               </View>
             ) : null}
 
-            {!paymentSessionError ? (
-              <>
-                <Text style={styles.paymentSimLabel}>Simulate gateway</Text>
-                <View style={styles.gapSm} />
-                <Button
-                  variant="primary"
-                  size="md"
-                  loading={paySuccessMut.isPending}
-                  disabled={
-                    !pendingPaymentId ||
-                    paySuccessMut.isPending ||
-                    failPaymentMut.isPending ||
-                    !!paymentSessionError
-                  }
-                  onPress={() => void paySuccessMut.mutate()}
-                >
-                  Pay Now (Success)
-                </Button>
-                <View style={styles.gapSm} />
-                <Button
-                  variant="outline"
-                  size="md"
-                  loading={failPaymentMut.isPending}
-                  disabled={
-                    !pendingPaymentId ||
-                    paySuccessMut.isPending ||
-                    failPaymentMut.isPending ||
-                    !!paymentSessionError
-                  }
-                  onPress={() => void failPaymentMut.mutate()}
-                >
-                  Fail payment
-                </Button>
-              </>
-            ) : null}
+            <Text style={styles.paymentSimLabel}>Simulate gateway</Text>
+            <View style={styles.gapSm} />
+            <Button
+              variant="primary"
+              size="md"
+              loading={paySuccessMut.isPending}
+              disabled={
+                !pricingQuery.data ||
+                paySuccessMut.isPending ||
+                failPaymentMut.isPending
+              }
+              onPress={() => void paySuccessMut.mutate()}
+            >
+              Pay Now (Success)
+            </Button>
+            <View style={styles.gapSm} />
+            <Button
+              variant="outline"
+              size="md"
+              loading={failPaymentMut.isPending}
+              disabled={
+                !pricingQuery.data ||
+                paySuccessMut.isPending ||
+                failPaymentMut.isPending
+              }
+              onPress={() => void failPaymentMut.mutate()}
+            >
+              Fail payment
+            </Button>
 
             {paySuccessMut.isError ? (
               <Text style={styles.error}>{(paySuccessMut.error as Error).message}</Text>
@@ -2308,6 +2124,7 @@ export default function BookVisitModal() {
             setSelectedServiceAddressId(selected.id);
           }
           await addressBookMut.mutateAsync({ entries, defaultId, extras });
+          setAddressPickerOpen(false);
         }}
       />
     </KeyboardAvoidingView>

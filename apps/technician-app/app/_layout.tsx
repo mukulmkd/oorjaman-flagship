@@ -82,7 +82,6 @@ export default function RootLayout() {
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="permissions" />
           <Stack.Screen name="login" />
-          <Stack.Screen name="technician-login" />
           <Stack.Screen name="technician-onboarding" />
           <Stack.Screen name="pending-vendor-review" />
           <Stack.Screen name="vendor-not-onboarded" />

@@ -76,7 +76,8 @@ export function useNotificationCenter(
       const rows = await listInAppNotifications(supabase, { audience, limit: 50 });
       return rows.map(toItem);
     },
-    refetchInterval: open ? false : 60_000,
+    staleTime: 60_000,
+    refetchInterval: open ? false : 120_000,
   });
 
   const unreadQuery = useQuery({
@@ -86,7 +87,8 @@ export function useNotificationCenter(
       if (!supabase) return 0;
       return countUnreadInAppNotifications(supabase, audience);
     },
-    refetchInterval: 45_000,
+    staleTime: 45_000,
+    refetchInterval: 90_000,
   });
 
   const invalidate = useCallback(() => {

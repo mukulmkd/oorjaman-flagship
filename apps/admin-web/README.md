@@ -1,73 +1,54 @@
-# React + TypeScript + Vite App
+# admin-web — OorjaMan Admin Portal
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite SPA for platform operators: vendor approval, pricing, booking monitoring, analytics, notifications, brand print, and more.
 
-Currently, two official plugins are available:
+## Run locally
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+From repo root (loads `apps/admin-web/.env.development.local`):
 
-## React Compiler
+```bash
+cp apps/admin-web/.env.development.example apps/admin-web/.env.development.local
+# UAT Supabase URL + anon; localhost cross-links; optional dummy auth
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+npm run admin    # http://localhost:5173
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Seed UAT test users (repo root `.env.uat.local`):
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run seed:dummy-users
 ```
+
+## UAT on Vercel (live)
+
+| Setting | Value |
+| ------- | ----- |
+| URL | https://oorjaman-admin.vercel.app |
+| Build | `npm run build:uat -w admin-web` |
+| Output | `apps/admin-web/dist` |
+| Backend | **OorjaMan UAT** Supabase (anon key in Vercel env) |
+
+Full monorepo Vercel setup: [VERCEL.md](../../project-docs/VERCEL.md). Env vars: [ENVIRONMENT.md](../../project-docs/ENVIRONMENT.md) · [DEPLOYMENT.md](../../project-docs/DEPLOYMENT.md).
+
+## Brand print (stationery)
+
+**Dashboard → Brand print** (`/dashboard/brand-collateral`) — per-person business cards, letterhead, email signatures, and invoice PDFs. Uses shared layout in `packages/utils/src/brand-print/` and logos from `npm run brand:sync`.
+
+UAT: https://oorjaman-admin.vercel.app/dashboard/brand-collateral
+
+Optional CLI batch export (company-default contact, gitignored output): `npm run brand:print` — see [brand/print/README.md](../../brand/print/README.md).
+
+## Production (GoDaddy, planned)
+
+```bash
+cp apps/admin-web/.env.production.example apps/admin-web/.env.production.local
+npm run build -w admin-web
+```
+
+Deploy `apps/admin-web/dist/` to `https://admin.oorjaman.com` with Prod Supabase — no dummy auth.
+
+## Docs
+
+- [README.md](../../README.md) — monorepo overview
+- [ENVIRONMENT.md](../../project-docs/ENVIRONMENT.md) — all `VITE_*` variables
+- [SECURITY-VERCEL.md](../../project-docs/SECURITY-VERCEL.md) — portal security on Vercel

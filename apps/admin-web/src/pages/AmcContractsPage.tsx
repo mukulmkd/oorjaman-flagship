@@ -13,7 +13,8 @@ import {
 import { formatDisplayDateTime } from "@oorjaman/utils";
 import { Badge, Button, Card, PageHeader } from "@oorjaman/web-ui";
 import { Link, useSearchParams } from "react-router-dom";
-import { useSupabase } from "../lib/supabase-context";
+import { useSupabase } from "../lib/supabase-client";
+import { invalidateAdminBookingOpsQueries } from "../lib/invalidate-admin-queries";
 import "./amc-contracts-page.css";
 
 const STATUS_OPTIONS: { value: "" | AmcContractStatus; label: string }[] = [
@@ -85,7 +86,7 @@ export function AmcContractsPage() {
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: queryKeys.finance.all() });
       await qc.invalidateQueries({ queryKey: queryKeys.subscriptions.all() });
-      await qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
+      await invalidateAdminBookingOpsQueries(qc);
     },
   });
 

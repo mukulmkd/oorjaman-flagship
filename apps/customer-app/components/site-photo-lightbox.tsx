@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { SitePhotoWithSignedUrl } from "@oorjaman/api";
-import { colors, spacing } from "@oorjaman/config";
+import { spacing } from "@oorjaman/config";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { openGoogleMapsInBrowser } from "../lib/google-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
