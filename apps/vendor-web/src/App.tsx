@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { RequireApprovedVendor } from "./components/RequireApprovedVendor";
-import { RequireSession } from "./components/RequireSession";
+import { RequireSession } from "@oorjaman/web-ui";
 import { RequireVendorRole } from "./components/RequireVendorRole";
 import { VendorLayout } from "./layouts/VendorLayout";
 import VendorDashboardPage from "./pages/VendorDashboardPage";

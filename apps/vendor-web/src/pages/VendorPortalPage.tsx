@@ -4,7 +4,7 @@ import type { VendorRow } from "@oorjaman/api";
 import { authApi, vendorApi } from "@oorjaman/api";
 import { Button, Card } from "@oorjaman/web-ui";
 import { formatDisplayDateTime } from "@oorjaman/utils";
-import { useSupabase } from "../lib/supabase-client";
+import { useSupabase } from "@oorjaman/web-ui";
 
 function isAwaitingApproval(status: VendorRow["approval_status"]): boolean {
   return status === "pending" || status === "under_review";

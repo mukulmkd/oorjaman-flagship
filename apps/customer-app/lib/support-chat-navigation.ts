@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import type { HelpSupportOpenContext } from "../components/help-support-context";
+import type { HelpSupportOpenContext } from "@oorjaman/ui";
 
 const ROOT_MODAL_SEGMENTS = new Set([
   "book",

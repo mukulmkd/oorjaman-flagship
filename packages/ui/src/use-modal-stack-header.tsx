@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo } from "react";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation } from "expo-router";
 import { ModalStackHeaderBar, type ModalStackHeaderBarProps } from "./ModalStackHeaderBar";
 
 export type UseModalStackHeaderConfig = ModalStackHeaderBarProps;

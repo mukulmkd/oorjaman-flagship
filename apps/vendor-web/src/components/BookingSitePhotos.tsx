@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { BookingRow } from "@oorjaman/api";
 import { bookingShowsSitePhotos, getSitePhotosForBooking, queryKeys } from "@oorjaman/api";
-import { DocumentViewerModal } from "./DocumentViewer";
-import { useSupabase } from "../lib/supabase-client";
+import { DocumentViewerModal } from "@oorjaman/web-ui";
+import { useSupabase } from "@oorjaman/web-ui";
 
 type Props = {
   booking: Pick<BookingRow, "id" | "customer_id" | "metadata" | "status" | "technician_id">;

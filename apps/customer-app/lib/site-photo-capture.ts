@@ -1,8 +1,9 @@
 import * as Device from "expo-device";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
-import { Alert, InteractionManager, Platform } from "react-native";
+import { Alert, Platform } from "react-native";
 import type { SitePhotoCaptureGeo } from "@oorjaman/api";
+import { waitAfterUiSettled } from "@oorjaman/ui";
 import { ensureForegroundLocationAccess } from "./location-access";
 import { prepareSitePhotoUri } from "./prepare-site-photo-uri";
 import type { SitePhotoSource } from "./site-photo-source-prompt";
@@ -51,11 +52,7 @@ function isCameraUnavailableError(e: unknown): boolean {
 /** iOS only: action sheet must finish dismissing before presenting camera. */
 async function waitForSourcePickerDismissal(): Promise<void> {
   if (Platform.OS !== "ios") return;
-  await new Promise<void>((resolve) => {
-    InteractionManager.runAfterInteractions(() => {
-      setTimeout(resolve, 350);
-    });
-  });
+  await waitAfterUiSettled(350);
 }
 
 async function captureGeo(): Promise<SitePhotoCaptureGeo | null> {

@@ -1,15 +1,7 @@
 import path from "node:path";
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import { fileURLToPath } from "node:url";
+import { createPortalViteConfig } from "@oorjaman/vite-portal-config/vite";
 
-export default defineConfig({
-  plugins: [react()],
-  resolve: {
-    alias: {
-      "@oorjaman/config": path.resolve(__dirname, "../../packages/config/src"),
-      "@oorjaman/utils": path.resolve(__dirname, "../../packages/utils/src"),
-      "@oorjaman/api": path.resolve(__dirname, "../../packages/api/src"),
-      "@oorjaman/web-ui": path.resolve(__dirname, "../../packages/web-ui/src"),
-    },
-  },
+export default createPortalViteConfig({
+  appDir: path.dirname(fileURLToPath(import.meta.url)),
 });

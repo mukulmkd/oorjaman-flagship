@@ -1,5 +1,5 @@
 import { Platform } from "react-native";
-import * as Notifications from "expo-notifications";
+import { getExpoNotifications } from "./expo-notifications-access";
 import {
   parseSupportMessageEvent,
   supportAgentNameFromMessage,
@@ -67,6 +67,8 @@ async function presentSupportNotification(
   data: Record<string, unknown>,
 ): Promise<void> {
   if (Platform.OS === "web") return;
+  const Notifications = getExpoNotifications();
+  if (!Notifications) return;
   initSupportChatNotificationHandler();
 
   const existing = await Notifications.getPermissionsAsync();

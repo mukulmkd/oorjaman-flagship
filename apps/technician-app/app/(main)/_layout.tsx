@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { technicianApi, queryKeys } from "@oorjaman/api";
-import { TabShellSkeleton } from "@oorjaman/ui";
+import { TabShellSkeleton, mobileTabBarStyle } from "@oorjaman/ui";
 import { colors } from "@oorjaman/config";
 import { fontFamily, fontSize } from "../../constants/fonts";
 import { supabase } from "../../lib/supabase";
@@ -75,12 +75,10 @@ export default function MainTabsLayout() {
             fontFamily: fontFamily.medium,
             fontSize: fontSize.xs,
           },
-          tabBarStyle: {
+          tabBarStyle: mobileTabBarStyle(insets, {
             borderTopColor: colors.border,
             backgroundColor: colors.background,
-            paddingTop: 4,
-            paddingBottom: Math.max(insets.bottom, 6),
-          },
+          }),
         }}
       >
         <Tabs.Screen

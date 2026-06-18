@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@oorjaman/api";
-import { useSupabase } from "../lib/supabase-client";
+import { useSupabase } from "@oorjaman/web-ui";
 
 /** Refetches partner bookings when dispatch or field crew update visit rows. */
 export function VendorBookingRealtime({ vendorId }: { vendorId: string | null | undefined }) {

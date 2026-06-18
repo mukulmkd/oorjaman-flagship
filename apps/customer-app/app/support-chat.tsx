@@ -3,9 +3,10 @@ import { StyleSheet, View } from "react-native";
 import { initialWindowMetrics, SafeAreaProvider } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { colors } from "@oorjaman/config";
-import { HelpSupportModalBody } from "../components/help-support-modal";
-import { useHelpSupport } from "../components/help-support-context";
+import { HelpSupportModalBody } from "@oorjaman/ui";
+import { useHelpSupport } from "@oorjaman/ui";
 import { parseSupportChatRouteParams } from "../lib/support-chat-navigation";
+import { supabase } from "../lib/supabase";
 
 export default function SupportChatModalScreen() {
   const params = useLocalSearchParams<{
@@ -24,6 +25,8 @@ export default function SupportChatModalScreen() {
     <View style={styles.root}>
       <SafeAreaProvider initialMetrics={initialWindowMetrics ?? undefined}>
         <HelpSupportModalBody
+          role="customer"
+          client={supabase}
           visible
           presentation="screen"
           context={context}

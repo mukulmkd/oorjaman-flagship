@@ -2,7 +2,7 @@ import { useCallback, useLayoutEffect, useMemo } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation } from "expo-router";
 import { router } from "expo-router";
 import { bookingApi, queryKeys, technicianApi } from "@oorjaman/api";
 import type { BookingRow } from "@oorjaman/api";

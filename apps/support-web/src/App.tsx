@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { RequireSupportDeskRole } from "./components/RequireSupportDeskRole";
-import { RequireSession } from "./components/RequireSession";
+import { RequireSession } from "@oorjaman/web-ui";
 import { SupportLayout } from "./layouts/SupportLayout";
 import { SupportInboxPage } from "./pages/SupportInboxPage";
 import { SupportInsightsPage } from "./pages/SupportInsightsPage";

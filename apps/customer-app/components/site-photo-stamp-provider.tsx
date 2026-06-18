@@ -10,7 +10,6 @@ import {
 import {
   ActivityIndicator,
   Image,
-  InteractionManager,
   Modal,
   Platform,
   StyleSheet,
@@ -21,6 +20,7 @@ import {
 import { File } from "expo-file-system";
 import type { SitePhotoCaptureGeo } from "@oorjaman/api";
 import { colors } from "@oorjaman/config";
+import { runAfterUiSettled, waitAfterUiSettled } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { pickSitePhotoWithGeo, type SitePhotoPickResult } from "../lib/site-photo-capture";
 import type { SitePhotoSource } from "../lib/site-photo-source-prompt";
@@ -99,6 +99,12 @@ function SitePhotoStampFrame({
     if (h > 0) setDetailsHeight(h);
   }, []);
 
+  useEffect(() => {
+    if (!meta.mapUri) {
+      onMapReady();
+    }
+  }, [meta.mapUri, onMapReady]);
+
   return (
     <View style={styles.frame} collapsable={false}>
       <Image
@@ -115,6 +121,7 @@ function SitePhotoStampFrame({
               style={[styles.mapImage, { height: mapHeight }]}
               resizeMode="cover"
               onLoad={onMapReady}
+              onError={onMapReady}
             />
           ) : (
             <View style={[styles.mapPlaceholder, { height: mapHeight }]} />
@@ -185,26 +192,41 @@ export function SitePhotoStampProvider({ children }: { children: ReactNode }) {
       const pick = await pickSitePhotoWithGeo(source);
       if (!pick) return null;
 
-      if (Platform.OS === "android") {
-        await new Promise<void>((resolve) => {
-          InteractionManager.runAfterInteractions(() => {
-            setTimeout(resolve, 300);
-          });
-        });
-      }
+      await waitAfterUiSettled(Platform.OS === "android" ? 350 : 250);
 
       try {
-        const stampedUri = await stampSitePhoto({
-          photoUri: pick.uri,
-          geo: pick.geo,
-          siteLabel: siteLabel?.trim() || undefined,
-          photoWidth: pick.width > 0 ? pick.width : undefined,
-          photoHeight: pick.height > 0 ? pick.height : undefined,
-        });
-        return { ...pick, uri: stampedUri };
+        await Image.prefetch(pick.uri);
       } catch {
-        return pick;
+        // Non-fatal; stamping may still succeed.
       }
+
+      const stampInput: StampInput = {
+        photoUri: pick.uri,
+        geo: pick.geo,
+        siteLabel: siteLabel?.trim() || undefined,
+        photoWidth: pick.width > 0 ? pick.width : undefined,
+        photoHeight: pick.height > 0 ? pick.height : undefined,
+      };
+
+      let lastError: Error | null = null;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          const stampedUri = await stampSitePhoto(stampInput);
+          return { ...pick, uri: stampedUri };
+        } catch (e: unknown) {
+          lastError = e instanceof Error ? e : new Error("Could not save stamped photo.");
+          if (attempt === 0) {
+            await new Promise<void>((resolve) => setTimeout(resolve, 450));
+          }
+        }
+      }
+
+      const message = lastError?.message ?? "Could not add site details to the photo.";
+      throw new Error(
+        /blank|stamp|not ready/i.test(message)
+          ? "Could not add the site map and details to this photo. Try again or pick a smaller image."
+          : message,
+      );
     },
     [stampSitePhoto],
   );
@@ -232,7 +254,7 @@ export function SitePhotoStampProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     void (async () => {
       try {
-        if (Platform.OS !== "android") {
+        if (Platform.OS !== "web") {
           await Image.prefetch(job.photoUri);
         }
         const geocode = await reverseGeocodeSitePhoto(job.geo.lat, job.geo.lng);
@@ -297,12 +319,14 @@ export function SitePhotoStampProvider({ children }: { children: ReactNode }) {
         }
       })();
     };
+    let idleTask: ReturnType<typeof runAfterUiSettled> | undefined;
     const timer = setTimeout(() => {
-      InteractionManager.runAfterInteractions(runCapture);
+      idleTask = runAfterUiSettled(runCapture);
     }, 600);
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      idleTask?.cancel();
     };
   }, [readyToCapture, job, meta, assetsReady]);
 
@@ -458,7 +482,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   busyBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
     gap: 12,

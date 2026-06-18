@@ -35,11 +35,6 @@ export type AnalyticsPeriodSeriesPoint = {
 };
 
 export type BookingStatsRow = Database["public"]["Views"]["booking_stats"]["Row"];
-export type RevenueStatsRow = Database["public"]["Views"]["revenue_stats"]["Row"];
-export type RecognizedRevenueStatsRow = {
-  total_revenue_cents: number;
-  revenue_per_day: Json | null;
-};
 export type SubscriptionStatsRow = Database["public"]["Views"]["subscription_stats"]["Row"];
 export type BookingsCreatedDailyRow = Database["public"]["Views"]["bookings_created_daily"]["Row"];
 export type RevenueDayPoint = { day: string; revenue_cents: number };

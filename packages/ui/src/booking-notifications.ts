@@ -1,5 +1,5 @@
 import { Platform } from "react-native";
-import * as Notifications from "expo-notifications";
+import { getExpoNotifications } from "./expo-notifications-access";
 import { initMobileNotificationHandler } from "./mobile-notification-handler";
 
 const CHANNEL_ID = "booking-events";
@@ -16,6 +16,8 @@ export function initBookingNotificationHandler(): void {
 
 async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS !== "android" || androidChannelReady) return;
+  const Notifications = getExpoNotifications();
+  if (!Notifications) return;
   await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
     name: "OorjaMan visit updates",
     importance: Notifications.AndroidImportance.DEFAULT,
@@ -26,6 +28,8 @@ async function ensureAndroidChannel(): Promise<void> {
 
 async function ensurePermission(): Promise<boolean> {
   if (Platform.OS === "web") return false;
+  const Notifications = getExpoNotifications();
+  if (!Notifications) return false;
   initBookingNotificationHandler();
   const existing = await Notifications.getPermissionsAsync();
   if (existing.status === "granted") {
@@ -44,6 +48,8 @@ async function presentImmediate(
   data: Record<string, unknown>,
 ): Promise<void> {
   if (Platform.OS === "web") return;
+  const Notifications = getExpoNotifications();
+  if (!Notifications) return;
   const ok = await ensurePermission();
   if (!ok) return;
 

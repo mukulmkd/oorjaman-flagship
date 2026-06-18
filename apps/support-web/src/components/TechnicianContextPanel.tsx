@@ -1,6 +1,6 @@
 import type { SupportConversationWithParticipant, SupportDeskTechnicianContext } from "@oorjaman/api";
 import { supportApi } from "@oorjaman/api";
-import { adminPortalUrl } from "../lib/portal-urls";
+import { adminPortalUrl } from "@oorjaman/web-ui";
 import { SupportConversationDeskMeta } from "./SupportConversationDeskMeta";
 
 function formatWhen(iso: string): string {

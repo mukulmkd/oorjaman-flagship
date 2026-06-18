@@ -20,7 +20,7 @@ import {
 } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
 import { LoginPhoneRow, OtpCodeInput, dismissOtpKeyboard, KeyboardFormScreen, type KeyboardFormScreenRef } from "@oorjaman/ui";
-import { BrandLockup } from "../components/brand-lockup";
+import { BrandLockup } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { supabase } from "../lib/supabase";
 
@@ -142,7 +142,7 @@ export default function LoginScreen() {
       ]}
     >
         <View style={styles.brandHeader}>
-          <BrandLockup iconSize={96} />
+          <BrandLockup iconSize={96} variant="partner" />
         </View>
         <Text style={styles.kicker}>Partner sign-in</Text>
         <Text style={styles.title}>Sign in with mobile</Text>

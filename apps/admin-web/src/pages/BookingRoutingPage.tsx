@@ -21,9 +21,9 @@ import {
   getRoutingDisplay,
   ROUTING_REASON_LABELS,
 } from "../lib/booking-routing-display";
-import { useSupabase } from "../lib/supabase-client";
+import { useSupabase } from "@oorjaman/web-ui";
 import { invalidateAdminBookingRoutingQueries } from "../lib/invalidate-admin-queries";
-import { TablePaginationBar } from "../components/TablePaginationBar";
+import { TablePaginationBar } from "@oorjaman/web-ui";
 
 const PAGE_SIZE = 10;
 

@@ -12,8 +12,8 @@ import {
 import { ResolveConversationDialog } from "./ResolveConversationDialog";
 import { SupportComposer } from "./SupportComposer";
 import { SupportThreadToolbar } from "./SupportThreadToolbar";
-import { playNotificationChime } from "../lib/notification-sound";
-import { useSupabase } from "../lib/supabase-client";
+import { playNotificationChime } from "@oorjaman/web-ui";
+import { useSupabase } from "@oorjaman/web-ui";
 
 function formatWhen(iso: string): string {
   try {

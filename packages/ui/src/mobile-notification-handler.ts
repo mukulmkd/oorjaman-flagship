@@ -1,5 +1,5 @@
 import { Platform } from "react-native";
-import * as Notifications from "expo-notifications";
+import { getExpoNotifications } from "./expo-notifications-access";
 
 /** Bundled in customer/technician app via expo-notifications plugin `sounds`. */
 export const SUPPORT_CHAT_SOUND = "chat_message.wav";
@@ -24,6 +24,9 @@ export function isSupportChatNotificationData(data: unknown): boolean {
  */
 export function initMobileNotificationHandler(): void {
   if (Platform.OS === "web" || handlerInstalled) return;
+  const Notifications = getExpoNotifications();
+  if (!Notifications) return;
+
   handlerInstalled = true;
 
   Notifications.setNotificationHandler({
@@ -42,6 +45,8 @@ export function initMobileNotificationHandler(): void {
 /** Android channel for support chat (local + Expo push `channelId: support-chat`). */
 export async function ensureSupportChatAndroidChannel(): Promise<void> {
   if (Platform.OS !== "android" || supportChannelReady) return;
+  const Notifications = getExpoNotifications();
+  if (!Notifications) return;
 
   await Notifications.setNotificationChannelAsync(SUPPORT_CHAT_CHANNEL_ID, {
     name: "Support chat",

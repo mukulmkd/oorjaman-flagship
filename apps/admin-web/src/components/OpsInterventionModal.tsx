@@ -22,7 +22,7 @@ import {
 } from "../lib/ops-exceptions-display";
 import { OPS_ISSUE_LABELS } from "../lib/booking-routing-display";
 import { webTypography } from "../styles/typography";
-import { useSupabase } from "../lib/supabase-client";
+import { useSupabase } from "@oorjaman/web-ui";
 
 export type OpsInterventionTarget = {
   bookingId: string;

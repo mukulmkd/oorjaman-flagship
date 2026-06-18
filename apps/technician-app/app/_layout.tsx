@@ -2,7 +2,7 @@ import "react-native-url-polyfill/auto";
 
 import { useEffect, useState } from "react";
 import { Stack } from "expo-router";
-import * as Font from "expo-font";
+import { useFonts } from "expo-font";
 import {
   PlusJakartaSans_400Regular,
   PlusJakartaSans_500Medium,
@@ -15,7 +15,6 @@ import { colors } from "@oorjaman/config";
 import { QueryProvider } from "../providers/query-provider";
 import { HelpSupportProvider } from "../components/help-support-provider";
 import {
-  hideNativeSplashScreenOnce,
   initBookingNotificationHandler,
   initSupportChatNotificationHandler,
   installMobileAuthConsoleFilters,
@@ -23,41 +22,38 @@ import {
   MobileAuthSessionGuard,
   MobileOfflineGate,
 } from "@oorjaman/ui";
-
-installMobileAuthConsoleFilters();
+import { hideNativeSplashScreenOnce } from "@oorjaman/ui/safe-splash-screen";
 import { supabase } from "../lib/supabase";
 
-initBookingNotificationHandler();
-initSupportChatNotificationHandler();
-
+installMobileAuthConsoleFilters();
 keepNativeSplashScreenVisible();
 
 export default function RootLayout() {
-  const [fontsReady, setFontsReady] = useState(false);
+  const [fontsLoaded, fontError] = useFonts({
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+  });
+  const [devFontFallback, setDevFontFallback] = useState(false);
+
+  const fontsReady = fontsLoaded || fontError || (__DEV__ && devFontFallback);
 
   useEffect(() => {
-    let mounted = true;
-    void (async () => {
-      try {
-        await Font.loadAsync({
-          PlusJakartaSans_400Regular,
-          PlusJakartaSans_500Medium,
-          PlusJakartaSans_600SemiBold,
-          PlusJakartaSans_700Bold,
-        });
-      } catch {
-        // Graceful fallback to system fonts when loading fails.
-      } finally {
-        if (mounted) setFontsReady(true);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
+    initBookingNotificationHandler();
+    initSupportChatNotificationHandler();
   }, []);
 
   useEffect(() => {
-    if (fontsReady) void hideNativeSplashScreenOnce();
+    if (!__DEV__ || fontsLoaded || fontError) return;
+    const timer = setTimeout(() => setDevFontFallback(true), 2_000);
+    return () => clearTimeout(timer);
+  }, [fontsLoaded, fontError]);
+
+  useEffect(() => {
+    if (fontsReady) {
+      void hideNativeSplashScreenOnce();
+    }
   }, [fontsReady]);
 
   if (!fontsReady) {

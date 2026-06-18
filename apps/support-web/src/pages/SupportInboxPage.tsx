@@ -22,11 +22,11 @@ import {
   isNotificationSoundMuted,
   playNotificationChime,
   setNotificationSoundMuted,
-} from "../lib/notification-sound";
+} from "@oorjaman/web-ui";
 import { shouldDeskNotifyForConversation } from "../lib/active-chat-notify";
 import { useActiveChat } from "../lib/use-active-chat";
 import { parseInboxDrillDown } from "../lib/support-inbox-url";
-import { useSupabase } from "../lib/supabase-client";
+import { useSupabase } from "@oorjaman/web-ui";
 import "./support-inbox.css";
 
 const INBOX_TABS: { id: SupportInboxFilter; label: string }[] = [
@@ -303,7 +303,7 @@ export function SupportInboxPage() {
   const toggleSound = () => {
     const next = !soundMuted;
     setSoundMuted(next);
-    setNotificationSoundMuted(next);
+    setNotificationSoundMuted("support", next);
   };
 
   const readOnly = selected?.status === "resolved";

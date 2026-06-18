@@ -13,7 +13,7 @@ import {
 import { formatDisplayDateTime } from "@oorjaman/utils";
 import { Badge, Button, Card, PageHeader } from "@oorjaman/web-ui";
 import { Link, useSearchParams } from "react-router-dom";
-import { useSupabase } from "../lib/supabase-client";
+import { useSupabase } from "@oorjaman/web-ui";
 import { invalidateAdminBookingOpsQueries } from "../lib/invalidate-admin-queries";
 import "./amc-contracts-page.css";
 

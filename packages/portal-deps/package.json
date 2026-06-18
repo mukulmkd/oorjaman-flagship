@@ -1,0 +1,17 @@
+{
+  "name": "@oorjaman/portal-deps",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared Vite portal runtime dependencies for admin-web, vendor-web, and support-web.",
+  "main": "./index.js",
+  "scripts": {
+    "typecheck": "node -e \"process.exit(0)\""
+  },
+  "dependencies": {
+    "@oorjaman/api": "*",
+    "@oorjaman/config": "*",
+    "@oorjaman/utils": "*",
+    "@oorjaman/vite-portal-config": "*",
+    "@oorjaman/web-ui": "*"
+  }
+}

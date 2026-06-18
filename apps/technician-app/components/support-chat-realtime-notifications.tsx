@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys, supportApi, technicianApi, userApi } from "@oorjaman/api";
 import { notifyTechnicianSupportMessage } from "@oorjaman/ui";
 import { supabase } from "../lib/supabase";
-import { useHelpSupport } from "./help-support-context";
+import { useHelpSupport } from "@oorjaman/ui";
 
 export function SupportChatRealtimeNotifications() {
   const qc = useQueryClient();

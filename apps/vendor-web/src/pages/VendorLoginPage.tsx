@@ -11,8 +11,8 @@ import {
 } from "@oorjaman/api";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Button, Card, Input, PhoneCountryLogin, PortalLoginBrand } from "@oorjaman/web-ui";
-import { useSupabase } from "../lib/supabase-client";
-import { adminPortalUrl } from "../lib/portal-urls";
+import { useSupabase } from "@oorjaman/web-ui";
+import { adminPortalUrl } from "@oorjaman/web-ui";
 const OTP_LEN = 6;
 
 type SignInMethod = "phone" | "email";

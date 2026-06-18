@@ -24,7 +24,9 @@ export async function dismissOtpKeyboard(input?: TextInput | null): Promise<void
   input?.blur();
   Keyboard.dismiss();
   if (Platform.OS === "android") {
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 80);
+    });
   }
 }
 
@@ -146,7 +148,7 @@ const styles = StyleSheet.create({
     color: colors.foreground,
   },
   hiddenInput: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     color: "transparent",
     backgroundColor: "transparent",
     fontSize: 1,

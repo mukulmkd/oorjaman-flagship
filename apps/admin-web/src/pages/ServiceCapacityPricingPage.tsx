@@ -21,7 +21,7 @@ import {
 import { Button, Card, Input, PageHeader, TableRowsSkeleton } from "@oorjaman/web-ui";
 import { CatalogueAuditHistoryButton } from "../components/CatalogueAuditHistory";
 import { filterCatalogAuditForScope } from "../lib/pricing-catalog-audit";
-import { useSupabase } from "../lib/supabase-client";
+import { useSupabase } from "@oorjaman/web-ui";
 import "./service-capacity-pricing-page.css";
 
 function paiseToRupeeInput(paise: number): string {

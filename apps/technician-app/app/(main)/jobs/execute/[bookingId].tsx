@@ -12,7 +12,7 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "expo-router";
 import { bookingApi, normalizeServiceOtpCode, queryKeys, technicianApi } from "@oorjaman/api";
 import type { BookingRow, Json } from "@oorjaman/api";
 import { readBookingOpsMeta, readBookingRecipientMeta } from "@oorjaman/api";

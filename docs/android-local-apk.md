@@ -2,7 +2,7 @@
 
 Build installable APKs on your Mac for teammate QA, without uploading to Expo build servers.
 
-**Related:** [DEPLOYMENT.md](../project-docs/DEPLOYMENT.md) (EAS cloud), [ENVIRONMENT.md](../project-docs/ENVIRONMENT.md), [TODO.md](../project-docs/TODO.md)
+**Related:** [DEPLOYMENT.md](../project-docs/DEPLOYMENT.md) (EAS cloud), [ENVIRONMENT.md](../project-docs/ENVIRONMENT.md), [TODO.md](../project-docs/TODO.md), [ios-qa-distribution.md](ios-qa-distribution.md) (iOS UAT on devices)
 
 ---
 
@@ -21,7 +21,7 @@ All need **Android Studio** (SDK + platform tools) and **JDK 17**.
 ## One-time machine setup
 
 1. Install [Android Studio](https://developer.android.com/studio).
-2. SDK Manager → install **Android SDK Platform 35** (or version Expo 54 expects) + **Build-Tools**.
+2. SDK Manager → install **Android SDK Platform 36** (Expo SDK 56) + **Build-Tools**.
 3. Shell (add to `~/.bash_profile` or `~/.zshrc`):
 
    ```bash
@@ -84,7 +84,7 @@ EXPO_PUBLIC_DUMMY_AUTH_PASSWORD=TestOtp123!
 
 Release builds **embed the JS bundle** (Hermes). Debug APKs (`android:apk:debug:*`) do **not** — they expect Metro on `localhost:8081` and show *Unable to load script* on a standalone device.
 
-Signed with the debug keystore (fine for internal UAT). Slightly smaller than debug.
+Signed with the debug keystore (fine for internal UAT). Release builds use R8 minify, resource shrinking, and compressed native libs (`expo-build-properties` in `@oorjaman/mobile-config`) to keep QA APKs smaller than an unoptimized universal binary.
 
 ### Customer
 
@@ -169,8 +169,7 @@ apps/technician-app/android/app/build/outputs/apk/debug/app-debug.apk
 ### Manual equivalent (debug)
 
 ```bash
-npm run android:prebuild:customer
-npm run android:local-props
+node scripts/run-with-expo-env.mjs customer-app "bash scripts/prebuild-android.sh"
 node scripts/run-with-expo-env.mjs customer-app "cd android && ./gradlew assembleDebug"
 ```
 
@@ -237,9 +236,9 @@ APK paths are in **Path A** (release) and **Path B** (debug).
 
 | Issue | Fix |
 |-------|-----|
-| No `android/` folder | `npx expo prebuild --platform android` in the app dir |
+| No `android/` folder | `npm run android:rebuild` in the app dir, or `npx expo prebuild --platform android` |
 | SDK not found | `npm run android:local-props` or set `ANDROID_HOME` |
-| Stale icons | `npm run brand:sync` → `npx expo prebuild --platform android` → rebuild |
+| Stale icons | `npm run android:rebuild` or `npm run android:apk:uat:*` |
 | `expo run:android` wants emulator | That command installs on a device — use `npm run android:apk:uat:*` for sharing APKs |
 | **Unable to load script** / Metro on device | You installed a **debug** APK (`app-debug.apk`). Rebuild with `npm run android:apk:uat:customer` and install `app-release.apk` |
 | Supabase env missing after install | Rebuild with `npm run android:apk:uat:customer` (uses `app-release.apk`). Env is baked in at bundle time from `env/uat.local` via `.env.production.local` |

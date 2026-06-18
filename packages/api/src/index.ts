@@ -284,6 +284,10 @@ export {
   technicianProfileName,
   type TechnicianDisplayExtras,
 } from "./technicians/technician-display-name";
+export {
+  formatTechnicianSkill,
+  formatTechnicianSkills,
+} from "./technicians/technician-skills-display";
 export * as subscriptionApi from "./subscriptions/subscription-api";
 export {
   RENEWAL_NUDGE_EVENT_TYPE,

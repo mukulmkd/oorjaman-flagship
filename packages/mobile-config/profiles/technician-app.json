@@ -1,0 +1,7 @@
+{
+  "label": "OorjaMan Partner app",
+  "defaultAndroidPackage": "com.oorjaman.technician",
+  "defaultIosBundleId": "com.oorjaman.technician",
+  "metroPorts": [8081, 8082],
+  "brandSyncEcho": "Regenerate partner launcher icons (persona badge on Big O)"
+}

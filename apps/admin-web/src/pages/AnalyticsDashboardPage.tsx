@@ -30,7 +30,7 @@ import {
 import { colors } from "@oorjaman/config";
 import { Button, Card, DashboardSkeleton, PageHeader } from "@oorjaman/web-ui";
 import { NotificationPlatformHealth } from "../components/NotificationPlatformHealth";
-import { useSupabase } from "../lib/supabase-client";
+import { useSupabase } from "@oorjaman/web-ui";
 import { webTypography } from "../styles/typography";
 import "./analytics-dashboard.css";
 

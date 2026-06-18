@@ -31,9 +31,9 @@ import {
   OPS_ISSUE_LABELS,
 } from "../lib/booking-routing-display";
 import { webTypography } from "../styles/typography";
-import { useSupabase } from "../lib/supabase-client";
+import { useSupabase } from "@oorjaman/web-ui";
 import { invalidateAdminBookingMonitoringQueries } from "../lib/invalidate-admin-queries";
-import { TablePaginationBar } from "../components/TablePaginationBar";
+import { TablePaginationBar } from "@oorjaman/web-ui";
 
 const BUCKET_TABS: { id: AdminBookingsSubscriptionBucket; label: string; hint: string }[] = [
   {

@@ -25,7 +25,7 @@ import {
   type TechnicianDisplayExtras,
 } from "@oorjaman/api";
 import { formatDayChip, listSelectableDayKeys, slotsForDay, type BookingSlotOption } from "@oorjaman/utils";
-import { DocumentViewButton } from "../components/DocumentViewer";
+import { DocumentViewButton } from "@oorjaman/web-ui";
 import { bookingValueCents } from "./vendor-dashboard/metrics";
 import { formatInr, formatScheduleRange } from "./vendor-dashboard/formatters";
 import { VendorFinanceTab } from "./vendor-dashboard/VendorFinanceTab";
@@ -44,8 +44,8 @@ import {
   TextArea,
 } from "@oorjaman/web-ui";
 import { BookingSitePhotos } from "../components/BookingSitePhotos";
-import { TablePaginationBar } from "../components/TablePaginationBar";
-import { useSupabase } from "../lib/supabase-client";
+import { TablePaginationBar } from "@oorjaman/web-ui";
+import { useSupabase } from "@oorjaman/web-ui";
 import "./vendor-dashboard.css";
 
 function formatSiteAddress(addr: Json): string {

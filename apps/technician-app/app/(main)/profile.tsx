@@ -2,7 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { authApi, markUserInitiatedSignOut, queryKeys, technicianApi } from "@oorjaman/api";
+import {
+  authApi,
+  formatTechnicianSkills,
+  markUserInitiatedSignOut,
+  queryKeys,
+  technicianApi,
+} from "@oorjaman/api";
 import { Button, Card, Screen, SCREEN_EDGES_BENEATH_NATIVE_HEADER, SkeletonBar } from "@oorjaman/ui";
 import { colors, spacing } from "@oorjaman/config";
 import { fontFamily, fontSize } from "../../constants/fonts";
@@ -131,7 +137,7 @@ export default function ProfileTab() {
         </ProfileSection>
 
         <ProfileSection title="Work profile">
-          <Row label="Skills" value={tech?.skills?.length ? tech.skills.join(", ") : "-"} />
+          <Row label="Skills" value={formatTechnicianSkills(tech?.skills)} />
           <Row
             label="Solar experience"
             value={tech?.flag_solar_cleaning_experience ? `Yes · ${tech.years_experience ?? "-"} yrs` : "No"}

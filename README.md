@@ -29,7 +29,11 @@ oorjaman-flagship/
 ├── packages/
 │   ├── api/               # Supabase clients, domain APIs, query keys, types
 │   ├── config/            # Colors, spacing, typography (shared design tokens)
+│   ├── mobile-deps/       # Shared Expo/RN dependencies (customer + technician apps)
+│   ├── mobile-config/     # Shared Expo plugins, Metro, native rebuild scripts
+│   ├── portal-deps/       # Shared Vite portal dependencies (admin/vendor/support)
 │   ├── ui/                # React Native components & mobile shell helpers
+│   ├── vite-portal-config/ # Shared Vite/ESLint/TS config (admin/vendor/support)
 │   ├── web-ui/            # React web components (admin/vendor/support)
 │   └── utils/             # Date/time, booking slots, shared pure helpers
 ├── supabase/
@@ -60,7 +64,7 @@ oorjaman-flagship/
 ## Tech stack
 
 - **Monorepo:** npm workspaces (`apps/*`, `packages/*`)
-- **Mobile:** Expo SDK 54, Expo Router, React Native, TanStack Query
+- **Mobile:** Expo SDK 56, Expo Router, React Native 0.85, TanStack Query
 - **Web:** React 19, Vite 8, React Router, TanStack Query
 - **Backend:** Supabase (Postgres + Auth + Realtime + Storage)
 - **Language:** TypeScript throughout
@@ -153,6 +157,7 @@ git add supabase/schema.sql supabase/policies.sql
 |------|----------|---------|
 | **Metro** (fast JS) | `npm run customer` | `npm run technician` |
 | **Debug on device + terminal logs** | `cd apps/customer-app && npx expo run:android --device` | `cd apps/technician-app && npx expo run:android --device` |
+| **Clean native rebuild** | `npm run ios:rebuild` / `npm run android:rebuild` | `npm run technician:ios:rebuild` / `npm run technician:android:rebuild` |
 | **iOS Simulator** | `cd apps/customer-app && npx expo run:ios` | `cd apps/technician-app && npx expo run:ios` |
 | **UAT APK** (share, no laptop) | `npm run android:apk:uat:customer` | `npm run android:apk:uat:technician` |
 | **UAT EAS** | `npm run eas:android:uat:customer` | `npm run eas:android:uat:technician` |
@@ -194,8 +199,12 @@ Import from workspace packages in apps (no publish step in dev):
 
 - `@oorjaman/api` - bookings, customers, vendors, technicians, subscriptions, support desk, payments, notifications
 - `@oorjaman/config` - design tokens
+- `@oorjaman/mobile-deps` - shared Expo/RN stack for **customer-app** and **technician-app** (bump SDK versions here)
+- `@oorjaman/mobile-config` - shared Expo plugins, Metro config, and native rebuild scripts for both mobile apps
+- `@oorjaman/portal-deps` - shared Vite portal stack for **admin-web**, **vendor-web**, and **support-web**
 - `@oorjaman/ui` - mobile UI (Screen, modals, offline gate, splash helpers, …)
-- `@oorjaman/web-ui` - web UI (buttons, cards, page headers, …)
+- `@oorjaman/vite-portal-config` - shared Vite/ESLint/TS for **admin-web**, **vendor-web**, **support-web**
+- `@oorjaman/web-ui` - web UI primitives plus shared portal shell (Supabase provider, session gates, notifications, document viewer, …)
 - `@oorjaman/utils` - booking slots, IST date helpers, etc.
 
 ## Documentation
@@ -215,6 +224,7 @@ Project-level guides live in [**project-docs/**](project-docs/README.md). The ro
 | [RUNNING-APPS.md](project-docs/RUNNING-APPS.md) | **All run modes:** local, debug, UAT, prod, Expo Go — Android & iOS |
 | [TODO.md](project-docs/TODO.md) | Release & ops checklist |
 | [docs/android-local-apk.md](docs/android-local-apk.md) | UAT APK without EAS cloud |
+| [docs/ios-qa-distribution.md](docs/ios-qa-distribution.md) | UAT iOS on physical devices (EAS internal) |
 | [docs/customer-push-setup.md](docs/customer-push-setup.md) | Customer support push |
 | [docs/technician-push-setup.md](docs/technician-push-setup.md) | Partner support push |
 | [docs/booking-notifications-realtime.md](docs/booking-notifications-realtime.md) | Admin/vendor realtime bells |

@@ -35,3 +35,7 @@ function writePng(outPath, png) {
 
 const sunburstPng = renderSvg(join(svgDir, "sunburst.svg"), 512, 512, true);
 writePng(join(brandDir, "sunburst.png"), sunburstPng);
+
+const sharedBrandDir = join(appRoot, "../../packages/ui/assets/brand");
+mkdirSync(sharedBrandDir, { recursive: true });
+writePng(join(sharedBrandDir, "sunburst.png"), sunburstPng);

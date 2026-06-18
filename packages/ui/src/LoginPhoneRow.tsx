@@ -73,7 +73,7 @@ export function LoginPhoneRow({
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <View style={styles.modalWrap}>
           <Pressable
-            style={[StyleSheet.absoluteFillObject, styles.modalBackdrop]}
+            style={[StyleSheet.absoluteFill, styles.modalBackdrop]}
             onPress={() => setOpen(false)}
             accessibilityLabel="Close country picker"
           />
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(15, 23, 42, 0.45)",
   },
   modalCenter: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: "center",
     paddingHorizontal: spacing.lg,
   },

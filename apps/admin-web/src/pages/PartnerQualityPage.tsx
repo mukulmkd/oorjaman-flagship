@@ -3,8 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { DEFAULT_TABLE_PAGE_SIZE, queryKeys, technicianApi, vendorApi } from "@oorjaman/api";
 import { Button, Card, PageHeader } from "@oorjaman/web-ui";
-import { TablePaginationBar } from "../components/TablePaginationBar";
-import { useSupabase } from "../lib/supabase-client";
+import { TablePaginationBar } from "@oorjaman/web-ui";
+import { useSupabase } from "@oorjaman/web-ui";
 
 type WatchRow =
   | {

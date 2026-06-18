@@ -2,7 +2,7 @@ import type { BookingRow, JobReportRow } from "@oorjaman/api";
 import { DEFAULT_TABLE_PAGE_SIZE, readBookingRecipientMeta } from "@oorjaman/api";
 import { Card } from "@oorjaman/web-ui";
 import { useMemo, useState } from "react";
-import { TablePaginationBar } from "../../components/TablePaginationBar";
+import { TablePaginationBar } from "@oorjaman/web-ui";
 import { formatScheduleRange } from "./formatters";
 import {
   computeAcceptanceRatePercent,

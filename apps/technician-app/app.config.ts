@@ -1,8 +1,15 @@
 import type { ExpoConfig } from "expo/config";
-import withIosPodfileFixes from "./plugins/withIosPodfileFixes";
-import withPartnerNativeBranding from "./plugins/withPartnerNativeBranding";
-import withAndroidWhiteAdaptiveIcon from "./plugins/withAndroidWhiteAdaptiveIcon";
-import withAndroidNotificationBranding from "./plugins/withAndroidNotificationBranding";
+import {
+  withIosPodfileFixes,
+  withNativeDisplayName,
+  withAndroidWhiteAdaptiveIcon,
+  withAndroidNotificationBranding,
+} from "@oorjaman/mobile-config";
+import {
+  expoBuildPropertiesFromSource,
+  splashScreenPlugin,
+  notificationsPlugin,
+} from "@oorjaman/mobile-config/shared-plugins";
 
 const deployEnv = (process.env.EXPO_PUBLIC_DEPLOY_ENV ?? "").trim().toLowerCase();
 const isUat = deployEnv === "uat" || deployEnv === "staging";
@@ -17,19 +24,11 @@ const config: ExpoConfig = {
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   userInterfaceStyle: "automatic",
-  splash: {
-    image: "./assets/images/splash-icon.png",
-    resizeMode: "contain",
-    backgroundColor: "#ffffff",
-  },
   assetBundlePatterns: ["**/*"],
   ios: {
+    deploymentTarget: "16.4",
     supportsTablet: true,
     bundleIdentifier: isUat ? "com.oorjaman.technician.uat" : "com.oorjaman.technician",
-    infoPlist: {
-      CFBundleDisplayName: displayName,
-      CFBundleName: displayName,
-    },
   },
   android: {
     icon: "./assets/images/icon.png",
@@ -39,47 +38,20 @@ const config: ExpoConfig = {
       backgroundColor: "#ffffff",
     },
     package: isUat ? "com.oorjaman.technician.uat" : "com.oorjaman.technician",
+    softwareKeyboardLayoutMode: "resize",
   },
   plugins: [
-    [
-      "expo-build-properties",
-      {
-        ios: {
-          // Avoid prebuilt React.framework linker failures (ld: framework 'React' not found).
-          buildReactNativeFromSource: true,
-        },
-      },
-    ],
+    expoBuildPropertiesFromSource,
     withIosPodfileFixes,
-    withPartnerNativeBranding,
+    withNativeDisplayName,
     withAndroidWhiteAdaptiveIcon,
-    [
-      "expo-splash-screen",
-      {
-        backgroundColor: "#ffffff",
-        ios: {
-          backgroundColor: "#ffffff",
-          image: "./assets/images/splash-icon.png",
-          enableFullScreenImage_legacy: true,
-        },
-        android: {
-          backgroundColor: "#ffffff",
-          image: "./assets/images/splash-android-icon.png",
-          imageWidth: 196,
-        },
-      },
-    ],
+    splashScreenPlugin,
     "expo-system-ui",
+    "expo-status-bar",
     "expo-router",
-    [
-      "expo-notifications",
-      {
-        icon: "./assets/images/notification-icon.png",
-        color: "#ffffff",
-        sounds: ["./assets/sounds/chat_message.wav"],
-      },
-    ],
+    notificationsPlugin,
     withAndroidNotificationBranding,
+    "@react-native-community/datetimepicker",
     "expo-font",
     [
       "expo-location",

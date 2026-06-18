@@ -5,8 +5,8 @@ import { DropdownMenu, DropdownMenuItem, PortalSidebarBrand } from "@oorjaman/we
 import { SupportChatDock } from "../components/SupportChatDock";
 import { SupportDeskRealtime } from "../components/SupportDeskRealtime";
 import { ActiveChatProvider } from "../lib/active-chat-context";
-import { adminPortalUrl } from "../lib/portal-urls";
-import { useSupabase } from "../lib/supabase-client";
+import { adminPortalUrl } from "@oorjaman/web-ui";
+import { useSupabase } from "@oorjaman/web-ui";
 function navLinkClass({ isActive }: { isActive: boolean }): string {
   return isActive ? "dash-nav-active" : "";
 }

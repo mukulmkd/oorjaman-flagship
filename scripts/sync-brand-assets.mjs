@@ -674,10 +674,17 @@ async function main() {
     );
   }
 
-  const mobileApps = ["customer-app", "technician-app"];
+  const mobileApps = ["customer-app", "technician-app"].filter((app) => {
+    const only = process.env.BRAND_SYNC_APP?.trim();
+    return !only || app === only;
+  });
   if (webOnly) {
     console.log("brand:sync — web portals only (skipped mobile app assets)");
   } else {
+  const syncOnly = process.env.BRAND_SYNC_APP?.trim();
+  if (syncOnly) {
+    console.log(`brand:sync — mobile assets for ${syncOnly} only`);
+  }
   for (const app of mobileApps) {
     const base = join(repoRoot, "apps", app);
     const images = join(base, "assets/images");
@@ -725,6 +732,17 @@ async function main() {
     if (existsSync(sunburstSrc)) {
       copyRaw(join(brand, "sunburst.png"), sunburstSrc);
     }
+  }
+
+  const sharedBrandDir = join(repoRoot, "packages/ui/assets/brand");
+  mkdirSync(sharedBrandDir, { recursive: true });
+  const customerBrandIcon = join(repoRoot, "apps/customer-app/assets/brand/logo-icon.png");
+  const customerBrandSunburst = join(repoRoot, "apps/customer-app/assets/brand/sunburst.png");
+  if (existsSync(customerBrandIcon)) {
+    copyRaw(join(sharedBrandDir, "logo-icon.png"), customerBrandIcon);
+  }
+  if (existsSync(customerBrandSunburst)) {
+    copyRaw(join(sharedBrandDir, "sunburst.png"), customerBrandSunburst);
   }
   }
 

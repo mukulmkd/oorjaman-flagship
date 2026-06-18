@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSegments } from "expo-router";
 import { colors } from "@oorjaman/config";
 import { isRootModalRoute, openSupportChat } from "../lib/support-chat-navigation";
-import { useHelpSupport } from "./help-support-context";
+import { useHelpSupport } from "@oorjaman/ui";
 
 /** Header action to open the support chat sheet. */
 export function SupportChatHeaderButton() {

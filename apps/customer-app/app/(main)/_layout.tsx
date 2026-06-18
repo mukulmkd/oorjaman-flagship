@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { TabShellSkeleton } from "@oorjaman/ui";
+import { TabShellSkeleton, mobileTabBarStyle } from "@oorjaman/ui";
 import { customerApi, queryKeys, userApi } from "@oorjaman/api";
 import { colors } from "@oorjaman/config";
 import { BookingRealtimeNotifications } from "../../components/booking-realtime-notifications";
@@ -100,12 +100,10 @@ export default function MainTabsLayout() {
           fontFamily: fontFamily.medium,
           fontSize: fontSize.xs,
         },
-        tabBarStyle: {
+        tabBarStyle: mobileTabBarStyle(insets, {
           borderTopColor: colors.border,
           backgroundColor: colors.background,
-          paddingTop: 4,
-          paddingBottom: Math.max(insets.bottom, 6),
-        },
+        }),
       }}
     >
       <Tabs.Screen

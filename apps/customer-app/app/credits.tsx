@@ -1,4 +1,14 @@
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback } from "react";
+import {
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,6 +26,7 @@ import {
   Card,
   EmptyStateCard,
   ErrorStateCard,
+  ModalSheetHeader,
   Screen,
   SCREEN_EDGES_MODAL,
   useModalStackHeader,
@@ -23,8 +34,14 @@ import {
 import { fontFamily, fontSize } from "../constants/fonts";
 import { supabase } from "../lib/supabase";
 
+const CREDITS_SHEET_TITLE = "OorjaMan Credits";
+const CREDITS_SHEET_SUBTITLE = "1 Credit = ₹1 off your next one-time visit";
+
 export default function OorjamanCreditsScreen() {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const isIosSheet = Platform.OS === "ios";
+  const iosSheetMaxHeight = windowHeight * 0.92;
 
   const summaryQuery = useQuery({
     queryKey: queryKeys.finance.customerOorjamanCredits(),
@@ -38,74 +55,68 @@ export default function OorjamanCreditsScreen() {
     enabled: Boolean(supabase),
   });
 
+  const closeModal = useCallback(() => {
+    router.back();
+  }, []);
+
   const modalHeader = useModalStackHeader({
-    title: "OorjaMan Credits",
-    subtitle: "1 Credit = ₹1 off your next one-time visit",
-    onClose: () => router.back(),
+    title: CREDITS_SHEET_TITLE,
+    subtitle: CREDITS_SHEET_SUBTITLE,
+    onClose: closeModal,
     closeAccessibilityLabel: "Close credits",
   });
 
   const isRefreshing = summaryQuery.isFetching || grantsQuery.isFetching;
 
-  return (
-    <Screen edges={SCREEN_EDGES_MODAL}>
-      {modalHeader}
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={() => {
-              void summaryQuery.refetch();
-              void grantsQuery.refetch();
-            }}
-          />
-        }
-      >
-        {summaryQuery.isError ? (
-          <ErrorStateCard
-            title="Couldn't load credits"
-            message={(summaryQuery.error as Error).message}
-            onRetry={() => void summaryQuery.refetch()}
-          />
-        ) : summaryQuery.isPending ? (
-          <Card variant="muted" padded>
-            <Text style={styles.meta}>Loading your wallet…</Text>
+  const onRefresh = useCallback(() => {
+    void summaryQuery.refetch();
+    void grantsQuery.refetch();
+  }, [summaryQuery, grantsQuery]);
+
+  const body = (
+    <>
+      {summaryQuery.isError ? (
+        <ErrorStateCard
+          title="Couldn't load credits"
+          message={(summaryQuery.error as Error).message}
+          onRetry={() => void summaryQuery.refetch()}
+        />
+      ) : summaryQuery.isPending ? (
+        <Card variant="muted" padded>
+          <Text style={styles.meta}>Loading your wallet…</Text>
+        </Card>
+      ) : (
+        <>
+          <Card variant="elevated" padded>
+            <Text style={styles.balanceLabel}>Available balance</Text>
+            <Text style={styles.balanceValue}>{summaryQuery.data?.balance_credits ?? 0} Credits</Text>
+            <Text style={styles.balanceHint}>
+              Worth {formatInrFromCents(summaryQuery.data?.balance_paise ?? 0)} on future bookings
+            </Text>
           </Card>
-        ) : (
-          <>
-            <Card variant="elevated" padded>
-              <Text style={styles.balanceLabel}>Available balance</Text>
-              <Text style={styles.balanceValue}>
-                {summaryQuery.data?.balance_credits ?? 0} Credits
-              </Text>
-              <Text style={styles.balanceHint}>
-                Worth {formatInrFromCents(summaryQuery.data?.balance_paise ?? 0)} on future bookings
-              </Text>
-            </Card>
 
-            <Card variant="muted" padded>
-              <Text style={styles.infoTitle}>How credits work</Text>
-              <Text style={styles.infoBody}>
-                When a service partner cancels within the last hour before your visit, OorjaMan assigns a new partner
-                and adds {VENDOR_LAST_HOUR_CANCEL_CUSTOMER_CREDITS} apology Credits to your wallet. Each Credit equals ₹
-                {OORJAMAN_CREDIT_PAISE / 100}. Credits expire one year after they are issued and apply automatically at
-                checkout on one-time visits.
-              </Text>
-            </Card>
+          <Card variant="muted" padded>
+            <Text style={styles.infoTitle}>How credits work</Text>
+            <Text style={styles.infoBody}>
+              When a service partner cancels within the last hour before your visit, OorjaMan assigns a new partner and
+              adds {VENDOR_LAST_HOUR_CANCEL_CUSTOMER_CREDITS} apology Credits to your wallet. Each Credit equals ₹
+              {OORJAMAN_CREDIT_PAISE / 100}. Credits expire one year after they are issued and apply automatically at
+              checkout on one-time visits.
+            </Text>
+          </Card>
 
-            <Text style={styles.sectionLabel}>Credit history</Text>
-            {(grantsQuery.data ?? []).length === 0 ? (
-              <EmptyStateCard
-                title="No credits yet"
-                description="Credits appear here when we add an apology Credit after a late partner cancellation."
-              />
-            ) : (
-              (grantsQuery.data ?? []).map((grant) => {
-                const expired = new Date(grant.expires_at).getTime() <= Date.now();
-                const usedUp = grant.credits_remaining <= 0;
-                return (
-                  <View key={grant.id} style={styles.grantCard}>
+          <Text style={styles.sectionLabel}>Credit history</Text>
+          {(grantsQuery.data ?? []).length === 0 ? (
+            <EmptyStateCard
+              title="No credits yet"
+              description="Credits appear here when we add an apology Credit after a late partner cancellation."
+            />
+          ) : (
+            (grantsQuery.data ?? []).map((grant) => {
+              const expired = new Date(grant.expires_at).getTime() <= Date.now();
+              const usedUp = grant.credits_remaining <= 0;
+              return (
+                <View key={grant.id} style={styles.grantCard}>
                   <Card variant="elevated" padded>
                     <Text style={styles.grantTitle}>
                       {grant.credits_issued} Credits · {formatInrFromCents(grant.credits_issued * OORJAMAN_CREDIT_PAISE)}
@@ -126,18 +137,87 @@ export default function OorjamanCreditsScreen() {
                       <Text style={styles.grantStatusActive}>Active</Text>
                     )}
                   </Card>
-                  </View>
-                );
-              })
-            )}
-          </>
-        )}
+                </View>
+              );
+            })
+          )}
+        </>
+      )}
+    </>
+  );
+
+  if (isIosSheet) {
+    return (
+      <View style={styles.iosRoot}>
+        <Pressable style={styles.backdrop} onPress={closeModal} accessibilityLabel="Close credits" />
+        <View
+          style={[
+            styles.iosSheet,
+            {
+              maxHeight: iosSheetMaxHeight,
+              paddingBottom: spacing.md + insets.bottom,
+            },
+          ]}
+        >
+          <ModalSheetHeader
+            title={CREDITS_SHEET_TITLE}
+            subtitle={CREDITS_SHEET_SUBTITLE}
+            onClose={closeModal}
+            closeAccessibilityLabel="Close credits"
+          />
+          <ScrollView
+            style={styles.iosScroll}
+            contentContainerStyle={styles.iosScrollContent}
+            refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator
+          >
+            {body}
+          </ScrollView>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <Screen edges={SCREEN_EDGES_MODAL}>
+      {modalHeader}
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
+      >
+        {body}
       </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  iosRoot: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  iosSheet: {
+    width: "100%",
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: spacing.md,
+    overflow: "hidden",
+  },
+  iosScroll: {
+    flexShrink: 1,
+    minHeight: 120,
+  },
+  iosScrollContent: {
+    paddingHorizontal: spacing.md,
+    gap: spacing.md,
+    paddingBottom: spacing.sm,
+  },
   scroll: {
     padding: spacing.md,
     gap: spacing.md,

@@ -10,7 +10,7 @@ import {
 import { formatDisplayDateTime } from "@oorjaman/utils";
 import { Button, Card } from "@oorjaman/web-ui";
 import { formatNotificationEventTypeLabel } from "../lib/notification-labels";
-import { useSupabase } from "../lib/supabase-client";
+import { useSupabase } from "@oorjaman/web-ui";
 
 const FAILED_HOURS = 168;
 const EVENT_PAGE_SIZE = 10;

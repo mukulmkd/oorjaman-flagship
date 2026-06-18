@@ -54,7 +54,7 @@ Static Vite SPAs; Supabase called from the browser with the **anon** key. Root [
 | Vendor  | `oorjaman-vendor`        | `npm run build:uat -w vendor-web` | `apps/vendor-web/dist` |
 | Support | `oorjaman-support`       | `npm run build:uat -w support-web` | `apps/support-web/dist` |
 
-Monorepo settings (each project): **Root Directory** = repo root; **Install** = `npm install`; **Node** = 20.x. Full steps: [VERCEL.md](VERCEL.md).
+Monorepo settings (each project): **Root Directory** = repo root; **Install** = `npm install`; **Node** = 22.13+ (required for Expo SDK 56 mobile builds; web apps still run on 20+). Full steps: [VERCEL.md](VERCEL.md).
 
 ### GoDaddy — marketing + future portal hosting (target)
 

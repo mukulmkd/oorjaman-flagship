@@ -13,8 +13,8 @@ import {
   TableRowsSkeleton,
   TextArea,
 } from "@oorjaman/web-ui";
-import { DocumentViewButton } from "../components/DocumentViewer";
-import { useSupabase } from "../lib/supabase-client";
+import { DocumentViewButton } from "@oorjaman/web-ui";
+import { useSupabase } from "@oorjaman/web-ui";
 import {
   cityFromRegisteredAddress,
   formatIntakeExperienceLine,

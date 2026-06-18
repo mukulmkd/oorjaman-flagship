@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { authApi, userApi } from "@oorjaman/api";
-import { useSupabase } from "../lib/supabase-client";
+import { useSupabase } from "@oorjaman/web-ui";
 import { PortalLoadingScreen } from "@oorjaman/web-ui";
-import { adminPortalUrl } from "../lib/portal-urls";
+import { adminPortalUrl } from "@oorjaman/web-ui";
 
 type Gate = "loading" | "vendor" | "admin" | "unauthorized";
 

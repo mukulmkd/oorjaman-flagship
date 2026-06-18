@@ -7,15 +7,21 @@
     "packages/*"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13.0"
   },
   "overrides": {
-    "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "@babel/core": "7.29.7",
+    "js-yaml": "4.2.0",
+    "ws": "8.21.0",
+    "postcss": "8.5.13"
   },
   "scripts": {
     "customer": "npm run start -w customer-app",
+    "customer:clear": "npm run start:clear -w customer-app",
     "technician": "npm run start -w technician-app",
+    "technician:clear": "npm run start:clear -w technician-app",
     "admin": "npm run dev -w admin-web",
     "vendor": "npm run dev -w vendor-web",
     "support": "npm run dev -w support-web",
@@ -44,25 +50,38 @@
     "brand:verify-notification-icon": "node scripts/verify-notification-icon.mjs",
     "docs:functional-test": "python3 scripts/generate-functional-test-doc.py",
     "docs:uat-guide": "python3 scripts/generate-e2e-test-doc.py",
-    "knip": "knip",
+    "knip": "knip --no-config-hints",
     "knip:fix": "knip --fix",
     "validate": "npm run typecheck && npm run knip",
     "android:local-props": "node scripts/android-local-properties.mjs",
     "android:clear-autolinking": "node scripts/android-clear-autolinking-cache.mjs",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
+    "android": "npm run android -w customer-app",
+    "android:rebuild": "npm run android:rebuild -w customer-app",
+    "ios": "npm run ios -w customer-app",
+    "ios:rebuild": "npm run ios:rebuild -w customer-app",
+    "technician:android": "npm run android -w technician-app",
+    "technician:android:rebuild": "npm run android:rebuild -w technician-app",
+    "technician:ios": "npm run ios -w technician-app",
+    "technician:ios:rebuild": "npm run ios:rebuild -w technician-app",
     "brand:sync:mobile": "npm run brand:sync && npm run brand:sync -w customer-app && npm run brand:sync -w technician-app",
-    "android:prebuild:customer": "npm run brand:sync -w customer-app && node scripts/run-with-expo-env.mjs customer-app \"npx expo prebuild --platform android --clean\"",
-    "android:prebuild:technician": "npm run brand:sync -w technician-app && node scripts/run-with-expo-env.mjs technician-app \"npx expo prebuild --platform android --clean\"",
-    "android:apk:debug:customer": "npm run android:prebuild:customer && npm run android:local-props && npm run android:clear-autolinking -- customer-app && node scripts/run-with-expo-env.mjs customer-app \"cd android && ./gradlew assembleDebug\"",
-    "android:apk:debug:technician": "npm run android:prebuild:technician && npm run android:local-props && npm run android:clear-autolinking -- technician-app && node scripts/run-with-expo-env.mjs technician-app \"cd android && ./gradlew assembleDebug\"",
-    "android:apk:uat:customer": "npm run android:prebuild:customer && npm run android:local-props && npm run android:clear-autolinking -- customer-app && node scripts/run-with-expo-env.mjs customer-app \"cd android && ./gradlew assembleRelease\" && node scripts/rename-uat-apk.mjs customer-app release",
-    "android:apk:uat:technician": "npm run android:prebuild:technician && npm run android:local-props && npm run android:clear-autolinking -- technician-app && node scripts/run-with-expo-env.mjs technician-app \"cd android && ./gradlew assembleRelease\" && node scripts/rename-uat-apk.mjs technician-app release",
+    "android:apk:debug:customer": "npm run android:apk:debug -w customer-app",
+    "android:apk:debug:technician": "npm run android:apk:debug -w technician-app",
+    "android:apk:uat:customer": "npm run android:apk:uat -w customer-app",
+    "android:apk:uat:technician": "npm run android:apk:uat -w technician-app",
     "eas:android:uat:customer": "npm run brand:sync -w customer-app && node scripts/run-with-expo-env.mjs customer-app \"npx eas-cli build --profile uat --platform android\"",
     "eas:android:uat:technician": "npm run brand:sync -w technician-app && node scripts/run-with-expo-env.mjs technician-app \"npx eas-cli build --profile uat --platform android\"",
     "eas:android:uat:local:customer": "npm run brand:sync -w customer-app && node scripts/run-with-expo-env.mjs customer-app \"npx eas-cli build --profile uat --platform android --local\"",
     "eas:android:uat:local:technician": "npm run brand:sync -w technician-app && node scripts/run-with-expo-env.mjs technician-app \"npx eas-cli build --profile uat --platform android --local\"",
-    "eas:android:uat": "npm run eas:android:uat:customer && npm run eas:android:uat:technician"
+    "eas:android:uat": "npm run eas:android:uat:customer && npm run eas:android:uat:technician",
+    "ios:uat:customer": "npm run ios:uat -w customer-app",
+    "ios:uat:technician": "npm run ios:uat -w technician-app",
+    "ios:uat:local:customer": "npm run ios:uat:local -w customer-app",
+    "ios:uat:local:technician": "npm run ios:uat:local -w technician-app",
+    "eas:ios:uat:customer": "npm run ios:uat -w customer-app",
+    "eas:ios:uat:technician": "npm run ios:uat -w technician-app",
+    "eas:ios:uat:local:customer": "npm run ios:uat:local -w customer-app",
+    "eas:ios:uat:local:technician": "npm run ios:uat:local -w technician-app",
+    "eas:ios:uat": "npm run eas:ios:uat:customer && npm run eas:ios:uat:technician"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.49.1",
@@ -71,12 +90,7 @@
     "pdf-lib": "^1.17.1",
     "sharp": "^0.34.2",
     "supabase": "^2.106.0",
-    "typescript": "~5.7.2"
+    "typescript": "~6.0.3"
   },
-  "version": "1.0.0",
-  "dependencies": {
-    "expo": "~54.0.35",
-    "react": "19.1.0",
-    "react-native": "0.81.5"
-  }
+  "version": "1.0.0"
 }

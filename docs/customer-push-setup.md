@@ -62,7 +62,7 @@ Support messages use a short **chat_message.wav** chime (underscore - required f
 Rebuild the native app after pulling sound assets (`eas build` or dev client rebuild) so iOS/Android bundle the WAV:
 
 ```bash
-# plugins in app.config / app.json:
+# plugins in app.config.ts:
 # ["expo-notifications", { "sounds": ["./assets/sounds/chat_message.wav"] }]
 ```
 

@@ -5,7 +5,7 @@ import {
   type SupportConversationPriority,
   type SupportConversationWithParticipant,
 } from "@oorjaman/api";
-import { useSupabase } from "../lib/supabase-client";
+import { useSupabase } from "@oorjaman/web-ui";
 
 type Props = {
   conversation: SupportConversationWithParticipant;

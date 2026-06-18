@@ -1,11 +1,15 @@
 import { useEffect, useRef } from "react";
-import { InteractionManager, Platform } from "react-native";
+import { Platform } from "react-native";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
-import * as Notifications from "expo-notifications";
 import { useQuery } from "@tanstack/react-query";
 import { customerApi, customerPushApi, queryKeys, userApi } from "@oorjaman/api";
-import { initBookingNotificationHandler } from "@oorjaman/ui";
+import {
+  getExpoNotifications,
+  initBookingNotificationHandler,
+  isNativeNotificationsSupported,
+  runAfterUiSettled,
+} from "@oorjaman/ui";
 import { supabase } from "../lib/supabase";
 import { useCustomerPostLoginPrompts } from "./customer-post-login-prompts";
 
@@ -38,7 +42,7 @@ export function CustomerPushRegistration() {
   });
 
   const ready =
-    Platform.OS !== "web" &&
+    isNativeNotificationsSupported() &&
     Boolean(supabase) &&
     userQ.data?.role === "customer" &&
     Boolean(custQ.data?.onboarding_completed_at);
@@ -49,11 +53,12 @@ export function CustomerPushRegistration() {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
-    const interactionTask = InteractionManager.runAfterInteractions(() => {
+    const interactionTask = runAfterUiSettled(() => {
       timer = setTimeout(() => {
         void (async () => {
           initBookingNotificationHandler();
-          if (!Device.isDevice) return;
+          const Notifications = getExpoNotifications();
+          if (!Notifications || !Device.isDevice) return;
 
           const projectId = resolveExpoProjectId();
           if (!projectId) {

@@ -1,10 +1,10 @@
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { authApi } from "@oorjaman/api";
 import { DropdownMenu, DropdownMenuItem, PortalSidebarBrand } from "@oorjaman/web-ui";
-import { NotificationCenterBell } from "../components/NotificationCenterBell";
-import { useAdminPortalSession } from "../hooks/use-admin-portal-session";
-import { supportPortalUrl } from "../lib/portal-urls";
-import { useSupabase } from "../lib/supabase-client";
+import { NotificationCenterBell } from "@oorjaman/web-ui";
+import { useAdminPortalSession } from "@oorjaman/web-ui";
+import { supportPortalUrl } from "@oorjaman/web-ui";
+import { useSupabase } from "@oorjaman/web-ui";
 import "./dashboard-layout-admin.css";
 
 export function DashboardLayout() {

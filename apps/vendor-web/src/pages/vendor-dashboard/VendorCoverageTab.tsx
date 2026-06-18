@@ -15,7 +15,7 @@ import {
   type VendorServiceCoverageZone,
 } from "@oorjaman/api";
 import { Button, Card, TextArea } from "@oorjaman/web-ui";
-import { TablePaginationBar } from "../../components/TablePaginationBar";
+import { TablePaginationBar } from "@oorjaman/web-ui";
 import {
   countryByCode,
   listCitiesForState,

@@ -11,8 +11,8 @@ import {
 } from "@oorjaman/api";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Badge, Button, Card, Input, Modal, PageHeader, TextArea } from "@oorjaman/web-ui";
-import { useSupabase } from "../lib/supabase-client";
-import { TablePaginationBar } from "../components/TablePaginationBar";
+import { useSupabase } from "@oorjaman/web-ui";
+import { TablePaginationBar } from "@oorjaman/web-ui";
 import { Link } from "react-router-dom";
 import { formatNotificationChannelLabel, formatNotificationEventTypeLabel } from "../lib/notification-labels";
 import "./notification-templates-page.css";

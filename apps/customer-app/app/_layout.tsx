@@ -3,7 +3,7 @@ import "react-native-url-polyfill/auto";
 import { useEffect, useState } from "react";
 import { Platform } from "react-native";
 import { Stack } from "expo-router";
-import * as Font from "expo-font";
+import { useFonts } from "expo-font";
 import {
   PlusJakartaSans_400Regular,
   PlusJakartaSans_500Medium,
@@ -16,22 +16,19 @@ import { colors } from "@oorjaman/config";
 import { QueryProvider } from "../providers/query-provider";
 import {
   installMobileAuthConsoleFilters,
+  initBookingNotificationHandler,
+  initSupportChatNotificationHandler,
   keepNativeSplashScreenVisible,
   MobileAuthSessionGuard,
   MobileOfflineGate,
 } from "@oorjaman/ui";
 import { hideNativeSplashScreenOnce } from "@oorjaman/ui/safe-splash-screen";
-
-installMobileAuthConsoleFilters();
 import { supabase } from "../lib/supabase";
 import { HelpSupportProvider } from "../components/help-support-provider";
 import { CustomerPostLoginPromptsProvider } from "../components/customer-post-login-prompts";
 import { SitePhotoStampProvider } from "../components/site-photo-stamp-provider";
-import { initBookingNotificationHandler, initSupportChatNotificationHandler } from "@oorjaman/ui";
 
-initBookingNotificationHandler();
-initSupportChatNotificationHandler();
-
+installMobileAuthConsoleFilters();
 keepNativeSplashScreenVisible();
 
 /** Root modals: hide stack back control (we use header close), center title on Android, bottom sheet-style enter on Android. */
@@ -41,32 +38,31 @@ const customerModalHeaderOptions = {
 };
 
 export default function RootLayout() {
-  const [fontsReady, setFontsReady] = useState(false);
+  const [fontsLoaded, fontError] = useFonts({
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+  });
+  const [devFontFallback, setDevFontFallback] = useState(false);
+
+  const fontsReady = fontsLoaded || fontError || (__DEV__ && devFontFallback);
 
   useEffect(() => {
-    let mounted = true;
-    void (async () => {
-      try {
-        await Font.loadAsync({
-          PlusJakartaSans_400Regular,
-          PlusJakartaSans_500Medium,
-          PlusJakartaSans_600SemiBold,
-          PlusJakartaSans_700Bold,
-        });
-      } catch {
-        // Graceful fallback to system fonts when loading fails.
-      } finally {
-        if (mounted) setFontsReady(true);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
+    initBookingNotificationHandler();
+    initSupportChatNotificationHandler();
   }, []);
 
   useEffect(() => {
-    if (!fontsReady) return;
-    void hideNativeSplashScreenOnce();
+    if (!__DEV__ || fontsLoaded || fontError) return;
+    const timer = setTimeout(() => setDevFontFallback(true), 2_000);
+    return () => clearTimeout(timer);
+  }, [fontsLoaded, fontError]);
+
+  useEffect(() => {
+    if (fontsReady) {
+      void hideNativeSplashScreenOnce();
+    }
   }, [fontsReady]);
 
   if (!fontsReady) {
@@ -105,8 +101,9 @@ export default function RootLayout() {
         <Stack.Screen
           name="preferred-partner"
           options={{
-            presentation: "modal",
+            presentation: Platform.OS === "ios" ? "transparentModal" : "modal",
             headerShown: false,
+            contentStyle: Platform.OS === "ios" ? { backgroundColor: "transparent" } : undefined,
             ...customerModalHeaderOptions,
           }}
         />
@@ -137,8 +134,9 @@ export default function RootLayout() {
         <Stack.Screen
           name="credits"
           options={{
-            presentation: "modal",
+            presentation: Platform.OS === "ios" ? "transparentModal" : "modal",
             headerShown: false,
+            contentStyle: Platform.OS === "ios" ? { backgroundColor: "transparent" } : undefined,
             ...customerModalHeaderOptions,
           }}
         />

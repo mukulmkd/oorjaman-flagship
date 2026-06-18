@@ -6,7 +6,7 @@ import { CustomerContextPanel } from "../components/CustomerContextPanel";
 import { ParticipantContextPanel } from "../components/ParticipantContextPanel";
 import { SupportSlaBadges } from "../components/SupportSlaBadges";
 import { useActiveChat } from "../lib/use-active-chat";
-import { useSupabase } from "../lib/supabase-client";
+import { useSupabase } from "@oorjaman/web-ui";
 import "./support-inbox.css";
 import "../components/support-chat-dock.css";
 

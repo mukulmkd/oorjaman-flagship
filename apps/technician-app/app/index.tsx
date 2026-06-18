@@ -4,12 +4,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Href } from "expo-router";
 import { router } from "expo-router";
 import { resolveTechnicianAppPostAuthPath } from "@oorjaman/api";
-import { BrandSplash } from "../components/brand-splash";
 import {
+  BrandSplash,
   SPLASH_LOADING_DELAY_MS,
   SPLASH_LOADING_FILL_MS,
   SPLASH_LOADING_FADE_MS,
-} from "../components/brand-loading-indicator";
+} from "@oorjaman/ui";
 import {
   STORAGE_KEY_LOCATION_PROMPT_DONE,
   STORAGE_KEY_ONBOARDING,
@@ -106,7 +106,7 @@ export default function SplashRoute() {
   return (
     <View style={styles.root}>
       <Animated.View style={[styles.fill, { opacity: fadeOut }]}>
-        <BrandSplash onAnimationsComplete={() => splashCompleteRef.current?.()} />
+        <BrandSplash variant="partner" onAnimationsComplete={() => splashCompleteRef.current?.()} />
       </Animated.View>
     </View>
   );

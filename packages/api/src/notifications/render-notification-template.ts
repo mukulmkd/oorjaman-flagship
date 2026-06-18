@@ -8,18 +8,3 @@ export function renderNotificationTemplate(
     return value == null ? "" : String(value);
   });
 }
-
-export function templateContextFromPayload(
-  payload: Record<string, unknown> | null | undefined,
-): Record<string, string | number | boolean | null | undefined> {
-  if (!payload) return {};
-  const out: Record<string, string | number | boolean | null | undefined> = {};
-  for (const [key, value] of Object.entries(payload)) {
-    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-      out[key] = value;
-    } else if (value === null) {
-      out[key] = null;
-    }
-  }
-  return out;
-}

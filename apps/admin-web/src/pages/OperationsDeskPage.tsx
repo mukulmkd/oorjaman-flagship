@@ -18,7 +18,7 @@ import {
 } from "@oorjaman/api";
 import { Badge, Button, Card, Modal, PageHeader } from "@oorjaman/web-ui";
 import { OpsInterventionModal, type OpsInterventionTarget } from "../components/OpsInterventionModal";
-import { TablePaginationBar } from "../components/TablePaginationBar";
+import { TablePaginationBar } from "@oorjaman/web-ui";
 import {
   buildOpsDeskInboxRows,
   OPS_DESK_CATEGORY_FILTERS,
@@ -30,8 +30,8 @@ import {
   type OpsDeskTimeFilter,
 } from "../lib/ops-desk-display";
 import { formatOpsIssueLevel } from "../lib/ops-exceptions-display";
-import { supportPortalUrl } from "../lib/portal-urls";
-import { useSupabase } from "../lib/supabase-client";
+import { supportPortalUrl } from "@oorjaman/web-ui";
+import { useSupabase } from "@oorjaman/web-ui";
 import { invalidateAdminBookingOpsQueries } from "../lib/invalidate-admin-queries";
 import "./operations-desk-page.css";
 

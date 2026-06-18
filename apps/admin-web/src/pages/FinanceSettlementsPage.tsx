@@ -23,8 +23,8 @@ import {
 import { formatDisplayDateTime } from "@oorjaman/utils";
 import { Badge, Button, Card, PageHeader } from "@oorjaman/web-ui";
 import { Link } from "react-router-dom";
-import { TablePaginationBar } from "../components/TablePaginationBar";
-import { useSupabase } from "../lib/supabase-client";
+import { TablePaginationBar } from "@oorjaman/web-ui";
+import { useSupabase } from "@oorjaman/web-ui";
 import "./finance-settlements-page.css";
 
 const PAGE_SIZE = 10;

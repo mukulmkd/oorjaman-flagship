@@ -16,8 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, spacing } from "@oorjaman/config";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { STORAGE_KEY_ONBOARDING } from "../constants/storage";
-import { BrandLockup } from "../components/brand-lockup";
-import { BrandNameInline } from "../components/brand-wordmark";
+import { BrandLockup, BrandNameInline } from "@oorjaman/ui";
 
 type TrustRow = { title: string; subtitle: string };
 
@@ -123,7 +122,7 @@ export default function OnboardingScreen() {
               <Ionicons name="construct-outline" size={14} color={colors.primary} />
               <Text style={styles.rolePillText}>Partner app</Text>
             </View>
-            <BrandLockup iconSize={92} />
+            <BrandLockup iconSize={92} variant="partner" />
           </View>
         ) : (
           <View style={[styles.iconWrap, { backgroundColor: iconWrapBg }]}>

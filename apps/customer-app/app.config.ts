@@ -1,8 +1,15 @@
 import type { ExpoConfig } from "expo/config";
-import withIosPodfileFixes from "./plugins/withIosPodfileFixes";
-import withCustomerNativeBranding from "./plugins/withCustomerNativeBranding";
-import withAndroidWhiteAdaptiveIcon from "./plugins/withAndroidWhiteAdaptiveIcon";
-import withAndroidNotificationBranding from "./plugins/withAndroidNotificationBranding";
+import {
+  withIosPodfileFixes,
+  withNativeDisplayName,
+  withAndroidWhiteAdaptiveIcon,
+  withAndroidNotificationBranding,
+} from "@oorjaman/mobile-config";
+import {
+  expoBuildPropertiesFromSource,
+  splashScreenPlugin,
+  notificationsPlugin,
+} from "@oorjaman/mobile-config/shared-plugins";
 
 const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
 const deployEnv = (process.env.EXPO_PUBLIC_DEPLOY_ENV ?? "").trim().toLowerCase();
@@ -18,19 +25,11 @@ const config: ExpoConfig = {
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   userInterfaceStyle: "automatic",
-  splash: {
-    image: "./assets/images/splash-icon.png",
-    resizeMode: "contain",
-    backgroundColor: "#ffffff",
-  },
   assetBundlePatterns: ["**/*"],
   ios: {
+    deploymentTarget: "16.4",
     supportsTablet: true,
     bundleIdentifier: isUat ? "com.oorjaman.customer.uat" : "com.oorjaman.customer",
-    infoPlist: {
-      CFBundleDisplayName: displayName,
-      CFBundleName: displayName,
-    },
     ...(googleMapsApiKey ? { config: { googleMapsApiKey } } : {}),
   },
   android: {
@@ -41,6 +40,7 @@ const config: ExpoConfig = {
       backgroundColor: "#ffffff",
     },
     package: isUat ? "com.oorjaman.customer.uat" : "com.oorjaman.customer",
+    softwareKeyboardLayoutMode: "resize",
     permissions: ["android.permission.CAMERA"],
     ...(googleMapsApiKey
       ? {
@@ -53,44 +53,15 @@ const config: ExpoConfig = {
       : {}),
   },
   plugins: [
-    [
-      "expo-build-properties",
-      {
-        ios: {
-          // Avoid prebuilt React.framework linker failures (ld: framework 'React' not found).
-          buildReactNativeFromSource: true,
-        },
-      },
-    ],
+    expoBuildPropertiesFromSource,
     withIosPodfileFixes,
-    withCustomerNativeBranding,
+    withNativeDisplayName,
     withAndroidWhiteAdaptiveIcon,
-    [
-      "expo-splash-screen",
-      {
-        backgroundColor: "#ffffff",
-        ios: {
-          backgroundColor: "#ffffff",
-          image: "./assets/images/splash-icon.png",
-          enableFullScreenImage_legacy: true,
-        },
-        android: {
-          backgroundColor: "#ffffff",
-          image: "./assets/images/splash-android-icon.png",
-          imageWidth: 196,
-        },
-      },
-    ],
+    splashScreenPlugin,
     "expo-system-ui",
+    "expo-status-bar",
     "expo-router",
-    [
-      "expo-notifications",
-      {
-        icon: "./assets/images/notification-icon.png",
-        color: "#ffffff",
-        sounds: ["./assets/sounds/chat_message.wav"],
-      },
-    ],
+    notificationsPlugin,
     withAndroidNotificationBranding,
     "expo-font",
     [

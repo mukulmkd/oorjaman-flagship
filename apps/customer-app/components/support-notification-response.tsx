@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
-import { Platform } from "react-native";
-import * as Notifications from "expo-notifications";
-import { useHelpSupport } from "./help-support-context";
+import type { NotificationResponse } from "expo-notifications";
+import { getExpoNotifications, isNativeNotificationsSupported, useHelpSupport } from "@oorjaman/ui";
 
 type SupportNotificationData = {
   kind?: string;
@@ -22,9 +21,11 @@ export function SupportNotificationResponse() {
   const handledColdStartRef = useRef(false);
 
   useEffect(() => {
-    if (Platform.OS === "web") return;
+    if (!isNativeNotificationsSupported()) return;
+    const Notifications = getExpoNotifications();
+    if (!Notifications) return;
 
-    const openFromNotification = (response: Notifications.NotificationResponse | null) => {
+    const openFromNotification = (response: NotificationResponse | null) => {
       if (!response) return;
       const conversationId = readSupportConversationId(
         response.notification.request.content.data,

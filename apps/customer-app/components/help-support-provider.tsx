@@ -1,20 +1,22 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { customerApi, queryKeys, supportApi, userApi } from "@oorjaman/api";
-import { supabase } from "../lib/supabase";
-import { CustomerPushRegistration } from "./customer-push-registration";
 import {
   HelpSupportCtx,
+  HelpSupportModal,
   type HelpSupportOpenContext,
-} from "./help-support-context";
-import { HelpSupportModal } from "./help-support-modal";
+  type HelpSupportState,
+  useHelpSupport,
+} from "@oorjaman/ui";
+import { supabase } from "../lib/supabase";
+import { CustomerPushRegistration } from "./customer-push-registration";
 import { SupportChatRealtimeNotifications } from "./support-chat-realtime-notifications";
 import { AmcNotificationResponse } from "./amc-notification-response";
 import { SubscriptionRealtimeNotifications } from "./subscription-realtime-notifications";
 import { SupportNotificationResponse } from "./support-notification-response";
 
-export type { HelpSupportOpenContext, HelpSupportState } from "./help-support-context";
-export { useHelpSupport } from "./help-support-context";
+export type { HelpSupportOpenContext, HelpSupportState };
+export { useHelpSupport };
 
 export function HelpSupportProvider({ children }: { children: ReactNode }) {
   const [visible, setVisible] = useState(false);
@@ -82,6 +84,8 @@ export function HelpSupportProvider({ children }: { children: ReactNode }) {
       <SupportNotificationResponse />
       <AmcNotificationResponse />
       <HelpSupportModal
+        role="customer"
+        client={supabase}
         visible={visible}
         context={context}
         onClose={closeHelp}

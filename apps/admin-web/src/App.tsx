@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { RequireAdminRole } from "./components/RequireAdminRole";
-import { RequireSession } from "./components/RequireSession";
+import { RequireSession } from "@oorjaman/web-ui";
 import { DashboardLayout } from "./layouts/DashboardLayout";
 import { VendorDetailPage } from "./pages/VendorDetailPage";
 import { VendorIntakeDetailPage } from "./pages/VendorIntakeDetailPage";
@@ -32,7 +32,7 @@ export default function App() {
       <Route
         path="/dashboard"
         element={
-          <RequireSession>
+          <RequireSession withProfile>
             <RequireAdminRole>
               <DashboardLayout />
             </RequireAdminRole>

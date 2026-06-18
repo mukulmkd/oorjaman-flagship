@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { customerApi, queryKeys, supportApi, userApi } from "@oorjaman/api";
 import { notifyCustomerSupportMessage } from "@oorjaman/ui";
 import { supabase } from "../lib/supabase";
-import { useHelpSupport } from "./help-support-context";
+import { useHelpSupport } from "@oorjaman/ui";
 
 /**
  * App-wide support message realtime: refreshes unread badge and shows local notifications

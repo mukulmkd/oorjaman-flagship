@@ -27,8 +27,8 @@ import {
   type PricingTierRow,
 } from "@oorjaman/api";
 import { Button, Card, Input, PageHeader, TableRowsSkeleton } from "@oorjaman/web-ui";
-import { TablePaginationBar } from "../components/TablePaginationBar";
-import { useSupabase } from "../lib/supabase-client";
+import { TablePaginationBar } from "@oorjaman/web-ui";
+import { useSupabase } from "@oorjaman/web-ui";
 
 function paiseToRupeeInput(paise: number): string {
   const v = paise / 100;

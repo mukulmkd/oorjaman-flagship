@@ -11,8 +11,8 @@ import {
 } from "@oorjaman/api";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Button, Card, Modal, PageHeader } from "@oorjaman/web-ui";
-import { useSupabase } from "../lib/supabase-client";
-import { TablePaginationBar } from "../components/TablePaginationBar";
+import { useSupabase } from "@oorjaman/web-ui";
+import { TablePaginationBar } from "@oorjaman/web-ui";
 import { formatNotificationChannelLabel, formatNotificationEventTypeLabel } from "../lib/notification-labels";
 
 export function FeatureManagementPage() {

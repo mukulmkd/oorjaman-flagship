@@ -180,16 +180,3 @@ export function coverageZonePinsFromText(text: string): string[] {
 export function coverageZonePinsToText(pincodes: string[]): string {
   return pincodes.join("\n");
 }
-
-export function allCoverageTokensFromVendor(
-  vendor: Pick<VendorRow, "metadata" | "service_areas" | "operating_regions">,
-): string[] {
-  const zones = parseVendorCoverageZones(vendor);
-  const tokens: string[] = [];
-  for (const z of zones) {
-    tokens.push(...z.pincodes, z.city_name, z.state_name);
-  }
-  const flat = flattenCoverageZones(zones);
-  tokens.push(...flat.service_areas, ...flat.operating_regions, ...flat.serviceable_pincodes);
-  return tokens.map((t) => t.trim().toLowerCase()).filter(Boolean);
-}

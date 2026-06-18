@@ -64,6 +64,89 @@ UAT and prod/local builds can be installed **side by side** on one phone.
 
 ---
 
+## Native builds & brand sync
+
+`apps/customer-app/ios/`, `apps/customer-app/android/`, and the same under `technician-app/` are **generated** by Expo prebuild. They are **gitignored** — not committed. Source of truth: `app.config.ts`, `plugins/`, and assets under `apps/<app>/assets/` (populated from `brand/source/`).
+
+### When `brand:sync` runs automatically
+
+`brand:sync` copies masters from `brand/source/` into each app’s `assets/images/` (icons, splash, notification icon, etc.). See [brand/README.md](../brand/README.md).
+
+| Command | `brand:sync` first? | Then |
+|---------|---------------------|------|
+| `npm run ios:rebuild` (in app dir) | **Yes** | `expo prebuild --platform ios --clean` → pods → `expo run:ios` |
+| `npm run android:rebuild` (in app dir) | **Yes** | `expo prebuild --platform android --clean` → `expo run:android` |
+| `npm run android:apk:uat:*` | **Yes** (via `prebuild-android.sh`) | Gradle `assembleRelease` + dated APK in `dist/` |
+| `npm run android:apk:debug:*` | **Yes** (via `prebuild-android.sh`) | Gradle `assembleDebug` |
+| `npm run eas:android:uat:*` | **Yes** | EAS cloud or `--local` build |
+| `npm run ios` / `npx expo run:ios` | **No** | Compiles existing `ios/` as-is |
+| `npx expo prebuild` (manual) | **No** | Run `npm run brand:sync` in the app dir first if assets changed |
+| `npx eas-cli build --profile uat --platform ios` | **No** | Run `npm run brand:sync` in the app dir before EAS if icons/splash changed |
+
+**Rule of thumb:** After changing **`brand/source/`**, an **Expo SDK upgrade**, or **native plugins** in `app.config.ts`, use a **rebuild path** (`ios:rebuild`, `android:rebuild`, or `android:apk:uat:*`) — not plain `expo run:ios` / `expo run:android` / Metro only.
+
+### iOS: `run:ios` vs `ios:rebuild`
+
+| | `npm run ios` / `npx expo run:ios` | `npm run ios:rebuild` |
+|---|-----------------------------------|------------------------|
+| **Brand sync** | Skipped | Runs first |
+| **Regenerates `ios/`** | No | Yes (`prebuild --clean`) |
+| **Use when** | Day-to-day JS/native compile on existing project | Stale pods, SDK upgrade, brand asset change, first machine setup |
+
+From repo root:
+
+```bash
+npm run ios                    # customer — debug build, no brand sync
+npm run ios:rebuild            # customer — full clean rebuild
+npm run technician:ios         # partner
+npm run technician:ios:rebuild # partner — full clean rebuild
+```
+
+`rebuild-ios.sh` (customer + partner) order: stop Metro → clear caches → uninstall old simulator app → **`brand:sync`** → **`prebuild --clean`** → `pod install` → `expo run:ios`.
+
+### Android: `run:android` vs `android:rebuild`
+
+| | `npm run android` / `npx expo run:android` | `npm run android:rebuild` |
+|---|-------------------------------------------|----------------------------|
+| **Brand sync** | Skipped | Runs first |
+| **Regenerates `android/`** | No | Yes (`prebuild --clean`) |
+| **Use when** | Day-to-day JS/native compile on existing project | Stale Gradle cache, SDK upgrade, brand asset change, first machine setup |
+
+From repo root:
+
+```bash
+npm run android                    # customer — debug build, no brand sync
+npm run android:rebuild            # customer — full clean rebuild
+npm run technician:android         # partner
+npm run technician:android:rebuild # partner — full clean rebuild
+```
+
+`rebuild-android.sh` (customer + partner) order: stop Metro → clear caches → optional `adb reverse` + uninstall → **`brand:sync`** → **`prebuild --clean`** → `local.properties` + autolinking cache clear → `expo run:android`.
+
+### Android: no manual folder delete for UAT
+
+UAT and prebuild scripts already run **`expo prebuild --platform android --clean`**, which deletes and recreates `android/`. You do **not** need `rm -rf android/` before:
+
+```bash
+npm run android:apk:uat:customer
+npm run android:apk:uat:technician
+```
+
+**EAS Android (cloud):** `android/` is not in git → EAS runs a fresh prebuild on the server.
+
+**EAS Android (`--local`):** If a stale local `android/` exists, run `npm run android:rebuild` or `npm run android:apk:uat:*` first (includes `brand:sync` + `prebuild --clean`).
+
+**SDK note:** After upgrading Expo (e.g. SDK 54 → 56), regenerate native projects. Symptom on iOS: `pod install` fails with *Unable to find a specification for ExpoModulesCore*. Fix: `npm run ios:rebuild` or `npx expo prebuild --platform ios --clean` (after `brand:sync`).
+
+### Metro cache clear
+
+```bash
+npm run customer:clear      # customer Metro — NOT `npm run customer -- --clear` (npm does not forward to Expo)
+npm run technician:clear    # partner Metro (often port 8082 if customer uses 8081)
+```
+
+---
+
 ## Android — customer app
 
 ### A. Debug native + Metro + device logs (recommended)
@@ -88,6 +171,17 @@ npx expo run:android --device    # builds debug app, installs, starts Metro
 - Rebuild native after adding native modules (e.g. `expo-image-manipulator`): run the command again
 
 **Simulator/emulator:** `npx expo run:android` (no `--device`).
+
+### A2. Full clean rebuild (emulator or device)
+
+```bash
+cd apps/customer-app
+npm run android:rebuild
+# or from repo root: npm run android:rebuild
+# physical device: npm run android:rebuild -- --device
+```
+
+Runs `scripts/rebuild-android.sh`: stop Metro → clear caches → optional `adb reverse` / uninstall → **`brand:sync`** → **`prebuild --clean`** → `expo run:android`.
 
 ### B. Metro only (`npm run customer`)
 
@@ -150,6 +244,7 @@ Replace `customer` with `technician` in all commands:
 | Goal | Command |
 |------|---------|
 | Debug + Metro + device | `cd apps/technician-app && npx expo run:android --device` |
+| Clean rebuild | `npm run technician:android:rebuild` (root) or `npm run android:rebuild` (in app) |
 | Metro | `npm run technician` |
 | Debug APK | `npm run android:apk:debug:technician` |
 | UAT APK | `npm run android:apk:uat:technician` |
@@ -187,9 +282,10 @@ Phone and Mac on same Wi‑Fi if not using USB network debugging. Sign the app w
 ```bash
 cd apps/customer-app
 npm run ios:rebuild
+# or from repo root: npm run ios:rebuild
 ```
 
-Runs `scripts/rebuild-ios.sh`: clears caches, `expo prebuild --clean`, pods, `expo run:ios`.
+Runs `scripts/rebuild-ios.sh`: stop Metro → clear caches → **`npm run brand:sync`** → **`expo prebuild --platform ios --clean`** → CocoaPods → `expo run:ios`.
 
 ### D. Metro only
 
@@ -217,10 +313,10 @@ There is **no** root `npm run ios:apk:*` shortcut — iOS distribution is via EA
 
 | Goal | Command |
 |------|---------|
-| Simulator | `cd apps/technician-app && npx expo run:ios` |
+| Simulator | `cd apps/technician-app && npx expo run:ios` or `npm run technician:ios` |
 | Device | `npx expo run:ios --device` |
-| Clean rebuild | `npm run ios:rebuild` (in technician-app) |
-| Metro | `npm run technician` |
+| Clean rebuild | `npm run ios:rebuild` (in app) or `npm run technician:ios:rebuild` (root) |
+| Metro | `npm run technician` or `npm run technician:clear` |
 | UAT / prod | `cd apps/technician-app && npx eas-cli build --profile uat --platform ios` |
 
 ---
@@ -278,18 +374,27 @@ Env: `.env.development.local` (local), `.env.uat.local` (local UAT build), `.env
 | Script | App / purpose |
 |--------|----------------|
 | `npm run customer` | Customer Metro |
+| `npm run customer:clear` | Customer Metro with cache cleared |
 | `npm run technician` | Partner Metro |
-| `npm run android:apk:debug:customer` | Customer debug APK |
+| `npm run technician:clear` | Partner Metro with cache cleared |
+| `npm run ios` | Customer `expo run:ios` (no brand sync) |
+| `npm run ios:rebuild` | Customer full iOS rebuild (**brand:sync** → prebuild → run) |
+| `npm run android` | Customer `expo run:android` (no brand sync) |
+| `npm run android:rebuild` | Customer full Android rebuild (**brand:sync** → prebuild → run) |
+| `npm run technician:ios` | Partner `expo run:ios` |
+| `npm run technician:ios:rebuild` | Partner full iOS rebuild |
+| `npm run technician:android` | Partner `expo run:android` |
+| `npm run technician:android:rebuild` | Partner full Android rebuild |
+| `npm run android:apk:debug:customer` | Customer debug APK (**brand:sync** → prebuild → Gradle) |
 | `npm run android:apk:debug:technician` | Partner debug APK |
 | `npm run android:apk:uat:customer` | Customer UAT release APK |
 | `npm run android:apk:uat:technician` | Partner UAT release APK |
-| `npm run eas:android:uat:customer` | Customer UAT EAS (cloud) |
-| `npm run eas:android:uat:technician` | Partner UAT EAS (cloud) |
-| `npm run eas:android:uat:local:customer` | Customer UAT EAS (local machine) |
-| `npm run eas:android:uat:local:technician` | Partner UAT EAS (local machine) |
-| `npm run android:prebuild:customer` | Regenerate `android/` for customer |
-| `npm run android:prebuild:technician` | Regenerate `android/` for partner |
+| `npm run eas:android:uat:customer` | Customer UAT EAS cloud (**brand:sync** first) |
+| `npm run eas:android:uat:technician` | Partner UAT EAS cloud |
+| `npm run eas:android:uat:local:customer` | Customer UAT EAS on your Mac |
+| `npm run eas:android:uat:local:technician` | Partner UAT EAS on your Mac |
 | `npm run android:local-props` | Write `local.properties` (SDK path) |
+| `npm run brand:sync:mobile` | Sync brand assets to both mobile apps |
 | `npm run expo:types` | Regenerate Expo Router types (both mobile apps) |
 
 ---
@@ -307,8 +412,12 @@ Env: `.env.development.local` (local), `.env.uat.local` (local UAT build), `.env
 | Site photo stamp shows **blue box** on the left | No map image loaded (often missing `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` on Android, or photo taken before fix) | Add key + rebuild for Google tiles; or take a **new** photo (OSM fallback works without key). See [Site photos](#customer-app--site-photos-camera-gps-stamp-upload) |
 | Camera upload **network error** (UAT APK) | Old APK without compress/retry fixes; or no mobile data | Rebuild UAT APK; retry on Wi‑Fi. Debug working ≠ UAT updated until you rebuild |
 | Camera upload works in debug but not UAT | UAT binary is stale | `npm run android:apk:uat:customer` after pulling latest |
-| Native change not picked up | Metro reload only | `npx expo run:android --device` or rebuild APK |
-| `android/` missing | Not prebuilt yet | `npm run android:prebuild:customer` or `expo run:android` |
+| Native change not picked up | Metro reload only | `npm run android:rebuild` or `npx expo run:android --device` |
+| `android/` missing | Not prebuilt yet | `npm run android:rebuild` or `npx expo run:android` |
+| Stale launcher / splash icons | Built without `brand:sync` | `npm run brand:sync` in app → `ios:rebuild` or `android:rebuild` |
+| `pod install` — `ExpoModulesCore` not found | `ios/` from old Expo SDK | `npm run ios:rebuild` or `prebuild --platform ios --clean` after `brand:sync` |
+| Terminal `r` reload stuck (Expo Go) | Known Expo Go + SDK 56 limitation | Use **Fast Refresh** (save file), simulator **Reload** menu, or a **dev build** (`expo run:ios`) |
+| `npm run customer -- --clear` ignores `--clear` | npm does not forward flag to Expo | Use `npm run customer:clear` |
 
 More Android APK detail: [docs/android-local-apk.md](../docs/android-local-apk.md).
 
@@ -376,6 +485,11 @@ Just changing JS/TS?
 
 Quick UI check only?
   └─ Expo Go (limited) OR iOS Simulator with expo run:ios
+
+Changed brand assets or upgraded Expo SDK?
+  └─ iOS → npm run ios:rebuild (or technician:ios:rebuild)
+  └─ Android dev → npm run android:rebuild (or technician:android:rebuild)
+  └─ Android UAT APK → npm run android:apk:uat:* (prebuild --clean is automatic)
 
 iOS TestFlight / App Store?
   └─ eas build --profile uat|production --platform ios

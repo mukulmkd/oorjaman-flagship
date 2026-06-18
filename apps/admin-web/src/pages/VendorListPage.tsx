@@ -10,8 +10,8 @@ import {
   TableRowsSkeleton,
   Tabs,
 } from "@oorjaman/web-ui";
-import { TablePaginationBar } from "../components/TablePaginationBar";
-import { useSupabase } from "../lib/supabase-client";
+import { TablePaginationBar } from "@oorjaman/web-ui";
+import { useSupabase } from "@oorjaman/web-ui";
 import {
   approvalBadgeTone,
   formatSubmittedAt,

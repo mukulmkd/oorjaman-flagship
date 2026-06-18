@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "@oorjaman/config";
-import { useHelpSupport } from "./help-support-context";
+import { useHelpSupport } from "@oorjaman/ui";
 
 /** Header action to open technician field-support chat. */
 export function SupportChatHeaderButton() {

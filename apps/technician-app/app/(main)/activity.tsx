@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useIsFocused, useNavigation } from "@react-navigation/native";
+import { useIsFocused, useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import {

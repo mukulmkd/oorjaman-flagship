@@ -47,12 +47,24 @@ npm run brand:sync
 
 This copies/resizes into:
 
-- `apps/customer-app/assets/images/` + `assets/brand/`
-- `apps/technician-app/assets/images/` + `assets/brand/`
+- `apps/customer-app/assets/images/` + `assets/brand/` — **native** launcher, splash, notifications (`app.config.ts`)
+- `apps/technician-app/assets/images/` + `assets/brand/` — same (partner badge on launcher icons)
+- `packages/ui/assets/brand/` — **in-app JS** branding (`@oorjaman/ui` → `BrandSplash`, `BrandLockup`, etc.)
 - `apps/admin-web/public/`
 - `apps/vendor-web/public/`
 - `apps/support-web/public/`
 - `apps/oorjaman-web/public/` (OG image only from lockup master)
+
+### Mobile: two asset paths
+
+| Layer | Path | Used for |
+|-------|------|----------|
+| **Native** | `apps/<app>/assets/images/` | Home-screen icon, pre-JS splash, Android adaptive icon, notification icon |
+| **In-app (JS)** | `packages/ui/assets/brand/` | Animated splash, login lockup, sunburst — bundled via Metro from `@oorjaman/ui` |
+
+Both are updated on a **full** `npm run brand:sync`. `brand:sync:web` (`--web-only`) skips mobile native assets and `packages/ui`.
+
+Shared React Native brand components live in **`packages/ui/src/brand/`** (`BrandSplash`, `BrandLockup`, …). Use `variant="partner"` on technician app screens.
 
 Commit both **`brand/source/`** (your masters) and the generated copies under each app (or run `brand:sync` in CI before build).
 
@@ -72,7 +84,7 @@ If you need to refresh the decorative sunburst PNG:
 npm run brand:generate -w customer-app
 ```
 
-Edit `apps/customer-app/assets/brand/svg/sunburst.svg`, then run the command above. Logo icons and lockups always come from **`brand:sync`**.
+Edit `apps/customer-app/assets/brand/svg/sunburst.svg`, then run the command above. Output goes to `apps/customer-app/assets/brand/sunburst.png` **and** `packages/ui/assets/brand/sunburst.png`. Logo icons and lockups always come from **`brand:sync`**.
 
 ---
 

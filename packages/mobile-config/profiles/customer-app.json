@@ -1,0 +1,7 @@
+{
+  "label": "OorjaMan customer app",
+  "defaultAndroidPackage": "com.oorjaman.customer",
+  "defaultIosBundleId": "com.oorjaman.customer",
+  "metroPorts": [8081],
+  "brandSyncEcho": "Regenerate customer launcher icons and splash assets"
+}

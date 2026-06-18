@@ -23,7 +23,7 @@ import {
 import { colors, spacing } from "@oorjaman/config";
 import { LoginPhoneRow, OtpCodeInput, dismissOtpKeyboard, KeyboardFormScreen, type KeyboardFormScreenRef } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
-import { BrandLockup } from "../components/brand-lockup";
+import { BrandLockup } from "@oorjaman/ui";
 import { supabase } from "../lib/supabase";
 
 const OTP_LEN = 6;

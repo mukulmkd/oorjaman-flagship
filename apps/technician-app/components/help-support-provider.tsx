@@ -1,18 +1,20 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys, supportApi, technicianApi, userApi } from "@oorjaman/api";
-import { supabase } from "../lib/supabase";
 import {
   HelpSupportCtx,
+  HelpSupportModal,
   type HelpSupportOpenContext,
-} from "./help-support-context";
-import { HelpSupportModal } from "./help-support-modal";
+  type HelpSupportState,
+  useHelpSupport,
+} from "@oorjaman/ui";
+import { supabase } from "../lib/supabase";
 import { SupportChatRealtimeNotifications } from "./support-chat-realtime-notifications";
 import { SupportNotificationResponse } from "./support-notification-response";
 import { TechnicianPushRegistration } from "./technician-push-registration";
 
-export type { HelpSupportOpenContext, HelpSupportState } from "./help-support-context";
-export { useHelpSupport } from "./help-support-context";
+export type { HelpSupportOpenContext, HelpSupportState };
+export { useHelpSupport };
 
 export function HelpSupportProvider({ children }: { children: ReactNode }) {
   const [visible, setVisible] = useState(false);
@@ -76,6 +78,8 @@ export function HelpSupportProvider({ children }: { children: ReactNode }) {
       <SupportChatRealtimeNotifications />
       <SupportNotificationResponse />
       <HelpSupportModal
+        role="technician"
+        client={supabase}
         visible={visible}
         context={context}
         onClose={closeHelp}

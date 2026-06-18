@@ -2,10 +2,13 @@ import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
-import * as Notifications from "expo-notifications";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys, technicianApi, technicianPushApi, userApi } from "@oorjaman/api";
-import { initBookingNotificationHandler } from "@oorjaman/ui";
+import {
+  getExpoNotifications,
+  initBookingNotificationHandler,
+  isNativeNotificationsSupported,
+} from "@oorjaman/ui";
 import { supabase } from "../lib/supabase";
 
 function resolveExpoProjectId(): string | undefined {
@@ -32,7 +35,7 @@ export function TechnicianPushRegistration() {
   });
 
   const ready =
-    Platform.OS !== "web" &&
+    isNativeNotificationsSupported() &&
     Boolean(supabase) &&
     userQ.data?.role === "technician" &&
     technicianApi.technicianIsFullyOnboarded(techQ.data);
@@ -43,7 +46,8 @@ export function TechnicianPushRegistration() {
 
     void (async () => {
       initBookingNotificationHandler();
-      if (!Device.isDevice) return;
+      const Notifications = getExpoNotifications();
+      if (!Notifications || !Device.isDevice) return;
 
       const projectId = resolveExpoProjectId();
       if (!projectId) {

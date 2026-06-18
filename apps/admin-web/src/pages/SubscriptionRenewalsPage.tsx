@@ -12,9 +12,9 @@ import {
 } from "@oorjaman/api";
 import { formatDisplayDate, formatDisplayDateTime } from "@oorjaman/utils";
 import { Badge, Button, Card, Modal, PageHeader } from "@oorjaman/web-ui";
-import { TablePaginationBar } from "../components/TablePaginationBar";
+import { TablePaginationBar } from "@oorjaman/web-ui";
 import { formatNotificationChannelLabel } from "../lib/notification-labels";
-import { useSupabase } from "../lib/supabase-client";
+import { useSupabase } from "@oorjaman/web-ui";
 import { invalidateAdminRenewalQueries } from "../lib/invalidate-admin-queries";
 import "./subscription-renewals-page.css";
 

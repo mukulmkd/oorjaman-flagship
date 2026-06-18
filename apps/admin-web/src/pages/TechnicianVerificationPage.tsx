@@ -4,8 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { DEFAULT_TABLE_PAGE_SIZE, queryKeys, technicianApi, vendorApi } from "@oorjaman/api";
 import { formatDisplayDateTime } from "@oorjaman/utils";
 import { Badge, Button, Card, Input, PageHeader, TableRowsSkeleton } from "@oorjaman/web-ui";
-import { useSupabase } from "../lib/supabase-client";
-import { TablePaginationBar } from "../components/TablePaginationBar";
+import { useSupabase } from "@oorjaman/web-ui";
+import { TablePaginationBar } from "@oorjaman/web-ui";
 
 type TechHistorySummary = {
   total: number;

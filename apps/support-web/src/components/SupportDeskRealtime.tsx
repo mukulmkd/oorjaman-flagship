@@ -7,8 +7,8 @@ import { useActiveChat } from "../lib/use-active-chat";
 import {
   isNotificationSoundMuted,
   playNotificationChime,
-} from "../lib/notification-sound";
-import { useSupabase } from "../lib/supabase-client";
+} from "@oorjaman/web-ui";
+import { useSupabase } from "@oorjaman/web-ui";
 import "./support-chat-dock.css";
 
 type DeskToast = {

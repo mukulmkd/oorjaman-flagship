@@ -60,7 +60,9 @@ export async function getMyUserRecordWithRetry(
     const row = await getMyUserRecord(client);
     if (row) return row;
     if (i < attempts - 1) {
-      await new Promise((r) => setTimeout(r, delayMs));
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, delayMs);
+      });
     }
   }
   return null;

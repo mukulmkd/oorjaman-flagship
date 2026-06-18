@@ -3,8 +3,8 @@ import { useEffect, useRef } from "react";
 import { Navigate } from "react-router-dom";
 import { authApi } from "@oorjaman/api";
 import { PortalLoadingScreen } from "@oorjaman/web-ui";
-import { useAdminPortalSession } from "../hooks/use-admin-portal-session";
-import { useSupabase } from "../lib/supabase-client";
+import { useAdminPortalSession } from "@oorjaman/web-ui";
+import { useSupabase } from "@oorjaman/web-ui";
 
 /**
  * Must render inside {@link RequireSession}. Ensures `public.users.role === admin` or signs out.

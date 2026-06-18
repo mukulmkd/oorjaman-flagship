@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
-import { Platform } from "react-native";
-import * as Notifications from "expo-notifications";
+import type { NotificationResponse } from "expo-notifications";
 import { router } from "expo-router";
+import { getExpoNotifications, isNativeNotificationsSupported } from "@oorjaman/ui";
 
 type AmcNotificationData = {
   kind?: string;
@@ -27,9 +27,11 @@ export function AmcNotificationResponse() {
   const handledColdStartRef = useRef(false);
 
   useEffect(() => {
-    if (Platform.OS === "web") return;
+    if (!isNativeNotificationsSupported()) return;
+    const Notifications = getExpoNotifications();
+    if (!Notifications) return;
 
-    const openFromNotification = (response: Notifications.NotificationResponse | null) => {
+    const openFromNotification = (response: NotificationResponse | null) => {
       if (!response) return;
       const target = readAmcNotificationTarget(response.notification.request.content.data);
       if (!target) return;

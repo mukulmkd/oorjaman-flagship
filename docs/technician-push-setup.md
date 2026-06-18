@@ -55,7 +55,7 @@ Processes any queued rows if Option A is not configured.
 
 ## 5. Chat notification sound
 
-Same as customer app: **chat_message.wav** for support chat (foreground local + background Expo push). Rebuild native app after updating `assets/sounds/chat_message.wav` and the `expo-notifications` plugin entry in `app.json`.
+Same as customer app: **chat_message.wav** for support chat (foreground local + background Expo push). Rebuild native app after updating `assets/sounds/chat_message.wav` and the `expo-notifications` plugin entry in `app.config.ts`.
 
 ## 6. iOS / Android credentials
 

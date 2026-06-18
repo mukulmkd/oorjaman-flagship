@@ -17,7 +17,7 @@ import type { VendorIntakeSignupForm } from "@oorjaman/api";
 import type { Json } from "@oorjaman/api";
 import type { VendorDocKind } from "@oorjaman/api";
 import { Button, Card, Input, PhoneCountryLogin, TextArea } from "@oorjaman/web-ui";
-import { useSupabase } from "../lib/supabase-client";
+import { useSupabase } from "@oorjaman/web-ui";
 import "./vendor-signup.css";
 
 const SECTION_ORDER = [
