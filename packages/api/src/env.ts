@@ -3,7 +3,7 @@ import type { SupabaseCredentials } from "./client";
 const trim = (v: string | undefined) => (v == null ? undefined : v.trim());
 
 /** Safe in Vite browser builds where `process` is undefined; Expo still inlines static `process.env.EXPO_PUBLIC_*` reads. */
-function expoPublicEnv(name: "EXPO_PUBLIC_SUPABASE_URL" | "EXPO_PUBLIC_SUPABASE_ANON_KEY" | "EXPO_PUBLIC_USE_DUMMY_AUTH" | "EXPO_PUBLIC_DUMMY_OTP_CODE" | "EXPO_PUBLIC_DUMMY_AUTH_PASSWORD"): string | undefined {
+function expoPublicEnv(name: "EXPO_PUBLIC_SUPABASE_URL" | "EXPO_PUBLIC_SUPABASE_ANON_KEY" | "EXPO_PUBLIC_USE_DUMMY_AUTH" | "EXPO_PUBLIC_DUMMY_OTP_CODE" | "EXPO_PUBLIC_DUMMY_AUTH_PASSWORD" | "EXPO_PUBLIC_DEPLOY_ENV"): string | undefined {
   if (typeof process === "undefined") return undefined;
   switch (name) {
     case "EXPO_PUBLIC_SUPABASE_URL":
@@ -16,9 +16,26 @@ function expoPublicEnv(name: "EXPO_PUBLIC_SUPABASE_URL" | "EXPO_PUBLIC_SUPABASE_
       return trim(process.env.EXPO_PUBLIC_DUMMY_OTP_CODE);
     case "EXPO_PUBLIC_DUMMY_AUTH_PASSWORD":
       return trim(process.env.EXPO_PUBLIC_DUMMY_AUTH_PASSWORD);
+    case "EXPO_PUBLIC_DEPLOY_ENV":
+      return trim(process.env.EXPO_PUBLIC_DEPLOY_ENV);
     default:
       return undefined;
   }
+}
+
+/**
+ * True when this build targets PRODUCTION (Expo `EXPO_PUBLIC_DEPLOY_ENV` / Vite `VITE_DEPLOY_ENV`).
+ * Used as a hard safety gate so dummy auth can never be active in production, regardless of the
+ * dummy-auth flag. Local/UAT (or unset) are treated as non-production so dummy auth still works.
+ */
+function isProductionDeploy(frameworkEnv?: Record<string, string | boolean | undefined>): boolean {
+  const raw = (
+    expoPublicEnv("EXPO_PUBLIC_DEPLOY_ENV") ??
+    String(frameworkEnv?.VITE_DEPLOY_ENV ?? "")
+  )
+    .trim()
+    .toLowerCase();
+  return raw === "production" || raw === "prod";
 }
 
 /**
@@ -75,9 +92,12 @@ export type DummyAuthSettings = {
 export function resolveDummyAuthSettings(
   frameworkEnv?: Record<string, string | boolean | undefined>,
 ): DummyAuthSettings {
-  const enabled =
+  const flagEnabled =
     expoPublicEnv("EXPO_PUBLIC_USE_DUMMY_AUTH") === "true" ||
     String(frameworkEnv?.VITE_USE_DUMMY_AUTH ?? "") === "true";
+  // Hard safety gate: dummy auth (OTP bypass) is force-disabled in production builds,
+  // regardless of the flag. Keeps dummy auth working for local + UAT only.
+  const enabled = flagEnabled && !isProductionDeploy(frameworkEnv);
   const otpCode = (
     expoPublicEnv("EXPO_PUBLIC_DUMMY_OTP_CODE") ??
     String(frameworkEnv?.VITE_DUMMY_OTP_CODE ?? "123456")

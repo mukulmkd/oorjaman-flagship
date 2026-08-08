@@ -267,6 +267,9 @@ export {
 export {
   JOB_EVIDENCE_PHOTOS_BUCKET,
   type JobEvidencePhotoPhase,
+  jobEvidenceStoragePath,
+  createSignedJobEvidenceUrl,
+  createSignedJobEvidenceUrlMap,
 } from "./technicians/job-evidence";
 export {
   createTechnicianDocumentSignedUrl,

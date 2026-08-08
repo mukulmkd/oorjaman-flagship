@@ -40,6 +40,8 @@
     "db:push": "node scripts/supabase-db-push.mjs",
     "db:push:yes": "npx supabase db push --yes",
     "db:reference": "node scripts/build-supabase-reference.mjs",
+    "db:baseline": "node scripts/dump-db-baseline.mjs",
+    "db:policy-diff": "node scripts/compare-policy-dumps.mjs",
     "db:push:include-all": "node scripts/supabase-db-push.mjs --include-all --yes",
     "db:status": "npx supabase status",
     "supabase": "npx supabase",

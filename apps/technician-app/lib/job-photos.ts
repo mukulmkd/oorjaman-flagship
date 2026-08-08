@@ -9,7 +9,8 @@ function randomSuffix(): string {
 
 /**
  * Upload a captured library image into `job-photos/{bookingId}/{phase}-….jpg`.
- * Returns the public URL (bucket must be public or URL policy documented separately).
+ * Returns the bucket-relative storage PATH (the bucket is private — SECURITY_REVIEW H2).
+ * Reads must generate a short-lived signed URL via `createSignedJobEvidenceUrl`.
  */
 export type JobPhotoUploadPhase = "before" | "after" | "start_selfie";
 
@@ -30,6 +31,5 @@ export async function uploadJobPhotoFromUri(
   });
   if (error) throw new Error(error.message);
 
-  const { data } = client.storage.from(JOB_EVIDENCE_PHOTOS_BUCKET).getPublicUrl(path);
-  return data.publicUrl;
+  return path;
 }

@@ -275,6 +275,8 @@ All policies live in **migration SQL** (search `create policy` in `supabase/migr
 
 ## Checklist: new PROD project go-live
 
+> Track overall launch status in the master **[`PROD_CHECKLIST.md`](../PROD_CHECKLIST.md)**; the list below is the Supabase-specific slice.
+
 - [ ] Create **OorjaMan Prod** project
 - [ ] `db push` all migrations on PROD
 - [ ] `migration list` matches UAT

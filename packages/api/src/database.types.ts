@@ -1720,6 +1720,14 @@ export type Database = {
       };
     };
     Functions: {
+      get_booking_routing_defaults: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          default_vendor_id: string | null;
+          customer_late_cancel_fee_paise: number;
+          vendor_platform_fee_percent: number;
+        }[];
+      };
       create_vendor_registration_intake: {
         Args: { p_initial_form?: Json };
         Returns: Json;

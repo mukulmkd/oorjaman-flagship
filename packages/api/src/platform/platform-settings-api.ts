@@ -12,14 +12,13 @@ export function normalizeVendorPlatformFeePercent(value: unknown): number {
 }
 
 export async function getVendorPlatformFeePercent(client: SupabaseClient<Database>): Promise<number> {
-  const { data, error } = await client
-    .from("platform_settings")
-    .select("vendor_platform_fee_percent")
-    .eq("id", 1)
-    .maybeSingle();
+  // SECURITY_REVIEW M2: platform_settings direct reads are admin-only; non-admin callers
+  // use the SECURITY DEFINER RPC exposing just the booking-routing fields.
+  const { data, error } = await client.rpc("get_booking_routing_defaults").maybeSingle();
 
   if (error) {
-    if (error.code === "42703" || error.message.includes("vendor_platform_fee_percent")) {
+    // RPC not yet deployed (older DB) → fall back to the safe default rather than throwing.
+    if (error.code === "42883" || error.message.includes("get_booking_routing_defaults")) {
       return DEFAULT_VENDOR_PLATFORM_FEE_PERCENT;
     }
     throw new SupabaseApiError(error.message, error);
@@ -37,11 +36,7 @@ export async function getBookingRoutingDefaults(
   customerLateCancelFeePaise: number;
   vendorPlatformFeePercent: number;
 }> {
-  const { data, error } = await client
-    .from("platform_settings")
-    .select("default_vendor_id, customer_late_cancel_fee_paise, vendor_platform_fee_percent")
-    .eq("id", 1)
-    .maybeSingle();
+  const { data, error } = await client.rpc("get_booking_routing_defaults").maybeSingle();
 
   if (error) throw new SupabaseApiError(error.message, error);
   const fee = Math.max(0, Math.round(Number(data?.customer_late_cancel_fee_paise) || 0));

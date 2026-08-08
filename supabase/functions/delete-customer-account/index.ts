@@ -5,10 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
  * Customer self-service account deletion (Apple / Play compliant).
  * Soft-anonymizes public.users + customers, cancels open AMCs, then auth.admin.deleteUser.
  */
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders as resolveCors } from "../_shared/cors.ts";
 
 const ACTIVE_BOOKING_STATUSES = [
   "pending_payment",
@@ -20,16 +17,16 @@ const ACTIVE_BOOKING_STATUSES = [
 
 const ACTIVE_SUBSCRIPTION_STATUSES = ["trialing", "active", "paused", "past_due"] as const;
 
-function json(body: Record<string, unknown>, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
 Deno.serve(async (req: Request) => {
+  const cors = resolveCors(req);
+  const json = (body: Record<string, unknown>, status = 200): Response =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
   if (req.method !== "POST") {

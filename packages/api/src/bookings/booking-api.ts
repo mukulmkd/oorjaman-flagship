@@ -2558,11 +2558,9 @@ export async function customerCancelBooking(
 async function fetchCustomerLateCancelFeePaise(
   client: SupabaseClient<Database>,
 ): Promise<number> {
-  const { data, error } = await client
-    .from("platform_settings")
-    .select("customer_late_cancel_fee_paise")
-    .eq("id", 1)
-    .maybeSingle();
+  // SECURITY_REVIEW M2: read booking-routing fields via the SECURITY DEFINER RPC (direct
+  // platform_settings reads are admin-only now).
+  const { data, error } = await client.rpc("get_booking_routing_defaults").maybeSingle();
   if (error) throw new SupabaseApiError(error.message, error);
   const n = Number(data?.customer_late_cancel_fee_paise);
   return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;

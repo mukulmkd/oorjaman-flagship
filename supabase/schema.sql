@@ -9896,4 +9896,703 @@ end;
 
 $$;
 
+-- ----- 20260744120000_oorjaman_pricing_catalog_2025.sql -----
+insert into public.service_capacity_tiers (country_code, code, capacity_kw, typical_panel_count, label, sort_order)
+values
+  ('IN', 'kw_9', 9, 16, '9 kW (16 panels)', 55)
+on conflict (country_code, code) do update set
+  capacity_kw = excluded.capacity_kw,
+  typical_panel_count = excluded.typical_panel_count,
+  label = excluded.label,
+  sort_order = excluded.sort_order,
+  is_active = true;
+
+insert into public.pricing_one_time_rates (country_code, capacity_tier_code, amount_cents, per_panel_rate_cents)
+values
+  ('IN', 'kw_3', 59900, 10000),
+  ('IN', 'kw_4', 69900, 10000),
+  ('IN', 'kw_5', 79900, 10000),
+  ('IN', 'kw_6', 89900, 10000),
+  ('IN', 'kw_8', 109900, 10000),
+  ('IN', 'kw_9', 119900, 10000),
+  ('IN', 'kw_10', 129900, 10000)
+on conflict (country_code, capacity_tier_code) do update set
+  amount_cents = excluded.amount_cents,
+  per_panel_rate_cents = excluded.per_panel_rate_cents,
+  is_active = true;
+
+update public.pricing_amc_plans
+set is_active = false
+where country_code = 'IN' and plan_code like '%_y1_4';
+
+insert into public.pricing_amc_plans (
+  country_code, capacity_tier_code, plan_code, plan_name, contract_months, visits_included, visits_per_year, amount_cents, billing_period, sort_order, is_active
+) values
+  ('IN', 'kw_3', 'amc_kw3_y1_3', '3 kW · SP-1', 12, 3, 3, 159900, 'custom', 10, true),
+  ('IN', 'kw_3', 'amc_kw3_y2_6', '3 kW · SP-2', 24, 6, null, 319900, 'custom', 30, true),
+  ('IN', 'kw_4', 'amc_kw4_y1_3', '4 kW · SP-1', 12, 3, 3, 199900, 'custom', 10, true),
+  ('IN', 'kw_4', 'amc_kw4_y2_6', '4 kW · SP-2', 24, 6, null, 379900, 'custom', 30, true),
+  ('IN', 'kw_5', 'amc_kw5_y1_3', '5 kW · SP-1', 12, 3, 3, 229900, 'custom', 10, true),
+  ('IN', 'kw_5', 'amc_kw5_y2_6', '5 kW · SP-2', 24, 6, null, 429900, 'custom', 30, true),
+  ('IN', 'kw_6', 'amc_kw6_y1_3', '6 kW · SP-1', 12, 3, 3, 259900, 'custom', 10, true),
+  ('IN', 'kw_6', 'amc_kw6_y2_6', '6 kW · SP-2', 24, 6, null, 499900, 'custom', 30, true),
+  ('IN', 'kw_8', 'amc_kw8_y1_3', '8 kW · SP-1', 12, 3, 3, 299900, 'custom', 10, true),
+  ('IN', 'kw_8', 'amc_kw8_y2_6', '8 kW · SP-2', 24, 6, null, 599900, 'custom', 30, true),
+  ('IN', 'kw_10', 'amc_kw10_y1_3', '10 kW · SP-1', 12, 3, 3, 359900, 'custom', 10, true),
+  ('IN', 'kw_10', 'amc_kw10_y2_6', '10 kW · SP-2', 24, 6, null, 759900, 'custom', 30, true)
+on conflict (plan_code) do update set
+  plan_name = excluded.plan_name,
+  contract_months = excluded.contract_months,
+  visits_included = excluded.visits_included,
+  visits_per_year = excluded.visits_per_year,
+  amount_cents = excluded.amount_cents,
+  sort_order = excluded.sort_order,
+  is_active = excluded.is_active;
+
+-- ----- 20260744210000_storage_allow_heic_mime_types.sql -----
+update storage.buckets
+set allowed_mime_types = array[
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif'
+]
+where id = 'job-photos';
+
+update storage.buckets
+set allowed_mime_types = array[
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  'application/pdf'
+]
+where id = 'technician-documents';
+
+-- ----- 20260744300000_platform_fee_on_taxable_value.sql -----
+create or replace function public.visit_gross_taxable_value_paise(p_gross_paise bigint)
+returns bigint
+language sql
+immutable
+as $$
+  select case
+    when coalesce(p_gross_paise, 0) <= 0 then 0
+    else round(p_gross_paise::numeric / 1.18)::bigint
+  end;
+
+$$;
+
+comment on function public.visit_gross_taxable_value_paise(bigint) is
+  'Splits GST-inclusive visit gross (paise) into taxable value at 18% GST (matches INDIAN_GST_RATE_PERCENT in API).';
+
+create or replace function public.create_standard_visit_payout_settlement(p_booking_id uuid)
+returns public.vendor_settlements
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_booking public.bookings;
+
+v_existing public.vendor_settlements;
+
+v_fee_pct numeric;
+
+v_gross bigint;
+
+v_taxable bigint;
+
+v_platform_fee bigint;
+
+v_net bigint;
+
+begin
+  select * into v_booking from public.bookings where id = p_booking_id for update;
+
+if not found then raise exception 'booking not found'; end if;
+
+if v_booking.status <> 'completed'::public.booking_status then
+    raise exception 'booking must be completed';
+
+end if;
+
+if v_booking.vendor_id is null then
+    raise exception 'booking has no vendor';
+
+end if;
+
+if v_booking.subscription_id is not null then
+    raise exception 'use release_amc_wallet_visit_payout for amc bookings';
+
+end if;
+
+if not public.is_admin() then
+    if v_booking.vendor_id is distinct from public.my_vendor_id()
+       and v_booking.technician_id is distinct from public.my_technician_id()
+       and not exists (
+         select 1
+         from public.job_reports jr
+         where jr.booking_id = p_booking_id
+           and jr.technician_id = public.my_technician_id()
+       ) then
+      raise exception 'not authorized';
+
+end if;
+
+end if;
+
+select * into v_existing from public.vendor_settlements
+  where booking_id = p_booking_id and kind = 'visit_payout';
+
+if found then return v_existing; end if;
+
+v_gross := greatest(
+    0,
+    coalesce(
+      nullif(v_booking.final_price_cents, 0),
+      nullif(v_booking.estimated_price_cents, 0),
+      0
+    )
+  );
+
+select coalesce(ps.vendor_platform_fee_percent, 10)::numeric into v_fee_pct
+  from public.platform_settings ps where ps.id = 1;
+
+v_taxable := public.visit_gross_taxable_value_paise(v_gross);
+
+v_platform_fee := round(v_taxable * v_fee_pct / 100.0);
+
+v_net := greatest(0, v_gross - v_platform_fee);
+
+insert into public.vendor_settlements (
+    booking_id, vendor_id, kind, status, currency, reference_code,
+    visit_gross_paise, platform_fee_paise, net_payout_paise, metadata
+  ) values (
+    v_booking.id, v_booking.vendor_id, 'visit_payout', 'pending_review',
+    coalesce(v_booking.currency, 'INR'), v_booking.reference_code,
+    v_gross, v_platform_fee, v_net,
+    jsonb_build_object(
+      'platform_fee_percent', v_fee_pct,
+      'taxable_value_paise', v_taxable,
+      'gst_rate_percent', 18,
+      'platform_fee_on', 'taxable_ex_gst',
+      'auto_created', true,
+      'source', 'visit_completed'
+    )
+  ) returning * into v_existing;
+
+return v_existing;
+
+end;
+
+$$;
+
+create or replace function public.release_amc_wallet_visit_payout(p_booking_id uuid)
+returns public.vendor_settlements
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_booking public.bookings;
+
+v_wallet public.amc_wallets;
+
+v_fee_pct numeric;
+
+v_gross bigint;
+
+v_taxable bigint;
+
+v_platform_fee bigint;
+
+v_net bigint;
+
+v_new_balance bigint;
+
+v_settlement public.vendor_settlements;
+
+v_next_status public.amc_wallet_status;
+
+begin
+  select * into v_booking from public.bookings where id = p_booking_id for update;
+
+if not found then raise exception 'booking not found'; end if;
+
+if v_booking.status <> 'completed'::public.booking_status then
+    raise exception 'booking must be completed';
+
+end if;
+
+if v_booking.subscription_id is null or v_booking.vendor_id is null then
+    raise exception 'not an amc booking with vendor';
+
+end if;
+
+if not public.is_admin() then
+    if v_booking.vendor_id is distinct from public.my_vendor_id()
+       and not exists (
+         select 1 from public.technicians t
+         where t.id = v_booking.technician_id and t.user_id = auth.uid()
+       ) then
+      raise exception 'not authorized';
+
+end if;
+
+end if;
+
+select * into v_settlement from public.vendor_settlements
+  where booking_id = p_booking_id and kind = 'visit_payout';
+
+if found then return v_settlement; end if;
+
+select * into v_wallet from public.amc_wallets
+  where subscription_id = v_booking.subscription_id for update;
+
+if not found then raise exception 'amc wallet not found'; end if;
+
+if v_wallet.status <> 'funded'::public.amc_wallet_status then
+    raise exception 'wallet not funded';
+
+end if;
+
+v_gross := greatest(0, v_wallet.per_visit_alloc_paise);
+
+if v_gross <= 0 or v_wallet.balance_paise < v_gross then
+    raise exception 'insufficient wallet balance';
+
+end if;
+
+select coalesce(ps.vendor_platform_fee_percent, 10)::numeric into v_fee_pct
+  from public.platform_settings ps where ps.id = 1;
+
+v_taxable := public.visit_gross_taxable_value_paise(v_gross);
+
+v_platform_fee := round(v_taxable * v_fee_pct / 100.0);
+
+v_net := greatest(0, v_gross - v_platform_fee);
+
+v_new_balance := v_wallet.balance_paise - v_gross;
+
+v_next_status := case when v_new_balance <= 0 then 'depleted'::public.amc_wallet_status else v_wallet.status end;
+
+insert into public.vendor_settlements (
+    booking_id, vendor_id, kind, status, currency, reference_code,
+    visit_gross_paise, platform_fee_paise, net_payout_paise, metadata
+  ) values (
+    v_booking.id, v_booking.vendor_id, 'visit_payout', 'pending_review',
+    coalesce(v_booking.currency, 'INR'), v_booking.reference_code,
+    v_gross, v_platform_fee, v_net,
+    jsonb_build_object(
+      'platform_fee_percent', v_fee_pct,
+      'taxable_value_paise', v_taxable,
+      'gst_rate_percent', 18,
+      'platform_fee_on', 'taxable_ex_gst',
+      'auto_created', true,
+      'source', 'amc_wallet_visit_release',
+      'subscription_id', v_booking.subscription_id,
+      'wallet_id', v_wallet.id
+    )
+  ) returning * into v_settlement;
+
+update public.amc_wallets set
+    balance_paise = v_new_balance,
+    released_to_vendor_paise = released_to_vendor_paise + v_net,
+    platform_fee_collected_paise = platform_fee_collected_paise + v_platform_fee,
+    visits_released = visits_released + 1,
+    status = v_next_status,
+    updated_at = now()
+  where id = v_wallet.id;
+
+insert into public.amc_wallet_entries (wallet_id, kind, amount_paise, balance_after_paise, booking_id, vendor_settlement_id, note, metadata)
+  values
+    (v_wallet.id, 'visit_release', -v_net, v_new_balance, v_booking.id, v_settlement.id,
+     'Vendor net from AMC wallet', jsonb_build_object('gross_paise', v_gross, 'taxable_value_paise', v_taxable)),
+    (v_wallet.id, 'platform_fee', -v_platform_fee, v_new_balance, v_booking.id, v_settlement.id,
+     'OorjaMan fee on AMC visit (ex-GST base)', jsonb_build_object('fee_percent', v_fee_pct, 'taxable_value_paise', v_taxable));
+
+return v_settlement;
+
+end;
+
+$$;
+
+grant execute on function public.visit_gross_taxable_value_paise(bigint) to authenticated;
+
+-- ----- 20260744310000_vendor_settlements_replica_identity.sql -----
+alter table public.vendor_settlements replica identity full;
+
+-- ----- 20260744320000_seed_finalize_test_technician.sql -----
+create or replace function public.seed_finalize_test_technician(p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (select 1 from public.technicians t where t.user_id = p_user_id) then
+    raise exception 'technician not found for user %', p_user_id;
+
+end if;
+
+alter table public.technicians disable trigger technicians_guard_vendor_review_writes;
+
+alter table public.technicians disable trigger technicians_guard_verification_writes;
+
+alter table public.technicians disable trigger technicians_finalize_vendor_approval;
+
+update public.technicians t
+  set
+    vendor_review_status = 'approved',
+    vendor_reviewed_at = coalesce(t.vendor_reviewed_at, now()),
+    vendor_rejection_reason = null,
+    verification_status = 'verified'::public.technician_verification_status,
+    is_verified = true,
+    verification_reviewed_at = coalesce(t.verification_reviewed_at, now()),
+    verification_rejection_reason = null,
+    employee_code = coalesce(
+      nullif(trim(t.employee_code), ''),
+      public.generate_technician_employee_code()
+    ),
+    updated_at = now()
+  where t.user_id = p_user_id;
+
+alter table public.technicians enable trigger technicians_finalize_vendor_approval;
+
+alter table public.technicians enable trigger technicians_guard_verification_writes;
+
+alter table public.technicians enable trigger technicians_guard_vendor_review_writes;
+
+end;
+
+$$;
+
+revoke all on function public.seed_finalize_test_technician(uuid) from public;
+
+grant execute on function public.seed_finalize_test_technician(uuid) to service_role;
+
+-- ----- 20260745120000_booking_vendor_attribution_stats.sql -----
+update public.bookings b
+set vendor_id = t.vendor_id
+from public.technicians t
+where b.vendor_id is null
+  and b.technician_id = t.id
+  and t.vendor_id is not null;
+
+drop function if exists public.get_vendor_public_stats(uuid[]);
+
+drop view if exists public.vendor_stats;
+
+create view public.vendor_stats
+with (security_invoker = true) as
+select
+  v.id as vendor_id,
+  count(b.id)::bigint as total_jobs,
+  case
+    when count(b.id) filter (
+      where b.status in (
+        'confirmed'::public.booking_status,
+        'accepted'::public.booking_status,
+        'in_progress'::public.booking_status,
+        'completed'::public.booking_status,
+        'cancelled'::public.booking_status
+      )
+    ) = 0
+    then null::numeric
+    else round(
+      (
+        count(b.id) filter (
+          where b.status in (
+            'accepted'::public.booking_status,
+            'in_progress'::public.booking_status,
+            'completed'::public.booking_status
+          )
+        )::numeric
+        / nullif(
+          count(b.id) filter (
+            where b.status in (
+              'confirmed'::public.booking_status,
+              'accepted'::public.booking_status,
+              'in_progress'::public.booking_status,
+              'completed'::public.booking_status,
+              'cancelled'::public.booking_status
+            )
+          )::numeric,
+          0::numeric
+        )
+      ),
+      6
+    )
+  end as acceptance_rate,
+  case
+    when count(b.id) filter (
+      where b.status in (
+        'accepted'::public.booking_status,
+        'in_progress'::public.booking_status,
+        'completed'::public.booking_status
+      )
+    ) = 0
+    then null::numeric
+    else round(
+      (
+        count(b.id) filter (where b.status = 'completed'::public.booking_status)::numeric
+        / nullif(
+          count(b.id) filter (
+            where b.status in (
+              'accepted'::public.booking_status,
+              'in_progress'::public.booking_status,
+              'completed'::public.booking_status
+            )
+          )::numeric,
+          0::numeric
+        )
+      ),
+      6
+    )
+  end as completion_rate,
+  round(avg(jr.customer_rating)::numeric, 2) as avg_rating,
+  count(jr.id) filter (where jr.customer_rating is not null)::bigint as rating_count,
+  round(avg(jr.customer_rating) filter (where jr.completed_at >= (now() - interval '30 days'))::numeric, 2) as avg_rating_30d,
+  count(jr.id) filter (where jr.customer_rating is not null and jr.completed_at >= (now() - interval '30 days'))::bigint as rating_count_30d
+from public.vendors v
+left join public.bookings b
+  on coalesce(
+    b.vendor_id,
+    (select t.vendor_id from public.technicians t where t.id = b.technician_id limit 1)
+  ) = v.id
+left join public.job_reports jr on jr.booking_id = b.id
+group by v.id;
+
+comment on view public.vendor_stats is
+  'Per-vendor metrics for admin/vendor; respects bookings RLS. Customers: use get_vendor_public_stats().';
+
+grant select on public.vendor_stats to authenticated;
+
+create or replace function public.get_vendor_public_stats(p_vendor_ids uuid[] default null)
+returns table (
+  vendor_id uuid,
+  total_jobs bigint,
+  acceptance_rate numeric,
+  completion_rate numeric,
+  avg_rating numeric,
+  rating_count bigint,
+  avg_rating_30d numeric,
+  rating_count_30d bigint
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    v.id as vendor_id,
+    count(b.id)::bigint as total_jobs,
+    case
+      when count(b.id) filter (
+        where b.status in (
+          'confirmed'::public.booking_status,
+          'accepted'::public.booking_status,
+          'in_progress'::public.booking_status,
+          'completed'::public.booking_status,
+          'cancelled'::public.booking_status
+        )
+      ) = 0
+      then null::numeric
+      else round(
+        (
+          count(b.id) filter (
+            where b.status in (
+              'accepted'::public.booking_status,
+              'in_progress'::public.booking_status,
+              'completed'::public.booking_status
+            )
+          )::numeric
+          / nullif(
+            count(b.id) filter (
+              where b.status in (
+                'confirmed'::public.booking_status,
+                'accepted'::public.booking_status,
+                'in_progress'::public.booking_status,
+                'completed'::public.booking_status,
+                'cancelled'::public.booking_status
+              )
+            )::numeric,
+            0::numeric
+          )
+        ),
+        6
+      )
+    end as acceptance_rate,
+    case
+      when count(b.id) filter (
+        where b.status in (
+          'accepted'::public.booking_status,
+          'in_progress'::public.booking_status,
+          'completed'::public.booking_status
+        )
+      ) = 0
+      then null::numeric
+      else round(
+        (
+          count(b.id) filter (where b.status = 'completed'::public.booking_status)::numeric
+          / nullif(
+            count(b.id) filter (
+              where b.status in (
+                'accepted'::public.booking_status,
+                'in_progress'::public.booking_status,
+                'completed'::public.booking_status
+              )
+            )::numeric,
+            0::numeric
+          )
+        ),
+        6
+      )
+    end as completion_rate,
+    round(avg(jr.customer_rating)::numeric, 2) as avg_rating,
+    count(jr.id) filter (where jr.customer_rating is not null)::bigint as rating_count,
+    round(avg(jr.customer_rating) filter (where jr.completed_at >= (now() - interval '30 days'))::numeric, 2) as avg_rating_30d,
+    count(jr.id) filter (where jr.customer_rating is not null and jr.completed_at >= (now() - interval '30 days'))::bigint as rating_count_30d
+  from public.vendors v
+  left join public.bookings b
+    on coalesce(
+      b.vendor_id,
+      (select t.vendor_id from public.technicians t where t.id = b.technician_id limit 1)
+    ) = v.id
+  left join public.job_reports jr on jr.booking_id = b.id
+  where (
+    public.is_admin()
+    or v.approval_status = 'approved'::public.vendor_approval_status
+  )
+    and (p_vendor_ids is null or cardinality(p_vendor_ids) = 0 or v.id = any(p_vendor_ids))
+  group by v.id;
+
+$$;
+
+comment on function public.get_vendor_public_stats(uuid[]) is
+  'Public vendor rating/job aggregates for marketplace (approved vendors). Admins may pass any vendor ids.';
+
+grant execute on function public.get_vendor_public_stats(uuid[]) to authenticated;
+
+-- ----- 20260808120000_harden_user_role_sync.sql -----
+create or replace function public.auth_user_signup_role_from_metadata(au auth.users)
+returns public.user_role
+language plpgsql
+immutable
+as $$
+declare
+  raw text;
+
+coerced public.user_role;
+
+begin
+  raw := nullif(trim(coalesce(au.raw_user_meta_data->>'role', '')), '');
+
+if raw is null then
+    return null;
+
+end if;
+
+coerced := public.coerce_user_role(raw);
+
+if coerced in ('admin'::public.user_role, 'support'::public.user_role) then
+    return null;
+
+end if;
+
+return coerced;
+
+end;
+
+$$;
+
+create or replace function public.apply_auth_user_to_public_users(au auth.users)
+returns void
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_email text;
+
+v_phone text;
+
+v_full_name text;
+
+v_role public.user_role;
+
+v_phone_verified timestamptz;
+
+v_email_verified timestamptz;
+
+begin
+  v_email := public.auth_user_email_for_public_sync(au);
+
+v_phone := public.auth_user_phone_e164(au);
+
+v_full_name := public.auth_user_full_name(au);
+
+v_role := public.auth_user_signup_role_from_metadata(au);
+
+v_phone_verified := public.auth_user_phone_verified_at(au);
+
+v_email_verified := public.auth_user_email_verified_at(au);
+
+perform set_config('oorjaman.auth_sync', 'on', true);
+
+insert into public.users (
+    id,
+    email,
+    full_name,
+    phone,
+    role,
+    phone_verified_at,
+    email_verified_at
+  )
+  values (
+    au.id,
+    v_email,
+    v_full_name,
+    v_phone,
+    coalesce(v_role, 'customer'::public.user_role),
+    v_phone_verified,
+    v_email_verified
+  )
+  on conflict (id) do update set
+    email = coalesce(excluded.email, public.users.email),
+    full_name = coalesce(excluded.full_name, public.users.full_name),
+    phone = coalesce(excluded.phone, public.users.phone),
+    role = public.users.role,
+    phone_verified_at = coalesce(excluded.phone_verified_at, public.users.phone_verified_at),
+    email_verified_at = coalesce(excluded.email_verified_at, public.users.email_verified_at),
+    updated_at = now();
+
+perform set_config('oorjaman.auth_sync', 'off', true);
+
+end;
+
+$$;
+
+revoke all on function public.auth_user_signup_role_from_metadata(auth.users) from public;
+
+revoke all on function public.apply_auth_user_to_public_users(auth.users) from public;
+
+-- ----- 20260808120500_job_photos_private_bucket.sql -----
+update storage.buckets set public = false where id = 'job-photos';
+
+-- ----- 20260808121000_ensure_auth_email_sync_fn.sql -----
+create or replace function public.auth_user_email_for_public_sync(au auth.users)
+returns text
+language sql
+immutable
+as $$
+  select case
+    when nullif(lower(trim(coalesce(au.email, ''))), '') like '%@oorjaman-dummy.test' then null
+    else nullif(lower(trim(coalesce(au.email, ''))), '')
+  end;
+
+$$;
+
 -- End of schema (generated)

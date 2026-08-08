@@ -15,18 +15,7 @@ type PushTokenRow = {
   expo_push_token: string;
 };
 
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-push-dispatch-secret",
-};
-
-function json(body: Record<string, unknown>, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
+import { corsHeaders as resolveCors } from "../_shared/cors.ts";
 
 function backoffMinutes(attempt: number): number {
   if (attempt <= 1) return 2;
@@ -50,8 +39,15 @@ function isAuthorized(req: Request, dispatchSecret: string | undefined): boolean
 }
 
 Deno.serve(async (req: Request) => {
+  const cors = resolveCors(req);
+  const json = (body: Record<string, unknown>, status = 200): Response =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
   if (req.method !== "POST") {
     return json({ ok: false, error: "Method not allowed" }, 405);

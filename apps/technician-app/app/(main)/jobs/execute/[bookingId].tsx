@@ -15,7 +15,12 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useFocusEffect, useNavigation } from "expo-router";
 import { bookingApi, normalizeServiceOtpCode, queryKeys, technicianApi } from "@oorjaman/api";
 import type { BookingRow, Json } from "@oorjaman/api";
-import { readBookingOpsMeta, readBookingRecipientMeta } from "@oorjaman/api";
+import {
+  createSignedJobEvidenceUrl,
+  createSignedJobEvidenceUrlMap,
+  readBookingOpsMeta,
+  readBookingRecipientMeta,
+} from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -189,11 +194,43 @@ export default function JobExecutionWizardScreen() {
   }, [resumed, b?.actual_start, b?.id]);
 
   const [safety, setSafety] = useState(() => emptySafetyRecord());
+  // Photo state holds private-bucket storage PATHS; signed URLs below are for display only.
   const [startSelfieUrl, setStartSelfieUrl] = useState<string | null>(null);
   const [beforeUrls, setBeforeUrls] = useState<string[]>([]);
   const [afterUrls, setAfterUrls] = useState<string[]>([]);
+  const [photoSignedUrls, setPhotoSignedUrls] = useState<Record<string, string>>({});
+  const [selfieSignedUrl, setSelfieSignedUrl] = useState<string | null>(null);
   const [issueNotes, setIssueNotes] = useState("");
   const [uploading, setUploading] = useState<"before" | "after" | "selfie" | null>(null);
+
+  useEffect(() => {
+    if (!supabase) return;
+    const missing = [...beforeUrls, ...afterUrls].filter((p) => p && !photoSignedUrls[p]);
+    if (missing.length === 0) return;
+    let cancelled = false;
+    void createSignedJobEvidenceUrlMap(supabase, missing).then((map) => {
+      if (!cancelled && Object.keys(map).length > 0) {
+        setPhotoSignedUrls((prev) => ({ ...prev, ...map }));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [beforeUrls, afterUrls, photoSignedUrls]);
+
+  useEffect(() => {
+    if (!supabase || !startSelfieUrl) {
+      setSelfieSignedUrl(null);
+      return;
+    }
+    let cancelled = false;
+    void createSignedJobEvidenceUrl(supabase, startSelfieUrl).then((url) => {
+      if (!cancelled) setSelfieSignedUrl(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [startSelfieUrl]);
 
   const stepKey = STEPS[step] ?? "safety";
   const modalHeader = useModalStackHeader({
@@ -365,8 +402,8 @@ export default function JobExecutionWizardScreen() {
     if (!uri) return;
     try {
       setUploading("selfie");
-      const publicUrl = await uploadJobPhotoFromUri(supabase, bookingId, "start_selfie", uri);
-      setStartSelfieUrl(publicUrl);
+      const storagePath = await uploadJobPhotoFromUri(supabase, bookingId, "start_selfie", uri);
+      setStartSelfieUrl(storagePath);
     } catch (e) {
       Alert.alert("Selfie upload failed", e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -589,8 +626,8 @@ export default function JobExecutionWizardScreen() {
               Take a clear front-camera selfie on site before starting the job timer. This is required once per
               visit.
             </Text>
-            {startSelfieUrl ? (
-              <Image source={{ uri: startSelfieUrl }} style={styles.selfiePreview} accessibilityLabel="Start selfie" />
+            {selfieSignedUrl ? (
+              <Image source={{ uri: selfieSignedUrl }} style={styles.selfiePreview} accessibilityLabel="Start selfie" />
             ) : null}
             <View style={styles.photoActions}>
               <Button
@@ -637,9 +674,11 @@ export default function JobExecutionWizardScreen() {
               </Button>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.thumbRow}>
-              {beforeUrls.map((uri) => (
-                <Image key={uri} source={{ uri }} style={styles.thumb} />
-              ))}
+              {beforeUrls.map((path) =>
+                photoSignedUrls[path] ? (
+                  <Image key={path} source={{ uri: photoSignedUrls[path] }} style={styles.thumb} />
+                ) : null,
+              )}
             </ScrollView>
           </Card>
         ) : null}
@@ -661,9 +700,11 @@ export default function JobExecutionWizardScreen() {
               </Button>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.thumbRow}>
-              {afterUrls.map((uri) => (
-                <Image key={uri} source={{ uri }} style={styles.thumb} />
-              ))}
+              {afterUrls.map((path) =>
+                photoSignedUrls[path] ? (
+                  <Image key={path} source={{ uri: photoSignedUrls[path] }} style={styles.thumb} />
+                ) : null,
+              )}
             </ScrollView>
           </Card>
         ) : null}

@@ -34,6 +34,38 @@ const admin = createClient(url, serviceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** True for transient GoTrue/gateway failures worth retrying (network errors, 5xx). */
+function isRetryableAuthError(err) {
+  if (!err) return false;
+  if (err.__isAuthError && (err.status == null || err.status >= 500)) return true;
+  const name = String(err.name ?? "");
+  if (name.includes("AuthRetryableFetchError")) return true;
+  const msg = String(err.message ?? "").toLowerCase();
+  return msg.includes("fetch failed") || msg.includes("network") || msg.includes("timeout");
+}
+
+/**
+ * Run an admin-auth call with backoff. Supabase Auth returns transient 5xx / retryable
+ * fetch errors under load; without this a single blip aborts the whole seed run.
+ */
+async function withAuthRetry(label, fn, attempts = 5) {
+  let lastErr;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (i === attempts || !isRetryableAuthError(err)) throw err;
+      const delayMs = Math.min(8000, 500 * 2 ** (i - 1));
+      console.warn(`  ${label}: transient error (attempt ${i}/${attempts}); retrying in ${delayMs}ms…`);
+      await sleep(delayMs);
+    }
+  }
+  throw lastErr;
+}
+
 /** Must stay in sync with `dummyEmailFromPhoneE164` in `@oorjaman/api` auth-api.ts */
 function dummyEmailFromPhoneE164(phone) {
   const digits = phone.replace(/\D/g, "");
@@ -105,7 +137,9 @@ async function findAuthUserIdByPhone(phone) {
   const wantEmail = dummyEmailFromPhoneE164(phone).toLowerCase();
   let page = 1;
   for (;;) {
-    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    const { data, error } = await withAuthRetry(`listUsers p${page}`, () =>
+      admin.auth.admin.listUsers({ page, perPage: 200 }),
+    );
     if (error) throw error;
     const hit = data.users.find((u) => {
       if (u.phone && phonesMatch(phone, u.phone)) return true;
@@ -133,10 +167,14 @@ async function ensureAuthUser({ phone, role, fullName, email: displayEmail }) {
   let uid = await findAuthUserIdByPhone(phone);
 
   if (uid) {
-    const { error } = await admin.auth.admin.updateUserById(uid, authPatch);
+    const { error } = await withAuthRetry(`updateUserById ${phone}`, () =>
+      admin.auth.admin.updateUserById(uid, authPatch),
+    );
     if (error) throw error;
   } else {
-    const { data, error } = await admin.auth.admin.createUser(authPatch);
+    const { data, error } = await withAuthRetry(`createUser ${phone}`, () =>
+      admin.auth.admin.createUser(authPatch),
+    );
     if (!error && data?.user?.id) {
       uid = data.user.id;
     } else if (
@@ -146,7 +184,9 @@ async function ensureAuthUser({ phone, role, fullName, email: displayEmail }) {
     ) {
       uid = await findAuthUserIdByPhone(phone);
       if (!uid) throw error;
-      const { error: uerr } = await admin.auth.admin.updateUserById(uid, authPatch);
+      const { error: uerr } = await withAuthRetry(`updateUserById ${phone}`, () =>
+        admin.auth.admin.updateUserById(uid, authPatch),
+      );
       if (uerr) throw uerr;
     } else if (error) {
       throw error;
@@ -289,11 +329,37 @@ async function main() {
     contact_phone: def.phone,
   });
 
-  const { error: upsertVendorsErr } = await admin.from("vendors").upsert(
-    [vendorSeedRow(v1, vendor1), vendorSeedRow(v2, vendor2)],
-    { onConflict: "user_id" },
-  );
-  if (upsertVendorsErr) throw upsertVendorsErr;
+  // Vendor approval/review columns are protected by `vendors_guard_approval_writes`
+  // (BEFORE UPDATE), which only allows changes when public.is_admin(). The service-role
+  // seed is not an admin session, so we set approval fields on INSERT only (the guard is
+  // update-only) and, for already-seeded vendors, update just the safe display fields.
+  const vendorPairs = [
+    [v1, vendor1],
+    [v2, vendor2],
+  ];
+  const { data: existingVendorRows, error: existingVendorErr } = await admin
+    .from("vendors")
+    .select("user_id")
+    .in("user_id", [v1, v2]);
+  if (existingVendorErr) throw existingVendorErr;
+  const existingVendorUserIds = new Set((existingVendorRows ?? []).map((r) => r.user_id));
+
+  const vendorsToInsert = vendorPairs
+    .filter(([userId]) => !existingVendorUserIds.has(userId))
+    .map(([userId, def]) => vendorSeedRow(userId, def));
+  if (vendorsToInsert.length > 0) {
+    const { error } = await admin.from("vendors").insert(vendorsToInsert);
+    if (error) throw error;
+  }
+
+  for (const [userId, def] of vendorPairs) {
+    if (!existingVendorUserIds.has(userId)) continue;
+    const { error } = await admin
+      .from("vendors")
+      .update({ business_name: def.fullName, contact_phone: def.phone })
+      .eq("user_id", userId);
+    if (error) throw error;
+  }
 
   const { data: venRows, error: vq } = await admin.from("vendors").select("id,user_id").in("user_id", [v1, v2]);
   if (vq) throw vq;

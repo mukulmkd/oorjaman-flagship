@@ -1,5 +1,7 @@
 # Marketing site + store launch checklist
 
+> **Master status tracker: [`PROD_CHECKLIST.md`](../PROD_CHECKLIST.md) (repo root).** That file owns overall launch status/sign-off; this doc is the marketing/store **runbook detail**. Update status there, follow steps here.
+
 Operational checklist for shipping **oorjaman.com** and store-facing legal URLs. Detail lives in [SEO.md](SEO.md), [DEPLOYMENT.md](DEPLOYMENT.md), and [EMAILS.md](EMAILS.md).
 
 ---

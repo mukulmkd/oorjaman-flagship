@@ -4,6 +4,8 @@ Monorepo-wide guides, checklists, and generated Word test specs. **Default locat
 
 Topic-specific how-tos (push setup, local APK, realtime) remain in [`docs/`](../docs/).
 
+> **Going live?** [`PROD_CHECKLIST.md`](../PROD_CHECKLIST.md) (repo root) is the **master launch checklist & status tracker**. The docs below are the runbook detail it links into — keep them; update launch status there.
+
 ## Run & deploy
 
 | Doc | Purpose |

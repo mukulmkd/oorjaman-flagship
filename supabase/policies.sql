@@ -262,11 +262,14 @@ using (
 
 alter table public.platform_settings enable row level security;
 
+-- SECURITY_REVIEW M2 (20260808122000): direct reads are admin-only; non-admin clients use
+-- public.get_booking_routing_defaults() (SECURITY DEFINER) for the booking-routing fields.
 drop policy if exists platform_settings_select_authenticated on public.platform_settings;
+drop policy if exists platform_settings_select_admin on public.platform_settings;
 
-create policy platform_settings_select_authenticated
+create policy platform_settings_select_admin
 on public.platform_settings for select to authenticated
-using (true);
+using (public.is_admin());
 
 drop policy if exists platform_settings_update_admin on public.platform_settings;
 
@@ -785,11 +788,29 @@ using (
   )
 );
 
+-- SECURITY_REVIEW M1 (20260808123000): inserts scoped to the actor (admin / booking participant /
+-- approved vendor emitting an admin-audience booking event / customer AMC ping) instead of open.
 drop policy if exists notification_events_insert_authenticated on public.notification_events;
+drop policy if exists notification_events_insert_scoped on public.notification_events;
 
-create policy notification_events_insert_authenticated
+create policy notification_events_insert_scoped
 on public.notification_events for insert to authenticated
-with check (true);
+with check (
+  public.is_admin()
+  or (booking_id is not null and public.is_booking_participant(booking_id))
+  or (
+    booking_id is not null
+    and recipient_audience = 'admin'
+    and recipient_vendor_id is null
+    and public.is_approved_vendor_user()
+  )
+  or (
+    booking_id is null
+    and recipient_vendor_id is null
+    and recipient_audience = 'admin'
+    and event_type = 'admin_amc_awaiting_partner'
+  )
+);
 
 drop policy if exists notification_events_update_admin on public.notification_events;
 
@@ -2162,6 +2183,71 @@ using (
         'completed'::public.booking_status
       )
       and t.doc_passport_url = storage.objects.name
+  )
+);
+
+-- ----- 20260744200000_job_photos_storage_bucket.sql -----
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'job-photos',
+  'job-photos',
+  true,
+  10485760,
+  array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists job_photos_public_read on storage.objects;
+
+drop policy if exists job_photos_technician_insert on storage.objects;
+
+create policy job_photos_public_read
+on storage.objects for select
+using (bucket_id = 'job-photos');
+
+create policy job_photos_technician_insert
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'job-photos'
+  and (
+    public.is_admin()
+    or (
+      (storage.foldername(name))[1] is not null
+      and exists (
+        select 1
+        from public.bookings b
+        where b.id::text = (storage.foldername(name))[1]
+          and b.technician_id is not null
+          and b.technician_id = public.my_technician_id()
+      )
+    )
+  )
+);
+
+drop policy if exists job_photos_public_read on storage.objects;
+
+drop policy if exists job_photos_scoped_read on storage.objects;
+
+create policy job_photos_scoped_read
+on storage.objects for select to authenticated
+using (
+  bucket_id = 'job-photos'
+  and (storage.foldername(name))[1] is not null
+  and (
+    public.is_admin()
+    or exists (
+      select 1
+      from public.bookings b
+      where b.id::text = (storage.foldername(name))[1]
+        and (
+          (b.technician_id is not null and b.technician_id = public.my_technician_id())
+          or b.customer_id = public.my_customer_id()
+          or (b.vendor_id is not null and b.vendor_id = public.my_vendor_id())
+        )
+    )
   )
 );
 

@@ -25,17 +25,7 @@ type ChannelSettingRow = {
   enabled_live: boolean;
 };
 
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-function json(body: Record<string, unknown>, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
+import { corsHeaders as resolveCors } from "../_shared/cors.ts";
 
 function asChannels(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -155,8 +145,15 @@ async function deliverWhatsappAdapter(args: {
 }
 
 Deno.serve(async (req: Request) => {
+  const cors = resolveCors(req);
+  const json = (body: Record<string, unknown>, status = 200): Response =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
   if (req.method !== "POST") {
     return json({ ok: false, error: "Method not allowed" }, 405);

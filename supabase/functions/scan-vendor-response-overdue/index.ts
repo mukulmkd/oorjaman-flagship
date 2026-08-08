@@ -1,18 +1,7 @@
 /// <reference path="../supabase-edge.d.ts" />
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-cron-dispatch-secret, x-push-dispatch-secret",
-};
-
-function json(body: Record<string, unknown>, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
+import { corsHeaders as resolveCors } from "../_shared/cors.ts";
 
 function isAuthorized(req: Request): boolean {
   const cronSecret = Deno.env.get("CRON_DISPATCH_SECRET") ?? Deno.env.get("PUSH_DISPATCH_SECRET");
@@ -31,8 +20,15 @@ function isAuthorized(req: Request): boolean {
 }
 
 Deno.serve(async (req: Request) => {
+  const cors = resolveCors(req);
+  const json = (body: Record<string, unknown>, status = 200): Response =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
   if (req.method !== "POST") {
     return json({ ok: false, error: "Method not allowed" }, 405);

@@ -1,0 +1,2 @@
+# SECURITY_REVIEW H3 baseline dumps land here (prod_baseline_<date>.sql).
+# Generate with: npm run db:baseline   (see scripts/dump-db-baseline.mjs)
