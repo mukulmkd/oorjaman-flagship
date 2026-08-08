@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { LegalDocumentView } from "@/components/LegalDocumentView";
+import { MarketingPage } from "@/components/MarketingPage";
 import { getLegalDocument, legalDocuments } from "@/lib/legal-docs";
 import { buildPageMetadata } from "@/lib/seo";
 
@@ -26,10 +27,8 @@ export default async function LegalSlugPage({ params }: Props) {
   if (!doc) notFound();
 
   return (
-    <div className="om-section">
-      <div className="om-container">
-        <LegalDocumentView doc={doc} />
-      </div>
-    </div>
+    <MarketingPage title={doc.title} lead={doc.description} eyebrow="Legal">
+      <LegalDocumentView doc={doc} hideTitle />
+    </MarketingPage>
   );
 }

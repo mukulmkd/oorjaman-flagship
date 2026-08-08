@@ -17,6 +17,7 @@ Topic-specific how-tos (push setup, local APK, realtime) remain in [`docs/`](../
 | [ENVIRONMENT.md](ENVIRONMENT.md) | All env vars: local / UAT / production |
 | [SECURITY-VERCEL.md](SECURITY-VERCEL.md) | Portal + Supabase security on Vercel |
 | [SEO.md](SEO.md) | Marketing site SEO & GoDaddy deploy |
+| [LAUNCH.md](LAUNCH.md) | Soft-launch checklist (marketing + stores + account deletion) |
 
 ## Ops & billing
 
@@ -27,12 +28,12 @@ Topic-specific how-tos (push setup, local APK, realtime) remain in [`docs/`](../
 | [TODO.md](TODO.md) | Dated release & ops checklist |
 | [GOOD_ENAHNCEMENTS.md](GOOD_ENAHNCEMENTS.md) | Enhancement backlog notes |
 
-## UAT test guides (Word)
-
-Non-technical tester documents. Regenerate after flow or UAT URL changes:
+## Architecture & test guides (Word)
 
 | File | Regenerate |
 | --- | ---------- |
+| [OorjaMan-Architecture.docx](OorjaMan-Architecture.docx) | `npm run docs:architecture` |
+| [OorjaMan-Costing.docx](OorjaMan-Costing.docx) | `npm run docs:costing` |
 | [OorjaMan-Functional-Test-Spec.docx](OorjaMan-Functional-Test-Spec.docx) | `npm run docs:functional-test` |
 | [OorjaMan-E2E-Test-Guide.docx](OorjaMan-E2E-Test-Guide.docx) | `npm run docs:uat-guide` |
 

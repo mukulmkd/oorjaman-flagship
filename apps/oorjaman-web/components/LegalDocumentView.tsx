@@ -1,13 +1,19 @@
 import type { LegalDocument } from "@/lib/legal-docs";
 import styles from "./legal-document.module.css";
 
-export function LegalDocumentView({ doc }: { doc: LegalDocument }) {
+type Props = {
+  doc: LegalDocument;
+  /** When true, skip the page title/lead (used under MarketingPage). */
+  hideTitle?: boolean;
+};
+
+export function LegalDocumentView({ doc, hideTitle = false }: Props) {
   return (
     <article className={styles.article}>
       <header className={styles.header}>
-        <h1 className="om-h1">{doc.title}</h1>
+        {hideTitle ? null : <h1 className="om-h1">{doc.title}</h1>}
         <p className={styles.meta}>Last updated: {doc.lastUpdated}</p>
-        <p className="om-lead">{doc.description}</p>
+        {hideTitle ? null : <p className="om-lead">{doc.description}</p>}
       </header>
       <nav className={styles.toc} aria-label="On this page">
         <p className={styles.tocTitle}>Contents</p>

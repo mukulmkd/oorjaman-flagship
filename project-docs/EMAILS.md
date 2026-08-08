@@ -10,10 +10,10 @@ Single place to review **public addresses**, **UAT seed personas**, **system sen
 
 | Address | Status | Owner (TBD) | Used for | Code / doc refs |
 |---------|--------|-------------|----------|-----------------|
-| **support@oorjaman.com** | ✅ | Support | Customer help, bookings, escalations, account deletion (email path) | `apps/oorjaman-web/lib/site.ts`, legal docs, `/contact` |
-| **privacy@oorjaman.com** | ✅ | Privacy / DPO | Data access, correction, deletion, privacy complaints | `apps/oorjaman-web/lib/site.ts`, privacy policy |
-| **legal@oorjaman.com** | ✅ | Legal | Terms, partner agreements, compliance | `apps/oorjaman-web/lib/site.ts`, legal pages |
-| **info@oorjaman.com** | ✅ | Marketing / ops | General company contact; brand print default | `packages/utils/src/brand-print/types.ts`, `scripts/generate-brand-print.mjs` |
+| **support@oorjaman.com** | ✅ Live | Support | Customer help, bookings, escalations, account deletion (email path) | `apps/oorjaman-web/lib/site.ts`, legal docs, `/contact` |
+| **privacy@oorjaman.com** | ✅ Live | Privacy / DPO | Data access, correction, deletion, privacy complaints | `apps/oorjaman-web/lib/site.ts`, privacy policy |
+| **legal@oorjaman.com** | ✅ Live | Legal | Terms, partner agreements, compliance | `apps/oorjaman-web/lib/site.ts`, legal pages |
+| **info@oorjaman.com** | ✅ Live | Marketing / ops | General company contact; brand print default | `packages/utils/src/brand-print/types.ts`, `scripts/generate-brand-print.mjs` |
 
 **Staff naming (print / collateral):** `firstname.lastname@oorjaman.com` — see `suggestBrandEmailFromName()` in `packages/utils/src/brand-print/types.ts`.  
 Legacy `@oorjaman.in` in UAT seeds is normalized to `@oorjaman.com` for print (`normalizeBrandEmail()`).
@@ -172,20 +172,20 @@ Wrong MX is the most common reason `support@` never arrives.
 
 | Field | Choice |
 |-------|--------|
-| **Inbound (receive)** | ⬜ Zoho · ⬜ ImprovMX · ⬜ Cloudflare · ⬜ GoDaddy cPanel · ⬜ Other: ___ |
-| **Outbound (human reply)** | ⬜ Same as inbound · ⬜ Gmail send-as · ⬜ Other: ___ |
-| **Transactional (`noreply@`)** | ⬜ Resend · ⬜ Supabase default · ⬜ Other: ___ |
-| **Forward-to / admin inbox** | ⬜ ___ |
-| **Date decided** | ⬜ ___ |
+| **Inbound (receive)** | ✅ Production mail live for public addresses (Aug 2026) — provider retained by ops |
+| **Outbound (human reply)** | ✅ Same production mailboxes |
+| **Transactional (`noreply@`)** | ⬜ Resend · ⬜ Supabase default · ⬜ Other: ___ (confirm before auth email cutover) |
+| **Forward-to / admin inbox** | ✅ support@ / privacy@ / legal@ / info@ receiving |
+| **Date decided** | ✅ 2026-08-08 (founder confirmed live) |
 
 ---
 
 ## Review checklist (when you pick this up)
 
-- [ ] Choose **free setup option(s)** from section above; fill **Decision log**
-- [ ] Confirm final list of **production** `@oorjaman.com` mailboxes and owners
-- [ ] Set up **MX / SPF / DKIM** for chosen provider (GoDaddy DNS or Cloudflare)
-- [ ] Set up inboxes or forwards for support, privacy, legal, info
+- [x] Choose **free setup option(s)** from section above; fill **Decision log**
+- [x] Confirm final list of **production** `@oorjaman.com` mailboxes and owners
+- [x] Set up **MX / SPF / DKIM** for chosen provider (GoDaddy DNS or Cloudflare)
+- [x] Set up inboxes or forwards for support, privacy, legal, info
 - [ ] Decide **noreply@** + **billing@** + **partners@** before GoDaddy prod cutover
 - [ ] Align **seed script** staff emails to `@oorjaman.com` if desired
 - [ ] Configure **Supabase Auth** email templates (prod) — no dummy domain

@@ -1,0 +1,19 @@
+.link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+}
+
+.markRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  object-fit: contain;
+  flex-shrink: 0;
+}

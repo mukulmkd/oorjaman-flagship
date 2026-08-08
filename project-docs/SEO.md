@@ -31,14 +31,16 @@ This document is the **runbook and backlog** for the marketing site. Revisit whe
 - [ ] **HTTPS:** Enable SSL in GoDaddy (Let’s Encrypt or managed cert)
 - [ ] **Redirect:** `www` → `https://oorjaman.com` (non-www canonical) - GoDaddy forwarding or hosting rules
 - [ ] **Build:** `npm run build:godaddy -w oorjaman-web` → upload `apps/oorjaman-web/out/` to `public_html`
-- [ ] **Env (production):** `NEXT_PUBLIC_SITE_URL=https://oorjaman.com`
+- [ ] **Env (production):** `NEXT_PUBLIC_SITE_URL=https://oorjaman.com`, `NEXT_PUBLIC_DEPLOY_ENV=production`, `NEXT_PUBLIC_VENDOR_PORTAL_URL=https://vendor.oorjaman.com` (https only — never localhost)
 - [ ] **Env (customer app):** `EXPO_PUBLIC_SITE_URL=https://oorjaman.com`
-- [ ] **Email DNS:** Configure `support@`, `privacy@`, `legal@` on `@oorjaman.com` (or update addresses in `apps/oorjaman-web/lib/site.ts`)
+- [x] **Email DNS:** Configure `support@`, `privacy@`, `legal@` on `@oorjaman.com` (see [EMAILS.md](EMAILS.md) Decision log)
 - [ ] **Lawyer review** of all `/legal/*` copy (currently engineering drafts)
 - [ ] **App Store / Play Console** URLs → same legal pages on oorjaman.com
-- [ ] **Real store links** on `/download` when listings exist (`apps/oorjaman-web/lib/site.ts` → `APP_LINKS`)
+- [ ] **Store listing URLs:** set `NEXT_PUBLIC_APP_STORE_URL` + `NEXT_PUBLIC_PLAY_STORE_URL` when live; until then `/download` shows notify-via-email waitlist (no placeholder store buttons)
+- [x] **Account deletion:** in-app (Profile → Delete account) + email backup; policy at `/legal/account-deletion`
 - [ ] **Google Search Console** - add property `https://oorjaman.com`, submit sitemap `https://oorjaman.com/sitemap.xml`
 - [ ] **Bing Webmaster Tools** - optional, same sitemap
+- [ ] **Full launch checklist:** [LAUNCH.md](LAUNCH.md)
 
 ---
 
@@ -97,7 +99,7 @@ npm run build:godaddy -w oorjaman-web
 | **Analytics**                  | `layout.tsx` or third-party script                               | Plausible / GA4 - document in Cookie Policy                     |
 | **Google Business Profile**    | Off-site                                                         | Tie to registered entity address                                |
 | **Real pricing on web**        | Optional Supabase read                                           | Today pricing is narrative only                                 |
-| **Logo / favicon**             | `app/icon.tsx`, `public/`                                        | Replace gradient placeholder in header                          |
+| **Logo / favicon**             | `public/logo-*.png`, header `BrandLogo`                          | Synced via `brand:sync`; Plus Jakarta Sans + wordmark live      |
 | **Partner portal URL**         | `NEXT_PUBLIC_VENDOR_PORTAL_URL`                                  | `/partners` CTA — UAT: `https://oorjaman-vendor.vercel.app`; prod: `https://vendor.oorjaman.com` |
 | **Partner app legal links** | Same as customer                                                 | Point to same `publicLegalUrls`                                 |
 | **Structured data audit**      | [Rich Results Test](https://search.google.com/test/rich-results) | After each major release                                        |

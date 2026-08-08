@@ -1,0 +1,84 @@
+.page {
+  padding: 3.5rem 0 4.5rem;
+  background:
+    radial-gradient(ellipse 50% 40% at 50% 0%, rgb(84 144 72 / 0.12), transparent 70%),
+    var(--om-bg);
+}
+
+.inner {
+  max-width: 36rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1.75rem;
+}
+
+.icon {
+  width: 5.5rem;
+  height: 5.5rem;
+  object-fit: contain;
+}
+
+.tagline {
+  margin: 0.15rem 0 0;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--om-tagline);
+}
+
+.inner :global(.om-lead) {
+  margin-inline: auto;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.waitlist {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+  max-width: 32rem;
+}
+
+.waitlistLead {
+  margin: 0;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--om-muted);
+}
+
+.note {
+  font-size: 0.875rem;
+  color: var(--om-muted);
+  margin: 0;
+  max-width: 28rem;
+}
+
+.note code {
+  font-size: 0.8125rem;
+  background: var(--om-bg-alt);
+  padding: 0.15rem 0.4rem;
+  border-radius: 6px;
+}
+
+.legal {
+  margin-top: 1.75rem;
+  font-size: 0.9375rem;
+}

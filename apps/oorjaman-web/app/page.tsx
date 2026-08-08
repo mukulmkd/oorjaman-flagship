@@ -1,109 +1,192 @@
+import Image from "next/image";
 import Link from "next/link";
+import { BRAND_TAGLINE } from "@oorjaman/config";
 import { JsonLd } from "@/components/JsonLd";
+import { BrandWordmark } from "@/components/BrandWordmark";
+import { cityLandings } from "@/lib/cities";
+import { faqPageJsonLd } from "@/lib/faq";
 import { homeMetadata } from "@/lib/seo";
+import { customerStoreListingsLive } from "@/lib/site";
+import styles from "@/components/home.module.css";
 
 export const metadata = homeMetadata;
 
-const faqJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: [
-    {
-      "@type": "Question",
-      name: "What services does OorjaMan provide?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "One-time solar panel cleaning visits and annual maintenance (AMC) plans by system size, fulfilled by verified partners.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "How do I book a visit?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Download the OorjaMan customer app, register your site, pick a slot, and confirm transparent pricing before checkout.",
-      },
-    },
-  ],
-};
+const proof = [
+  { value: "App", label: "Book cleaning & AMC from your phone" },
+  { value: "AMC", label: "Recurring plans alongside one-time visits" },
+  { value: "1 hr", label: "Partner acceptance window on new bookings" },
+  { value: "Live", label: "Visit tracking while a job is active" },
+];
+
+const services = [
+  {
+    href: "/services/panel-cleaning",
+    index: "01",
+    title: "Panel cleaning",
+    body: "One-time rooftop visits sized to your system capacity — clear pricing before you pay.",
+  },
+  {
+    href: "/services/amc-maintenance",
+    index: "02",
+    title: "AMC maintenance",
+    body: "Annual plans with scheduled visits so yield stays steady through dust and seasons.",
+  },
+  {
+    href: "/partners",
+    index: "03",
+    title: "Partner network",
+    body: "Verified vendors and technicians trained for safe solar O&M — grow with the platform.",
+  },
+];
 
 export default function HomePage() {
+  const storesLive = customerStoreListingsLive();
+  const primaryCta = storesLive ? "Download the app" : "Get notified";
+
   return (
     <>
-      <JsonLd data={faqJsonLd} />
-      <section className="om-section" style={{ paddingTop: "3rem" }}>
-        <div className="om-container">
-          <p style={{ color: "var(--om-primary)", fontWeight: 600, margin: "0 0 0.5rem" }}>Solar rooftop care</p>
-          <h1 className="om-h1">Keep every kilowatt-hour counting</h1>
-          <p className="om-lead">
-            OorjaMan connects homeowners and businesses with verified partners for professional panel cleaning,
-            inspections, and AMC plans - with clear pricing and real-time visit tracking.
+      <JsonLd data={faqPageJsonLd()} />
+
+      <section className={styles.hero} aria-label="OorjaMan">
+        <div className={styles.heroGlow} aria-hidden />
+        <div className={`om-container ${styles.heroInner}`}>
+          <p className={`${styles.brandLine} om-rise`}>
+            <BrandWordmark size="hero" tone="onDark" />
           </p>
-          <p style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+          <h1 className={`${styles.headline} om-rise om-rise-delay-1`}>
+            Comprehensive solar care
+            <span className={styles.headlineBreak}> for every rooftop</span>
+          </h1>
+          <p className={`${styles.support} om-rise om-rise-delay-2`}>
+            Professional panel cleaning and AMC — booked in minutes, fulfilled by verified partners, tracked in real
+            time.
+          </p>
+          <p className={`${styles.ctas} om-rise om-rise-delay-3`}>
             <Link href="/download" className="om-btn om-btn--primary">
-              Download the app
+              {primaryCta}
             </Link>
-            <Link href="/how-it-works" className="om-btn om-btn--outline">
+            <Link href="/how-it-works" className="om-btn om-btn--ghost-light">
               How it works
             </Link>
           </p>
         </div>
       </section>
 
-      <section className="om-section om-section--alt">
-        <div className="om-container">
-          <h2 className="om-h2">Why OorjaMan</h2>
-          <div className="om-grid-3">
-            <div className="om-card">
-              <h3 style={{ marginTop: 0 }}>Verified partners</h3>
-              <p style={{ margin: 0, color: "var(--om-muted)" }}>
-                Vetted vendors and technicians trained for safe rooftop solar work.
-              </p>
+      <section className={styles.proof} aria-label="OorjaMan at a glance">
+        <div className={`om-container ${styles.proofGrid}`}>
+          {proof.map((item) => (
+            <div key={item.label} className={styles.proofItem}>
+              <p className={styles.proofValue}>{item.value}</p>
+              <p className={styles.proofLabel}>{item.label}</p>
             </div>
-            <div className="om-card">
-              <h3 style={{ marginTop: 0 }}>Transparent pricing</h3>
-              <p style={{ margin: 0, color: "var(--om-muted)" }}>
-                Package prices by kW band plus city-tier surcharges - shown before you pay.
-              </p>
-            </div>
-            <div className="om-card">
-              <h3 style={{ marginTop: 0 }}>Track every visit</h3>
-              <p style={{ margin: 0, color: "var(--om-muted)" }}>
-                Booking status, technician progress, and visit evidence in one place.
-              </p>
-            </div>
-          </div>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.mission}>
+        <div className={`om-container ${styles.missionInner}`}>
+          <Image
+            src="/logo-icon.png"
+            alt=""
+            width={64}
+            height={64}
+            className={styles.missionIcon}
+          />
+          <p className={styles.missionTagline}>{BRAND_TAGLINE}</p>
+          <h2 className={styles.missionTitle}>Solar care that stays out of your way</h2>
+          <p className={styles.missionBody}>
+            OorjaMan is built for homeowners and businesses who want reliable rooftop output without chasing vendors.
+            Book once, track the visit, keep every kilowatt-hour counting.
+          </p>
+          <Link href="/about" className="om-btn om-btn--outline">
+            Get to know us
+          </Link>
         </div>
       </section>
 
       <section className="om-section">
         <div className="om-container">
-          <h2 className="om-h2">Services</h2>
-          <div className="om-grid-3">
-            <Link href="/services/panel-cleaning" className="om-card" style={{ textDecoration: "none", color: "inherit" }}>
-              <h3 style={{ marginTop: 0 }}>Panel cleaning</h3>
-              <p style={{ margin: 0, color: "var(--om-muted)" }}>One-time visits sized to your rooftop capacity.</p>
-            </Link>
-            <Link href="/services/amc-maintenance" className="om-card" style={{ textDecoration: "none", color: "inherit" }}>
-              <h3 style={{ marginTop: 0 }}>AMC maintenance</h3>
-              <p style={{ margin: 0, color: "var(--om-muted)" }}>Annual plans with scheduled visits per contract.</p>
-            </Link>
-            <Link href="/partners" className="om-card" style={{ textDecoration: "none", color: "inherit" }}>
-              <h3 style={{ marginTop: 0 }}>Become a partner</h3>
-              <p style={{ margin: 0, color: "var(--om-muted)" }}>Grow your solar O&amp;M business on the platform.</p>
-            </Link>
+          <div className={styles.sectionHead}>
+            <p className="om-eyebrow">Why OorjaMan</p>
+            <h2 className="om-h2">Clean panels. Clear pricing. Real visits.</h2>
+          </div>
+          <div className={styles.featureList}>
+            <div className={styles.featureItem}>
+              <h3>Verified partners</h3>
+              <p>Vetted vendors and technicians trained for safe rooftop solar work.</p>
+            </div>
+            <div className={styles.featureItem}>
+              <h3>Transparent pricing</h3>
+              <p>Package prices by kW band plus city-tier surcharges — shown before you pay.</p>
+            </div>
+            <div className={styles.featureItem}>
+              <h3>Track every visit</h3>
+              <p>Booking status, technician progress, and completion evidence in one place.</p>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="om-section om-section--alt">
-        <div className="om-container" style={{ textAlign: "center" }}>
+      <section className={`om-section om-section--alt ${styles.services}`}>
+        <div className="om-container">
+          <div className={styles.sectionHead}>
+            <p className="om-eyebrow">Services</p>
+            <h2 className="om-h2">Solutions tailored to each rooftop</h2>
+            <p className={styles.sectionLead}>
+              Innovation, efficiency, and reliability — without the clutter. Start with a visit or an annual plan.
+            </p>
+          </div>
+          <div className={styles.serviceRows}>
+            {services.map((service) => (
+              <Link key={service.href} href={service.href} className={styles.serviceRow}>
+                <span className={styles.serviceIndex}>{service.index}</span>
+                <span className={styles.serviceCopy}>
+                  <span className={styles.serviceTitle}>{service.title}</span>
+                  <span className={styles.serviceBody}>{service.body}</span>
+                </span>
+                <span className={styles.serviceArrow} aria-hidden>
+                  →
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.cities}>
+        <div className="om-container">
+          <div className={styles.sectionHead}>
+            <p className="om-eyebrow">Coverage</p>
+            <h2 className="om-h2">Cities we are expanding into</h2>
+            <p className={styles.sectionLead}>
+              Local pages for major metros. Service availability depends on verified partner coverage at your address —
+              confirm in the app when you book.
+            </p>
+          </div>
+          <ul className={styles.cityList}>
+            {cityLandings.map((city) => (
+              <li key={city.slug}>
+                <Link href={`/cities/${city.slug}`} className={styles.cityLink}>
+                  <span className={styles.cityName}>{city.name}</span>
+                  <span className={styles.cityState}>{city.state}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className={styles.citiesMore}>
+            <Link href="/cities">View all cities</Link>
+          </p>
+        </div>
+      </section>
+
+      <section className={styles.ctaBand}>
+        <div className="om-container">
           <h2 className="om-h2">Ready to book?</h2>
-          <p className="om-lead" style={{ marginInline: "auto" }}>
-            Install the OorjaMan customer app on iOS or Android.
+          <p className={styles.ctaLead}>
+            Install the OorjaMan customer app on iOS or Android and book your first visit.
           </p>
           <Link href="/download" className="om-btn om-btn--primary">
-            Get the app
+            {storesLive ? "Get the app" : "Get notified"}
           </Link>
         </div>
       </section>

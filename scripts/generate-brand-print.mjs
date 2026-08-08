@@ -47,7 +47,7 @@ const C = {
 
 const CONTACT = {
   company: "OorjaMan",
-  companyLegal: "OorjaMan Energy Solutions Pvt. Ltd.",
+  companyLegal: "OORJA MAN LLP",
   descriptor: "Solar panel cleaning & preventive care",
   tagline: "WE CLEAN. YOU GENERATE.",
   phone: "+91 98765 43210",
@@ -56,7 +56,7 @@ const CONTACT = {
   url: "https://oorjaman.com",
   address: "Bengaluru, Karnataka, India",
   cardName: "Your Name",
-  cardTitle: "Director",
+  cardTitle: "Designated Partner",
 };
 
 function hex(h) {

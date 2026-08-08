@@ -160,6 +160,8 @@ Root `android:apk:*` scripts are thin wrappers → `npm run android:apk:* -w <ap
 | `brand:sync` | Sync `brand/source/` → all apps (mobile + web assets) |
 | `brand:print` | Generate print collateral under `brand/print/` |
 | `brand:verify-notification-icon` | Validate notification icon (white mono on transparent) |
+| `docs:architecture` | Regenerate complete architecture Word doc (`OorjaMan-Architecture.docx`) |
+| `docs:costing` | Regenerate end-to-end costing Word doc (`OorjaMan-Costing.docx`) |
 | `docs:functional-test` | Regenerate functional test Word doc |
 | `docs:uat-guide` | Regenerate E2E UAT Word guide |
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { JsonLd } from "@/components/JsonLd";
+import { MarketingPage } from "@/components/MarketingPage";
 import { cityLandings, getCityLanding } from "@/lib/cities";
 import { buildPageMetadata } from "@/lib/seo";
 import { siteUrl } from "@/lib/site";
@@ -44,14 +45,18 @@ export default async function CityPage({ params }: Props) {
   };
 
   return (
-    <div className="om-section">
+    <>
       <JsonLd data={jsonLd} />
-      <div className="om-container" style={{ maxWidth: "48rem" }}>
-        <p style={{ color: "var(--om-muted)", fontSize: "0.875rem" }}>
-          <Link href="/cities">All cities</Link> · {city.state}
+      <MarketingPage
+        title={city.headline}
+        lead={`Solar panel cleaning and AMC in ${city.name}, ${city.state} — book when partner coverage is available at your address.`}
+        eyebrow={`${city.name} · ${city.state}`}
+      >
+        <p style={{ marginTop: 0 }}>
+          <Link href="/cities">← All cities</Link>
         </p>
-        <h1 className="om-h1">{city.headline}</h1>
-        <p className="om-lead">{city.intro}</p>
+        <p>{city.intro}</p>
+        <h2 className="om-h3">Good to know</h2>
         <ul>
           {city.localNotes.map((note) => (
             <li key={note}>{note}</li>
@@ -67,8 +72,11 @@ export default async function CityPage({ params }: Props) {
           <Link href="/services/amc-maintenance" className="om-btn om-btn--outline">
             AMC plans
           </Link>
+          <Link href="/pricing" className="om-btn om-btn--outline">
+            Pricing
+          </Link>
         </p>
-      </div>
-    </div>
+      </MarketingPage>
+    </>
   );
 }

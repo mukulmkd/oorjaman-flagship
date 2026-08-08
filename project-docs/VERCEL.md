@@ -274,6 +274,64 @@ With `VITE_USE_DUMMY_AUTH=true`, you can skip provider setup for initial testing
 
 ---
 
+## Marketing site (`oorjaman-web`) — UAT on Vercel
+
+The marketing site is **Next.js**, but for UAT we ship it exactly like the Vite portals: a **static export** (no SSR, no serverless functions) with **SEO fully off**. This is validation-only hosting.
+
+### How SSR + SEO are turned off
+
+`npm run build:uat -w oorjaman-web` sets two things:
+
+- `OORJAMAN_STATIC_EXPORT=1` → `next.config.ts` switches to `output: "export"` → pure static HTML in `apps/oorjaman-web/out/` (**SSR off**).
+- `NEXT_PUBLIC_DEPLOY_ENV=uat` → **SEO off**: `robots.txt` is `Disallow: /`, every page emits `noindex, nofollow, nocache`, JSON-LD schema is dropped, a yellow "UAT" banner shows, and titles get a `(UAT)` suffix.
+
+Both are baked at build time, so UAT can never accidentally get indexed. Local dev (`npm run dev`) is also non-production, so it's noindex by default too.
+
+### Create the Vercel project (one new project)
+
+Import the same repo → new project (e.g. `oorjaman-web-uat`). Use the **repo root** pattern, same as admin:
+
+| Setting | Value |
+|---------|-------|
+| **Root Directory** | empty (repo root) |
+| **Framework Preset** | **Other** (not Next.js — we serve static `out/`) |
+| **Install Command** | `npm install` |
+| **Build Command** | `npm run build:uat -w oorjaman-web` |
+| **Output Directory** | `apps/oorjaman-web/out` |
+| **Node.js Version** | 20.x |
+
+> Preset is **Other** (not Next.js) on purpose: we don't want Vercel's Next serverless builder — the site is a static folder like the portals' `dist/`. Vercel serves clean URLs automatically (`/about` → `about.html`).
+
+### Environment variables (Production + Preview scope)
+
+```env
+NEXT_PUBLIC_DEPLOY_ENV=uat
+NEXT_PUBLIC_SITE_URL=https://<your-marketing-uat>.vercel.app
+# Optional for UAT:
+# NEXT_PUBLIC_VENDOR_PORTAL_URL=https://oorjaman-vendor.vercel.app
+```
+
+`build:uat` already forces `NEXT_PUBLIC_DEPLOY_ENV=uat`, so even a wrong Vercel value stays noindex. Set `NEXT_PUBLIC_SITE_URL` to the Vercel URL so canonical/OG links resolve to the UAT host. Leave app-store and GSTIN vars unset for UAT.
+
+### Ignored Build Step (optional)
+
+To only rebuild when the marketing site or shared packages change, use `Only build if there are changes in a folder` → `apps/oorjaman-web` (or the custom script pattern used for the portals).
+
+### Caveat — shared root `vercel.json`
+
+The repo-root [`vercel.json`](vercel.json) has a SPA catch-all (`/(.*) → /index.html`) for the Vite portals. Vercel resolves real files first, so all marketing routes serve correctly; only a genuinely unknown URL falls back to the **home page** instead of the styled `404.html`. Acceptable for UAT validation. (Production marketing hosting is static on GoDaddy via `build:godaddy` and does not use this file.)
+
+### Verify after deploy
+
+| Check | Expected |
+|-------|----------|
+| `/robots.txt` | `User-Agent: *` / `Disallow: /` |
+| View source on any page | `<meta name="robots" content="noindex, nofollow, nocache">` |
+| Top banner | Yellow "UAT environment — not for production use or search indexing" |
+| Network tab | Only static `.html` / `_next/*` assets — no serverless function calls |
+
+---
+
 ## Later — GoDaddy production
 
 When moving from Vercel testing to GoDaddy production, see [DEPLOYMENT.md](DEPLOYMENT.md) for DNS and folder layout.

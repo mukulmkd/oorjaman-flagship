@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { isPublicMarketingIndexable, parseDeployEnvironment } from "@oorjaman/config";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -6,6 +7,13 @@ import { JsonLd } from "@/components/JsonLd";
 import { homeMetadata } from "@/lib/seo";
 import { SITE_NAME, siteUrl, SUPPORT_EMAIL } from "@/lib/site";
 import "./globals.css";
+
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-plus-jakarta",
+  weight: ["400", "500", "600", "700"],
+});
 
 const uatDeploy = !isPublicMarketingIndexable(
   parseDeployEnvironment({ siteUrl: process.env.NEXT_PUBLIC_SITE_URL }),
@@ -19,6 +27,10 @@ export const metadata: Metadata = {
       : `${SITE_NAME} - Solar panel cleaning & AMC in India`,
     template: `%s | ${SITE_NAME}`,
   },
+  icons: {
+    icon: [{ url: "/favicon.png", type: "image/png" }],
+    apple: [{ url: "/apple-touch-icon.png", type: "image/png" }],
+  },
 };
 
 const organizationJsonLd = {
@@ -26,7 +38,7 @@ const organizationJsonLd = {
   "@type": "Organization",
   name: SITE_NAME,
   url: siteUrl(),
-  logo: siteUrl("/og-default.png"),
+  logo: siteUrl("/logo-icon.png"),
   description: "Solar rooftop cleaning and annual maintenance contracts (AMC) in India.",
   contactPoint: {
     "@type": "ContactPoint",
@@ -41,16 +53,11 @@ const websiteJsonLd = {
   "@type": "WebSite",
   name: SITE_NAME,
   url: siteUrl(),
-  potentialAction: {
-    "@type": "SearchAction",
-    target: `${siteUrl("/faq")}?q={search_term_string}`,
-    "query-input": "required name=search_term_string",
-  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en-IN">
+    <html lang="en-IN" className={plusJakarta.variable}>
       <body style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
         {uatDeploy ? (
           <div

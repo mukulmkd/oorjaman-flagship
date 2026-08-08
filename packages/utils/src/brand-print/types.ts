@@ -17,7 +17,7 @@ export type BrandPrintContact = {
 
 export const DEFAULT_BRAND_PRINT_CONTACT: BrandPrintContact = {
   company: "OorjaMan",
-  companyLegal: "OorjaMan Energy Solutions Pvt. Ltd.",
+  companyLegal: "OORJA MAN LLP",
   descriptor: "Solar panel cleaning & preventive care",
   tagline: "WE CLEAN. YOU GENERATE.",
   phone: "+91 98765 43210",
@@ -26,7 +26,7 @@ export const DEFAULT_BRAND_PRINT_CONTACT: BrandPrintContact = {
   url: "https://oorjaman.com",
   address: "Bengaluru, Karnataka, India",
   cardName: "Your Name",
-  cardTitle: "Director",
+  cardTitle: "Designated Partner",
 };
 
 export function slugifyBrandFileName(name: string): string {

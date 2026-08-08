@@ -350,6 +350,16 @@ Admin-only invoke; processes `notification_events` queue (in-app/email/sms adapt
 
 Uses auto-injected `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`. No extra client env vars.
 
+### `delete-customer-account`
+
+Customer self-service account deletion (signed-in JWT). Soft-anonymizes `users` + `customers`, cancels open AMCs, blocks when bookings are still active, then `auth.admin.deleteUser`.
+
+```bash
+npm run functions:deploy -- delete-customer-account
+```
+
+Uses the same auto-injected Supabase secrets as `approve-vendor-intake`. Deploy to **UAT** first, smoke-test with a throwaway customer, then **Prod**.
+
 ---
 
 ## 8. EAS / CI environment (mobile apps)

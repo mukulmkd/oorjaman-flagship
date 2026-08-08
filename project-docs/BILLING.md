@@ -2,6 +2,8 @@
 
 Living checklist of third-party services that require billing accounts, API keys, or usage-based fees. Add a new dated entry when we onboard another provider.
 
+**Budget Word doc (end-to-end costing + Supabase scale-up):** [OorjaMan-Costing.docx](OorjaMan-Costing.docx) — regenerate with `npm run docs:costing`.
+
 **Do not commit real API keys or secrets to this file.** Store keys in gitignored `.env*.local` files (local) or your secret manager (Vercel, EAS, CI, GoDaddy build machine).
 
 For **environment placement** (which file gets which key): [**ENVIRONMENT.md**](ENVIRONMENT.md).  

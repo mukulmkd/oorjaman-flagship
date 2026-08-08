@@ -213,6 +213,7 @@ Project-level guides live in [**project-docs/**](project-docs/README.md). The ro
 
 | Doc | Purpose |
 | --- | ------- |
+| [OorjaMan-Architecture.docx](project-docs/OorjaMan-Architecture.docx) | **Complete architecture** (apps, DB, diagrams) — `npm run docs:architecture` |
 | [DEPLOYMENT.md](project-docs/DEPLOYMENT.md) | PROD vs UAT matrix: **Vercel UAT portals (live)**, GoDaddy target, mobile EAS |
 | [VERCEL.md](project-docs/VERCEL.md) | Three Vercel projects, env vars, Supabase auth URLs |
 | [SUPABASE-UAT-PROD.md](project-docs/SUPABASE-UAT-PROD.md) | Dual Supabase projects, `db:push`, migration workflow |
@@ -220,6 +221,7 @@ Project-level guides live in [**project-docs/**](project-docs/README.md). The ro
 | [BILLING.md](project-docs/BILLING.md) | Supabase, Vercel, EAS, Maps, Apple/Google store |
 | [SECURITY-VERCEL.md](project-docs/SECURITY-VERCEL.md) | Portal + Supabase security on Vercel |
 | [SEO.md](project-docs/SEO.md) | Marketing site SEO & GoDaddy deploy |
+| [LAUNCH.md](project-docs/LAUNCH.md) | Soft-launch checklist |
 | [EMAILS.md](project-docs/EMAILS.md) | Business email setup & DNS |
 | [RUNNING-APPS.md](project-docs/RUNNING-APPS.md) | **All run modes:** local, debug, UAT, prod, Expo Go — Android & iOS |
 | [TODO.md](project-docs/TODO.md) | Release & ops checklist |

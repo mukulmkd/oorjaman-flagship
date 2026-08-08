@@ -13,7 +13,7 @@ export type LegalDocument = {
   sections: LegalSection[];
 };
 
-const LAST_UPDATED = "2026-05-19";
+const LAST_UPDATED = "2026-08-08";
 
 export const legalDocuments: LegalDocument[] = [
   {
@@ -166,7 +166,7 @@ export const legalDocuments: LegalDocument[] = [
         id: "overview",
         title: "Overview",
         paragraphs: [
-          "You can delete your OorjaMan customer account at any time. Deletion is permanent for the customer profile and removes access to booking history in the app after processing completes.",
+          "You can delete your OorjaMan customer account at any time. Deletion removes sign-in access and personal profile data. Booking and payment records needed for tax, fraud prevention, or dispute resolution may be retained as required by law.",
         ],
       },
       {
@@ -174,16 +174,18 @@ export const legalDocuments: LegalDocument[] = [
         title: "Delete in the app",
         bullets: [
           "Open the OorjaMan customer app and sign in.",
-          "Go to Profile → Account settings → Delete account.",
-          "Confirm your request. You may be asked to complete active bookings or settle outstanding payments first.",
+          "Go to Profile → Account → Delete account.",
+          "Type DELETE to confirm. Active or upcoming bookings must be cancelled or completed first; open AMC plans are cancelled automatically.",
         ],
-        paragraphs: [],
+        paragraphs: [
+          "After confirmation, your sign-in credentials are removed and you are signed out.",
+        ],
       },
       {
         id: "email",
-        title: "Request by email",
+        title: "Request by email (backup)",
         paragraphs: [
-          "If you cannot access the app, email support@oorjaman.com from your registered phone/email with subject “Account deletion request”. We will verify ownership and respond within 7 business days.",
+          "If you cannot use the app, email support@oorjaman.com from your registered phone number or email with the subject “Account deletion request”. Include the mobile number used to sign in. We will verify ownership and respond within 7 business days.",
         ],
       },
       {

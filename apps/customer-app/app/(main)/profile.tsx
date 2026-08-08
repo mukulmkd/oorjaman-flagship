@@ -4,6 +4,8 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -37,7 +39,13 @@ import {
   vendorApi,
 } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
-import { Button, Screen, SCREEN_EDGES_BENEATH_NATIVE_HEADER } from "@oorjaman/ui";
+import {
+  Button,
+  ModalSheetHeader,
+  modalBodyInsetStyle,
+  Screen,
+  SCREEN_EDGES_BENEATH_NATIVE_HEADER,
+} from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../../constants/fonts";
 import { ServiceAddressPickerSheet } from "../../components/service-address-picker-sheet";
 import { SitePhotoGallerySection } from "../../components/site-photo-gallery-section";
@@ -65,6 +73,8 @@ import {
   customerRowToProfileForm,
   parseAddr,
 } from "../../lib/customer-site-profile";
+import { customerLegalUrls } from "../../lib/legal-urls";
+import { accountDeletionMailto } from "../../lib/support";
 import { supabase } from "../../lib/supabase";
 
 function formatAmcRealignmentAlertBody(rows: AmcTierRealignmentSummary[]): string {
@@ -163,6 +173,9 @@ export default function ProfileTab() {
   const [inverterBrand, setInverterBrand] = useState("");
   const [epcVendorName, setEpcVendorName] = useState("");
   const [signOutBusy, setSignOutBusy] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [addressSheetOpen, setAddressSheetOpen] = useState(false);
 
   const userQuery = useQuery({
@@ -507,6 +520,36 @@ export default function ProfileTab() {
       setSignOutBusy(false);
     }
   }, []);
+
+  const confirmDeleteAccount = useCallback(async () => {
+    if (!supabase) return;
+    if (deleteConfirmText.trim().toUpperCase() !== "DELETE") {
+      Alert.alert("Confirm deletion", 'Type DELETE in capital letters to confirm.');
+      return;
+    }
+    setDeleteBusy(true);
+    try {
+      const result = await userApi.requestDeleteMyCustomerAccount(supabase);
+      if (!result.ok) {
+        Alert.alert("Could not delete account", result.message);
+        return;
+      }
+      setDeleteModalOpen(false);
+      setDeleteConfirmText("");
+      markUserInitiatedSignOut();
+      try {
+        await authApi.signOut(supabase);
+      } catch {
+        /* session may already be invalid after auth user delete */
+      }
+      Alert.alert("Account deleted", "Your OorjaMan account has been deleted.");
+      router.replace("/login");
+    } catch (e) {
+      Alert.alert("Could not delete account", e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setDeleteBusy(false);
+    }
+  }, [deleteConfirmText]);
 
   const onSitePhotoGpsChange = useCallback(
     (nextLat: number | null, nextLng: number | null, nextAcc: number | null) => {
@@ -864,15 +907,41 @@ export default function ProfileTab() {
             Save changes
           </Button>
 
+          <View style={styles.dangerZone}>
+            <Text style={styles.dangerZoneTitle}>Account</Text>
+            <Text style={styles.dangerZoneBody}>
+              Deleting your account removes sign-in access and personal profile data. Booking and payment records needed
+              for tax or disputes may be retained as described in our policies.
+            </Text>
+            <Button
+              variant="destructive"
+              size="md"
+              disabled={signOutBusy || deleteBusy}
+              onPress={() => {
+                setDeleteConfirmText("");
+                setDeleteModalOpen(true);
+              }}
+            >
+              Delete account
+            </Button>
+            <Pressable
+              accessibilityRole="link"
+              onPress={() => void Linking.openURL(customerLegalUrls.accountDeletion())}
+              style={styles.legalLinkWrap}
+            >
+              <Text style={styles.legalLink}>Account deletion policy</Text>
+            </Pressable>
+          </View>
+
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Sign out"
-            disabled={signOutBusy}
+            disabled={signOutBusy || deleteBusy}
             onPress={() => void signOut()}
             style={({ pressed }) => [
               styles.outline,
               pressed && !signOutBusy && styles.outlinePressed,
-              signOutBusy && styles.outlineDisabled,
+              (signOutBusy || deleteBusy) && styles.outlineDisabled,
             ]}
           >
             <Text style={signOutBusy ? styles.outlineBusy : styles.outlineLabel}>
@@ -881,6 +950,60 @@ export default function ProfileTab() {
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
+      <Modal
+        visible={deleteModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => {
+          if (!deleteBusy) setDeleteModalOpen(false);
+        }}
+      >
+        <View style={styles.deleteModalBackdrop}>
+          <View style={styles.deleteModalSheet}>
+            <ModalSheetHeader
+              title="Delete your account?"
+              subtitle="This permanently removes your sign-in. Active bookings must be cancelled or completed first. Active AMC plans are cancelled."
+              onClose={() => {
+                if (!deleteBusy) setDeleteModalOpen(false);
+              }}
+              closeAccessibilityLabel="Close delete account dialog"
+              showClose={!deleteBusy}
+            />
+            <View style={modalBodyInsetStyle}>
+              <Text style={styles.deleteModalHint}>Type DELETE to confirm</Text>
+              <TextInput
+                value={deleteConfirmText}
+                onChangeText={setDeleteConfirmText}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                editable={!deleteBusy}
+                placeholder="DELETE"
+                placeholderTextColor={colors.mutedForeground}
+                style={styles.deleteConfirmInput}
+              />
+              <View style={styles.deleteModalActions}>
+                <Button
+                  variant="destructive"
+                  size="md"
+                  loading={deleteBusy}
+                  disabled={deleteBusy || deleteConfirmText.trim().toUpperCase() !== "DELETE"}
+                  onPress={() => void confirmDeleteAccount()}
+                >
+                  Permanently delete
+                </Button>
+                <Button
+                  variant="outline"
+                  size="md"
+                  disabled={deleteBusy}
+                  onPress={() => void Linking.openURL(accountDeletionMailto())}
+                >
+                  Email support instead
+                </Button>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
       <ServiceAddressPickerSheet
         visible={addressSheetOpen}
         entries={addressBook.entries}
@@ -1220,5 +1343,70 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     lineHeight: 20,
     color: colors.primary,
+  },
+  dangerZone: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.backgroundSecondary,
+    gap: spacing.sm,
+  },
+  dangerZoneTitle: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: fontSize.md,
+    color: colors.foreground,
+  },
+  dangerZoneBody: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+    color: colors.mutedForeground,
+    marginBottom: spacing.xs,
+  },
+  legalLinkWrap: {
+    alignSelf: "flex-start",
+    paddingVertical: spacing.xs,
+  },
+  legalLink: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.primary,
+    textDecorationLine: "underline",
+  },
+  deleteModalBackdrop: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(15, 41, 56, 0.45)",
+  },
+  deleteModalSheet: {
+    backgroundColor: colors.card,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: spacing.xl,
+    maxHeight: "88%",
+  },
+  deleteModalHint: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.mutedForeground,
+    marginBottom: spacing.xs,
+  },
+  deleteConfirmInput: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontFamily: fontFamily.semiBold,
+    fontSize: fontSize.md,
+    color: colors.foreground,
+    backgroundColor: colors.background,
+    marginBottom: spacing.md,
+  },
+  deleteModalActions: {
+    gap: spacing.sm,
   },
 });

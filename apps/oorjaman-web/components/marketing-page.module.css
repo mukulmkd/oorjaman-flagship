@@ -1,0 +1,46 @@
+.page {
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  position: relative;
+  overflow: hidden;
+  padding: 3.25rem 0 2.75rem;
+  background:
+    radial-gradient(ellipse 60% 80% at 100% 0%, rgb(159 201 60 / 0.18), transparent 55%),
+    linear-gradient(160deg, #f6faf9 0%, #e4f0ea 55%, #d8eee4 100%);
+  border-bottom: 1px solid var(--om-border);
+}
+
+.header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--om-oorja), var(--om-man));
+}
+
+.headerInner {
+  position: relative;
+  max-width: 44rem;
+}
+
+.body {
+  padding-top: 2.75rem;
+}
+
+.bodyInner {
+  max-width: 48rem;
+}
+
+.bodyInner :global(ol),
+.bodyInner :global(ul) {
+  color: var(--om-navy);
+}
+
+.bodyInner :global(li) {
+  margin-bottom: 0.35rem;
+}

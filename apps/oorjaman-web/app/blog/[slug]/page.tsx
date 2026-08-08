@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { MarketingPage } from "@/components/MarketingPage";
 import { blogPosts, getBlogPost } from "@/lib/blog-posts";
 import { buildPageMetadata } from "@/lib/seo";
 
@@ -26,23 +27,20 @@ export default async function BlogPostPage({ params }: Props) {
   if (!post) notFound();
 
   return (
-    <article className="om-section">
-      <div className="om-container" style={{ maxWidth: "42rem" }}>
-        <p style={{ fontSize: "0.875rem", color: "var(--om-muted)" }}>
-          <Link href="/blog">Blog</Link> · <time dateTime={post.published}>{post.published}</time>
+    <MarketingPage title={post.title} lead={post.excerpt} eyebrow={`Blog · ${post.published}`}>
+      <p style={{ marginTop: 0 }}>
+        <Link href="/blog">← All posts</Link>
+      </p>
+      {post.paragraphs.map((p, i) => (
+        <p key={i} style={{ marginBottom: "1rem" }}>
+          {p}
         </p>
-        <h1 className="om-h1">{post.title}</h1>
-        {post.paragraphs.map((p, i) => (
-          <p key={i} style={{ marginBottom: "1rem" }}>
-            {p}
-          </p>
-        ))}
-        <p>
-          <Link href="/download" className="om-btn om-btn--primary">
-            Book with the OorjaMan app
-          </Link>
-        </p>
-      </div>
-    </article>
+      ))}
+      <p style={{ marginTop: "1.5rem" }}>
+        <Link href="/download" className="om-btn om-btn--primary">
+          Book with the OorjaMan app
+        </Link>
+      </p>
+    </MarketingPage>
   );
 }

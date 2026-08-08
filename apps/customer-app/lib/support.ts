@@ -7,3 +7,7 @@ export function bookingSupportMailto(params: { referenceCode?: string | null; to
   const subject = ref ? `${base} (${ref})` : base;
   return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}`;
 }
+
+export function accountDeletionMailto(): string {
+  return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Account deletion request")}`;
+}

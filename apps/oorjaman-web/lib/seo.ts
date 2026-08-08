@@ -9,8 +9,8 @@ const marketingIndexable = isPublicMarketingIndexable(
   parseDeployEnvironment({ siteUrl: process.env.NEXT_PUBLIC_SITE_URL }),
 );
 
-/** Served by app/opengraph-image.tsx */
-const DEFAULT_OG = "/opengraph-image";
+/** Synced brand lockup from `npm run brand:sync` → public/og-default.png */
+const DEFAULT_OG = "/og-default.png";
 
 type PageMetaInput = {
   title: string;

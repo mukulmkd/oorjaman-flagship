@@ -80,3 +80,33 @@ export {
   syncUserDisplayNameFromTechnician,
   syncUserDisplayNameFromVendor,
 } from "./user-display-name";
+
+/**
+ * Request permanent deletion of the signed-in customer account (Edge Function).
+ * On success the auth session is invalid — caller must sign out locally.
+ */
+export async function requestDeleteMyCustomerAccount(
+  client: SupabaseClient<Database>,
+): Promise<{ ok: true } | { ok: false; message: string; code?: string }> {
+  const { data, error } = await client.functions.invoke<{
+    ok?: boolean;
+    error?: string;
+    code?: string;
+    already_deleted?: boolean;
+  }>("delete-customer-account", { body: {} });
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+  if (data && typeof data === "object" && data.ok === false) {
+    return {
+      ok: false,
+      message: typeof data.error === "string" ? data.error : "Account deletion failed.",
+      code: typeof data.code === "string" ? data.code : undefined,
+    };
+  }
+  if (data && typeof data === "object" && data.ok === true) {
+    return { ok: true };
+  }
+  return { ok: false, message: "Unexpected response from delete-customer-account." };
+}
