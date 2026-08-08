@@ -944,7 +944,7 @@ export default function ProfileTab() {
               (signOutBusy || deleteBusy) && styles.outlineDisabled,
             ]}
           >
-            <Text style={signOutBusy ? styles.outlineBusy : styles.outlineLabel}>
+            <Text style={signOutBusy || deleteBusy ? styles.outlineBusy : styles.outlineLabel}>
               {signOutBusy ? "Signing out…" : "Sign out"}
             </Text>
           </Pressable>
