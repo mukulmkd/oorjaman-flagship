@@ -4,6 +4,8 @@ import { isPublicMarketingIndexable, parseDeployEnvironment } from "@oorjaman/co
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { JsonLd } from "@/components/JsonLd";
+import { CookieConsent } from "@/components/CookieConsent";
+import { Analytics } from "@/components/Analytics";
 import { homeMetadata } from "@/lib/seo";
 import { SITE_NAME, siteUrl, SUPPORT_EMAIL } from "@/lib/site";
 import "./globals.css";
@@ -84,6 +86,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
         <SiteFooter />
+        <CookieConsent />
+        <Analytics />
       </body>
     </html>
   );

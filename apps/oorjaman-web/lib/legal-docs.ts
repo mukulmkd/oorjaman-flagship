@@ -236,14 +236,22 @@ export const legalDocuments: LegalDocument[] = [
         id: "what",
         title: "What we use",
         paragraphs: [
-          "This website may use essential cookies for security and preferences. If analytics are enabled, we use cookies to measure traffic and improve content.",
+          "This website uses a small number of strictly necessary cookies and local storage to load correctly and remember your cookie choice. These are always on because the site cannot function without them.",
+          "We may also use optional analytics cookies to understand aggregate traffic and improve content. Analytics are loaded only after you accept them and are never enabled by default.",
+        ],
+      },
+      {
+        id: "consent",
+        title: "Your consent",
+        paragraphs: [
+          "When you first visit, a banner lets you Accept or Decline optional analytics cookies. If you decline, no analytics scripts are loaded. Your choice is stored in your browser and can be changed any time by clearing this site's data in your browser settings.",
         ],
       },
       {
         id: "control",
         title: "Your choices",
         paragraphs: [
-          "You can block cookies in your browser settings. Some site features may not function without essential cookies.",
+          "You can also block or delete cookies in your browser settings. Some site features may not function without strictly necessary cookies.",
         ],
       },
     ],
