@@ -188,6 +188,20 @@ export function vendorBookingAssignedCopy(
   };
 }
 
+export function vendorTechnicianChangedCopy(
+  booking: Pick<BookingRow, "reference_code" | "id">,
+  technicianName: string | null,
+): {
+  title: string;
+  body: string;
+} {
+  const ref = bookingRef(booking);
+  return {
+    title: "Technician updated",
+    body: `You reassigned ${ref} to ${technicianName?.trim() || "another technician"}. We've notified the new technician and the customer.`,
+  };
+}
+
 export function vendorCustomerPreferredBookingCopy(
   booking: Pick<BookingRow, "reference_code" | "id">,
 ): {

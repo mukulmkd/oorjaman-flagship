@@ -1,4 +1,4 @@
-# oorjaman-web — Public marketing site
+# oorjaman-web - Public marketing site
 
 Next.js App Router site for **https://oorjaman.com** (production) and **https://dev-oorjaman.oorjaman.com** (UAT, noindex).
 
@@ -18,7 +18,7 @@ npm run web    # http://localhost:3000
 | **GoDaddy PROD** | `NEXT_PUBLIC_DEPLOY_ENV=production NEXT_PUBLIC_SITE_URL=https://oorjaman.com npm run build:godaddy -w oorjaman-web` | `apps/oorjaman-web/out/` → `public_html` |
 | **GoDaddy UAT** | `NEXT_PUBLIC_DEPLOY_ENV=uat NEXT_PUBLIC_SITE_URL=https://dev-oorjaman.oorjaman.com npm run build:godaddy -w oorjaman-web` | `public_html/dev-oorjaman/` |
 
-Portals are **not** on this app — admin/vendor/support run on **Vercel UAT** today ([VERCEL.md](../../project-docs/VERCEL.md)).
+Portals are **not** on this app - admin/vendor/support run on **Vercel UAT** today ([VERCEL.md](../../project-docs/VERCEL.md)).
 
 ## Environment
 
@@ -32,5 +32,5 @@ Customer app legal links: set `EXPO_PUBLIC_SITE_URL` to match the marketing tier
 
 ## Docs
 
-- [SEO.md](../../project-docs/SEO.md) — SEO checklist, Search Console, GoDaddy steps
-- [DEPLOYMENT.md](../../project-docs/DEPLOYMENT.md) — full host matrix
+- [SEO.md](../../project-docs/SEO.md) - SEO checklist, Search Console, GoDaddy steps
+- [DEPLOYMENT.md](../../project-docs/DEPLOYMENT.md) - full host matrix

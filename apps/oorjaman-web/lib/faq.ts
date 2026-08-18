@@ -12,7 +12,7 @@ export const FAQ_ITEMS = [
   },
   {
     q: "Where do you operate?",
-    a: "We publish city pages for major metros and expand coverage as verified partners come online. Availability depends on partner coverage at your service address — confirm in the app when you book.",
+    a: "OorjaMan is launching first in Guwahati. More city pages will go live as verified partners come online. Availability always depends on partner coverage at your service address - confirm in the app when you book.",
   },
   {
     q: "How does pricing work?",
@@ -32,7 +32,7 @@ export const FAQ_ITEMS = [
   },
   {
     q: "Is rooftop work safe?",
-    a: "Partners and technicians follow mandatory safety checklists before starting. Site access and water availability are captured at registration. Methods aim to protect manufacturer warranties — always follow your module OEM guidance.",
+    a: "Partners and technicians follow mandatory safety checklists before starting. Site access and water availability are captured at registration. Methods aim to protect manufacturer warranties - always follow your module OEM guidance.",
   },
   {
     q: "How do I contact support?",

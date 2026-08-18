@@ -5,6 +5,7 @@ import { NotificationCenterBell } from "@oorjaman/web-ui";
 import { useAdminPortalSession } from "@oorjaman/web-ui";
 import { supportPortalUrl } from "@oorjaman/web-ui";
 import { useSupabase } from "@oorjaman/web-ui";
+import { useAdminBookingsRealtime } from "../hooks/useAdminBookingsRealtime";
 import "./dashboard-layout-admin.css";
 
 export function DashboardLayout() {
@@ -12,6 +13,8 @@ export function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const sessionQuery = useAdminPortalSession();
+  // Live-refresh booking/ops views on any booking change (no polling).
+  useAdminBookingsRealtime();
   const sessionHint = !supabase
     ? "Configure VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY"
     : sessionQuery.isLoading

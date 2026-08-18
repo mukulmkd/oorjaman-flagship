@@ -1,0 +1,77 @@
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.2;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.iconWrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 11px;
+  border: 1px solid transparent;
+  flex-shrink: 0;
+}
+
+.icon {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.onDark .link {
+  color: rgb(255 255 255 / 0.82);
+}
+
+.onDark .iconWrap {
+  background: rgb(255 255 255 / 0.08);
+  border-color: rgb(255 255 255 / 0.14);
+}
+
+.onDark .link:hover {
+  color: #fff;
+}
+
+.onDark .link:hover .iconWrap {
+  background: rgb(255 255 255 / 0.14);
+  border-color: rgb(255 255 255 / 0.28);
+}
+
+.onLight .link {
+  color: var(--om-foreground);
+}
+
+.onLight .iconWrap {
+  background: var(--om-bg);
+  border-color: var(--om-border);
+  color: var(--om-foreground);
+}
+
+.onLight .link:hover {
+  color: var(--om-primary);
+}
+
+.onLight .link:hover .iconWrap {
+  border-color: rgb(31 134 96 / 0.45);
+  color: var(--om-primary);
+}
+
+.label {
+  letter-spacing: -0.01em;
+}

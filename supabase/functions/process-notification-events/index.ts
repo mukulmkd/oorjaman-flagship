@@ -26,6 +26,10 @@ type ChannelSettingRow = {
 };
 
 import { corsHeaders as resolveCors } from "../_shared/cors.ts";
+import {
+  enforceEdgeRateLimit,
+  subjectUserAndIp,
+} from "../_shared/rate-limit.ts";
 
 function asChannels(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -184,6 +188,15 @@ Deno.serve(async (req: Request) => {
   const adminClient = createClient(supabaseUrl, serviceKey);
   const { data: adminRow } = await adminClient.from("users").select("role").eq("id", user.id).maybeSingle();
   if (!adminRow || adminRow.role !== "admin") return json({ ok: false, error: "Forbidden" }, 403);
+
+  const rateLimited = await enforceEdgeRateLimit({
+    admin: adminClient,
+    req,
+    functionName: "process-notification-events",
+    subject: subjectUserAndIp(user.id, req),
+    cors,
+  });
+  if (rateLimited) return rateLimited;
 
   let body: { limit?: number; event_type?: string } = {};
   try {

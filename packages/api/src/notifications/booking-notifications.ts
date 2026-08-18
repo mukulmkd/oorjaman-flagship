@@ -19,6 +19,7 @@ export type AdminBookingNotificationEventType =
 
 export type VendorBookingNotificationEventType =
   | "vendor_booking_assigned"
+  | "vendor_booking_technician_changed"
   | "vendor_booking_visit_started"
   | "vendor_booking_visit_completed";
 
@@ -66,6 +67,7 @@ export {
   adminVisitStartedCopy,
   vendorBookingAssignedCopy,
   vendorCustomerPreferredBookingCopy,
+  vendorTechnicianChangedCopy,
   vendorVisitCompletedCopy,
   vendorVisitStartedCopy,
 } from "./notification-copy";

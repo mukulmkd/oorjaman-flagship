@@ -228,6 +228,8 @@ export default function VendorDashboardPage() {
   const [acceptForId, setAcceptForId] = useState<string | null>(null);
   const [rejectForId, setRejectForId] = useState<string | null>(null);
   const [cancelAcceptedForId, setCancelAcceptedForId] = useState<string | null>(null);
+  const [reassignForId, setReassignForId] = useState<string | null>(null);
+  const [reassignTechnicianId, setReassignTechnicianId] = useState("");
   const [ackTechnicianReady, setAckTechnicianReady] = useState(false);
   const [ackSafetyCompliance, setAckSafetyCompliance] = useState(false);
   const [ackUniformSafetyKit, setAckUniformSafetyKit] = useState(false);
@@ -516,6 +518,15 @@ export default function VendorDashboardPage() {
       void qc.invalidateQueries({ queryKey: queryKeys.vendors.dashboardSettlements() });
       setCancelAcceptedForId(null);
       setCancelAcceptedReason("");
+    },
+  });
+  const reassignMut = useMutation({
+    mutationFn: async ({ bookingId, technicianId }: { bookingId: string; technicianId: string }) =>
+      bookingApi.vendorReassignBookingTechnician(supabase!, bookingId, technicianId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
+      setReassignForId(null);
+      setReassignTechnicianId("");
     },
   });
   const claimMarketplaceMut = useMutation({
@@ -1413,6 +1424,19 @@ export default function VendorDashboardPage() {
                 </dl>
                 <BookingSitePhotos booking={b} />
                 <div className="web-modal-actions">
+                  {b.status === "accepted" || (b.status === "in_progress" && !b.actual_start) ? (
+                    <Button
+                      variant="outline"
+                      type="button"
+                      onClick={() => {
+                        closeVendorRowAction();
+                        setReassignForId(b.id);
+                        setReassignTechnicianId(b.technician_id ?? "");
+                      }}
+                    >
+                      Change technician
+                    </Button>
+                  ) : null}
                   <Button variant="outline" type="button" onClick={closeVendorRowAction}>
                     Close
                   </Button>
@@ -1907,6 +1931,60 @@ export default function VendorDashboardPage() {
             }}
           >
             Confirm cancel
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(reassignForId)}
+        onClose={() => {
+          setReassignForId(null);
+          setReassignTechnicianId("");
+        }}
+        title="Change technician"
+      >
+        <p style={{ margin: "0 0 0.75rem", fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)" }}>
+          Assign a different verified technician to this visit. The new technician, the previous
+          technician, and the customer are notified automatically. Only allowed before the visit starts.
+        </p>
+        <label className="bm-label" htmlFor="vendor-reassign-tech">
+          Assigned technician
+          <select
+            id="vendor-reassign-tech"
+            className="vd-select bm-select"
+            value={reassignTechnicianId}
+            onChange={(e) => setReassignTechnicianId(e.target.value)}
+          >
+            <option value="">Select a technician…</option>
+            {verifiedVendorTechnicians.map((t) => (
+              <option key={t.id} value={t.id}>
+                {technicianAssignOptionLabel(t, technicianExtras(t, inviteNamesByPhone))}
+              </option>
+            ))}
+          </select>
+        </label>
+        {reassignMut.isError ? (
+          <p style={{ margin: "0.75rem 0 0", fontSize: webTypography.size.sm, color: "var(--wb-destructive)" }}>
+            {(reassignMut.error as Error).message}
+          </p>
+        ) : null}
+        <div className="web-modal-actions">
+          <Button variant="outline" type="button" onClick={() => setReassignForId(null)}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            loading={reassignMut.isPending}
+            disabled={!reassignForId || !reassignTechnicianId}
+            onClick={() => {
+              if (!reassignForId || !reassignTechnicianId) return;
+              void reassignMut.mutateAsync({
+                bookingId: reassignForId,
+                technicianId: reassignTechnicianId,
+              });
+            }}
+          >
+            Change technician
           </Button>
         </div>
       </Modal>

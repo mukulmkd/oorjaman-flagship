@@ -1,0 +1,53 @@
+.grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+
+.card {
+  padding: 1.25rem 1.3rem;
+  border: 1px solid var(--om-border);
+  border-radius: var(--om-radius);
+  background: var(--om-card);
+}
+
+.cardTitle {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+}
+
+.cardBody {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--om-muted);
+}
+
+.note {
+  margin-top: 1.75rem;
+  padding: 1rem 1.15rem;
+  border-radius: var(--om-radius);
+  border: 1px solid var(--om-border);
+  background: var(--om-bg);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--om-muted);
+}
+
+.note p {
+  margin: 0;
+}
+
+.portalNote {
+  margin: 1.25rem 0 0;
+  font-size: 0.9375rem;
+  color: var(--om-muted);
+  line-height: 1.55;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+}

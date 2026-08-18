@@ -18,6 +18,7 @@ Topic-specific how-tos (push setup, local APK, realtime) remain in [`docs/`](../
 | [SUPABASE-UAT-PROD.md](SUPABASE-UAT-PROD.md) | Dual Supabase projects, migrations, `db:push` |
 | [ENVIRONMENT.md](ENVIRONMENT.md) | All env vars: local / UAT / production |
 | [SECURITY-VERCEL.md](SECURITY-VERCEL.md) | Portal + Supabase security on Vercel |
+| [RATE-LIMITING.md](RATE-LIMITING.md) | Edge Function rate limits + Auth Attack Protection / CAPTCHA checklist |
 | [SEO.md](SEO.md) | Marketing site SEO & GoDaddy deploy |
 | [LAUNCH.md](LAUNCH.md) | Soft-launch checklist (marketing + stores + account deletion) |
 

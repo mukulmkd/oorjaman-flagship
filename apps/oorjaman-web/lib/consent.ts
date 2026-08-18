@@ -25,7 +25,7 @@ export function setStoredConsent(value: ConsentValue): void {
   try {
     window.localStorage.setItem(CONSENT_KEY, value);
   } catch {
-    /* storage blocked — treat as session-only choice */
+    /* storage blocked - treat as session-only choice */
   }
   window.dispatchEvent(new CustomEvent<ConsentValue>(CONSENT_EVENT, { detail: value }));
 }

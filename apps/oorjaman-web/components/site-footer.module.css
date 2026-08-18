@@ -59,6 +59,42 @@
   line-height: 1.55;
 }
 
+.supportMeta {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: rgb(255 255 255 / 0.55);
+  line-height: 1.5;
+}
+
+.supportMeta a {
+  color: rgb(255 255 255 / 0.88);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.supportMeta a:hover {
+  color: #fff;
+}
+
+.socialRow {
+  margin-top: 0.35rem;
+}
+
+.socialMeta {
+  margin: 0.15rem 0 0;
+  font-size: 0.8125rem;
+}
+
+.socialMeta a {
+  color: rgb(255 255 255 / 0.78);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.socialMeta a:hover {
+  color: #fff;
+}
+
 .colTitle {
   font-size: 0.75rem;
   text-transform: uppercase;

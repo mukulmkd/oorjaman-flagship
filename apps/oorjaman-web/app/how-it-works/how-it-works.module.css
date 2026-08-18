@@ -1,0 +1,90 @@
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem 1.25rem;
+  padding: 1.25rem 1.35rem;
+  border: 1px solid var(--om-border);
+  border-radius: var(--om-radius);
+  background: var(--om-card);
+}
+
+.index {
+  font-size: 0.8125rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  color: var(--om-oorja);
+  padding-top: 0.15rem;
+}
+
+.title {
+  margin: 0 0 0.35rem;
+  font-size: 1.125rem;
+  letter-spacing: -0.015em;
+}
+
+.body {
+  margin: 0;
+  font-size: 0.975rem;
+  line-height: 1.55;
+  color: var(--om-muted);
+}
+
+.note {
+  margin-top: 1.75rem;
+  padding: 1rem 1.15rem;
+  border-radius: var(--om-radius);
+  background: var(--om-bg);
+  border: 1px solid var(--om-border);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--om-muted);
+}
+
+.note p {
+  margin: 0;
+}
+
+.appCallout {
+  margin-top: 1.75rem;
+  padding: 1.35rem 1.35rem 1.4rem;
+  border-radius: var(--om-radius);
+  border: 1px solid var(--om-border);
+  background:
+    radial-gradient(ellipse 70% 80% at 100% 0%, rgb(159 201 60 / 0.12), transparent 55%),
+    var(--om-card);
+}
+
+.appCalloutTitle {
+  margin: 0 0 0.45rem;
+  font-size: 1.1rem;
+  letter-spacing: -0.015em;
+}
+
+.appCalloutBody {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--om-muted);
+}
+
+.appCalloutLink {
+  font-weight: 650;
+  font-size: 0.9375rem;
+  text-decoration: none;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+}

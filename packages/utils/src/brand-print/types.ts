@@ -24,7 +24,7 @@ export const DEFAULT_BRAND_PRINT_CONTACT: BrandPrintContact = {
   email: "info@oorjaman.com",
   web: "www.oorjaman.com",
   url: "https://oorjaman.com",
-  address: "Bengaluru, Karnataka, India",
+  address: "House No. 18, Bye Lane 2, Zoo Road Tiniali, Guwahati, Assam 781001, India",
   cardName: "Your Name",
   cardTitle: "Designated Partner",
 };

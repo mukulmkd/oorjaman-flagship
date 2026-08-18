@@ -1,16 +1,39 @@
 .page {
-  padding: 3.5rem 0 4.5rem;
+  position: relative;
+  padding: 0 0 0;
+  background: var(--om-bg);
+}
+
+.atmosphere {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: min(72vh, 34rem);
+  z-index: 0;
+  overflow: hidden;
+}
+
+.atmosphereImg {
+  object-fit: cover;
+  object-position: center 30%;
+}
+
+.atmosphereScrim {
+  position: absolute;
+  inset: 0;
   background:
-    radial-gradient(ellipse 50% 40% at 50% 0%, rgb(84 144 72 / 0.12), transparent 70%),
-    var(--om-bg);
+    linear-gradient(180deg, rgb(15 41 56 / 0.55) 0%, rgb(15 41 56 / 0.78) 55%, var(--om-bg) 100%),
+    linear-gradient(105deg, rgb(15 41 56 / 0.5), transparent 60%);
 }
 
 .inner {
+  position: relative;
+  z-index: 1;
   max-width: 36rem;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding: 4rem 0 3rem;
 }
 
 .brand {
@@ -33,10 +56,15 @@
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--om-tagline);
+  color: rgb(255 255 255 / 0.55);
 }
 
-.inner :global(.om-lead) {
+.titleOnMedia {
+  color: #fff;
+}
+
+.leadOnMedia {
+  color: rgb(255 255 255 / 0.82);
   margin-inline: auto;
 }
 
@@ -61,24 +89,103 @@
   margin: 0;
   font-size: 1.0625rem;
   line-height: 1.6;
-  color: var(--om-muted);
+  color: rgb(255 255 255 / 0.78);
 }
 
-.note {
+.noteOnMedia {
   font-size: 0.875rem;
-  color: var(--om-muted);
+  color: rgb(255 255 255 / 0.65);
   margin: 0;
   max-width: 28rem;
 }
 
-.note code {
+.noteOnMedia a {
+  color: #fff;
+}
+
+.noteOnMedia code {
   font-size: 0.8125rem;
-  background: var(--om-bg-alt);
+  background: rgb(255 255 255 / 0.12);
   padding: 0.15rem 0.4rem;
   border-radius: 6px;
 }
 
-.legal {
-  margin-top: 1.75rem;
+.featuresWrap {
+  position: relative;
+  z-index: 1;
+  padding: 0.5rem 0 4rem;
+  background: var(--om-bg);
+}
+
+.featuresInner {
+  max-width: 56rem;
+}
+
+.featureList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+
+.featureCard {
+  padding: 1.25rem 1.3rem;
+  border: 1px solid var(--om-border);
+  border-radius: var(--om-radius);
+  background: var(--om-card);
+}
+
+.featureTitle {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+}
+
+.featureBody {
+  margin: 0;
   font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--om-muted);
+}
+
+.shotGrid {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  justify-items: center;
+}
+
+.shotCard {
+  width: 100%;
+  max-width: 12rem;
+  text-align: center;
+}
+
+.shotFrame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 9 / 19.5;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  border: 1px solid var(--om-border);
+  background: #0f2938;
+  box-shadow: 0 12px 28px rgb(15 41 56 / 0.12);
+}
+
+.shotImg {
+  object-fit: cover;
+  object-position: top center;
+}
+
+.shotLabel {
+  margin: 0.65rem 0 0;
+  font-weight: 650;
+  font-size: 0.9rem;
+}
+
+.legal {
+  margin-top: 2rem;
+  font-size: 0.9375rem;
+  text-align: center;
 }

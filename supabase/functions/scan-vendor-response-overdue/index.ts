@@ -2,6 +2,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders as resolveCors } from "../_shared/cors.ts";
+import {
+  enforceEdgeRateLimit,
+  subjectDispatch,
+  subjectIp,
+} from "../_shared/rate-limit.ts";
 
 function isAuthorized(req: Request): boolean {
   const cronSecret = Deno.env.get("CRON_DISPATCH_SECRET") ?? Deno.env.get("PUSH_DISPATCH_SECRET");
@@ -44,6 +49,19 @@ Deno.serve(async (req: Request) => {
     return json({ ok: false, error: "Missing Supabase env" }, 500);
   }
 
+  const supabase = createClient(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const rateLimited = await enforceEdgeRateLimit({
+    admin: supabase,
+    req,
+    functionName: "scan-vendor-response-overdue",
+    subject: `${subjectDispatch()}|${subjectIp(req)}`,
+    cors,
+  });
+  if (rateLimited) return rateLimited;
+
   let limit = 200;
   try {
     const body = await req.json().catch(() => ({}));
@@ -53,10 +71,6 @@ Deno.serve(async (req: Request) => {
   } catch {
     /* empty body ok */
   }
-
-  const supabase = createClient(url, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
 
   const { data, error } = await supabase.rpc("notify_overdue_vendor_responses_batch", {
     p_limit: limit,

@@ -6,8 +6,9 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { JsonLd } from "@/components/JsonLd";
 import { CookieConsent } from "@/components/CookieConsent";
 import { Analytics } from "@/components/Analytics";
+import { StickySupportCall } from "@/components/StickySupportCall";
 import { homeMetadata } from "@/lib/seo";
-import { SITE_NAME, siteUrl, SUPPORT_EMAIL } from "@/lib/site";
+import { SITE_NAME, siteUrl, SUPPORT_EMAIL, SUPPORT_PHONE, INSTAGRAM_URL } from "@/lib/site";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -46,8 +47,10 @@ const organizationJsonLd = {
     "@type": "ContactPoint",
     contactType: "customer support",
     email: SUPPORT_EMAIL,
+    telephone: SUPPORT_PHONE,
     availableLanguage: ["English", "Hindi"],
   },
+  sameAs: [INSTAGRAM_URL],
 };
 
 const websiteJsonLd = {
@@ -86,6 +89,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
         <SiteFooter />
+        <StickySupportCall />
         <CookieConsent />
         <Analytics />
       </body>

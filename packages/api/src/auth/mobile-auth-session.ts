@@ -102,6 +102,18 @@ export function attachMobileAuthSessionGuard(
     if (handling || !handlers.isProtectedRoute()) return;
     handling = true;
     try {
+      // Re-verify before tearing down the session. A transient connectivity blip
+      // on screen-wake (or a spurious auth event) can surface a null/absent
+      // session even though a valid one is still persisted in storage. `getSession`
+      // reads local storage (no network), so if it still holds a session the loss
+      // was not real and we must NOT force a re-login. If we cannot read storage at
+      // all, stay signed in rather than risk a false logout.
+      try {
+        const { data } = await client.auth.getSession();
+        if (data.session) return;
+      } catch {
+        return;
+      }
       if (reason === "session-expired") {
         await clearInvalidStoredSession(client);
       }

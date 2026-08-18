@@ -27,7 +27,10 @@
     "@oorjaman/mobile-config": "*",
     "@oorjaman/mobile-deps": "*",
     "@react-native-community/datetimepicker": "9.1.0",
-    "expo-document-picker": "~56.0.4",
-    "react-native-webview": "13.16.1"
+    "expo-document-picker": "~57.0.1",
+    "react-native-webview": "13.16.1",
+    "expo": "~57.0.11",
+    "react": "19.2.3",
+    "react-native": "0.86.2"
   }
 }

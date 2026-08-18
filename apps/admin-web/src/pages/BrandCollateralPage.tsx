@@ -57,7 +57,7 @@ const FIELDS: { key: FieldKey; label: string; placeholder: string }[] = [
   { key: "phone", label: "Phone", placeholder: "+91 98765 43210" },
   { key: "email", label: "Email", placeholder: "priya.sharma@oorjaman.com" },
   { key: "web", label: "Website", placeholder: "www.oorjaman.com" },
-  { key: "address", label: "Address", placeholder: "Bengaluru, Karnataka, India" },
+  { key: "address", label: "Address", placeholder: "Guwahati, Assam, India" },
 ];
 
 function useObjectUrl(bytes: Uint8Array | null | undefined, mime: string): string | null {

@@ -1,23 +1,36 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@oorjaman/api";
 
+/**
+ * Tokens identifying admin booking/ops views (paged + non-paged). Kept explicit so we
+ * refetch every operational booking list but never the notification inbox/templates, which
+ * live under the same `bookings.all()` key prefix.
+ */
+const ADMIN_BOOKING_OPS_TOKENS = [
+  "admin-bucket",
+  "admin-bucket-paged",
+  "admin-monitoring",
+  "admin-monitoring-paged",
+  "admin-fallbacks",
+  "admin-fallbacks-paged",
+  "ops-exceptions",
+  "ops-exceptions-paged",
+  "ops-desk-summary",
+  "ops-desk-amc-awaiting-partner",
+] as const;
+
+function isAdminBookingOpsKey(key: unknown): boolean {
+  if (!Array.isArray(key)) return false;
+  return (key as unknown[]).some(
+    (part) =>
+      typeof part === "string" &&
+      (ADMIN_BOOKING_OPS_TOKENS as readonly string[]).includes(part),
+  );
+}
+
 /** Refetch only admin booking/ops views — not notification inbox, templates, or unrelated caches. */
 export function invalidateAdminBookingOpsQueries(qc: QueryClient): Promise<void> {
-  return qc.invalidateQueries({
-    predicate: (query) => {
-      const key = query.queryKey;
-      if (!Array.isArray(key)) return false;
-      const parts = key as unknown[];
-      return (
-        parts.includes("admin-bucket") ||
-        parts.includes("admin-monitoring") ||
-        parts.includes("admin-fallbacks") ||
-        parts.includes("ops-exceptions") ||
-        parts.includes("ops-desk-summary") ||
-        parts.includes("ops-desk-amc-awaiting-partner")
-      );
-    },
-  });
+  return qc.invalidateQueries({ predicate: (query) => isAdminBookingOpsKey(query.queryKey) });
 }
 
 export function invalidateAdminBookingMonitoringQueries(

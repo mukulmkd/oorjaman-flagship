@@ -253,6 +253,31 @@ img {
   animation: om-fade 0.9s ease both;
 }
 
+@keyframes om-reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.om-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 0.65s ease,
+    transform 0.65s ease;
+  will-change: opacity, transform;
+}
+
+.om-reveal--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .om-rise,
   .om-rise-delay-1,
@@ -260,6 +285,12 @@ img {
   .om-rise-delay-3,
   .om-fade-in {
     animation: none;
+  }
+
+  .om-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
   }
 
   .om-btn:hover {

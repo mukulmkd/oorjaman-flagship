@@ -1,0 +1,145 @@
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 960px) {
+  .grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--om-radius);
+  border: 1px solid var(--om-border);
+  background: var(--om-card);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+  min-height: 100%;
+}
+
+.card:hover {
+  border-color: rgb(31 134 96 / 0.45);
+  transform: translateY(-1px);
+  color: inherit;
+}
+
+.cardMedia {
+  display: block;
+  height: 5.5rem;
+  background:
+    linear-gradient(135deg, rgb(31 134 96 / 0.35), rgb(28 66 118 / 0.45)),
+    url("/marketing/hero-rooftop.jpg") center 30% / cover;
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem 1.15rem 1.15rem;
+}
+
+.name {
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.015em;
+}
+
+.state {
+  font-size: 0.875rem;
+  color: var(--om-muted);
+}
+
+.note {
+  margin: 1.75rem 0 0;
+  font-size: 0.9375rem;
+  color: var(--om-muted);
+  line-height: 1.55;
+}
+
+.back {
+  margin: 0 0 1.25rem;
+  font-size: 0.9375rem;
+}
+
+.intro {
+  margin: 0 0 1.5rem;
+  line-height: 1.65;
+  font-size: 1.05rem;
+}
+
+.section {
+  margin-top: 2rem;
+}
+
+.notes {
+  margin: 0.75rem 0 0;
+  padding-left: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  line-height: 1.55;
+}
+
+.faqList {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.faqItem {
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--om-border);
+  border-radius: var(--om-radius);
+  background: var(--om-bg);
+}
+
+.faqQ {
+  margin: 0 0 0.4rem;
+  font-size: 0.975rem;
+  font-weight: 700;
+}
+
+.faqA {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--om-muted);
+}
+
+.related {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card:hover {
+    transform: none;
+  }
+}

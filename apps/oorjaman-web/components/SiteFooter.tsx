@@ -1,9 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { BRAND_TAGLINE } from "@oorjaman/config";
-import { legalNav } from "@/lib/legal-docs";
-import { COMPANY_LEGAL_NAME, SUPPORT_EMAIL } from "@/lib/site";
+import { footerLegalNav } from "@/lib/legal-docs";
+import { showCityCoverage, showVisitStories } from "@/lib/launch-flags";
+import { COMPANY_LEGAL_NAME, SUPPORT_EMAIL, SUPPORT_HOURS, SUPPORT_PHONE, SUPPORT_PHONE_TEL } from "@/lib/site";
 import { BrandWordmark } from "./BrandWordmark";
+import { SocialLinks } from "./SocialLinks";
 import styles from "./site-footer.module.css";
 
 export function SiteFooter() {
@@ -21,9 +23,15 @@ export function SiteFooter() {
           </Link>
           <p className={styles.tagline}>{BRAND_TAGLINE}</p>
           <p className={styles.blurb}>
-            Professional solar rooftop cleaning, inspections, and AMC — fulfilled by verified partners where coverage
-            is available.
+            Technology marketplace for solar rooftop cleaning, inspections, and AMC - fulfilled by verified
+            independent partners where coverage is available.
           </p>
+          <p className={styles.supportMeta}>
+            <a href={`tel:${SUPPORT_PHONE_TEL}`}>{SUPPORT_PHONE}</a>
+            <span aria-hidden> · </span>
+            {SUPPORT_HOURS}
+          </p>
+          <SocialLinks tone="onDark" className={styles.socialRow} />
         </div>
         <div>
           <p className={styles.colTitle}>Product</p>
@@ -43,12 +51,19 @@ export function SiteFooter() {
             <li>
               <Link href="/safety">Safety</Link>
             </li>
+            {showVisitStories ? (
+              <li>
+                <Link href="/stories">Visit stories</Link>
+              </li>
+            ) : null}
             <li>
               <Link href="/download">Get the app</Link>
             </li>
-            <li>
-              <Link href="/cities">Cities</Link>
-            </li>
+            {showCityCoverage ? (
+              <li>
+                <Link href="/cities">Cities</Link>
+              </li>
+            ) : null}
             <li>
               <Link href="/blog">Blog</Link>
             </li>
@@ -86,7 +101,7 @@ export function SiteFooter() {
             <li>
               <Link href="/legal">All policies</Link>
             </li>
-            {legalNav.slice(0, 5).map((item) => (
+            {footerLegalNav.map((item) => (
               <li key={item.slug}>
                 <Link href={item.href}>{item.title}</Link>
               </li>
@@ -96,7 +111,8 @@ export function SiteFooter() {
       </div>
       <div className={`om-container ${styles.bottom}`}>
         <p>
-          © {year} {COMPANY_LEGAL_NAME}. All rights reserved.
+          © {year} {COMPANY_LEGAL_NAME}. All rights reserved. OorjaMan is a technology marketplace operated by{" "}
+          {COMPANY_LEGAL_NAME}.
         </p>
       </div>
     </footer>

@@ -32,6 +32,7 @@ import {
   adminVendorClaimedCopy,
   adminVendorDeclinedCopy,
   vendorBookingAssignedCopy,
+  vendorTechnicianChangedCopy,
   emitAdminBookingNotification,
   emitVendorBookingNotification,
 } from "../notifications/booking-notifications";
@@ -1420,9 +1421,15 @@ export async function vendorReassignBookingTechnician(
   const booking = await getBookingById(client, bookingId);
   await assertVendorOwnsBooking(client, booking);
 
-  if (booking.status !== "accepted" && booking.status !== "in_progress") {
+  // Allow the swap only before the visit has physically started. `technicianStartJob`
+  // flips status to `in_progress` and stamps `actual_start` at the same moment, so a null
+  // `actual_start` is the reliable "not yet started" signal (covers `accepted` and any
+  // rare pre-start `in_progress` edge). Once the timer/selfie is in, reassignment is blocked.
+  const jobHasStarted = Boolean(booking.actual_start);
+  const reassignableStatus = booking.status === "accepted" || booking.status === "in_progress";
+  if (!reassignableStatus || jobHasStarted) {
     throw new SupabaseApiError(
-      "Technician can only be reassigned for accepted or in-progress visits.",
+      "You can only change the technician before the visit has started.",
     );
   }
 
@@ -1459,6 +1466,17 @@ export async function vendorReassignBookingTechnician(
     booking: updated,
     eventType: "admin_booking_technician_reassigned",
     ...techReassignCopy,
+    vendorName,
+    technicianName,
+  });
+  // Vendor-facing confirmation of the change. Technician + customer notifications are enqueued
+  // automatically by the `bookings` technician-change DB trigger (push outbox), so we don't emit
+  // them here.
+  await emitVendorBookingNotification(client, {
+    booking: updated,
+    eventType: "vendor_booking_technician_changed",
+    recipientVendorId: vendorId,
+    ...vendorTechnicianChangedCopy(updated, technicianName),
     vendorName,
     technicianName,
   });

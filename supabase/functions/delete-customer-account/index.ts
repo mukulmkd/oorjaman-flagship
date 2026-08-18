@@ -6,6 +6,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
  * Soft-anonymizes public.users + customers, cancels open AMCs, then auth.admin.deleteUser.
  */
 import { corsHeaders as resolveCors } from "../_shared/cors.ts";
+import {
+  enforceEdgeRateLimit,
+  subjectUserAndIp,
+} from "../_shared/rate-limit.ts";
 
 const ACTIVE_BOOKING_STATUSES = [
   "pending_payment",
@@ -60,6 +64,15 @@ Deno.serve(async (req: Request) => {
   }
 
   const adminClient = createClient(supabaseUrl, serviceKey);
+
+  const rateLimited = await enforceEdgeRateLimit({
+    admin: adminClient,
+    req,
+    functionName: "delete-customer-account",
+    subject: subjectUserAndIp(user.id, req),
+    cors,
+  });
+  if (rateLimited) return rateLimited;
 
   const { data: userRow, error: userRowErr } = await adminClient
     .from("users")

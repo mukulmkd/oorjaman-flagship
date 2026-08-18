@@ -16,6 +16,11 @@ type PushTokenRow = {
 };
 
 import { corsHeaders as resolveCors } from "../_shared/cors.ts";
+import {
+  enforceEdgeRateLimit,
+  subjectDispatch,
+  subjectIp,
+} from "../_shared/rate-limit.ts";
 
 function backoffMinutes(attempt: number): number {
   if (attempt <= 1) return 2;
@@ -64,6 +69,16 @@ Deno.serve(async (req: Request) => {
     return json({ ok: false, error: "Server configuration error" }, 500);
   }
 
+  const admin = createClient(supabaseUrl, serviceKey);
+  const rateLimited = await enforceEdgeRateLimit({
+    admin,
+    req,
+    functionName: "send-technician-expo-push",
+    subject: `${subjectDispatch()}|${subjectIp(req)}`,
+    cors,
+  });
+  if (rateLimited) return rateLimited;
+
   let body: { outbox_id?: string; limit?: number } = {};
   try {
     body = (await req.json()) as { outbox_id?: string; limit?: number };
@@ -72,7 +87,6 @@ Deno.serve(async (req: Request) => {
   }
 
   const limit = Math.max(1, Math.min(100, Math.round(Number(body.limit ?? 25))));
-  const admin = createClient(supabaseUrl, serviceKey);
   const nowIso = new Date().toISOString();
 
   let query = admin

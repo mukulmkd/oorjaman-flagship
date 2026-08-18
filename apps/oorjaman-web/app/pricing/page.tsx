@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { MarketingPage } from "@/components/MarketingPage";
+import { ScrollReveal } from "@/components/ScrollReveal";
 import { buildPageMetadata } from "@/lib/seo";
 import {
   formatInrWhole,
@@ -8,12 +9,19 @@ import {
   OORJAMAN_ONE_TIME_VISIT_PRICES_INR,
   splitGstFromInclusiveInr,
 } from "@/lib/pricing-catalog";
+import styles from "./pricing.module.css";
 
 export const metadata = buildPageMetadata({
   title: "Pricing",
   description: "OorjaMan solar cleaning and AMC prices by kW band. GST 18% included.",
   path: "/pricing",
 });
+
+const chips = [
+  { value: `${OORJAMAN_GST_RATE_PERCENT}% GST`, label: "Included in every listed price" },
+  { value: "kW bands", label: "Packages sized to system capacity" },
+  { value: "Geo tiers", label: "City add-ons when your address maps" },
+] as const;
 
 export default function PricingPage() {
   const sampleGst = splitGstFromInclusiveInr(1599);
@@ -22,70 +30,104 @@ export default function PricingPage() {
     <MarketingPage
       title="Pricing"
       lead={`Published catalogue prices for India. All amounts include ${OORJAMAN_GST_RATE_PERCENT}% GST. City-tier surcharges may apply in the app based on your service address.`}
+      cta={
+        <>
+          <Link href="/download" className="om-btn om-btn--primary">
+            See live prices in the app
+          </Link>
+          <Link href="/services/panel-cleaning" className="om-btn om-btn--outline">
+            Panel cleaning
+          </Link>
+        </>
+      }
     >
-      <p>
-        <strong>GST ({OORJAMAN_GST_RATE_PERCENT}%)</strong> is included in every price below. Example for a ₹1,599 AMC
-        plan: service value {formatInrWhole(sampleGst.taxableValueInr)}, GST {formatInrWhole(sampleGst.gstInr)}, total{" "}
-        {formatInrWhole(sampleGst.totalInr)}.
-      </p>
-
-      <h2>One-time panel cleaning</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Panel capacity</th>
-            <th>Price (incl. GST)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {OORJAMAN_ONE_TIME_VISIT_PRICES_INR.map((row) => (
-            <tr key={row.kw}>
-              <td>{row.kw} kW</td>
-              <td>{formatInrWhole(row.priceInr)}</td>
-            </tr>
+      <ScrollReveal>
+        <ul className={styles.chips}>
+          {chips.map((c) => (
+            <li key={c.value} className={styles.chip}>
+              <span className={styles.chipValue}>{c.value}</span>
+              <span className={styles.chipLabel}>{c.label}</span>
+            </li>
           ))}
-        </tbody>
-      </table>
+        </ul>
+      </ScrollReveal>
 
-      <h2>Annual Maintenance Plan (AMP)</h2>
-      <p>
-        <strong>SP-1</strong> — 3 services in 1 year · <strong>SP-2</strong> — 6 services in 2 years. List price is per-visit
-        rate × visits; special customer price is what you pay in the app.
-      </p>
-      <table>
-        <thead>
-          <tr>
-            <th>Capacity</th>
-            <th>Plan</th>
-            <th>Visits</th>
-            <th>List price</th>
-            <th>Special price (incl. GST)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {OORJAMAN_AMC_PLANS_INR.map((row) => (
-            <tr key={`${row.kw}-${row.spLabel}`}>
-              <td>{row.kw} kW</td>
-              <td>{row.spLabel}</td>
-              <td>{row.visitsLabel}</td>
-              <td>{formatInrWhole(row.listPriceInr)}</td>
-              <td>{formatInrWhole(row.specialPriceInr)}</td>
+      <ScrollReveal>
+        <p>
+          <strong>GST ({OORJAMAN_GST_RATE_PERCENT}%)</strong> is included in every price below. Example for a ₹1,599 AMC
+          plan: service value {formatInrWhole(sampleGst.taxableValueInr)}, GST {formatInrWhole(sampleGst.gstInr)}, total{" "}
+          {formatInrWhole(sampleGst.totalInr)}.
+        </p>
+      </ScrollReveal>
+
+      <ScrollReveal>
+        <h2>One-time panel cleaning</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Panel capacity</th>
+              <th>Price (incl. GST)</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {OORJAMAN_ONE_TIME_VISIT_PRICES_INR.map((row) => (
+              <tr key={row.kw}>
+                <td>{row.kw} kW</td>
+                <td>{formatInrWhole(row.priceInr)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </ScrollReveal>
 
-      <ul>
-        <li>
-          <strong>Geo tiers</strong> — Optional visit and AMC add-ons when your city maps to a surcharge tier.
-        </li>
-        <li>
-          <strong>Cancellation</strong> — Grace window plus late-cancellation fee shown before you confirm.
-        </li>
-      </ul>
-      <p>
-        <Link href="/download">See live checkout prices in the app</Link> ·{" "}
-        <Link href="/legal/refund-cancellation">Refund &amp; cancellation policy</Link>
+      <ScrollReveal>
+        <h2>Annual Maintenance Plan (AMP)</h2>
+        <p>
+          <strong>SP-1</strong> - 3 services in 1 year · <strong>SP-2</strong> - 6 services in 2 years. List price is
+          per-visit rate × visits; special customer price is what you pay in the app.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Capacity</th>
+              <th>Plan</th>
+              <th>Visits</th>
+              <th>List price</th>
+              <th>Special price (incl. GST)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {OORJAMAN_AMC_PLANS_INR.map((row) => (
+              <tr key={`${row.kw}-${row.spLabel}`}>
+                <td>{row.kw} kW</td>
+                <td>{row.spLabel}</td>
+                <td>{row.visitsLabel}</td>
+                <td>{formatInrWhole(row.listPriceInr)}</td>
+                <td>{formatInrWhole(row.specialPriceInr)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </ScrollReveal>
+
+      <ScrollReveal>
+        <ul>
+          <li>
+            <strong>Geo tiers</strong> - Optional visit and AMC add-ons when your city maps to a surcharge tier.
+          </li>
+          <li>
+            <strong>Cancellation</strong> - Grace window plus late-cancellation fee shown before you confirm.
+          </li>
+        </ul>
+      </ScrollReveal>
+
+      <p className={styles.actions}>
+        <Link href="/download" className="om-btn om-btn--primary">
+          See live checkout prices in the app
+        </Link>
+        <Link href="/legal/refund-cancellation" className="om-btn om-btn--outline">
+          Refund &amp; cancellation
+        </Link>
       </p>
     </MarketingPage>
   );

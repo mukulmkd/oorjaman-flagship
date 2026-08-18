@@ -190,6 +190,8 @@ password_requirements = ""
 # rp_origins = ["http://127.0.0.1:3000"]
 
 [auth.rate_limit]
+# Hosted projects: also review Dashboard → Authentication → Attack Protection
+# (see project-docs/RATE-LIMITING.md). These values apply primarily to local `supabase start`.
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
 email_sent = 2
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.

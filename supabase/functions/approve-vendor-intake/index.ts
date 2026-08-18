@@ -2,6 +2,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders as resolveCors } from "../_shared/cors.ts";
+import {
+  enforceEdgeRateLimit,
+  subjectUserAndIp,
+} from "../_shared/rate-limit.ts";
 
 function splitCsv(s: unknown): string[] | null {
   if (s == null) return null;
@@ -57,6 +61,15 @@ Deno.serve(async (req: Request) => {
   if (!adminRow || adminRow.role !== "admin") {
     return json({ ok: false, error: "Forbidden" }, 403);
   }
+
+  const rateLimited = await enforceEdgeRateLimit({
+    admin: adminClient,
+    req,
+    functionName: "approve-vendor-intake",
+    subject: subjectUserAndIp(user.id, req),
+    cors,
+  });
+  if (rateLimited) return rateLimited;
 
   let body: { intake_id?: string };
   try {

@@ -13,7 +13,7 @@ Operational checklist for shipping **oorjaman.com** and store-facing legal URLs.
 - [x] **In-app account deletion** — Profile → Delete account → Edge Function `delete-customer-account`
 - [x] Public emails live (`support@` / `privacy@` / `legal@` / `info@`) — see EMAILS.md
 - [x] FAQ, cities, blog depth for soft launch SEO
-- [x] Company legal name + Bengaluru address on About / Contact
+- [x] Company legal name + Guwahati registered-office placeholder on About / Contact
 - [x] Optional GSTIN via `NEXT_PUBLIC_COMPANY_GSTIN` (omit until verified)
 
 ---
@@ -50,7 +50,7 @@ Operational checklist for shipping **oorjaman.com** and store-facing legal URLs.
 
 - [ ] Lawyer review of all `/legal/*` (engineering drafts; lastUpdated 2026-08-08)
 - [ ] Confirm company GSTIN before setting `NEXT_PUBLIC_COMPANY_GSTIN`
-- [ ] Confirm registered office address if more specific than “Bengaluru, Karnataka, India”
+- [ ] Confirm registered office address (replace Guwahati placeholder with LLP Form-2 / records address via `NEXT_PUBLIC_COMPANY_ADDRESS`)
 
 ### Search
 

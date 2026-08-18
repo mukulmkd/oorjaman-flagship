@@ -97,6 +97,10 @@ export {
   subscribeInAppNotifications,
   unsubscribeNotificationChannel,
 } from "./notifications/notification-inbox-api";
+export {
+  subscribeAdminBookingChanges,
+  unsubscribeBookingChannel,
+} from "./bookings/booking-realtime";
 export type { InAppNotificationPayload, NotificationAudience } from "./notifications/booking-notifications";
 export {
   adminAmcAwaitingPartnerCopy,

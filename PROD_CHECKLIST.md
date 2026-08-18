@@ -2,7 +2,7 @@
 
 The **one** place to track everything required to take OorjaMan live. This file owns the **checklist, order, and status**. It does **not** duplicate step-by-step procedures — those stay in the deep runbooks under `project-docs/` and `docs/`, linked inline. When a task's status changes, update it **here**; when you need the "how", follow the linked doc.
 
-**Last updated:** 2026-08-09
+**Last updated:** 2026-08-13
 **Legend:** `[ ]` todo · `[~]` in progress / partial · `[x]` done
 
 > **Golden rule (never break):** every DB/RLS/function change is a **new** migration, applied **UAT first → validate → PROD**. Never edit an applied migration; never hand-edit prod SQL in the dashboard. (`project-docs/SUPABASE-UAT-PROD.md`)
@@ -82,19 +82,30 @@ Link PROD, then `npm run functions:deploy -- <name>`:
 - [ ] `send-technician-expo-push`
 - [ ] `process-notification-events`
 - [ ] Prod dashboard secrets: `PUSH_DISPATCH_SECRET`, cron dispatch secret, service-role (as used), **`CORS_ALLOWED_ORIGINS`** (SECURITY_REVIEW L2 — pin to real portal origins; unset = `*`).
+- [x] **Rate limiting (Edge):** migration `20260813120000_edge_function_rate_limits` applied + all six functions redeployed on UAT and PROD (2026-08-13). Optional: SQL/429 smoke — `project-docs/RATE-LIMITING.md`.
 - [ ] Smoke: throwaway UAT account deletion end-to-end before prod.
 
 ---
 
 ## 5. Auth, OTP/SMS & email templates (prod project)
 
-Runbook: `project-docs/DEPLOYMENT.md` §Auth, `project-docs/SECURITY-VERCEL.md`, `project-docs/EMAILS.md`
+Runbook: `project-docs/DEPLOYMENT.md` §Auth, `project-docs/SECURITY-VERCEL.md`, `project-docs/EMAILS.md`, `project-docs/RATE-LIMITING.md`
 
 - [ ] Auth → URL config: production redirect URLs (`https://oorjaman.com`, portal subdomains) + Vercel UAT if still used.
 - [ ] **Real SMS/OTP provider** configured with prod credentials + rate limits (no dummy).
+- [x] **Auth → Rate Limits** reviewed on UAT (defaults kept; IP forwarding Off). Re-check PROD when real SMS OTP goes live — `project-docs/RATE-LIMITING.md` §B.
 - [ ] Verify dummy auth OFF in prod (hard-disabled in code by `resolveDummyAuthSettings()` when `DEPLOY_ENV=production` — SECURITY_REVIEW H1 — but confirm env).
 - [ ] **Supabase Auth email templates (prod)** — branded, no dummy domain.
 - [ ] Do **not** run `npm run seed:dummy-users` against prod.
+
+### CAPTCHA — defer until real OTP (do **not** enable while dummy auth is in use)
+
+Leave CAPTCHA **off** on UAT/local while `EXPO_PUBLIC_USE_DUMMY_AUTH` / dummy OTP is active. Enabling it in the dashboard without app `captchaToken` wiring breaks login. Track for prod cutover:
+
+- [ ] Create Cloudflare Turnstile (or hCaptcha) sitekey + secret.
+- [ ] Wire `captchaToken` into customer/technician OTP flows (code — ask agent when keys ready).
+- [ ] Enable CAPTCHA in prod Auth dashboard **only after** app wiring + real SMS OTP are live.
+- [ ] Confirm UAT CAPTCHA stays **off** while dummy auth remains.
 
 ---
 
@@ -116,8 +127,51 @@ Runbook: `project-docs/LAUNCH.md`, `project-docs/SEO.md`
 - [ ] DNS `A`/`CNAME` for `oorjaman.com` + `www`; HTTPS; `www`→apex redirect.
 - [ ] Prod env `NEXT_PUBLIC_DEPLOY_ENV=production` (turns SEO/indexing **on**; UAT/local stay off).
 - [ ] Build `npm run build:godaddy -w oorjaman-web` → upload `apps/oorjaman-web/out/` → `public_html`.
-- [ ] Smoke: `/`, `/download`, `/pricing`, `/contact`, `/legal/privacy-policy`, `/legal/account-deletion`, `/legal/terms` (+ trailing slash).
+- [ ] Smoke: `/`, `/download`, `/pricing`, `/contact`, `/legal/`, `/legal/privacy-policy/`, `/legal/terms-of-service/`, `/legal/grievance-redressal/`, `/legal/account-deletion/`, `/legal/refund-cancellation/`, `/legal/app-permissions/`, `/legal/service-disclaimers/`.
 - [ ] Google Search Console → property `https://oorjaman.com` → submit `sitemap.xml`.
+
+### 7a. Marketing legal / compliance prerequisites (must exist before public launch)
+
+Copy lives in `apps/oorjaman-web/lib/legal-docs.ts`; footer links via `SiteFooter`. Counsel should review before treating as final.
+
+| # | Prerequisite | Status / URL |
+|---|---|---|
+| 1 | Customer Terms & Conditions | `[x]` `/legal/terms-of-service` (title: Customer Terms & Conditions) |
+| 2 | Privacy & Data Protection Policy | `[x]` `/legal/privacy-policy` |
+| 3 | DPDP Act/Rules 2025 (collection, consent, storage, processing) | `[x]` Privacy + `/legal/data-processing` (counsel review still advised) |
+| 4 | Grievance Officer / complaints | `[x]` `/legal/grievance-redressal` + Contact card — **you must** create mailbox `grievance@oorjaman.com` and set `NEXT_PUBLIC_GRIEVANCE_OFFICER_NAME` |
+| 5 | Marketplace / vendor information | `[x]` `/legal/vendor-partner-agreement` + `/partners` |
+| 6 | Cancellation + refund | `[x]` `/legal/refund-cancellation` |
+| 7 | Website legal footer | `[x]` Privacy, Terms, Refunds, Grievance, Permissions, Disclaimers, Account deletion, Cookies |
+| 8 | Marketplace / platform wording (not in-house crew) | `[x]` Terms, About, footer — spot-check other pages before launch |
+| 9 | App permissions consent (Location, Camera, Photos, Notifications; no Contacts) | `[x]` `/legal/app-permissions` |
+| 10 | Service terms / solar safety disclaimers | `[x]` `/legal/service-disclaimers` + `/safety` |
+| 11 | Transparent pricing | `[x]` `/pricing` |
+| 12 | Account deletion (store compliance) | `[x]` `/legal/account-deletion` + in-app flow |
+
+Your remaining actions for §7a:
+
+- [ ] Create / forward **`grievance@oorjaman.com`** (and monitor it). Dummy officer name is **Priya Sharma** in marketing env - replace with the real name.
+- [ ] Replace dummy **`NEXT_PUBLIC_GRIEVANCE_OFFICER_NAME`**, **`NEXT_PUBLIC_COMPANY_ADDRESS`**, **`NEXT_PUBLIC_SUPPORT_PHONE`**, and **`NEXT_PUBLIC_COMPANY_GSTIN`** in `apps/oorjaman-web/.env.production.local`.
+- [ ] Legal counsel sign-off on Privacy, Terms, Grievance, Refunds, DPDP wording (including jurisdiction in Guwahati, Assam).
+
+### 7b. Marketing redesign (Phase A–D) - assets from you
+
+**Phase A (done in code):** scroll reveals, rotating hero, proof strip, how-it-works, why-us mock, audience cards (testimonials auto-show when real quotes exist).
+
+**Phase B (done in code):** `/stories` visit journeys + home strip, enriched panel-cleaning / AMC pages, sticky support call chip sitewide, Stories in header/footer/sitemap.
+
+**Phase C (done in code):** optional photo/video slots (`public/marketing/`), city FAQs, business callback form, support hours, Instagram, testimonials gate via `placeholder: false`.
+
+**Phase D (done in code):** MarketingPage media hero + wide body; visual upgrades for services, how-it-works, homeowners/businesses, download, cities, partners, safety, about, pricing chips, stories polish. App screenshot slots under `public/marketing/screenshots/`.
+
+- [ ] Replace stock Unsplash/Mixkit files in `apps/oorjaman-web/public/marketing/` with brand-owned media before launch (see `ATTRIBUTION.md`). Dummy preview files are already in place.
+- [ ] Replace dummy app screenshots `booking.png` / `tracking.png` / `evidence.png` in `public/marketing/screenshots/` with real customer-app captures.
+- [ ] Replace dummy home quotes in `lib/home-content.ts` with **3–6 real permissioned customer quotes**.
+- [ ] Replace dummy **`NEXT_PUBLIC_SUPPORT_PHONE`** with the live support number.
+- [ ] Confirm **`NEXT_PUBLIC_SUPPORT_HOURS`** if different from dummy Mon-Sat 9:00 AM - 6:00 PM IST.
+- [ ] Confirm or change proof metrics in `lib/home-content.ts` (`proofItems`).
+- [ ] Optional: replace sample visit stories in `lib/visit-stories.ts` with permissioned real case studies + photos.
 - [ ] Optional: Bing Webmaster Tools (same sitemap).
 
 ---
@@ -160,7 +214,7 @@ Runbook: `project-docs/LAUNCH.md`, `project-docs/SEO.md`, `docs/ios-qa-distribut
 ## 11. Legal, company & payments
 
 - [ ] Counsel review of all `/legal/*` (drafts, lastUpdated 2026-08-08).
-- [ ] Confirm entity **OORJA MAN LLP**, GSTIN, registered office address across About / Contact / legal.
+- [ ] Confirm entity **OORJA MAN LLP**, GSTIN, registered office address (Guwahati placeholder today) across About / Contact / legal.
 - [ ] Razorpay KYC complete (Power of Attorney for LLP) + live keys as secrets (never in client bundle).
 
 ---

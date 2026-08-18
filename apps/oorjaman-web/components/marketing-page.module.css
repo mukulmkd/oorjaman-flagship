@@ -21,11 +21,64 @@
   bottom: 0;
   height: 3px;
   background: linear-gradient(90deg, var(--om-oorja), var(--om-man));
+  z-index: 2;
+}
+
+.headerMedia {
+  min-height: min(52vh, 28rem);
+  display: flex;
+  align-items: flex-end;
+  padding: 5rem 0 2.75rem;
+  background: #0f2938;
+  border-bottom: none;
+}
+
+.media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.mediaImg {
+  object-fit: cover;
+  object-position: var(--om-media-pos, center 32%);
+}
+
+.mediaScrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(105deg, rgb(15 41 56 / 0.88) 0%, rgb(15 41 56 / 0.55) 52%, rgb(26 115 79 / 0.42) 100%),
+    linear-gradient(180deg, rgb(15 41 56 / 0.25) 0%, transparent 35%, rgb(15 41 56 / 0.55) 100%);
 }
 
 .headerInner {
   position: relative;
+  z-index: 1;
   max-width: 44rem;
+}
+
+.wide .headerInner {
+  max-width: 52rem;
+}
+
+.eyebrowOnMedia {
+  color: rgb(159 201 60 / 0.95) !important;
+}
+
+.titleOnMedia {
+  color: #fff;
+}
+
+.leadOnMedia {
+  color: rgb(255 255 255 / 0.82);
+}
+
+.headerCta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.35rem;
 }
 
 .body {
@@ -36,6 +89,10 @@
   max-width: 48rem;
 }
 
+.wide .bodyInner {
+  max-width: 72rem;
+}
+
 .bodyInner :global(ol),
 .bodyInner :global(ul) {
   color: var(--om-navy);
@@ -43,4 +100,11 @@
 
 .bodyInner :global(li) {
   margin-bottom: 0.35rem;
+}
+
+@media (max-width: 640px) {
+  .headerMedia {
+    min-height: 18rem;
+    padding: 3.5rem 0 2.25rem;
+  }
 }

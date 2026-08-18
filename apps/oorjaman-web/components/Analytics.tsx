@@ -5,7 +5,7 @@ import { isPublicMarketingIndexable, parseDeployEnvironment } from "@oorjaman/co
 import { CONSENT_EVENT, getStoredConsent, type ConsentValue } from "@/lib/consent";
 
 /**
- * Google Analytics 4 loader — fully consent-gated.
+ * Google Analytics 4 loader - fully consent-gated.
  *
  * Nothing loads unless ALL are true:
  *   1. NEXT_PUBLIC_GA_ID is set (no ID = no tracking, so this is inert today)
