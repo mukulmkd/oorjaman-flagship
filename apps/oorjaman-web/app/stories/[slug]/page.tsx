@@ -9,8 +9,10 @@ import styles from "../stories.module.css";
 
 type Props = { params: Promise<{ slug: string }> };
 
+export const dynamicParams = false;
+
 export function generateStaticParams() {
-  if (!showVisitStories) return [];
+  // Static export requires a non-empty list. Hidden stories still 404 below.
   return visitStories.map((s) => ({ slug: s.slug }));
 }
 

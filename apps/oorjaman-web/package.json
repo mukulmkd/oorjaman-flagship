@@ -7,6 +7,7 @@
     "build": "npm run brand:sync && next build",
     "build:uat": "npm run brand:sync && OORJAMAN_STATIC_EXPORT=1 NEXT_PUBLIC_DEPLOY_ENV=uat next build",
     "build:godaddy": "npm run brand:sync && OORJAMAN_STATIC_EXPORT=1 next build",
+    "build:vercel": "npm run brand:sync && next build",
     "start": "next start --port 3000",
     "brand:sync": "node ../../scripts/sync-brand-assets.mjs --web-only",
     "lint": "next lint",

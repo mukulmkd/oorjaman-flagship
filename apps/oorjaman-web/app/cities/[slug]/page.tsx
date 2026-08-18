@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { JsonLd } from "@/components/JsonLd";
 import { MarketingPage } from "@/components/MarketingPage";
 import { ScrollReveal } from "@/components/ScrollReveal";
-import { publishedCityLandings, getPublishedCityLanding } from "@/lib/cities";
+import { cityLandings, getPublishedCityLanding } from "@/lib/cities";
 import { buildPageMetadata } from "@/lib/seo";
 import { siteUrl } from "@/lib/site";
 import styles from "../cities.module.css";
@@ -26,8 +26,12 @@ const cityFaqs = (cityName: string) =>
     },
   ] as const;
 
+export const dynamicParams = false;
+
 export function generateStaticParams() {
-  return publishedCityLandings().map((c) => ({ slug: c.slug }));
+  // Static export (`output: export`) errors if this returns []. Always emit slugs;
+  // unpublished cities still 404 in the page / stay off nav and sitemap.
+  return cityLandings.map((c) => ({ slug: c.slug }));
 }
 
 export async function generateMetadata({ params }: Props) {
