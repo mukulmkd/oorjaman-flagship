@@ -10,6 +10,10 @@ import {
   type ServiceAddressEntry,
   type ServiceAddressSaveExtras,
 } from "../lib/service-address-book";
+import {
+  isSessionAddressGateDismissed,
+  markSessionAddressGateDismissed,
+} from "../lib/session-address-gate";
 import { supabase } from "../lib/supabase";
 
 type Props = {
@@ -20,24 +24,39 @@ type Props = {
 
 /**
  * Every app session: blocks main tabs until the user taps a saved address (or adds their first one).
- * Swiggy-style: no separate "continue" button on the sheet; optional GPS to prefill the add form.
+ * Dismissal is module-scoped so remounting (main) after /book does not re-prompt.
  */
 export function MandatoryServiceAddressGate({ customer, onGateReleased }: Props) {
   const qc = useQueryClient();
-  const [sessionDismissed, setSessionDismissed] = useState(false);
+  const [sessionDismissed, setSessionDismissed] = useState(() =>
+    isSessionAddressGateDismissed(customer.id),
+  );
   const prevIdRef = useRef(customer.id);
+  const releasedRef = useRef(false);
 
   useEffect(() => {
     if (prevIdRef.current !== customer.id) {
-      setSessionDismissed(false);
       prevIdRef.current = customer.id;
+      releasedRef.current = false;
+      const already = isSessionAddressGateDismissed(customer.id);
+      setSessionDismissed(already);
     }
   }, [customer.id]);
+
+  useEffect(() => {
+    if (!sessionDismissed || releasedRef.current) return;
+    releasedRef.current = true;
+    onGateReleased?.();
+  }, [sessionDismissed, onGateReleased]);
 
   const { entries, defaultId } = readServiceAddressBook(customer);
 
   const addressMut = useMutation({
-    mutationFn: async (payload: { entries: ServiceAddressEntry[]; defaultId: string | null; extras?: ServiceAddressSaveExtras }) => {
+    mutationFn: async (payload: {
+      entries: ServiceAddressEntry[];
+      defaultId: string | null;
+      extras?: ServiceAddressSaveExtras;
+    }) => {
       if (!supabase) throw new Error("Not connected.");
       const base = buildAddressBookPatch(customer, payload.entries, payload.defaultId);
       return customerApi.updateMyCustomer(supabase, mergeServiceGpsIntoCustomerPatch(base, payload.extras));
@@ -55,8 +74,8 @@ export function MandatoryServiceAddressGate({ customer, onGateReleased }: Props)
       onClose={() => {}}
       onSave={async (nextEntries, nextDefaultId, extras) => {
         await addressMut.mutateAsync({ entries: nextEntries, defaultId: nextDefaultId, extras });
+        markSessionAddressGateDismissed(customer.id);
         setSessionDismissed(true);
-        onGateReleased?.();
       }}
     />
   );

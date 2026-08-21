@@ -91,11 +91,11 @@ export function BookVisitAmcAwaitingPartnerGate({
         <Button variant="primary" size="md" onPress={onViewAmc}>
           View my AMC
         </Button>
-        <Button variant="outline" size="md" onPress={onContactSupport}>
+        <Button variant="secondary" size="md" onPress={onContactSupport}>
           Contact support
         </Button>
         <Text style={awaitingStyles.supportHint}>{amcUrgentCleaningSupportHint}</Text>
-        <Button variant="ghost" size="md" onPress={onBack}>
+        <Button variant="outline" size="md" onPress={onBack}>
           Go back
         </Button>
       </View>
@@ -117,7 +117,7 @@ export function BookVisitAmcChoiceGate({ gate, onBookOneTime, onAmcPrimary, onBa
             <Button variant="primary" size="md" onPress={onAmcPrimary}>
               {copy.amcLabel}
             </Button>
-            <Button variant="outline" size="md" onPress={onBookOneTime}>
+            <Button variant="secondary" size="md" onPress={onBookOneTime}>
               {copy.oneTimeLabel}
             </Button>
           </>
@@ -126,12 +126,12 @@ export function BookVisitAmcChoiceGate({ gate, onBookOneTime, onAmcPrimary, onBa
             <Button variant="primary" size="md" onPress={onBookOneTime}>
               {copy.oneTimeLabel}
             </Button>
-            <Button variant="outline" size="md" onPress={onAmcPrimary}>
+            <Button variant="secondary" size="md" onPress={onAmcPrimary}>
               {copy.amcLabel}
             </Button>
           </>
         )}
-        <Button variant="ghost" size="md" onPress={onBack}>
+        <Button variant="outline" size="md" onPress={onBack}>
           Go back
         </Button>
       </View>

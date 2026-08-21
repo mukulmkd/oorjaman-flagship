@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Keyboard,
   Platform,
   Pressable,
   StyleSheet,
@@ -19,8 +20,15 @@ import {
   validateLoginNationalPhone,
 } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
-import { LoginPhoneRow, OtpCodeInput, dismissOtpKeyboard, KeyboardFormScreen, type KeyboardFormScreenRef } from "@oorjaman/ui";
-import { BrandLockup } from "@oorjaman/ui";
+import {
+  Button,
+  LoginPhoneRow,
+  OtpCodeInput,
+  dismissOtpKeyboard,
+  KeyboardFormScreen,
+  type KeyboardFormScreenRef,
+  BrandLockup,
+} from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { supabase } from "../lib/supabase";
 
@@ -32,6 +40,7 @@ export default function LoginScreen() {
   const otpRef = useRef<TextInput>(null);
   const formRef = useRef<KeyboardFormScreenRef>(null);
   const autoVerifyOtpRef = useRef<string | null>(null);
+  const sendInFlightRef = useRef(false);
 
   const [countryDial, setCountryDial] = useState(DEFAULT_LOGIN_COUNTRY_DIAL);
   const [nationalPhone, setNationalPhone] = useState("");
@@ -64,6 +73,7 @@ export default function LoginScreen() {
   }, [cooldown]);
 
   const sendOtp = useCallback(async () => {
+    if (sendInFlightRef.current || verifying || cooldown > 0) return;
     setError(null);
     if (!supabase) {
       setError(
@@ -77,7 +87,9 @@ export default function LoginScreen() {
       return;
     }
     const normalized = buildLoginE164(countryDial, nationalPhone);
+    sendInFlightRef.current = true;
     setSending(true);
+    Keyboard.dismiss();
     try {
       await authApi.requestPhoneOtp(supabase, normalized, {
         data: { role: "technician", phone: normalized },
@@ -90,9 +102,10 @@ export default function LoginScreen() {
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Could not send code. Try again.");
     } finally {
+      sendInFlightRef.current = false;
       setSending(false);
     }
-  }, [nationalPhone, countryDial]);
+  }, [nationalPhone, countryDial, verifying, cooldown]);
 
   const verify = useCallback(async () => {
     setError(null);
@@ -168,16 +181,17 @@ export default function LoginScreen() {
 
         <View style={styles.otpHeader}>
           <Text style={styles.label}>One-time code</Text>
-          <Pressable
-            accessibilityRole="button"
+          <Button
+            variant="secondary"
+            size="sm"
             accessibilityLabel={resendLabel}
+            loading={sending}
             disabled={sending || verifying || cooldown > 0}
             onPress={() => void sendOtp()}
+            style={styles.sendCodeBtn}
           >
-            <Text style={[styles.link, (sending || cooldown > 0 || verifying) && styles.linkMuted]}>
-              {sending ? "Sending…" : resendLabel}
-            </Text>
-          </Pressable>
+            {resendLabel}
+          </Button>
         </View>
 
         <Text style={styles.otpSmsHint}>
@@ -281,15 +295,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: spacing.sm,
     marginTop: spacing.md,
   },
-  link: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: fontSize.md,
-    color: colors.primary,
-  },
-  linkMuted: {
-    color: colors.mutedForeground,
+  sendCodeBtn: {
+    flexShrink: 0,
+    minWidth: 120,
   },
   otpSmsHint: {
     fontFamily: fontFamily.regular,

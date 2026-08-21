@@ -27,6 +27,7 @@ export default function JobsStackLayout() {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="[id]" options={{ title: "Job details" }} />
       <Stack.Screen name="execute/[bookingId]" options={{ title: "Field visit" }} />
+      <Stack.Screen name="collect/[bookingId]" options={{ title: "Collect payment" }} />
     </Stack>
   );
 }

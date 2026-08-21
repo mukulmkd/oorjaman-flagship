@@ -108,6 +108,9 @@ export function AmcContractsPage() {
           <Link to="/dashboard/finance" className="amc-contracts-back-link">
             ← Finance & settlements
           </Link>
+          <Link to="/dashboard/finance/payments" className="amc-contracts-back-link" style={{ marginLeft: "0.75rem" }}>
+            Payments
+          </Link>
         }
       />
 

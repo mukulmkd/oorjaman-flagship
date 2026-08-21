@@ -54,7 +54,7 @@ export const KeyboardFormScreen = forwardRef<KeyboardFormScreenRef, KeyboardForm
           ref={scrollRef}
           style={styles.flex}
           contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled

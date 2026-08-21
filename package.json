@@ -51,7 +51,7 @@
     "brand:print": "node scripts/generate-brand-print.mjs",
     "brand:verify-notification-icon": "node scripts/verify-notification-icon.mjs",
     "docs:functional-test": "python3 scripts/generate-functional-test-doc.py",
-    "docs:uat-guide": "python3 scripts/generate-e2e-test-doc.py",
+    "docs:uat-guide": ".venv-docx/bin/python scripts/generate-e2e-test-doc.py",
     "docs:architecture": ".venv-docgen/bin/python scripts/generate-architecture-doc.py",
     "docs:costing": ".venv-docgen/bin/python scripts/generate-costing-doc.py",
     "docs:onboarding-prerequisites": ".venv-docgen/bin/python scripts/generate-onboarding-prerequisites-doc.py",

@@ -300,8 +300,8 @@ export default function MyBookingsScreen() {
             to refresh.
           </Text>
           <Button
-            variant="outline"
-            size="sm"
+            variant="primary"
+            size="md"
             onPress={() => {
               if (!supabase) return;
               void navigateToBookVisit(supabase, customerQuery.data ?? null);

@@ -1,30 +1,7 @@
-import type { Region } from "react-native-maps";
-
 export type LatLng = {
   latitude: number;
   longitude: number;
 };
-
-export function regionFromPoints(points: LatLng[], fallback: Region): Region {
-  if (points.length === 0) return fallback;
-  const lats = points.map((p) => p.latitude);
-  const lngs = points.map((p) => p.longitude);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
-  const midLat = (minLat + maxLat) / 2;
-  const midLng = (minLng + maxLng) / 2;
-  const pad = 1.35;
-  const latDelta = Math.max((maxLat - minLat) * pad, 0.04);
-  const lngDelta = Math.max((maxLng - minLng) * pad, 0.04);
-  return {
-    latitude: midLat,
-    longitude: midLng,
-    latitudeDelta: latDelta,
-    longitudeDelta: lngDelta,
-  };
-}
 
 /** Great-circle distance in kilometres. */
 export function distanceKm(a: LatLng, b: LatLng): number {

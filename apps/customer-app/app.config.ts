@@ -37,6 +37,9 @@ const config: ExpoConfig = {
     supportsTablet: true,
     bundleIdentifier: isUat ? "com.oorjaman.customer.uat" : "com.oorjaman.customer",
     ...(googleMapsApiKeyIos ? { config: { googleMapsApiKey: googleMapsApiKeyIos } } : {}),
+    infoPlist: {
+      LSApplicationQueriesSchemes: ["tez", "phonepe", "paytmmp", "bhim"],
+    },
   },
   android: {
     icon: "./assets/images/icon.png",

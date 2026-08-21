@@ -706,6 +706,12 @@ export function BookingMonitoringPage() {
               ) : null}
             </dl>
 
+            <p style={{ margin: 0, fontSize: webTypography.size.sm }}>
+              <Link to={`/dashboard/finance/payments?booking_id=${actionRow.id}`}>
+                View payments for this booking
+              </Link>
+            </p>
+
             <BookingLiveTrackPanel booking={actionRow} />
 
             <BookingSitePhotos booking={actionRow} />
