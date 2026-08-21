@@ -79,7 +79,7 @@ export function SiteFooter() {
               <Link href="/for-homeowners">For homeowners</Link>
             </li>
             <li>
-              <Link href="/for-businesses">For businesses</Link>
+              <Link href="/for-businesses">Businesses &amp; societies</Link>
             </li>
             <li>
               <Link href="/partners">Become a partner</Link>

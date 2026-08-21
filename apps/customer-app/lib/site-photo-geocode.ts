@@ -15,7 +15,12 @@ export async function reverseGeocodeSitePhoto(lat: number, lng: number): Promise
 
   let rows: Location.LocationGeocodedAddress[] = [];
   try {
-    rows = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+    rows = await Promise.race([
+      Location.reverseGeocodeAsync({ latitude: lat, longitude: lng }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Geocode timeout")), 12_000),
+      ),
+    ]);
   } catch {
     return coordFallback();
   }

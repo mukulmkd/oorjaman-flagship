@@ -421,6 +421,7 @@ In-app maps (technician live tracking, activity map preview, site photo GPS stam
    - **Maps SDK for iOS**
    - **Maps SDK for Android**
    - **Maps Static API** (fallback when native map snapshot fails on site photos)
+   - **Directions API** (road-following route on live technician tracking — optional but recommended)
 4. **APIs & Services → Credentials → Create credentials → API key**.
 
 #### 2. Restrict the key
@@ -434,7 +435,18 @@ Use **separate keys** for UAT vs PROD (recommended), or one key with all bundle 
 
 **Application restrictions:** add the iOS bundle IDs and Android package names for the tier(s) this key serves. For Android **release** builds, also add SHA-1 fingerprints from your signing keystore (EAS credentials / Play Console).
 
-**API restrictions:** limit to Maps SDK for iOS, Maps SDK for Android, and Maps Static API only.
+**API restrictions (Maps SDK key):** limit to Maps SDK for iOS, Maps SDK for Android, and Maps Static API.
+
+**Live tracking routes:** application-restricted Maps SDK keys **cannot** call the Directions HTTP API from the device (Google returns `REQUEST_DENIED`). The app then draws roads via an OSRM fallback, or a straight line if that also fails.
+
+For Google road routes in production, create a **second** key used only for Directions:
+
+1. Enable **Directions API** on the project.
+2. Create a key with **API restriction = Directions API only**.
+3. Prefer **no application restriction** for that key (or IP restriction if you later proxy via Edge Function). Do **not** put unlimited Maps SDK rights on this key.
+4. Set `EXPO_PUBLIC_GOOGLE_MAPS_DIRECTIONS_API_KEY` in app env / EAS (in addition to the Maps SDK key).
+
+Until that Directions key is set, tracking still shows a **road** path via OSRM when the public router is reachable.
 
 #### 3. Where to store the key
 
@@ -448,7 +460,9 @@ Do **not** use plain `apps/customer-app/.env`. Use mode-specific locals or EAS:
 | Store PROD builds | EAS env / secret (`production`) | PROD-restricted key |
 
 ```env
-EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=AIza...your_key_here
+EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=AIza...your_maps_sdk_key_here
+# Optional — Google road polylines (Directions API). SDK-restricted keys cannot call Directions from the device.
+# EXPO_PUBLIC_GOOGLE_MAPS_DIRECTIONS_API_KEY=AIza...directions_only_key
 ```
 
 EAS CLI example (repeat per app / environment):

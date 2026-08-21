@@ -1,7 +1,13 @@
 .list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 1.25rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 900px) {
+  .list {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .card {

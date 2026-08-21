@@ -1,0 +1,551 @@
+/* Shared brochure-style marketing sections — brand tokens only */
+
+.sectionHead {
+  max-width: 40rem;
+  margin-bottom: 2.25rem;
+}
+
+.sectionHeadCenter {
+  margin-inline: auto;
+  text-align: center;
+}
+
+.sectionLead {
+  margin: 0;
+  color: var(--om-muted);
+  font-size: 1.0625rem;
+  line-height: 1.65;
+}
+
+.sectionCompact {
+  padding-block: 2.25rem;
+}
+
+.trustRow {
+  display: grid;
+  gap: 1rem 1.25rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 0.5rem 0 0.25rem;
+}
+
+.trustItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  text-align: center;
+  min-width: 0;
+}
+
+.trustIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 12px;
+  border: 1.5px solid var(--om-primary);
+  color: var(--om-primary);
+  background: rgb(31 134 96 / 0.06);
+}
+
+.trustIcon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.trustCopy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.trustTitle {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--om-navy);
+}
+
+.trustBody {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--om-muted);
+}
+
+.featureGrid {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  margin-top: 0.5rem;
+}
+
+.featureCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  min-width: 0;
+  text-align: center;
+  background: var(--om-card);
+  border: 1px solid var(--om-border);
+  border-radius: var(--om-radius);
+  padding: 1.5rem 1.35rem;
+}
+
+.featureIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-bottom: 1rem;
+  border-radius: 10px;
+  color: var(--om-primary);
+  background: var(--om-primary-muted);
+}
+
+.featureIcon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.featureCopy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.featureTitle {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.featureBody {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--om-muted);
+}
+
+.stepRail {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.stepCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  text-align: center;
+  background: var(--om-card);
+  border: 1px solid var(--om-border);
+  border-radius: var(--om-radius);
+  padding: 1.35rem 1.2rem 1.5rem;
+}
+
+.stepIndex {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 2rem;
+  height: 2rem;
+  margin-bottom: 0.85rem;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: var(--om-primary);
+}
+
+.stepCopy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.stepTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.stepBody {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--om-muted);
+}
+
+.servicePriceGrid {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 2rem;
+}
+
+.servicePriceCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  background: var(--om-card);
+  border: 1px solid var(--om-border);
+  border-radius: calc(var(--om-radius) + 4px);
+  padding: 1.75rem 1.5rem;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+
+.servicePriceCard:hover {
+  border-color: var(--om-primary);
+  color: inherit;
+  transform: translateY(-2px);
+}
+
+.servicePriceEyebrow {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--om-oorja);
+}
+
+.servicePriceTitle {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.servicePriceFrom {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--om-primary);
+}
+
+.servicePriceBody {
+  margin: 0;
+  flex: 1;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--om-muted);
+}
+
+.servicePriceCta {
+  margin-top: 0.5rem;
+  align-self: flex-start;
+}
+
+.commercial {
+  padding: 4rem 0;
+  background: var(--om-bg-alt);
+  border-block: 1px solid var(--om-border);
+}
+
+.commercialInner {
+  display: grid;
+  gap: 2rem;
+  align-items: center;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+}
+
+.commercialTitle {
+  margin: 0 0 0.75rem;
+}
+
+.commercialLead {
+  margin: 0 0 1.25rem;
+  color: var(--om-muted);
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  max-width: 36rem;
+}
+
+.commercialPoints {
+  margin: 0 0 1.5rem;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.commercialPoints li {
+  position: relative;
+  padding-left: 1.35rem;
+  color: var(--om-navy);
+  font-size: 0.95rem;
+}
+
+.commercialPoints li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.45rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--om-primary);
+}
+
+.commercialActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.commercialVisual {
+  position: relative;
+  min-height: 14rem;
+  border-radius: calc(var(--om-radius) + 6px);
+  overflow: hidden;
+  border: 1px solid var(--om-border);
+  background: var(--om-navy);
+}
+
+.commercialVisualImg {
+  object-fit: cover;
+  object-position: center 40%;
+}
+
+.closing {
+  padding: 3.25rem 0;
+  background: var(--om-primary);
+  color: #fff;
+}
+
+.closingInner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.closingCopy {
+  max-width: 34rem;
+}
+
+.closingTitle {
+  margin: 0 0 0.4rem;
+  font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: #fff;
+}
+
+.closingLead {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.55;
+  color: rgb(255 255 255 / 0.88);
+}
+
+.closingActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.closingActions :global(.om-btn--primary) {
+  background: #fff;
+  color: var(--om-primary);
+  box-shadow: none;
+}
+
+.closingActions :global(.om-btn--primary:hover) {
+  filter: none;
+  background: rgb(255 255 255 / 0.92);
+  color: var(--om-primary-dark);
+}
+
+.closingActions :global(.om-btn--ghost-light) {
+  border-color: rgb(255 255 255 / 0.45);
+}
+
+@media (max-width: 960px) {
+  .trustRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  .trustItem {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 1rem 1rem 1.05rem;
+    text-align: left;
+    background: var(--om-card);
+    border: 1px solid var(--om-border);
+    border-radius: var(--om-radius);
+  }
+
+  .trustCopy {
+    align-items: flex-start;
+  }
+
+  .trustIcon {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .featureGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  .featureCard {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 1.1rem 1.05rem;
+    text-align: left;
+  }
+
+  .featureCopy {
+    align-items: flex-start;
+  }
+
+  .featureIcon {
+    margin-bottom: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .stepRail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  .stepCard {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 1.1rem 1.05rem;
+    text-align: left;
+  }
+
+  .stepCopy {
+    align-items: flex-start;
+  }
+
+  .stepIndex {
+    margin-bottom: 0;
+  }
+
+  .commercialInner {
+    grid-template-columns: 1fr;
+  }
+
+  .commercialVisual {
+    min-height: 12rem;
+    order: -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .sectionCompact {
+    padding-block: 1.5rem;
+  }
+
+  .trustRow,
+  .featureGrid,
+  .stepRail,
+  .servicePriceGrid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .trustItem,
+  .featureCard,
+  .stepCard {
+    align-items: center;
+    padding: 1.05rem 1.1rem;
+  }
+
+  .trustItem,
+  .featureCard,
+  .stepCard {
+    text-align: left;
+  }
+
+  .trustCopy,
+  .featureCopy,
+  .stepCopy {
+    align-items: flex-start;
+  }
+
+  .trustTitle,
+  .featureTitle {
+    font-size: 1rem;
+  }
+
+  .trustBody,
+  .featureBody,
+  .stepBody {
+    font-size: 0.9rem;
+  }
+
+  .stepTitle {
+    font-size: 0.975rem;
+  }
+
+  .servicePriceCard {
+    padding: 1.35rem 1.2rem;
+  }
+
+  .servicePriceCta {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .commercial {
+    padding: 2.5rem 0;
+  }
+
+  .closingInner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .closingActions {
+    width: 100%;
+  }
+
+  .closingActions :global(.om-btn) {
+    flex: 1;
+    min-width: 9rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .servicePriceCard:hover {
+    transform: none;
+  }
+}

@@ -34,6 +34,7 @@ export function SitePhotoMapSnapshot({ lat, lng, size, onReady, onFail }: Props)
       return;
     }
     doneRef.current = true;
+    const failTimer = setTimeout(() => onFail(), 12_000);
     void (async () => {
       try {
         await new Promise((r) => setTimeout(r, Platform.OS === "android" ? 700 : 450));
@@ -44,9 +45,11 @@ export function SitePhotoMapSnapshot({ lat, lng, size, onReady, onFail }: Props)
           quality: 0.92,
           result: "file",
         });
+        clearTimeout(failTimer);
         const uri = raw.startsWith("file://") ? raw : `file://${raw}`;
         onReady(uri);
       } catch {
+        clearTimeout(failTimer);
         onFail();
       }
     })();

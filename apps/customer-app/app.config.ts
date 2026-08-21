@@ -11,7 +11,13 @@ import {
   notificationsPlugin,
 } from "@oorjaman/mobile-config/shared-plugins";
 
-const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
+/** Prefer platform keys; fall back to legacy single key for local dev. */
+const googleMapsApiKeyIos =
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_IOS?.trim() ||
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
+const googleMapsApiKeyAndroid =
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_ANDROID?.trim() ||
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
 const deployEnv = (process.env.EXPO_PUBLIC_DEPLOY_ENV ?? "").trim().toLowerCase();
 const isUat = deployEnv === "uat" || deployEnv === "staging";
 const displayName = isUat ? "OorjaMan (UAT)" : "OorjaMan";
@@ -30,7 +36,7 @@ const config: ExpoConfig = {
     deploymentTarget: "16.4",
     supportsTablet: true,
     bundleIdentifier: isUat ? "com.oorjaman.customer.uat" : "com.oorjaman.customer",
-    ...(googleMapsApiKey ? { config: { googleMapsApiKey } } : {}),
+    ...(googleMapsApiKeyIos ? { config: { googleMapsApiKey: googleMapsApiKeyIos } } : {}),
   },
   android: {
     icon: "./assets/images/icon.png",
@@ -42,11 +48,11 @@ const config: ExpoConfig = {
     package: isUat ? "com.oorjaman.customer.uat" : "com.oorjaman.customer",
     softwareKeyboardLayoutMode: "resize",
     permissions: ["android.permission.CAMERA"],
-    ...(googleMapsApiKey
+    ...(googleMapsApiKeyAndroid
       ? {
           config: {
             googleMaps: {
-              apiKey: googleMapsApiKey,
+              apiKey: googleMapsApiKeyAndroid,
             },
           },
         }

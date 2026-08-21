@@ -1,6 +1,6 @@
-import { SUPPORT_EMAIL } from "./site";
+import { SUPPORT_EMAIL, siteUrl } from "./site";
 
-/** Shared FAQ for /faq page, home JSON-LD, and future surfaces. */
+/** Shared FAQ for /faq page, home JSON-LD, and audience landings. */
 export const FAQ_ITEMS = [
   {
     q: "What does OorjaMan do?",
@@ -35,6 +35,18 @@ export const FAQ_ITEMS = [
     a: "Partners and technicians follow mandatory safety checklists before starting. Site access and water availability are captured at registration. Methods aim to protect manufacturer warranties - always follow your module OEM guidance.",
   },
   {
+    q: "Do you serve housing societies and RWAs?",
+    a: "Yes. Housing societies and resident welfare associations can register the society rooftop (or multiple blocks) in the customer app, book one-time cleaning or an AMC plan, and keep visit tracking plus before/after evidence for the committee. For multi-block rollouts, request a callback on the Businesses & societies page.",
+  },
+  {
+    q: "Can businesses book multi-site commercial cleaning?",
+    a: "Yes. Factories, warehouses, offices, and campuses can register each rooftop with access notes and capacity. Single sites can book in the app; multi-site or multi-city sequencing is best started with a callback request so support can help plan coverage where partners are live.",
+  },
+  {
+    q: "How do facilities teams get visit evidence?",
+    a: "Each fulfilled visit includes partner acceptance, a booking code check, a safety checklist, and before/after photos in the app — useful for audits, vendor accountability, and society committee records.",
+  },
+  {
     q: "How do I contact support?",
     a: `Email ${SUPPORT_EMAIL} or use in-app chat when signed in. Privacy requests go to privacy@oorjaman.com; legal enquiries to legal@oorjaman.com. We typically respond within one business day.`,
   },
@@ -48,14 +60,50 @@ export const FAQ_ITEMS = [
   },
 ] as const;
 
-export function faqPageJsonLd() {
+/** Commercial / society FAQs for the Businesses & societies landing JSON-LD. */
+export const BUSINESS_SOCIETY_FAQ_ITEMS = FAQ_ITEMS.filter((item) =>
+  [
+    "Do you serve housing societies and RWAs?",
+    "Can businesses book multi-site commercial cleaning?",
+    "How do facilities teams get visit evidence?",
+    "How does pricing work?",
+    "What is included in an AMC plan?",
+  ].includes(item.q),
+);
+
+export function faqPageJsonLd(items: readonly { q: string; a: string }[] = FAQ_ITEMS) {
   return {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: FAQ_ITEMS.map((item) => ({
+    mainEntity: items.map((item) => ({
       "@type": "Question",
       name: item.q,
       acceptedAnswer: { "@type": "Answer", text: item.a },
     })),
   };
+}
+
+/** Service + WebPage schema for /for-businesses */
+export function businessSocietyJsonLd() {
+  return [
+    {
+      "@context": "https://schema.org",
+      "@type": "Service",
+      name: "Commercial and housing society solar panel cleaning & AMC",
+      serviceType: "Solar panel cleaning and annual maintenance",
+      description:
+        "OorjaMan connects factories, warehouses, offices, campuses, and housing societies with verified partners for rooftop solar cleaning and AMC — transparent kW-band pricing, visit tracking, and completion evidence.",
+      provider: { "@id": `${siteUrl()}/#organization` },
+      areaServed: {
+        "@type": "Country",
+        name: "India",
+      },
+      audience: [
+        { "@type": "BusinessAudience", audienceType: "Commercial facilities and campuses" },
+        { "@type": "Audience", audienceType: "Housing societies and RWAs" },
+      ],
+      url: siteUrl("/for-businesses"),
+    },
+    faqPageJsonLd(BUSINESS_SOCIETY_FAQ_ITEMS),
+  ];
 }

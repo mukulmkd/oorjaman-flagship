@@ -83,10 +83,17 @@ npm run build:godaddy -w oorjaman-web
 ### Already automated
 
 - Per-page `title`, `description`, canonical, Open Graph, Twitter cards (`apps/oorjaman-web/lib/seo.ts`)
+- Homepage + sitewide brand entity graph: `Organization` (`@id` `#organization`, `alternateName`, legal name, logo ImageObject) + `WebSite` (`#website`, publisher link) via `brandEntityJsonLd()`
 - `app/sitemap.ts` - static routes, legal, cities, blog
 - `app/robots.ts` - allow crawl, point to sitemap
-- FAQ schema on `/` and `/faq`; Service schema on city pages
+- FAQ schema on `/` and `/faq`; Service + FAQ schema on `/for-businesses`; Service schema on city pages
 - `lang="en-IN"` on `<html>`
+
+### Brand queries vs sitelinks
+
+Searching **OorjaMan** and seeing individual pages indexed is normal. Google **sitelinks** (Razorpay-style links under one brand result) are algorithmic — they are not enabled by schema. Hygiene that helps over time: strong homepage title/description, consistent Organization/WebSite JSON-LD, clear hub links in header/footer, one production host, Search Console + sitemap.
+
+Do **not** add a fake `SearchAction` unless the site has a real on-site search URL.
 
 ### Revisit later (backlog)
 

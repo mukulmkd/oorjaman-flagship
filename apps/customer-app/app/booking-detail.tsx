@@ -15,7 +15,6 @@ import {
 } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import * as Clipboard from "expo-clipboard";
 import {
   bookingApi,
   isBookingGpsTrackable,
@@ -38,6 +37,7 @@ import {
   readBookingCustomerCancellationMeta,
   readBookingOpsMeta,
   readBookingRecipientMeta,
+  readServiceAddressIdFromBookingMetadata,
   technicianApi,
   userApi,
   vendorResponseDeadline,
@@ -66,7 +66,9 @@ import {
   isBookingAwaitingOorjamanPartnerAssignment,
 } from "../lib/booking-partner-messaging";
 import { AssignedTechnicianCard } from "../components/assigned-technician-card";
+import { LiveTechnicianTrackCard } from "../components/live-technician-track-card";
 import { supabase } from "../lib/supabase";
+import { resolveServiceDestinationCoords } from "../lib/service-address-book";
 import {
   formatDisplayDate,
   formatDisplayDateTime,
@@ -315,7 +317,7 @@ export default function BookingDetailScreen() {
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: queryKeys.bookings.detail(bookingId!) });
-      Alert.alert("Happy Code updated", "Share the new Happy Code with the technician at completion.");
+      Alert.alert("Happy Code updated", "Show the new Happy Code to the technician at completion.");
     },
     onError: (e: unknown) => {
       Alert.alert("Could not regenerate", e instanceof Error ? e.message : "Please try again.");
@@ -429,7 +431,7 @@ export default function BookingDetailScreen() {
     }
     if (bucket === "accepted") {
       if (b.status === "in_progress") return "Your technician is on site and working on your visit.";
-      if (b.technician_en_route_at) return "Your technician is on the way. Open the map below to track their trip.";
+      if (b.technician_en_route_at) return "Your technician is on the way — live ETA and map update below.";
       if (b.technician_id) return "Your technician is assigned. You will see their details here when they head to your site.";
       return "Your slot is locked in - watch here for technician assignment and arrival.";
     }
@@ -439,7 +441,15 @@ export default function BookingDetailScreen() {
   }, [b]);
 
   const showTrack = Boolean(b && isBookingGpsTrackable(b));
-  const showTechnicianProfile = bookingShowsTechnicianProfile(b);
+  const showTechnicianProfile = bookingShowsTechnicianProfile(b) && !showTrack;
+
+  const destinationCoords = useMemo(() => {
+    if (!b) return null;
+    const c = customerQuery.data;
+    if (!c || c.id !== b.customer_id) return null;
+    const addrId = readServiceAddressIdFromBookingMetadata(b.metadata);
+    return resolveServiceDestinationCoords(c, addrId);
+  }, [b, customerQuery.data]);
 
   const vendorSla = useMemo(() => {
     if (!b || b.status !== "confirmed") return null;
@@ -634,14 +644,14 @@ export default function BookingDetailScreen() {
                 <Text style={styles.sectionTitle}>Job Start Code</Text>
                 <Text style={styles.visitCode}>{serviceOtp.startCode}</Text>
                 <Text style={styles.bodyMuted}>
-                  Share this code when the technician arrives. They must verify this before starting service.
+                  Tell the technician this code when they arrive. They must verify it before starting service.
                 </Text>
                 {showHappyCode && serviceOtp.happyCode ? (
                   <View style={styles.happyCodeBlock}>
                     <Text style={styles.sectionTitle}>Happy Code</Text>
                     <Text style={styles.visitCode}>{serviceOtp.happyCode}</Text>
                     <Text style={styles.bodyMutedHappy}>
-                      Share this at completion. It confirms service closure and unlocks final submission.
+                      Show this at completion. It confirms service closure and unlocks final submission.
                     </Text>
                     {b.status === "in_progress" ? (
                       <View style={styles.regenRow}>
@@ -661,33 +671,20 @@ export default function BookingDetailScreen() {
                     ) : null}
                   </View>
                 ) : null}
-                <View style={styles.codeActions}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Copy visit code"
-                    onPress={() => {
-                      void Clipboard.setStringAsync(serviceOtp.startCode!).then(() =>
-                        Alert.alert("Copied", "Job Start Code copied to clipboard."),
-                      );
-                    }}
-                    style={({ pressed }) => [styles.codeBtn, pressed && styles.codeBtnPressed]}
-                  >
-                    <Text style={styles.codeBtnText}>Copy code</Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Share visit code"
-                    onPress={() => {
-                      void Share.share({
-                        message: `Oorjaman Job Start Code: ${serviceOtp.startCode}${serviceOtp.happyCode ? ` | Happy Code: ${serviceOtp.happyCode}` : ""}`,
-                      }).catch(() => undefined);
-                    }}
-                    style={({ pressed }) => [styles.codeBtn, styles.codeBtnOutline, pressed && styles.codeBtnPressed]}
-                  >
-                    <Text style={styles.codeBtnTextOutline}>Share</Text>
-                  </Pressable>
-                </View>
               </Card>
+            </View>
+          ) : null}
+
+          {showTrack ? (
+            <View style={styles.section}>
+              <LiveTechnicianTrackCard
+                bookingId={b.id}
+                referenceCode={b.reference_code}
+                scheduledStart={b.scheduled_start}
+                destinationCoords={destinationCoords}
+                liveUpdatesEnabled
+                onExpandMap={() => router.push({ pathname: "/booking-track", params: { id: b.id } })}
+              />
             </View>
           ) : null}
 
@@ -698,26 +695,6 @@ export default function BookingDetailScreen() {
                 enRouteAt={b.technician_en_route_at}
                 status={b.status}
               />
-            </View>
-          ) : null}
-
-          {showTrack ? (
-            <View style={styles.section}>
-              <Card variant="elevated" padded>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Open track technician map"
-                  onPress={() => router.push({ pathname: "/booking-track", params: { id: b.id } })}
-                  style={({ pressed }) => [styles.trackBtn, pressed && styles.trackBtnPressed]}
-                >
-                  <Text style={styles.trackBtnTitle}>Track technician</Text>
-                  <Text style={styles.trackBtnHint}>
-                    {b.technician_en_route_at
-                      ? "Live map refreshes every few seconds while they are en route"
-                      : "Map opens when your technician marks themselves en route"}
-                  </Text>
-                </Pressable>
-              </Card>
             </View>
           ) : null}
 
@@ -1088,23 +1065,6 @@ const styles = StyleSheet.create({
   helpSpaced: {
     marginBottom: spacing.md,
   },
-  trackBtn: {
-    paddingVertical: spacing.xs,
-  },
-  trackBtnPressed: {
-    opacity: 0.85,
-  },
-  trackBtnTitle: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: fontSize.md,
-    color: colors.primary,
-  },
-  trackBtnHint: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.mutedForeground,
-    marginTop: spacing["3xs"],
-  },
   ratingRow: {
     flexDirection: "row",
     gap: spacing.xs,
@@ -1329,35 +1289,5 @@ const styles = StyleSheet.create({
   em: {
     fontFamily: fontFamily.semiBold,
     color: colors.foreground,
-  },
-  codeActions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-  },
-  codeBtn: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-  },
-  codeBtnOutline: {
-    backgroundColor: colors.background,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  codeBtnPressed: {
-    opacity: 0.88,
-  },
-  codeBtnText: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: fontSize.md,
-    color: colors.background,
-  },
-  codeBtnTextOutline: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: fontSize.md,
-    color: colors.primary,
   },
 });

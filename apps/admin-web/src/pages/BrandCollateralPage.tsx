@@ -71,6 +71,26 @@ function useHtmlObjectUrl(html: string | null | undefined): string | null {
   );
 }
 
+function PdfBlobPreview({ url, title }: { url: string; title: string }) {
+  return (
+    <div className="bc-doc-preview-wrap">
+      <object data={url} type="application/pdf" className="bc-doc-preview" aria-label={title}>
+        <p className="bc-muted" style={{ padding: "1rem" }}>
+          Inline PDF preview is unavailable in this browser.{" "}
+          <a href={url} target="_blank" rel="noreferrer">
+            Open preview
+          </a>
+        </p>
+      </object>
+      <p className="bc-muted bc-preview-open">
+        <a href={url} target="_blank" rel="noreferrer">
+          Open full-size preview
+        </a>
+      </p>
+    </div>
+  );
+}
+
 export function BrandCollateralPage() {
   const [activeTab, setActiveTab] = useState<BrandPrintTab>("business-cards");
   const [contact, setContact] = useState<BrandPrintContact>({ ...DEFAULT_BRAND_PRINT_CONTACT });
@@ -286,7 +306,7 @@ export function BrandCollateralPage() {
               {!letterheadLoading && letterheadPdf ? (
                 <>
                   {letterheadPreview ? (
-                    <iframe title="Letterhead preview" src={letterheadPreview} className="bc-doc-preview" />
+                    <PdfBlobPreview url={letterheadPreview} title="Letterhead preview" />
                   ) : null}
                   <div className="bc-downloads">
                     <Button
@@ -421,7 +441,7 @@ export function BrandCollateralPage() {
               {activeTab === "invoice" && invoicePdf ? (
                 <>
                   {invoicePreview ? (
-                    <iframe title="Invoice template preview" src={invoicePreview} className="bc-doc-preview" />
+                    <PdfBlobPreview url={invoicePreview} title="Invoice template preview" />
                   ) : null}
                   <div className="bc-downloads">
                     <Button

@@ -30,7 +30,7 @@ There is no exact “drop an IPA in Slack” equivalent without EAS or Xcode + a
    npx eas-cli init
    ```
 
-   Set `EXPO_PUBLIC_EAS_PROJECT_ID` in `env/uat.local` (or let EAS write `extra.eas.projectId`).
+   Set `EXPO_PUBLIC_EAS_PROJECT_ID` in `.env.uat.local` (or let EAS write `extra.eas.projectId`).
 
 3. **Signing** — first build prompts via `npx eas credentials`, or configure in the Expo dashboard.
 
@@ -45,8 +45,8 @@ There is no exact “drop an IPA in Slack” equivalent without EAS or Xcode + a
 5. **UAT env** — same as Android ([android-local-apk.md § UAT env](android-local-apk.md#uat-env-embedded-at-build-time)):
 
    ```bash
-   cp apps/customer-app/env/uat.local.example apps/customer-app/env/uat.local
-   cp apps/technician-app/env/uat.local.example apps/technician-app/env/uat.local
+   cp apps/customer-app/.env.uat.example apps/customer-app/.env.uat.local
+   cp apps/technician-app/.env.uat.example apps/technician-app/.env.uat.local
    ```
 
 ---
@@ -75,7 +75,7 @@ npm run ios:uat:technician
 2. Share the **Install** link or QR with testers (devices must be registered).
 3. Testers install **OorjaMan (UAT)** / **OorjaMan Partner (UAT)** alongside prod if bundle IDs differ.
 
-Runs `brand:sync`, loads `env/uat.local` via `run-with-expo-env.mjs`, then `eas build --profile uat --platform ios`.
+Runs `brand:sync`, loads `.env.uat.local` via `run-with-expo-env.mjs`, then `eas build --profile uat --platform ios`.
 
 ---
 
@@ -134,7 +134,7 @@ Aliases: `npm run eas:ios:uat:customer` = same as `ios:uat:customer`.
 | Issue | Fix |
 |-------|-----|
 | “Unable to install” on tester phone | Register device: `npx eas device:create`, then **rebuild** |
-| Wrong Supabase / env after install | Rebuild with updated `env/uat.local`; confirm `run-with-expo-env` ran |
+| Wrong Supabase / env after install | Rebuild with updated `.env.uat.local`; confirm `run-with-expo-env` ran |
 | Signing / provisioning errors | `npx eas credentials` in the app dir; verify Apple team + bundle ID |
 | `pod install` / native errors locally | `npm run ios:rebuild` in the app, then retry `ios:uat:local` |
 | Expo Go limitations (push, etc.) | Use UAT EAS build, not Expo Go — same as Android dev build vs UAT APK |

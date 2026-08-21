@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Run a command in apps/<app> with EXPO_PUBLIC_* from `env/uat.local`
+ * Run a command in apps/<app> with EXPO_PUBLIC_* from `.env.uat.local`
  * (UAT APK / EAS builds only — not used by Metro localhost dev).
  *
  * Usage: node scripts/run-with-expo-env.mjs <customer-app|technician-app> <command>
  */
 import { spawnSync } from "node:child_process";
 import { config } from "dotenv";
-import { copyFileSync, existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,8 +21,8 @@ if (!app || !cmd) {
 }
 
 const appDir = join(repoRoot, "apps", app);
-const envFile = join(appDir, "env", "uat.local");
-const legacyEnvFile = join(appDir, ".env.uat.local");
+const envFile = join(appDir, ".env.uat.local");
+const legacyEnvFile = join(appDir, "env", "uat.local");
 
 function resolveUatEnvFile() {
   if (existsSync(envFile)) {
@@ -32,14 +32,8 @@ function resolveUatEnvFile() {
   if (existsSync(legacyEnvFile)) {
     copyFileSync(legacyEnvFile, envFile);
     console.warn(
-      `[run-with-expo-env] Migrated ${legacyEnvFile} → ${envFile}. Remove the legacy file so Metro dev does not bundle it.`,
+      `[run-with-expo-env] Migrated ${legacyEnvFile} → ${envFile}. You can remove apps/${app}/env/uat.local.`,
     );
-    try {
-      unlinkSync(legacyEnvFile);
-      console.warn(`[run-with-expo-env] Removed legacy ${legacyEnvFile}`);
-    } catch {
-      console.warn(`[run-with-expo-env] Delete ${legacyEnvFile} manually — it breaks Expo Metro if left in the app root.`);
-    }
     return envFile;
   }
 
@@ -50,7 +44,7 @@ const resolvedEnvFile = resolveUatEnvFile();
 
 if (!resolvedEnvFile) {
   console.error(`Missing ${envFile}`);
-  console.error(`Copy apps/${app}/env/uat.local.example → apps/${app}/env/uat.local`);
+  console.error(`Copy apps/${app}/.env.uat.example → apps/${app}/.env.uat.local`);
   process.exit(1);
 }
 
@@ -65,11 +59,11 @@ if (!process.env.NODE_ENV?.trim()) {
 }
 
 // Release APK builds bundle with NODE_ENV=production. Expo loads `.env.production.local`
-// (not `env/uat.local`). Sync UAT values so the embedded bundle has the right keys.
+// (not `.env.uat.local`). Sync UAT values so the embedded bundle has the right keys.
 const productionLocal = join(appDir, ".env.production.local");
 writeFileSync(productionLocal, readFileSync(resolvedEnvFile, "utf8"), "utf8");
 
-console.log(`[run-with-expo-env] ${app} ← env/uat.local`);
+console.log(`[run-with-expo-env] ${app} ← .env.uat.local`);
 console.log(`[run-with-expo-env] synced → apps/${app}/.env.production.local (embedded in release bundle)`);
 const result = spawnSync(cmd, {
   shell: true,

@@ -1,0 +1,30 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.item {
+  padding: 1.1rem 1.15rem;
+  border: 1px solid var(--om-border);
+  border-radius: var(--om-radius);
+  background: var(--om-card);
+}
+
+.question {
+  margin: 0 0 0.5rem;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.answer {
+  margin: 0;
+  color: var(--om-muted);
+  line-height: 1.55;
+}
+
+.footerLinks {
+  margin-top: 1.75rem;
+  font-size: 0.9375rem;
+}

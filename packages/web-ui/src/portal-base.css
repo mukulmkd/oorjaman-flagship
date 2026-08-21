@@ -38,3 +38,36 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* Themed scrollbars — leaf green from portal tokens */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--wb-primary, #1f8660) var(--wb-primary-muted, #d8eee4);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--wb-primary-muted, #d8eee4);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--wb-primary, #1f8660) 82%, #0f2938);
+  border-radius: 999px;
+  border: 2px solid var(--wb-primary-muted, #d8eee4);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--wb-primary-border, #1a734f);
+  border: 2px solid var(--wb-primary-muted, #d8eee4);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}

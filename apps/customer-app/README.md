@@ -24,7 +24,7 @@ Legal links use `EXPO_PUBLIC_SITE_URL` (localhost or `https://dev-oorjaman.oorja
 | EAS cloud | `npm run eas:android:uat:customer` or `cd apps/customer-app && eas build --profile uat` |
 | Local APK (no EAS cloud) | `npm run android:apk:uat:customer` |
 
-UAT env file: `apps/customer-app/env/uat.local` (see [docs/android-local-apk.md](../../docs/android-local-apk.md)).
+UAT env file: `apps/customer-app/.env.uat.local` (copy from `.env.uat.example`) — [docs/android-local-apk.md](../../docs/android-local-apk.md).
 
 Package ID (UAT): `com.oorjaman.customer.uat` · display name **OorjaMan (UAT)**.
 

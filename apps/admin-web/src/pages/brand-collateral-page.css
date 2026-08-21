@@ -142,8 +142,21 @@
   display: block;
   width: 100%;
   min-height: 520px;
-  margin: 1rem 0;
+  margin: 1rem 0 0.35rem;
   border: 1px solid var(--wb-border);
   border-radius: 8px;
   background: #f8fafb;
+}
+
+.bc-doc-preview-wrap {
+  margin: 1rem 0;
+}
+
+.bc-preview-open {
+  margin: 0;
+  font-size: var(--wb-text-xs, 0.75rem);
+}
+
+.bc-preview-open a {
+  color: var(--wb-primary, #1f8660);
 }

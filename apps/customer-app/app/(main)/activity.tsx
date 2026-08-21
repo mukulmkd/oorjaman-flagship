@@ -29,13 +29,14 @@ import {
   SCREEN_EDGES_BENEATH_NATIVE_HEADER,
   SkeletonStack,
 } from "@oorjaman/ui";
-import { ActivityBookingMapPreview } from "../../components/activity-booking-map-preview";
+import { LiveTechnicianTrackCard } from "../../components/live-technician-track-card";
 import { ServiceAddressPickerSheet } from "../../components/service-address-picker-sheet";
 import { fontFamily, fontSize } from "../../constants/fonts";
 import {
   buildAddressBookPatch,
   mergeServiceGpsIntoCustomerPatch,
   readServiceAddressBook,
+  resolveServiceDestinationCoords,
   serviceAddressFormatted,
   type ServiceAddressEntry,
   type ServiceAddressSaveExtras,
@@ -149,7 +150,7 @@ export default function ActivityScreen() {
     queryFn: () => customerActivityApi.getTrackableBookingForAddress(supabase!, selectedAddressId!),
     enabled: Boolean(supabase && selectedAddressId),
     /** Poll only while this tab is visible; realtime covers most timeline updates. */
-    refetchInterval: isFocused ? 45_000 : false,
+    refetchInterval: isFocused ? 15_000 : false,
     refetchIntervalInBackground: false,
   });
 
@@ -199,6 +200,10 @@ export default function ActivityScreen() {
   const showLoadMore = Boolean(activityQuery.hasNextPage);
   const loadingMore = activityQuery.isFetchingNextPage;
   const trackable = trackableQuery.data ?? null;
+
+  const destinationCoords = useMemo(() => {
+    return resolveServiceDestinationCoords(customerQuery.data, selectedAddressId);
+  }, [customerQuery.data, selectedAddressId]);
 
   const openEvent = useCallback((event: CustomerSiteActivityEventRow) => {
     if (event.booking_id) {
@@ -274,12 +279,14 @@ export default function ActivityScreen() {
 
             {trackable ? (
               <View style={styles.pad}>
-                <ActivityBookingMapPreview
+                <Text style={styles.sectionLabel}>Live visit</Text>
+                <LiveTechnicianTrackCard
                   bookingId={trackable.id}
                   referenceCode={trackable.reference_code}
                   scheduledStart={trackable.scheduled_start}
+                  destinationCoords={destinationCoords}
                   liveUpdatesEnabled={isFocused}
-                  onOpenFullMap={() =>
+                  onExpandMap={() =>
                     router.push({ pathname: "/booking-track", params: { id: trackable.id } })
                   }
                 />

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import type { CSSProperties, ReactNode } from "react";
+import { ClosingCtaBand } from "@/components/marketing-sections";
 import styles from "./marketing-page.module.css";
 
 type Props = {
@@ -16,6 +17,8 @@ type Props = {
   wide?: boolean;
   /** Optional CTA row under the lead in the header */
   cta?: ReactNode;
+  /** Shared green closing band — default on for marketing pages */
+  closingCta?: boolean;
 };
 
 export function MarketingPage({
@@ -28,6 +31,7 @@ export function MarketingPage({
   mediaPosition,
   wide = false,
   cta,
+  closingCta = true,
 }: Props) {
   const hasMedia = Boolean(mediaSrc);
 
@@ -61,6 +65,7 @@ export function MarketingPage({
       <div className={`om-section ${styles.body}`}>
         <div className={`om-container ${styles.bodyInner}`}>{children}</div>
       </div>
+      {closingCta ? <ClosingCtaBand /> : null}
     </div>
   );
 }

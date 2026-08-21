@@ -163,7 +163,7 @@ git add supabase/schema.sql supabase/policies.sql
 | **UAT EAS** | `npm run eas:android:uat:customer` | `npm run eas:android:uat:technician` |
 | **Store / prod** | `cd apps/customer-app && npx eas-cli build --profile production --platform all` | same in `technician-app` |
 
-**Env:** local Metro → `apps/<app>/.env.development.local` · UAT APK/EAS → `apps/<app>/env/uat.local` · see [ENVIRONMENT.md](project-docs/ENVIRONMENT.md).
+**Env:** local Metro → `apps/<app>/.env.development.local` · UAT APK/EAS → `apps/<app>/.env.uat.local` · see [ENVIRONMENT.md](project-docs/ENVIRONMENT.md).
 
 **Expo Go** (scan QR from Metro) is **not** enough for camera, maps, or push — use `expo run:*` or a UAT/production native build ([RUNNING-APPS.md](project-docs/RUNNING-APPS.md#expo-go-vs-development-build)).
 

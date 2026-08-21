@@ -13,12 +13,12 @@ Guide for **customer-app** (OorjaMan) and **technician-app** (OorjaMan Partner) 
 | **Local + Metro** | `npm run customer` / `npm run technician` | `.env.development.local` | Loaded from Metro on your Mac | Only if using a **dev build** (not Expo Go) | Fast JS iteration |
 | **Expo Go** | Scan QR from `expo start` | `.env.development.local` | Metro | **Limited** — many native modules missing | Quick UI smoke test only |
 | **Debug native + Metro** | `expo run:android` / `expo run:ios` | `.env.development.local` | Metro (`localhost:8081`) | **Full** (camera, maps, push-capable, etc.) | **Recommended local dev** on device/simulator |
-| **Debug APK (Android)** | `npm run android:apk:debug:*` | `env/uat.local` via build script* | **Not embedded** — needs Metro | Full | Install once, attach Metro via USB |
-| **UAT APK (Android)** | `npm run android:apk:uat:*` | `env/uat.local` → `.env.production.local` | **Embedded** in APK | Full | Share with QA **without** your laptop |
-| **UAT EAS** | `eas build --profile uat` | EAS secrets + `env/uat.local` | Embedded | Full | Cloud or `--local` CI-like builds |
+| **Debug APK (Android)** | `npm run android:apk:debug:*` | `.env.uat.local` via build script* | **Not embedded** — needs Metro | Full | Install once, attach Metro via USB |
+| **UAT APK (Android)** | `npm run android:apk:uat:*` | `.env.uat.local` → `.env.production.local` | **Embedded** in APK | Full | Share with QA **without** your laptop |
+| **UAT EAS** | `eas build --profile uat` | EAS secrets + `.env.uat.local` | Embedded | Full | Cloud or `--local` CI-like builds |
 | **Production EAS** | `eas build --profile production` | EAS production secrets | Embedded | Full | App Store / Play Store |
 
-\* Debug APK Gradle scripts use `run-with-expo-env.mjs`, which loads `apps/<app>/env/uat.local` for native prebuild. For **Metro dev**, use `.env.development.local` only.
+\* Debug APK Gradle scripts use `run-with-expo-env.mjs`, which loads `apps/<app>/.env.uat.local` for native prebuild. For **Metro dev**, use `.env.development.local` only.
 
 **Rule of thumb:** If you need **terminal logs** on a **physical device** with **real native code**, use **debug native + Metro** (`expo run:android --device`), not a UAT release APK.
 
@@ -29,7 +29,7 @@ Guide for **customer-app** (OorjaMan) and **technician-app** (OorjaMan Partner) 
 | File | Used when | `EXPO_PUBLIC_DEPLOY_ENV` | Supabase |
 |------|-----------|--------------------------|----------|
 | `apps/<app>/.env.development.local` | `npm run customer`, `expo start`, `expo run:*` | `local` | **OorjaMan UAT** |
-| `apps/<app>/env/uat.local` | UAT APK scripts, EAS UAT builds (`run-with-expo-env.mjs`) | `uat` | **OorjaMan UAT** |
+| `apps/<app>/.env.uat.local` | UAT APK scripts, EAS UAT builds (`run-with-expo-env.mjs`) | `uat` | **OorjaMan UAT** |
 | `apps/<app>/.env.production.local` | Rare local prod smoke; synced before UAT APK Gradle | `production` | **OorjaMan Prod** |
 | EAS secrets (Expo dashboard) | `eas build --profile uat` / `production` | per profile | UAT or Prod |
 
@@ -40,12 +40,12 @@ cp apps/customer-app/.env.development.example apps/customer-app/.env.development
 cp apps/technician-app/.env.development.example apps/technician-app/.env.development.local
 # Edit: UAT Supabase URL + anon key, dummy auth, optional EXPO_PUBLIC_EAS_PROJECT_ID
 
-cp apps/customer-app/env/uat.local.example apps/customer-app/env/uat.local
-cp apps/technician-app/env/uat.local.example apps/technician-app/env/uat.local
+cp apps/customer-app/.env.uat.example apps/customer-app/.env.uat.local
+cp apps/technician-app/.env.uat.example apps/technician-app/.env.uat.local
 # Edit: same UAT keys for APK / EAS builds
 ```
 
-**Do not** keep `apps/<app>/.env.uat.local` in the app root — it can break Metro. Use `env/uat.local` for builds ([ENVIRONMENT.md](ENVIRONMENT.md)).
+**Do not** confuse repo-root `.env.uat.local` (seed scripts) with per-app `apps/<app>/.env.uat.local` (mobile UAT builds). See [ENVIRONMENT.md](ENVIRONMENT.md).
 
 ---
 
@@ -217,7 +217,7 @@ npm run android:apk:uat:customer
 
 **Output:** `apps/customer-app/android/app/build/outputs/apk/release/app-release.apk`
 
-Install: AirDrop / `adb install -r …/app-release.apk`. Env is **baked in** from `env/uat.local`.
+Install: AirDrop / `adb install -r …/app-release.apk`. Env is **baked in** from `.env.uat.local`.
 
 ### E. UAT / production via EAS
 
@@ -406,7 +406,7 @@ Env: `.env.development.local` (local), `.env.uat.local` (local UAT build), `.env
 | `adb: command not found` | SDK not on PATH | `export PATH=$PATH:$ANDROID_HOME/platform-tools` |
 | `adb devices` empty | USB debugging off / cable | Enable dev options; use data cable |
 | **Unable to load script** on phone | Debug APK without Metro | Start `npm run customer` + `adb reverse tcp:8081 tcp:8081`, or install **UAT release** APK |
-| UAT APK login fails | Stale `.env.production.local` | Rebuild with `npm run android:apk:uat:*` (syncs from `env/uat.local`) |
+| UAT APK login fails | Stale `.env.production.local` | Rebuild with `npm run android:apk:uat:*` (syncs from `.env.uat.local`) |
 | Warning: missing `EXPO_PUBLIC_EAS_PROJECT_ID` | Dev push not configured | Add to `.env.development.local` or ignore for non-push work |
 | Camera works on device but not simulator | No camera in simulator | Use physical device or gallery |
 | Site photo stamp shows **blue box** on the left | No map image loaded (often missing `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` on Android, or photo taken before fix) | Add key + rebuild for Google tiles; or take a **new** photo (OSM fallback works without key). See [Site photos](#customer-app--site-photos-camera-gps-stamp-upload) |
@@ -442,7 +442,7 @@ Profile → **Site location & photos** → **Add site photo** captures (or picks
 | Context | Where to set the key |
 | ------- | -------------------- |
 | Debug on device (`expo run:android` / `expo run:ios`) | `apps/customer-app/.env.development.local` |
-| UAT APK / EAS UAT | `apps/customer-app/env/uat.local` (local APK) or EAS env for `preview` / `uat` profile |
+| UAT APK / EAS UAT | `apps/customer-app/.env.uat.local` (local APK) or EAS env for `preview` / `uat` profile |
 | Store PROD | EAS `production` env |
 
 ### Camera upload — debug vs UAT
@@ -452,19 +452,19 @@ The **same JavaScript upload path** runs in debug and UAT. If camera + upload wo
 | | Debug native + Metro | UAT release APK |
 | --- | --- | --- |
 | **Command** | `npx expo run:android --device` (+ `npm run customer`) | `npm run android:apk:uat:customer` |
-| **Env file** | `.env.development.local` | `env/uat.local` (synced at APK build) |
+| **Env file** | `.env.development.local` | `.env.uat.local` (synced at APK build) |
 | **JS/TS fixes** | Hot reload via Metro | **New APK required** — no Metro |
 | **Native modules** (`expo-image-manipulator`, camera, maps) | `expo run:android` links them | Same — **rebuild APK** after `package.json` / native changes |
 | **Network** | Device → Supabase (+ optional Metro on USB) | Device → Supabase only |
-| **Supabase** | Usually UAT project from dev env | UAT project from `env/uat.local` |
+| **Supabase** | Usually UAT project from dev env | UAT project from `.env.uat.local` |
 
 **UAT checklist (camera upload):**
 
 1. Pull latest code and run `npm install` at repo root.
 2. Rebuild: `npm run android:apk:uat:customer` (or EAS UAT profile).
-3. Confirm `apps/customer-app/env/uat.local` has UAT `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+3. Confirm `apps/customer-app/.env.uat.local` has UAT `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
 4. Confirm UAT Supabase has the `customer-site-photos` storage migration applied (`npm run db:push` against UAT).
-5. (Optional) Add `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` to `env/uat.local` for **Google** map stamps, then rebuild.
+5. (Optional) Add `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` to `.env.uat.local` for **Google** map stamps, then rebuild.
 
 Opening GPS coordinates in the browser (`https://www.google.com/maps?q=…`) does **not** need a Maps API key.
 

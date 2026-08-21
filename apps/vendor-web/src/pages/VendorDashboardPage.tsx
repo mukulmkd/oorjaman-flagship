@@ -25,7 +25,18 @@ import {
   type TechnicianDisplayExtras,
 } from "@oorjaman/api";
 import { formatDayChip, listSelectableDayKeys, slotsForDay, type BookingSlotOption } from "@oorjaman/utils";
-import { DocumentViewButton } from "@oorjaman/web-ui";
+import {
+  Badge,
+  Button,
+  Card,
+  Modal,
+  TextArea,
+  DocumentViewButton,
+  BookingLiveTrackPanel,
+  BookingSitePhotos,
+  TablePaginationBar,
+  useSupabase,
+} from "@oorjaman/web-ui";
 import { bookingValueCents } from "./vendor-dashboard/metrics";
 import { formatInr, formatScheduleRange } from "./vendor-dashboard/formatters";
 import { VendorFinanceTab } from "./vendor-dashboard/VendorFinanceTab";
@@ -36,16 +47,6 @@ import {
   VENDOR_DASH_DEFAULT_TAB,
   type VendorDashTabId,
 } from "./vendor-dashboard/vendor-dash-tabs";
-import {
-  Badge,
-  Button,
-  Card,
-  Modal,
-  TextArea,
-} from "@oorjaman/web-ui";
-import { BookingSitePhotos } from "../components/BookingSitePhotos";
-import { TablePaginationBar } from "@oorjaman/web-ui";
-import { useSupabase } from "@oorjaman/web-ui";
 import "./vendor-dashboard.css";
 
 function formatSiteAddress(addr: Json): string {
@@ -1212,6 +1213,7 @@ export default function VendorDashboardPage() {
 
       <Modal
         open={vendorRowAction !== null}
+        size="lg"
         onClose={() => {
           if (availabilityMut.isPending || claimMarketplaceMut.isPending) return;
           closeVendorRowAction();
@@ -1422,6 +1424,7 @@ export default function VendorDashboardPage() {
                   <dt style={{ color: "var(--wb-muted-fg)" }}>Technician</dt>
                   <dd style={{ margin: 0 }}>{techDisplayLabel(techById, b.technician_id, inviteNamesByPhone)}</dd>
                 </dl>
+                <BookingLiveTrackPanel booking={b} />
                 <BookingSitePhotos booking={b} />
                 <div className="web-modal-actions">
                   {b.status === "accepted" || (b.status === "in_progress" && !b.actual_start) ? (
@@ -1470,6 +1473,8 @@ export default function VendorDashboardPage() {
                   <dt style={{ color: "var(--wb-muted-fg)" }}>Technician</dt>
                   <dd style={{ margin: 0 }}>{techDisplayLabel(techById, b.technician_id, inviteNamesByPhone)}</dd>
                 </dl>
+                <BookingLiveTrackPanel booking={b} />
+                <BookingSitePhotos booking={b} />
                 {b.status === "cancelled" && (b.cancellation_reason || cc) ? (
                   <div
                     style={{

@@ -26,7 +26,7 @@ export default function CitiesIndexPage() {
       cta={
         <>
           <Link href="/download" className="om-btn om-btn--primary">
-            Get the app
+            Book now
           </Link>
           <Link href="/contact" className="om-btn om-btn--ghost-light">
             Contact support

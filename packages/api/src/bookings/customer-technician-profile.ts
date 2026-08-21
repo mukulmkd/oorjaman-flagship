@@ -65,12 +65,4 @@ export async function getCustomerBookingTechnicianProfile(
   }
 }
 
-export function isBookingGpsTrackable(
-  booking: Pick<
-    import("../database.types").BookingRow,
-    "technician_id" | "status" | "technician_en_route_at"
-  >,
-): boolean {
-  if (!booking.technician_id) return false;
-  return booking.status === "accepted" && Boolean(booking.technician_en_route_at);
-}
+export { isBookingGpsTrackable } from "./booking-live-track";

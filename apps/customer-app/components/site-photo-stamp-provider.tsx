@@ -30,14 +30,53 @@ import {
   type SitePhotoGeocode,
 } from "../lib/site-photo-geocode";
 import { downloadStaticMapFallback } from "../lib/site-photo-static-map";
-import { getGoogleMapsApiKey } from "../lib/google-maps";
 import { SitePhotoMapSnapshot } from "./site-photo-map-snapshot";
 
 const STAMP_WIDTH = 720;
 const MAP_BOX = 140;
 const MIN_STAMP_BYTES = 5_000;
-/** Android MapView snapshots are blank without a native Google Maps key — use HTTP tiles instead. */
-const preferHttpMapFallback = Platform.OS === "android" && !getGoogleMapsApiKey();
+/** Android MapView snapshots often hang or stay blank — use HTTP tiles (Static API / OSM) instead. */
+const preferHttpMapFallback = Platform.OS === "android";
+/** Fail the stamp if geocode / map / capture does not finish (avoids infinite "Preparing your photo…"). */
+const STAMP_JOB_TIMEOUT_MS = 45_000;
+const PHOTO_ASSET_READY_MS = 8_000;
+const MAP_ASSET_READY_MS = 4_000;
+const CAPTURE_TIMEOUT_MS = 18_000;
+const DEFAULT_STAMP_PHOTO_HEIGHT = 960;
+
+function rejectStampJob(job: StampJob, message: string, reset: () => void) {
+  job.reject(new Error(message));
+  reset();
+}
+
+function clearStampState(
+  setJob: (v: StampJob | null) => void,
+  setMeta: (v: StampMeta | null) => void,
+  setMapUri: (v: string | null) => void,
+  setAssetsReady: (v: { photo: boolean; map: boolean }) => void,
+) {
+  setJob(null);
+  setMeta(null);
+  setMapUri(null);
+  setAssetsReady({ photo: false, map: false });
+}
+
+function getImageSize(uri: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Image size timeout")), 8_000);
+    Image.getSize(
+      uri,
+      (width, height) => {
+        clearTimeout(timer);
+        resolve({ width, height });
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err ?? new Error("Could not read image size."));
+      },
+    );
+  });
+}
 
 type StampInput = {
   photoUri: string;
@@ -68,16 +107,6 @@ type SitePhotoStampContextValue = {
 
 const SitePhotoStampContext = createContext<SitePhotoStampContextValue | null>(null);
 
-function getImageSize(uri: string): Promise<{ width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    Image.getSize(
-      uri,
-      (width, height) => resolve({ width, height }),
-      (err) => reject(err ?? new Error("Could not read image size.")),
-    );
-  });
-}
-
 function SitePhotoStampFrame({
   photoUri,
   meta,
@@ -99,12 +128,6 @@ function SitePhotoStampFrame({
     if (h > 0) setDetailsHeight(h);
   }, []);
 
-  useEffect(() => {
-    if (!meta.mapUri) {
-      onMapReady();
-    }
-  }, [meta.mapUri, onMapReady]);
-
   return (
     <View style={styles.frame} collapsable={false}>
       <Image
@@ -112,6 +135,7 @@ function SitePhotoStampFrame({
         style={{ width: STAMP_WIDTH, height: meta.photoHeight }}
         resizeMode="cover"
         onLoad={onPhotoReady}
+        onError={onPhotoReady}
       />
       <View style={styles.footer} collapsable={false}>
         <View style={[styles.mapWrap, { height: mapHeight }]} collapsable={false}>
@@ -192,7 +216,12 @@ export function SitePhotoStampProvider({ children }: { children: ReactNode }) {
       const pick = await pickSitePhotoWithGeo(source);
       if (!pick) return null;
 
-      await waitAfterUiSettled(Platform.OS === "android" ? 350 : 250);
+      // Android release: skip view-shot stamp (native module often missing). Overlays show map + details in-app.
+      if (Platform.OS === "android") {
+        return pick;
+      }
+
+      await waitAfterUiSettled(250);
 
       try {
         await Image.prefetch(pick.uri);
@@ -236,6 +265,9 @@ export function SitePhotoStampProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!job || mapUri || !preferHttpMapFallback) return;
     let cancelled = false;
+    const failTimer = setTimeout(() => {
+      if (!cancelled) setAssetsReady((s) => ({ ...s, map: true }));
+    }, MAP_ASSET_READY_MS + 4_000);
     void (async () => {
       const fallback = await downloadStaticMapFallback(job.geo.lat, job.geo.lng, MAP_BOX);
       if (!cancelled && fallback) {
@@ -246,24 +278,76 @@ export function SitePhotoStampProvider({ children }: { children: ReactNode }) {
     })();
     return () => {
       cancelled = true;
+      clearTimeout(failTimer);
     };
   }, [jobKey, mapUri]);
 
   useEffect(() => {
+    if (!job?.photoUri || !meta) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      if (!cancelled) setAssetsReady((s) => ({ ...s, photo: true }));
+    }, PHOTO_ASSET_READY_MS);
+    void Image.prefetch(job.photoUri)
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setAssetsReady((s) => ({ ...s, photo: true }));
+      });
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [job?.photoUri, meta]);
+
+  useEffect(() => {
+    if (!mapUri) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      if (!cancelled) setAssetsReady((s) => ({ ...s, map: true }));
+    }, MAP_ASSET_READY_MS);
+    void Image.prefetch(mapUri)
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setAssetsReady((s) => ({ ...s, map: true }));
+      });
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [mapUri]);
+
+  useEffect(() => {
     if (!job) return;
     let cancelled = false;
+    const reset = () => {
+      if (!cancelled) clearStampState(setJob, setMeta, setMapUri, setAssetsReady);
+      capturingRef.current = false;
+    };
+    const timer = setTimeout(() => {
+      if (cancelled) return;
+      rejectStampJob(
+        job,
+        "Preparing the photo took too long. Check mobile data or Wi‑Fi, then try again.",
+        reset,
+      );
+    }, STAMP_JOB_TIMEOUT_MS);
     void (async () => {
       try {
         if (Platform.OS !== "web") {
           await Image.prefetch(job.photoUri);
         }
         const geocode = await reverseGeocodeSitePhoto(job.geo.lat, job.geo.lng);
-        const size =
-          job.photoWidth && job.photoHeight
-            ? { width: job.photoWidth, height: job.photoHeight }
-            : await getImageSize(job.photoUri);
+        let photoHeight = DEFAULT_STAMP_PHOTO_HEIGHT;
+        try {
+          const size =
+            job.photoWidth && job.photoHeight && job.photoWidth > 0 && job.photoHeight > 0
+              ? { width: job.photoWidth, height: job.photoHeight }
+              : await getImageSize(job.photoUri);
+          photoHeight = Math.max(360, Math.round((size.height / size.width) * STAMP_WIDTH));
+        } catch {
+          // Proceed with a sensible default if the picker did not return dimensions.
+        }
         if (cancelled) return;
-        const photoHeight = Math.max(360, Math.round((size.height / size.width) * STAMP_WIDTH));
         setMeta({
           geocode,
           timestamp: formatSitePhotoStampTime(),
@@ -279,8 +363,17 @@ export function SitePhotoStampProvider({ children }: { children: ReactNode }) {
     })();
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [jobKey]);
+
+  useEffect(() => {
+    if (!meta || !preferHttpMapFallback) return;
+    const timer = setTimeout(() => {
+      setAssetsReady((s) => ({ photo: true, map: true }));
+    }, 2_500);
+    return () => clearTimeout(timer);
+  }, [meta]);
 
   const readyToCapture = Boolean(job && meta && assetsReady.photo && assetsReady.map);
 
@@ -293,11 +386,16 @@ export function SitePhotoStampProvider({ children }: { children: ReactNode }) {
         try {
           if (!captureRefView.current) throw new Error("Stamp view not ready.");
           const { captureRef } = require("react-native-view-shot") as typeof import("react-native-view-shot");
-          const uri = await captureRef(captureRefView, {
-            format: "jpg",
-            quality: 0.9,
-            result: "tmpfile",
-          });
+          const uri = await Promise.race([
+            captureRef(captureRefView, {
+              format: "jpg",
+              quality: 0.9,
+              result: "tmpfile",
+            }),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error("Capture timeout")), CAPTURE_TIMEOUT_MS),
+            ),
+          ]);
           const stamped = new File(uri);
           const size = stamped.size ?? 0;
           if (!stamped.exists || size < MIN_STAMP_BYTES) {
@@ -394,7 +492,7 @@ const styles = StyleSheet.create({
   captureLayer: {
     position: "absolute",
     top: 0,
-    left: 0,
+    left: -10_000,
     width: STAMP_WIDTH,
     zIndex: 1,
   },

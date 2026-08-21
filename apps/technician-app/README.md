@@ -17,7 +17,7 @@ npm run technician    # from repo root
 | EAS cloud | `npm run eas:android:uat:technician` |
 | Local APK | `npm run android:apk:uat:technician` |
 
-UAT env: `apps/technician-app/env/uat.local` — [docs/android-local-apk.md](../../docs/android-local-apk.md).
+UAT env: `apps/technician-app/.env.uat.local` (copy from `.env.uat.example`) — [docs/android-local-apk.md](../../docs/android-local-apk.md).
 
 Package ID (UAT): `com.oorjaman.technician.uat` · display name **OorjaMan Partner (UAT)**.
 

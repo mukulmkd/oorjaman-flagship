@@ -11,7 +11,7 @@ Guide for **local development**, **UAT** (Vercel portals + UAT mobile), and **pr
 | Tier | Web portals | Marketing | Mobile | Supabase |
 | ---- | ----------- | --------- | ------ | -------- |
 | **Local dev** | `localhost:5173–5175` · `.env.development.local` | `localhost:3000` | Metro · `.env.development.local` | **OorjaMan UAT** |
-| **UAT (live)** | **Vercel** · env in Dashboard (or `.env.uat.local` for local `build:uat`) | GoDaddy `dev-oorjaman` (when deployed) | EAS `uat` / local APK · `env/uat.local` | **OorjaMan UAT** |
+| **UAT (live)** | **Vercel** · env in Dashboard (or `.env.uat.local` for local `build:uat`) | GoDaddy `dev-oorjaman` (when deployed) | EAS `uat` / local APK · `.env.uat.local` | **OorjaMan UAT** |
 | **Production** | GoDaddy `admin/vendor/support` · `.env.production.local` | `oorjaman.com` | Store · EAS `production` | **OorjaMan Prod** |
 
 **Live Vercel UAT URLs:** https://oorjaman-admin.vercel.app · https://oorjaman-vendor.vercel.app · https://oorjaman-support.vercel.app
@@ -37,13 +37,14 @@ Each app uses **mode-specific** env files (gitignored `.local` copies hold real 
 | File | When it loads | Supabase project |
 |------|---------------|------------------|
 | `apps/*/.env.development.local` | `npm run dev`, `npm run customer`, etc. | **OorjaMan UAT** |
-| `apps/*/.env.uat.local` | `npm run build:uat -w <portal>` (local UAT build smoke test) | **OorjaMan UAT** |
-| `apps/*/.env.production.local` | `npm run build` (Vite/Next prod mode) | **OorjaMan Prod** |
-| `apps/<expo-app>/env/uat.local` | UAT APK / EAS via `run-with-expo-env.mjs` | **OorjaMan UAT** |
+| `apps/*/.env.uat.local` | Vite `build:uat`, Expo UAT APK / EAS via `run-with-expo-env.mjs` | **OorjaMan UAT** |
+| `apps/*/.env.production.local` | `npm run build` (Vite/Next prod mode), Expo prod native builds | **OorjaMan Prod** |
 | `.env.uat.local` (repo root) | `npm run seed:dummy-users` (default) | **UAT** |
 | `.env.production.local` (repo root) | `SEED_ENV=production npm run seed:dummy-users` | **Prod** |
 
 **Vite portals** (`admin-web`, `vendor-web`, `support-web`): copy `.env.development.example`, `.env.uat.example`, and `.env.production.example` → matching `.local` files.
+
+**Expo apps** (`customer-app`, `technician-app`): copy `.env.development.example`, `.env.uat.example`, and `.env.production.example` → matching `.local` files.
 
 **Vercel (UAT portals live):** set the same `VITE_*` names in the **Vercel Dashboard** (Production + Preview). Vercel does not read local `.env.uat.local`. See [VERCEL.md](VERCEL.md).
 

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { BookingRow, CustomerRow, Database } from "../database.types";
+import type { BookingRow, CustomerRow, Database, SubscriptionRow } from "../database.types";
 import { SupabaseApiError } from "../result";
-import { readBookingServiceAddressId } from "../subscriptions/subscription-address";
+import { readBookingServiceAddressId, readSubscriptionServiceAddressId } from "../subscriptions/subscription-address";
 import {
   getServiceAddressEntry,
   MAX_SITE_PHOTOS_PER_ADDRESS,
@@ -138,18 +138,34 @@ export async function deleteCustomerSitePhotoObject(
   if (error) throw new SupabaseApiError(error.message, error);
 }
 
-export function bookingShowsSitePhotos(booking: Pick<BookingRow, "status" | "technician_id">): boolean {
-  if (!booking.technician_id) return false;
+/** When portals/tech should surface the site-photo section (accepted+ visits). */
+export function bookingShowsSitePhotos(booking: Pick<BookingRow, "status">): boolean {
   return booking.status === "accepted" || booking.status === "in_progress" || booking.status === "completed";
 }
 
 /** Site photos for a booking (vendor / technician / admin / customer). Returns [] when not yet shareable. */
 export async function getSitePhotosForBooking(
   client: SupabaseClient<Database>,
-  booking: Pick<BookingRow, "id" | "customer_id" | "metadata" | "status" | "technician_id">,
+  booking: Pick<
+    BookingRow,
+    "id" | "customer_id" | "metadata" | "status" | "technician_id" | "subscription_id"
+  >,
 ): Promise<SitePhotoWithSignedUrl[]> {
   if (!bookingShowsSitePhotos(booking)) return [];
-  const addressId = readBookingServiceAddressId(booking.metadata);
+  let addressId = readBookingServiceAddressId(booking.metadata);
+
+  if (!addressId && booking.subscription_id) {
+    const { data: sub, error: subErr } = await client
+      .from("subscriptions")
+      .select("id, service_address_id, metadata")
+      .eq("id", booking.subscription_id)
+      .maybeSingle();
+    if (subErr) throw new SupabaseApiError(subErr.message, subErr);
+    if (sub) {
+      addressId = readSubscriptionServiceAddressId(sub as SubscriptionRow);
+    }
+  }
+
   if (!addressId) return [];
 
   const { data, error } = await client

@@ -55,20 +55,40 @@ async function waitForSourcePickerDismissal(): Promise<void> {
   await waitAfterUiSettled(350);
 }
 
-async function captureGeo(): Promise<SitePhotoCaptureGeo | null> {
-  const access = await ensureForegroundLocationAccess({
-    settingsTitle: "Location required for site photos",
-    settingsMessage:
-      "Site photos need GPS for the map stamp. Enable location for OorjaMan in Settings, then try again.",
-  });
-  if (!access.ok) return null;
+const SITE_PHOTO_LOCATION_PROMPT = {
+  settingsTitle: "Location required for site photos",
+  settingsMessage:
+    "Site photos need GPS for the map stamp. Allow location access when prompted, or enable it for OorjaMan in Settings.",
+} as const;
 
-  const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-  return {
-    lat: pos.coords.latitude,
-    lng: pos.coords.longitude,
-    accuracy_m: pos.coords.accuracy ?? null,
-  };
+async function ensureSitePhotoLocationAccess(): Promise<boolean> {
+  const access = await ensureForegroundLocationAccess(SITE_PHOTO_LOCATION_PROMPT);
+  return access.ok;
+}
+
+async function readCurrentGeo(): Promise<SitePhotoCaptureGeo | null> {
+  try {
+    const enabled = await Location.hasServicesEnabledAsync();
+    if (!enabled) {
+      Alert.alert(
+        SITE_PHOTO_LOCATION_PROMPT.settingsTitle,
+        "Turn on location services on your device, then try again.",
+      );
+      return null;
+    }
+    const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    return {
+      lat: pos.coords.latitude,
+      lng: pos.coords.longitude,
+      accuracy_m: pos.coords.accuracy ?? null,
+    };
+  } catch (e: unknown) {
+    Alert.alert(
+      SITE_PHOTO_LOCATION_PROMPT.settingsTitle,
+      e instanceof Error ? e.message : "Could not read GPS for this photo. Try again outdoors.",
+    );
+    return null;
+  }
 }
 
 async function normalizePickedUri(rawUri: string | undefined): Promise<string | null> {
@@ -136,12 +156,16 @@ async function pickImageUri(source: SitePhotoSource): Promise<string | null> {
  * Caller must invoke {@link promptSitePhotoSource} before this.
  */
 export async function pickSitePhotoWithGeo(source: SitePhotoSource): Promise<SitePhotoPickResult | null> {
+  // Ask for location before camera/gallery so the system prompt is visible up front.
+  if (!(await ensureSitePhotoLocationAccess())) {
+    return null;
+  }
+
   const rawUri = await pickImageUri(source);
   if (!rawUri) return null;
 
   const prepared = await prepareSitePhotoUri(rawUri, source);
-
-  const geo = await captureGeo();
+  const geo = await readCurrentGeo();
   if (!geo) return null;
 
   return {

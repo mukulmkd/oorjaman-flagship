@@ -5,6 +5,7 @@ import {
   documentPreviewKind,
   downloadFromSignedUrl,
 } from "./document-viewer-utils";
+import { useBodyScrollLock } from "./use-body-scroll-lock";
 import "./document-viewer.css";
 
 export type DocumentViewerModalProps = {
@@ -17,6 +18,7 @@ export type DocumentViewerModalProps = {
 
 export function DocumentViewerModal({ open, title, url, storagePath, onClose }: DocumentViewerModalProps) {
   const [downloading, setDownloading] = useState(false);
+  useBodyScrollLock(open && Boolean(url));
 
   useEffect(() => {
     if (!open) return;

@@ -93,47 +93,48 @@ Do **not** add per-app `vercel.json` files — use root [`vercel.json`](vercel.j
 
 Vendor `build:uat` runs `prebuild:uat` (ensures `country-state-city` if CI skipped it) then `brand:sync:web` and `vite build --mode uat` (no `tsc` on deploy).
 
-### Per-app deploys only (Ignored Build Step)
+### Per-app deploys only (branch + path filter)
 
-By default, **every push** rebuilds **all three** Vercel projects. To deploy only when that portal (or shared packages) change:
+By default, **every push** to a connected branch can rebuild **every** linked Vercel project. Configure each project so it deploys **only** when:
 
-#### Where to find it in the dashboard
+1. The push is on that project’s branch (`develop` for UAT portals, `main` for prod), and  
+2. Files that affect that app (or its shared deps) actually changed.
 
-1. Open the project (e.g. **oorjaman-admin**).
-2. **Settings** (top tabs or left sidebar).
-3. **Build and Deployment** (not “Git” on newer Vercel UI).
-4. Scroll to **Ignored Build Step**.
+#### A — Production Branch (Dashboard)
 
-If you still don’t see it: use the Settings search box and type **Ignored Build Step**.
+For **each** Vercel project → **Settings → Git → Production Branch**:
 
-#### Option A — built-in folder filter (simple, app-only)
+| Project | Production Branch |
+|---------|-------------------|
+| `oorjaman-admin` (UAT) | `develop` |
+| `oorjaman-vendor` (UAT) | `develop` |
+| `oorjaman-support` (UAT) | `develop` |
+| Prod marketing (or your single prod Vercel app) | `main` |
 
-In **Ignored Build Step**, choose **Only build if there are changes in a folder** and set:
+That makes **Production** deployments track only that branch. Optionally turn off **Preview** deployments (Settings → Git → ignore / disable automatic previews) if you do not want PR/feature-branch builds.
 
-| Project | Folder |
-|---------|--------|
-| Admin | `apps/admin-web` |
-| Vendor | `apps/vendor-web` |
-| Support | `apps/support-web` |
+#### B — Ignored Build Step (path + branch guard)
 
-This does **not** rebuild when only `packages/api` changes (shared code). Use Option B if you want shared package changes to redeploy portals.
-
-#### Option B — custom script (app + shared `packages/`)
-
-1. Push `scripts/vercel-should-build.mjs` to `main`.
-2. In **Ignored Build Step**, choose **Run my Node script** or **Custom** and set:
+1. Open the project → **Settings → Build and Deployment → Ignored Build Step**.
+2. Choose **Custom** / **Run my Node script** and set:
 
 | Project | Command |
 |---------|---------|
-| Admin | `node scripts/vercel-should-build.mjs admin-web` |
-| Vendor | `node scripts/vercel-should-build.mjs vendor-web` |
-| Support | `node scripts/vercel-should-build.mjs support-web` |
+| Admin (UAT) | `node scripts/vercel-should-build.mjs admin-web --branch develop` |
+| Vendor (UAT) | `node scripts/vercel-should-build.mjs vendor-web --branch develop` |
+| Support (UAT) | `node scripts/vercel-should-build.mjs support-web --branch develop` |
+| Marketing / prod on `main` | `node scripts/vercel-should-build.mjs oorjaman-web --branch main` |
 
-**Vercel exit codes (important):** **0** = skip build (deployment CANCELED), **1** = build runs.
+**Vercel exit codes:** **0** = skip build (deployment CANCELED), **1** = build runs.
 
-The script watches `apps/<portal>/`, `packages/`, `vercel.json`, brand sync script, and root lockfile.
+The script:
 
-**Manual redeploy** from the dashboard always builds. First deploy on a new project also builds.
+- Skips when `VERCEL_GIT_COMMIT_REF` is not the `--branch` you passed  
+- Skips when the commit does not touch that app’s paths (portals: `apps/<portal>/`, `packages/`, `vercel.json`, lockfile, brand sync; marketing: `apps/oorjaman-web/`, `brand/`, lockfile)
+
+**Manual Redeploy** from the dashboard always builds. First deploy on a new project also builds.
+
+> Push `scripts/vercel-should-build.mjs` to **both** `develop` and `main` so each environment’s ignore step can run.
 
 ---
 
@@ -313,9 +314,19 @@ NEXT_PUBLIC_SITE_URL=https://<your-marketing-uat>.vercel.app
 
 `build:uat` already forces `NEXT_PUBLIC_DEPLOY_ENV=uat`, so even a wrong Vercel value stays noindex. Set `NEXT_PUBLIC_SITE_URL` to the Vercel URL so canonical/OG links resolve to the UAT host. Leave app-store and GSTIN vars unset for UAT.
 
-### Ignored Build Step (optional)
+### Ignored Build Step (branch + path)
 
-To only rebuild when the marketing site or shared packages change, use `Only build if there are changes in a folder` → `apps/oorjaman-web` (or the custom script pattern used for the portals).
+Use the same helper as the portals, locked to `develop` for UAT marketing or `main` for prod marketing:
+
+```bash
+# UAT marketing on develop
+node scripts/vercel-should-build.mjs oorjaman-web --branch develop
+
+# Prod marketing on main
+node scripts/vercel-should-build.mjs oorjaman-web --branch main
+```
+
+Also set **Git → Production Branch** to match.
 
 ### Caveat — shared root `vercel.json`
 

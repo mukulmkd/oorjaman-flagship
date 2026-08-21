@@ -51,6 +51,7 @@ import { ServiceAddressPickerSheet } from "../../components/service-address-pick
 import { SitePhotoGallerySection } from "../../components/site-photo-gallery-section";
 import {
   buildAddressBookPatch,
+  extrasFromAddressEntry,
   mergeServiceGpsIntoCustomerPatch,
   readPreferredVendorIdsForDefaultServiceLocation,
   readServiceAddressBook,
@@ -1014,6 +1015,12 @@ export default function ProfileTab() {
           if (selected) {
             const parsed = parseAddr(selected.address);
             setAddr({ ...parsed, label: selected.label.trim() || parsed.label });
+            const gps = extras ?? extrasFromAddressEntry(selected);
+            if (gps?.service_lat != null && gps?.service_lng != null) {
+              setLat(gps.service_lat);
+              setLng(gps.service_lng);
+              setAccuracyM(gps.location_accuracy_m ?? null);
+            }
           }
           await addressBookMut.mutateAsync({ entries, defaultId, extras });
           setAddressSheetOpen(false);

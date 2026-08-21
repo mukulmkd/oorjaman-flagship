@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MarketingPage } from "@/components/MarketingPage";
 import { ScrollReveal } from "@/components/ScrollReveal";
+import { ServicePriceCards } from "@/components/marketing-sections";
 import { buildPageMetadata } from "@/lib/seo";
 import {
   formatInrWhole,
@@ -25,6 +26,8 @@ const chips = [
 
 export default function PricingPage() {
   const sampleGst = splitGstFromInclusiveInr(1599);
+  const cleaningFrom = OORJAMAN_ONE_TIME_VISIT_PRICES_INR[0]?.priceInr ?? 599;
+  const amcFrom = Math.min(...OORJAMAN_AMC_PLANS_INR.map((p) => p.specialPriceInr));
 
   return (
     <MarketingPage
@@ -41,6 +44,28 @@ export default function PricingPage() {
         </>
       }
     >
+      <ServicePriceCards
+        cards={[
+          {
+            href: "/services/panel-cleaning",
+            eyebrow: "One-time visit",
+            title: "Panel cleaning",
+            priceFrom: `from ${formatInrWhole(cleaningFrom)}`,
+            body: "Capacity-based packages for residential and commercial rooftops.",
+            cta: "View cleaning",
+          },
+          {
+            href: "/services/amc-maintenance",
+            eyebrow: "Annual plans",
+            title: "AMC maintenance",
+            priceFrom: `from ${formatInrWhole(amcFrom)}`,
+            body: "Scheduled visits with plan entitlements tracked in the app.",
+            cta: "View AMC plans",
+            outline: true,
+          },
+        ]}
+      />
+
       <ScrollReveal>
         <ul className={styles.chips}>
           {chips.map((c) => (
@@ -120,15 +145,6 @@ export default function PricingPage() {
           </li>
         </ul>
       </ScrollReveal>
-
-      <p className={styles.actions}>
-        <Link href="/download" className="om-btn om-btn--primary">
-          See live checkout prices in the app
-        </Link>
-        <Link href="/legal/refund-cancellation" className="om-btn om-btn--outline">
-          Refund &amp; cancellation
-        </Link>
-      </p>
     </MarketingPage>
   );
 }

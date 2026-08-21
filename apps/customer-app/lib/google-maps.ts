@@ -1,9 +1,13 @@
-import { Alert, Linking } from "react-native";
+import { Alert, Linking, Platform } from "react-native";
 
-/** Web + native static map fallback (Maps Static API). */
+/** Native MapView + Maps Static API — platform key when set, else legacy single key. */
 export function getGoogleMapsApiKey(): string | null {
-  const key = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
-  return key ? key : null;
+  const legacy = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
+  const ios = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_IOS?.trim();
+  const android = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_ANDROID?.trim();
+  if (Platform.OS === "ios") return ios || legacy || null;
+  if (Platform.OS === "android") return android || legacy || null;
+  return legacy || ios || android || null;
 }
 
 export function normalizeLatLng(
@@ -47,6 +51,80 @@ export async function openGoogleMapsInBrowser(
     }
   }
   Alert.alert("Maps", "Could not open Google Maps. Try again.");
+}
+
+export type StaticMapMarker = {
+  lat: number;
+  lng: number;
+  /** Static Maps color token, e.g. `green`, `blue`, or `0x1f8660`. */
+  color: string;
+};
+
+function staticMapZoomForSpan(span: number): number {
+  if (span > 0.5) return 10;
+  if (span > 0.2) return 11;
+  if (span > 0.08) return 12;
+  if (span > 0.03) return 13;
+  if (span > 0.012) return 14;
+  if (span > 0.005) return 15;
+  return 16;
+}
+
+export type StaticMapPath = {
+  points: Array<{ lat: number; lng: number }>;
+  /** Static Maps color, e.g. `0x1f8660ff` (ARGB). */
+  color?: string;
+  weight?: number;
+};
+
+/** Preview map with one or more markers (live tracking fallback / Android primary map). */
+export function buildGoogleStaticMapTrackUrl(
+  markers: StaticMapMarker[],
+  width: number,
+  height: number,
+  options?: { path?: StaticMapPath | null },
+): string | null {
+  const key = getGoogleMapsApiKey();
+  if (!key || markers.length === 0) return null;
+
+  const w = Math.min(640, Math.max(200, Math.round(width)));
+  const h = Math.min(640, Math.max(120, Math.round(height)));
+  const lats = markers.map((m) => m.lat);
+  const lngs = markers.map((m) => m.lng);
+  const midLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+  const midLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+  const span = Math.max(
+    Math.max(...lats) - Math.min(...lats),
+    Math.max(...lngs) - Math.min(...lngs),
+  );
+  const markerQuery = markers
+    .map((m) => `markers=color:${m.color}|${m.lat},${m.lng}`)
+    .join("&");
+
+  const params = new URLSearchParams({
+    size: `${w}x${h}`,
+    scale: "2",
+    maptype: "roadmap",
+    key,
+  });
+
+  // Auto-fit both pins when tracking — avoids overly zoomed-out collapsed previews.
+  if (markers.length >= 2) {
+    params.set("visible", markers.map((m) => `${m.lat},${m.lng}`).join("|"));
+  } else {
+    params.set("center", `${midLat},${midLng}`);
+    params.set("zoom", String(staticMapZoomForSpan(span)));
+  }
+
+  let url = `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}&${markerQuery}`;
+  const path = options?.path;
+  if (path && path.points.length >= 2) {
+    const color = path.color ?? "0x1f8660ff";
+    const weight = path.weight ?? 4;
+    const coords = path.points.map((p) => `${p.lat},${p.lng}`).join("|");
+    url += `&path=color:${color}|weight:${weight}|${coords}`;
+  }
+  return url;
 }
 
 export function buildGoogleStaticMapImageUrl(

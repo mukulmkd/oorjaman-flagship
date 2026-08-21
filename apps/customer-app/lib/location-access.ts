@@ -32,32 +32,13 @@ export async function ensureForegroundLocationAccess(options?: {
     return { ok: true };
   }
 
+  // Blocked in Settings — system sheet cannot be shown again.
   if (perm.status === "denied" && perm.canAskAgain === false) {
     await showOpenSettingsAlert(settingsTitle, settingsMessage);
     return { ok: false, reason: "denied" };
   }
 
-  if (perm.status === "denied") {
-    await new Promise<void>((resolve) => {
-      Alert.alert(
-        settingsTitle,
-        settingsMessage,
-        [
-          { text: "Not now", style: "cancel", onPress: () => resolve() },
-          {
-            text: "Open Settings",
-            onPress: () => {
-              void Linking.openSettings();
-              resolve();
-            },
-          },
-        ],
-        { cancelable: true },
-      );
-    });
-    return { ok: false, reason: "denied" };
-  }
-
+  // First ask, or "Don't allow" but the OS still permits one more prompt.
   perm = await Location.requestForegroundPermissionsAsync();
   if (perm.status === "granted") {
     return { ok: true };
@@ -65,6 +46,15 @@ export async function ensureForegroundLocationAccess(options?: {
 
   if (perm.canAskAgain === false) {
     await showOpenSettingsAlert(settingsTitle, settingsMessage);
+  } else {
+    await new Promise<void>((resolve) => {
+      Alert.alert(
+        settingsTitle,
+        settingsMessage,
+        [{ text: "OK", onPress: () => resolve() }],
+        { cancelable: true },
+      );
+    });
   }
   return { ok: false, reason: "denied" };
 }
