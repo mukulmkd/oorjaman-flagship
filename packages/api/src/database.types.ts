@@ -56,7 +56,17 @@ export type VendorTechnicianInviteStatus =
   | "expired"
   | "cancelled";
 
-export type PaymentStatus = "pending" | "success" | "failed";
+export type PaymentStatus =
+  | "pending"
+  | "authorized"
+  | "success"
+  | "failed"
+  | "cancelled"
+  | "timeout"
+  | "partially_refunded"
+  | "refund_pending"
+  | "refunded"
+  | "refund_failed";
 
 export type AmcWalletStatus =
   | "pending_funding"
@@ -364,12 +374,64 @@ export type PaymentRow = {
   subscription_id: string | null;
   customer_id: string;
   amount: number;
+  currency: string;
   status: PaymentStatus;
+  /** `dummy` | `razorpay` | `partner_collected` (cash/UPI held by partner). */
+  provider: "dummy" | "razorpay" | "partner_collected";
+  /** Who received customer funds: oorjaman (gateway) or partner (door/UPI personal). */
+  collection_channel: "oorjaman" | "partner";
+  razorpay_order_id: string | null;
+  razorpay_payment_id: string | null;
+  razorpay_payment_link_id: string | null;
+  razorpay_payment_link_url: string | null;
+  razorpay_order_status: string | null;
+  razorpay_payment_status: string | null;
+  razorpay_refund_status: string | null;
   /** Channel label or short code (e.g. UPI, Net banking) when paid. */
   payment_method: string | null;
+  method_type: string | null;
+  attempt_number: number;
+  amount_refunded: number;
+  error_code: string | null;
+  error_description: string | null;
+  error_source: string | null;
+  error_step: string | null;
+  error_reason: string | null;
+  error_field: string | null;
+  error_metadata: Json | null;
+  customer_error_category: string | null;
+  customer_error_message: string | null;
   /** When payment succeeded; null until success. */
   paid_at: string | null;
   created_at: string;
+  updated_at: string;
+};
+
+export type PaymentAttemptRow = {
+  id: string;
+  payment_id: string;
+  attempt_number: number;
+  razorpay_payment_id: string | null;
+  razorpay_order_id: string | null;
+  status: string;
+  failure_reason: string | null;
+  failure_category: string | null;
+  error_payload: Json | null;
+  created_at: string;
+};
+
+export type PaymentRefundRow = {
+  id: string;
+  payment_id: string;
+  razorpay_refund_id: string | null;
+  razorpay_payment_id: string | null;
+  amount_paise: number;
+  status: "pending" | "processed" | "failed" | string;
+  reason: string | null;
+  initiated_by: string | null;
+  failure_details: Json | null;
+  created_at: string;
+  processed_at: string | null;
 };
 
 export type AmcWalletRow = {
@@ -415,6 +477,8 @@ export type VendorSettlementRow = {
   visit_gross_paise: number | null;
   platform_fee_paise: number | null;
   net_payout_paise: number | null;
+  /** oorjaman = pay vendor net; partner = fee receivable (vendor held cash). */
+  customer_paid_to: "oorjaman" | "partner";
   penalty_assessed_paise: number | null;
   penalty_final_paise: number | null;
   admin_notes: string | null;
@@ -792,6 +856,8 @@ export type BookingRow = {
   estimated_price_cents: number;
   final_price_cents: number | null;
   currency: string;
+  /** prepaid = pay before confirm; postpaid = collect after job completed. */
+  payment_timing: "prepaid" | "postpaid";
   customer_notes: string | null;
   internal_notes: string | null;
   cancellation_reason: string | null;
@@ -1246,13 +1312,49 @@ export type Database = {
           customer_id: string;
           amount: number;
           status?: PaymentStatus;
+          provider?: "dummy" | "razorpay";
+          razorpay_order_id?: string | null;
+          razorpay_payment_id?: string | null;
+          payment_method?: string | null;
+          paid_at?: string | null;
         };
         Update: Partial<
           Pick<
             PaymentRow,
-            "booking_id" | "subscription_id" | "status" | "payment_method" | "paid_at"
+            | "booking_id"
+            | "subscription_id"
+            | "status"
+            | "payment_method"
+            | "paid_at"
+            | "provider"
+            | "razorpay_order_id"
+            | "razorpay_payment_id"
           >
         >;
+        Relationships: [];
+      };
+      payment_attempts: {
+        Row: PaymentAttemptRow;
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      payment_refunds: {
+        Row: PaymentRefundRow;
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      razorpay_webhook_events: {
+        Row: {
+          id: string;
+          event_id: string;
+          event_type: string;
+          payload: Json | null;
+          processed_at: string;
+        };
+        Insert: never;
+        Update: never;
         Relationships: [];
       };
       amc_wallets: {
@@ -1598,6 +1700,7 @@ export type Database = {
           estimated_price_cents?: number;
           final_price_cents?: number | null;
           currency?: string;
+          payment_timing?: "prepaid" | "postpaid";
           customer_notes?: string | null;
           internal_notes?: string | null;
           cancellation_reason?: string | null;
@@ -1861,6 +1964,14 @@ export type Database = {
         };
         Returns: AmcWalletRow;
       };
+      fulfill_razorpay_payment: {
+        Args: {
+          p_razorpay_order_id: string;
+          p_razorpay_payment_id: string | null;
+          p_payment_method?: string | null;
+        };
+        Returns: Json;
+      };
       admin_assign_amc_subscription_vendor: {
         Args: {
           p_subscription_id: string;
@@ -1876,6 +1987,15 @@ export type Database = {
       create_standard_visit_payout_settlement: {
         Args: { p_booking_id: string };
         Returns: VendorSettlementRow;
+      };
+      mark_partner_collected_payment: {
+        Args: {
+          p_booking_id: string;
+          p_amount_paise?: number | null;
+          p_method?: string | null;
+          p_note?: string | null;
+        };
+        Returns: Json;
       };
     };
     Enums: {

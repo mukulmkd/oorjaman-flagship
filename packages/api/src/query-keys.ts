@@ -266,6 +266,8 @@ export const queryKeys = {
   payments: {
     all: () => [...queryKeys.root, "payments"] as const,
     forBooking: (bookingId: string) => [...queryKeys.payments.all(), "booking", bookingId] as const,
+    adminList: (filtersKey: string) => [...queryKeys.payments.all(), "admin-list", filtersKey] as const,
+    adminDetail: (paymentId: string) => [...queryKeys.payments.all(), "admin-detail", paymentId] as const,
   },
 
   finance: {

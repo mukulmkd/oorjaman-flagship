@@ -10,6 +10,7 @@ import {
   formatInrFromPaise,
   normalizeVendorPlatformFeePercent,
   queryKeys,
+  settlementCustomerPaidToLabel,
   settlementDisplayAmountPaise,
   settlementKindLabel,
   settlementStatusLabel,
@@ -143,6 +144,9 @@ export function FinanceSettlementsPage() {
         subtitle="All collections flow through OorjaMan. Recognized revenue is the platform fee when you mark a visit payout settled (AMC and one-time)."
         actions={
           <>
+          <Link to="/dashboard/finance/payments" className="fin-amc-wallets-link">
+            Payments
+          </Link>
           <Link to="/dashboard/finance/amc-contracts" className="fin-amc-wallets-link">
             AMC contracts
           </Link>
@@ -437,6 +441,7 @@ function SettlementRow({
 }) {
   const amount = settlementDisplayAmountPaise(row);
   const isPenalty = row.kind === "cancellation_penalty";
+  const isPartnerHeld = row.kind === "visit_payout" && row.customer_paid_to === "partner";
   const feePercent =
     row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
       ? (row.metadata as Record<string, unknown>).platform_fee_percent
@@ -451,7 +456,15 @@ function SettlementRow({
       ? `Gross ${formatInrFromPaise(row.visit_gross_paise ?? 0)} · Fee base (ex-GST) ${formatInrFromPaise(
           typeof taxableValuePaise === "number" ? taxableValuePaise : visitGrossTaxableValuePaise(row.visit_gross_paise ?? 0),
         )} · OorjaMan fee ${formatInrFromPaise(row.platform_fee_paise ?? 0)}${typeof feePercent === "number" ? ` (${feePercent}%)` : ""
-      }${row.status === "settled" ? " · Revenue recognized" : " · Revenue pending settle"}`
+      } · ${settlementCustomerPaidToLabel(row.customer_paid_to)}${
+        row.status === "settled"
+          ? isPartnerHeld
+            ? " · Fee collected from vendor"
+            : " · Revenue recognized"
+          : isPartnerHeld
+            ? " · Fee receivable pending settle"
+            : " · Revenue pending settle"
+      }`
       : `Assessed ${formatInrFromPaise(row.penalty_assessed_paise ?? 0)}`;
 
   return (
@@ -461,7 +474,7 @@ function SettlementRow({
       <td>{settlementKindLabel(row.kind)}</td>
       <td>{channelLabel ?? "-"}</td>
       <td className={isPenalty ? "fin-amount-penalty" : "fin-amount-payout"}>
-        {isPenalty ? "Charge " : "Pay "}
+        {isPenalty ? "Charge " : isPartnerHeld ? "Collect fee " : "Pay "}
         {formatInrFromPaise(amount)}
       </td>
       <td className="fin-breakdown">{breakdown}</td>

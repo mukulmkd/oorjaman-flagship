@@ -341,6 +341,23 @@ export default function JobExecutionWizardScreen() {
       await queryClient.invalidateQueries({ queryKey: queryKeys.bookings.technicianActiveInProgress() });
       await queryClient.invalidateQueries({ queryKey: queryKeys.jobReports.all() });
       await queryClient.invalidateQueries({ queryKey: queryKeys.jobReports.byBooking(bookingId!) });
+
+      const needsCollect =
+        result.booking.payment_timing === "postpaid" && result.booking.status === "completed";
+      if (needsCollect) {
+        Alert.alert(
+          "Job completed",
+          "Collect payment from the customer (QR / link) or mark partner collected if they already paid you.",
+          [
+            {
+              text: "Collect payment",
+              onPress: () => router.replace(`/(main)/jobs/collect/${bookingId}`),
+            },
+          ],
+        );
+        return;
+      }
+
       Alert.alert(
         "Job completed",
         "Timer stopped, completion report saved, and booking marked completed.",

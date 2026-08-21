@@ -2,7 +2,7 @@
 
 The **one** place to track everything required to take OorjaMan live. This file owns the **checklist, order, and status**. It does **not** duplicate step-by-step procedures — those stay in the deep runbooks under `project-docs/` and `docs/`, linked inline. When a task's status changes, update it **here**; when you need the "how", follow the linked doc.
 
-**Last updated:** 2026-08-13
+**Last updated:** 2026-08-22
 **Legend:** `[ ]` todo · `[~]` in progress / partial · `[x]` done
 
 > **Golden rule (never break):** every DB/RLS/function change is a **new** migration, applied **UAT first → validate → PROD**. Never edit an applied migration; never hand-edit prod SQL in the dashboard. (`project-docs/SUPABASE-UAT-PROD.md`)
@@ -15,16 +15,16 @@ The **one** place to track everything required to take OorjaMan live. This file 
 |---|---|---|
 | Security remediation (code/RLS) | `[x]` | All findings fixed in repo — [SECURITY_REVIEW.md](SECURITY_REVIEW.md). Deploy/verify to prod pending (§3–§4). |
 | UAT ↔ PROD RLS parity | `[x]` | `npm run db:policy-diff` = 0 diff (175=175), 2026-08-08. |
-| Prod Supabase project | `[ ]` | Not created — UAT (`caearbriteguqjvnbrcg`) currently doubles as prod. Decide §1. |
-| Prod env values | `[~]` | Placeholders present; real values pending prod project (§2). |
-| Edge functions on prod | `[ ]` | Not deployed to a prod project (§4). |
+| Prod Supabase project | `[x]` | **OorjaMan PROD** created — ref `nppfpegqnmclbcmmogux`, region `ap-south-1` (Mumbai). |
+| Prod env values | `[x]` | Locals updated with Mumbai URL + anon/service_role keys (§2). |
+| Edge functions on prod | `[~]` | 6 non-Razorpay functions deployed; Razorpay Live trio still pending (§4). |
 | Auth / OTP / email templates | `[ ]` | Real SMS/OTP + prod email templates pending (§5). |
 | Email addresses & provider | `[~]` | Public mailboxes live; prod decisions pending (§6). |
 | Marketing site (oorjaman.com) | `[ ]` | Built for UAT on Vercel; prod host + SEO-on pending (§7). |
 | Portal hosting (admin/vendor/support) | `[ ]` | On Vercel UAT; prod-domain decision + security headers pending (§8). |
 | Mobile release prep | `[ ]` | EAS creds/secrets, Maps + Directions keys (prod), push per-project pending (§9). |
 | App store enrollment | `[~]` | Apple + Google verification in progress (§10). |
-| Legal / GSTIN / Razorpay | `[~]` | Drafts live; counsel + KYC pending (§11). |
+| Legal / GSTIN / Razorpay | `[~]` | UAT Test Mode done; Live KYC + Prod secrets/functions/webhook pending (§11 / §11a). |
 
 ---
 
@@ -32,10 +32,10 @@ The **one** place to track everything required to take OorjaMan live. This file 
 
 Runbook: `project-docs/SUPABASE-UAT-PROD.md`
 
-- [ ] Decide **separate PROD Supabase project** (recommended) vs. keep current project as both UAT+prod.
-  - Separate: create **OorjaMan Prod** (Dashboard → New project); save URL / ref / anon / service_role.
-  - Shared (interim): acceptable only for soft launch — dummy data + UAT testing hit the same DB.
-- [ ] Record refs in root `.env.uat.local` (gitignored): `SUPABASE_UAT_PROJECT_REF`, `SUPABASE_PROD_PROJECT_REF`.
+- [x] Decide **separate PROD Supabase project** (recommended) vs. keep current project as both UAT+prod.
+  - Separate: **OorjaMan PROD** created — ref `nppfpegqnmclbcmmogux`, URL `https://nppfpegqnmclbcmmogux.supabase.co`, region `ap-south-1` (Mumbai). UAT remains `caearbriteguqjvnbrcg` (Singapore).
+  - Shared (interim): no longer needed.
+- [x] Record refs in root `.env.uat.local` (gitignored): `SUPABASE_UAT_PROJECT_REF`, `SUPABASE_PROD_PROJECT_REF` (+ `SUPABASE_PROD_URL`).
 
 ---
 
@@ -43,13 +43,13 @@ Runbook: `project-docs/SUPABASE-UAT-PROD.md`
 
 Runbook: `project-docs/ENVIRONMENT.md`, `project-docs/DEPLOYMENT.md`. Prefer **EAS Secrets** for mobile store builds.
 
-Supabase-backed apps — swap `YOUR_PROD_PROJECT_REF` + `your_prod_anon_key` (**anon only**, never service_role):
+Supabase-backed apps — Mumbai prod URL `https://nppfpegqnmclbcmmogux.supabase.co` + anon key (**anon only**, never service_role):
 
-- [ ] `apps/customer-app/.env.production.local`
-- [ ] `apps/technician-app/.env.production.local`
-- [ ] `apps/admin-web/.env.production.local`
-- [ ] `apps/vendor-web/.env.production.local`
-- [ ] `apps/support-web/.env.production.local`
+- [x] `apps/customer-app/.env.production.local` (Mumbai URL/anon set; **`EXPO_PUBLIC_RAZORPAY_KEY_ID=rzp_live_…`** still placeholder until Live KYC)
+- [x] `apps/technician-app/.env.production.local`
+- [x] `apps/admin-web/.env.production.local`
+- [x] `apps/vendor-web/.env.production.local`
+- [x] `apps/support-web/.env.production.local`
 
 Marketing (`apps/oorjaman-web/.env.production.local`, no Supabase):
 
@@ -65,6 +65,11 @@ Runbook: `project-docs/SUPABASE-UAT-PROD.md`
 
 - [ ] Link PROD → `npm run db:push:yes` (incl. security batch `20260808120000`→`124000`)
 - [ ] Brand-new prod project? Bootstrap base schema first (core tables predate migration history).
+- [ ] Confirm Razorpay + postpaid migrations applied on PROD (same as UAT):
+  - `20260821200000_razorpay_payments_uat.sql`
+  - `20260821210000_razorpay_payment_production.sql` (enum only)
+  - `20260821211000_razorpay_payment_production_body.sql`
+  - `20260821220000_postpaid_one_time.sql`
 - [ ] `npx supabase migration list` identical on UAT and PROD.
 - [ ] RLS drift check: export `supabase/baseline/export-rls-policies.sql` from both → `npm run db:policy-diff` = 0.
 - [ ] C1 escalation test: signed-in dummy customer calls `supabase.auth.updateUser({ data: { role:'admin' } })` → `public.users.role` stays `customer`.
@@ -75,14 +80,18 @@ Runbook: `project-docs/SUPABASE-UAT-PROD.md`
 
 Link PROD, then `npm run functions:deploy -- <name>`:
 
-- [ ] `delete-customer-account` (store-mandatory)
-- [ ] `approve-vendor-intake`
-- [ ] `scan-vendor-response-overdue`
-- [ ] `send-customer-expo-push`
-- [ ] `send-technician-expo-push`
-- [ ] `process-notification-events`
+- [x] `delete-customer-account` (store-mandatory)
+- [x] `approve-vendor-intake`
+- [x] `scan-vendor-response-overdue`
+- [x] `send-customer-expo-push`
+- [x] `send-technician-expo-push`
+- [x] `process-notification-events`
+- [ ] **Razorpay (Live):** `create-razorpay-order`
+- [ ] **Razorpay (Live):** `verify-razorpay-payment`
+- [ ] **Razorpay (Live):** `razorpay-webhook` with **`--no-verify-jwt`** (Razorpay cannot send Supabase JWT)
 - [ ] Prod dashboard secrets: `PUSH_DISPATCH_SECRET`, cron dispatch secret, service-role (as used), **`CORS_ALLOWED_ORIGINS`** (SECURITY_REVIEW L2 — pin to real portal origins; unset = `*`).
-- [x] **Rate limiting (Edge):** migration `20260813120000_edge_function_rate_limits` applied + all six functions redeployed on UAT and PROD (2026-08-13). Optional: SQL/429 smoke — `project-docs/RATE-LIMITING.md`.
+- [ ] Prod Razorpay Edge secrets (see §11a): `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` (**live** values — never Test keys on Prod).
+- [x] **Rate limiting (Edge):** migration `20260813120000_edge_function_rate_limits` applied + all six functions redeployed on UAT and PROD (2026-08-13). Optional: SQL/429 smoke — `project-docs/RATE-LIMITING.md`. Redeploy Razorpay functions after rate-limit shared code if not already included.
 - [ ] Smoke: throwaway UAT account deletion end-to-end before prod.
 
 ---
@@ -195,7 +204,7 @@ Runbook: `project-docs/DEPLOYMENT.md`, `project-docs/VERCEL.md`, `project-docs/S
 Runbook: `project-docs/DEPLOYMENT.md` §Mobile + §Google Maps, `docs/customer-push-setup.md`, `docs/technician-push-setup.md`
 
 - [ ] **EAS setup:** `eas init` (both apps) → `EXPO_PUBLIC_EAS_PROJECT_ID`; `eas credentials` (APNs + FCM) for **prod** bundle IDs `com.oorjaman.customer` / `com.oorjaman.technician`.
-- [ ] **EAS production secrets:** `EXPO_PUBLIC_SUPABASE_URL` (prod), `EXPO_PUBLIC_SUPABASE_ANON_KEY` (prod), `EXPO_PUBLIC_SITE_URL=https://oorjaman.com`, `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` (and/or `_IOS` / `_ANDROID`), `EXPO_PUBLIC_GOOGLE_MAPS_DIRECTIONS_API_KEY`, `EXPO_PUBLIC_EAS_PROJECT_ID`. **No** dummy-auth vars.
+- [ ] **EAS production secrets:** `EXPO_PUBLIC_SUPABASE_URL` (prod), `EXPO_PUBLIC_SUPABASE_ANON_KEY` (prod), `EXPO_PUBLIC_SITE_URL=https://oorjaman.com`, `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` (and/or `_IOS` / `_ANDROID`), `EXPO_PUBLIC_GOOGLE_MAPS_DIRECTIONS_API_KEY`, `EXPO_PUBLIC_EAS_PROJECT_ID`, **`EXPO_PUBLIC_RAZORPAY_KEY_ID=rzp_live_…`** (public key id only). **No** dummy-auth vars; **never** Razorpay key secret in the app.
 - [ ] **Google Maps (tiles):** GCP → billing on → enable Maps SDK iOS/Android + Static API → **app-restricted** key for prod bundle IDs (+ Android release **SHA-1**) → EAS secret → **native rebuild** (not OTA).
 - [ ] **Google Directions (live tracking road route):** enable **Directions API** → create a **separate Directions-only** key (**no** iOS/Android app restriction; API restriction = Directions only) → set `EXPO_PUBLIC_GOOGLE_MAPS_DIRECTIONS_API_KEY` on **prod** EAS env (UAT alone is not enough) → rebuild customer app. Without this key, tracking falls back to OSRM / straight line. Details: `project-docs/DEPLOYMENT.md` §Google Maps.
 - [ ] **Push per Supabase project:** deploy push functions (see §4) **and** set Postgres `app.*_push_function_url` settings + `PUSH_DISPATCH_SECRET` on the **prod** project; register FCM/APNs creds for prod bundle IDs.
@@ -218,7 +227,85 @@ Runbook: `project-docs/LAUNCH.md`, `project-docs/SEO.md`, `docs/ios-qa-distribut
 
 - [ ] Counsel review of all `/legal/*` (drafts, lastUpdated 2026-08-08).
 - [ ] Confirm entity **OORJA MAN LLP**, GSTIN, registered office address (Guwahati placeholder today) across About / Contact / legal.
-- [ ] Razorpay KYC complete (Power of Attorney for LLP) + live keys as secrets (never in client bundle).
+- [x] Razorpay **UAT Test Mode** wired (Orders + webhook + verify + customer checkout + postpaid) — [project-docs/RAZORPAY.md](project-docs/RAZORPAY.md), [project-docs/RAZORPAY-UAT-MATRIX.md](project-docs/RAZORPAY-UAT-MATRIX.md), E2E guide §4a.
+- [ ] Razorpay **Live** account: KYC complete (Power of Attorney for LLP) + settlement bank details approved.
+- [ ] Live Mode activated in Razorpay Dashboard (not Test Mode for customer-facing prod apps).
+
+### 11a. Razorpay PROD cutover (mirror of UAT setup — Live keys)
+
+Runbook: [project-docs/RAZORPAY.md](project-docs/RAZORPAY.md). Do **not** reuse Test (`rzp_test_`) secrets on Prod.
+
+#### Account & Dashboard (Live)
+
+- [ ] Complete / confirm **Razorpay KYC** + LLP Power of Attorney.
+- [ ] Confirm **Live** API Keys generated (Key Id + Key Secret).
+- [ ] Confirm payment methods needed in Live (Cards, UPI, Netbanking, wallets as required).
+- [ ] Confirm **Payment Links** available in Live (used for technician postpaid QR / share link — Standard Payment Links; not UPI-only Test links).
+- [ ] Review Live **capture settings** (auto-capture vs authorize-then-capture). OorjaMan only treats **captured** as paid (`payments.status = success`).
+- [ ] Note Live fee / settlement schedule for finance ops.
+
+#### Database (PROD Supabase)
+
+- [ ] Razorpay + postpaid migrations on PROD (§3 list) — same four files as UAT.
+- [ ] Smoke SQL: `payments`, `payment_attempts`, `payment_refunds`, `razorpay_webhook_events` exist; RLS prevents clients setting Razorpay rows to `success`.
+
+#### Edge secrets (PROD project only)
+
+| Secret | Prod value |
+|--------|------------|
+| `RAZORPAY_KEY_ID` | Live key id (`rzp_live_…`) |
+| `RAZORPAY_KEY_SECRET` | Live key secret |
+| `RAZORPAY_WEBHOOK_SECRET` | From **Live** webhook endpoint (new secret — do not copy UAT Test webhook secret) |
+
+- [ ] Set the three secrets above on the **PROD** Supabase project (Dashboard → Edge Functions → Secrets, or CLI).
+
+#### Deploy Edge Functions (PROD)
+
+```bash
+# link PROD project first
+npm run functions:deploy -- create-razorpay-order
+npm run functions:deploy -- verify-razorpay-payment
+npm run functions:deploy -- razorpay-webhook --no-verify-jwt
+```
+
+- [ ] Deploy `create-razorpay-order` to PROD.
+- [ ] Deploy `verify-razorpay-payment` to PROD.
+- [ ] Deploy `razorpay-webhook` to PROD with **`--no-verify-jwt`**.
+
+#### Webhook (Live Dashboard → PROD URL)
+
+- [ ] Create webhook in Razorpay **Live** Mode (not Test).
+- [ ] URL: `https://<SUPABASE_PROD_PROJECT_REF>.supabase.co/functions/v1/razorpay-webhook`
+- [ ] Enable events: `payment.authorized`, `payment.captured`, `payment.failed`, `order.paid`, `refund.created`, `refund.processed`, `refund.failed`.
+- [ ] Copy webhook signing secret → PROD `RAZORPAY_WEBHOOK_SECRET`.
+- [ ] Send a Live test event / small real payment and confirm `razorpay_webhook_events` row + payment status update on PROD.
+
+#### Client apps (public key id only)
+
+- [ ] Set `EXPO_PUBLIC_RAZORPAY_KEY_ID=rzp_live_…` in customer app production env / EAS production secrets (§2 / §9).
+- [ ] Confirm technician app does **not** need the key for QR (link comes from Edge); rebuild technician if collect UI is new since last store build.
+- [ ] **Native rebuild** customer (and technician) production/store builds after Razorpay native module or env changes — OTA alone is not enough for Checkout SDK.
+- [ ] Confirm **Simulate gateway** / dummy payment path is **off** when Live key is set (`DEPLOY_ENV=production` + Live key id present).
+
+#### Admin / ops smoke (PROD)
+
+- [ ] Admin → **Finance → Payments** loads against PROD.
+- [ ] After a Live smoke payment: detail shows order id / payment id / status (no card PAN/CVV/secrets).
+- [ ] Postpaid path: complete visit → technician **Collect payment** creates Payment Link / QR → customer pay → `success` + settlement fields correct; or **partner collected** path works.
+
+#### Prod payment smoke (real ₹ — use minimal amounts)
+
+- [ ] Prepaid one-time: Pay now → Checkout → capture → Confirming → Booking confirmed + How you paid.
+- [ ] One deliberate Live failure / cancel → Try again; booking not wrongly confirmed.
+- [ ] AMC pay (if AMC live at launch) with Live Checkout.
+- [ ] Refund smoke (partial or full) from Dashboard → OorjaMan payment moves to refund family statuses.
+- [ ] Confirm authorized-only is **never** treated as paid until capture.
+
+#### Security (must stay true on Prod)
+
+- [ ] Key **secret** and webhook secret only in Edge / server — never in git, EAS public env beyond key **id**, or client bundles.
+- [ ] Clients cannot mark Razorpay payments `success` via RLS.
+- [ ] No logging of card numbers, CVV, OTP, or API secrets.
 
 ---
 
@@ -242,10 +329,11 @@ Source: `project-docs/TODO.md`
 
 ## 14. Go-live gate (final sign-off)
 
-- [ ] §1–§11 all `[x]`.
+- [ ] §1–§11 / §11a all `[x]` (incl. Razorpay Live webhook + verify + Checkout smoke).
 - [ ] `migration list` identical UAT ↔ PROD; `db:policy-diff` = 0.
 - [ ] C1 escalation test passes on PROD.
 - [ ] Account-deletion function verified on PROD.
+- [ ] Razorpay Live smoke: prepaid success + one failure/cancel + (if shipping) postpaid collect.
 - [ ] Marketing smoke pass on real domain with SEO on.
 - [ ] Apps signed, submitted, approved.
 
@@ -259,4 +347,5 @@ Source: `project-docs/TODO.md`
 - `project-docs/EMAILS.md` — mailboxes + templates
 - `project-docs/VERCEL.md` · `project-docs/SECURITY-VERCEL.md` — portal hosting + prod hardening
 - `project-docs/ENVIRONMENT.md` · `project-docs/BILLING.md` — env vars + costs
+- `project-docs/RAZORPAY.md` · `project-docs/RAZORPAY-UAT-MATRIX.md` — payments architecture, UAT cards, Prod cutover (§11a)
 - `docs/customer-push-setup.md` · `docs/technician-push-setup.md` · `docs/ios-qa-distribution.md` · `docs/android-local-apk.md`

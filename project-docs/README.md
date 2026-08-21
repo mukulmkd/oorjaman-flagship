@@ -17,6 +17,8 @@ Topic-specific how-tos (push setup, local APK, realtime) remain in [`docs/`](../
 | [VERCEL.md](VERCEL.md) | Three Vercel projects, env vars, Supabase auth URLs |
 | [SUPABASE-UAT-PROD.md](SUPABASE-UAT-PROD.md) | Dual Supabase projects, migrations, `db:push` |
 | [ENVIRONMENT.md](ENVIRONMENT.md) | All env vars: local / UAT / production |
+| [RAZORPAY.md](RAZORPAY.md) | Razorpay Test Mode (UAT): Orders, webhook, customer checkout |
+| [RAZORPAY-UAT-MATRIX.md](RAZORPAY-UAT-MATRIX.md) | Payment/refund scenario matrix, Test mode cards & error cards, QA checklist |
 | [SECURITY-VERCEL.md](SECURITY-VERCEL.md) | Portal + Supabase security on Vercel |
 | [RATE-LIMITING.md](RATE-LIMITING.md) | Edge Function rate limits + Auth Attack Protection / CAPTCHA checklist |
 | [SEO.md](SEO.md) | Marketing site SEO & GoDaddy deploy |

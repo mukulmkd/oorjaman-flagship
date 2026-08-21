@@ -3,7 +3,7 @@
 Generate the non-technical UAT test guide (Word) in project-docs/.
 
 Run: python3 scripts/generate-e2e-test-doc.py
-Requires: python-docx (use a venv: pip install python-docx)
+Requires: python-docx via repo `.venv-docx` (`npm run docs:uat-guide`).
 """
 
 from __future__ import annotations
@@ -162,7 +162,74 @@ def main() -> None:
 
     doc.add_paragraph(
         "Raju (401) already has a home address in Bengaluru and can book visits straight away. "
-        "Gamusa technicians (301, 303, 304) belong to vendor 201; Bharat Sun technicians (302, 305, 306) belong to vendor 202."
+        "Gamusa technicians (301, 303, 304) belong to vendor 201; Bharat Sun technicians (302, 305, 306) belong to vendor 202. "
+        "All listed technicians are approved and assigned to a vendor in UAT."
+    )
+
+    doc.add_heading("4a. Razorpay test payments (Test mode — no real money)", level=1)
+    doc.add_paragraph(
+        "The customer UAT app uses Razorpay Test mode when configured. Cards below never charge a real bank account. "
+        "Use a random CVV and any future expiry date for every card. You may save a card in Checkout; Razorpay tokenizes it for later tests."
+    )
+    doc.add_paragraph(
+        "After you start Checkout, on Razorpay’s success/failure screen choose the outcome you want. "
+        "For error cards, select failure so the mapped error appears."
+    )
+
+    doc.add_heading("Success test cards (Indian networks)", level=2)
+    add_table(
+        doc,
+        ["Network", "Card number", "Type", "Sub type"],
+        [
+            ["Visa", "4100 2800 0000 1007", "Debit", "Consumer"],
+            ["Mastercard", "5555 5100 0008 1006", "Credit", "Business"],
+            ["Mastercard", "5180 2872 0009 1001", "Prepaid", "Consumer"],
+            ["RuPay", "6527 6589 0000 1005", "Credit", "Consumer"],
+            ["Diners", "3608 280009 1007", "Credit", "Consumer"],
+            ["Amex", "3402 560004 01007", "Credit", "Consumer"],
+        ],
+    )
+
+    doc.add_heading("Error cards — BAD_REQUEST_ERROR", level=2)
+    doc.add_paragraph("CVV & expiry: random CVV + any future date.")
+    add_table(
+        doc,
+        ["Error reason", "What Razorpay shows (summary)", "Network", "Card number"],
+        [
+            ["payment_timed_out", "Temporary issue — try again later", "Visa", "4100 2800 0009 0000"],
+            ["payment_timed_out", "Temporary issue — try again later", "Mastercard", "5305 6200 0006 0000"],
+            ["insufficient_fund", "Insufficient account balance", "Visa", "4100 2800 0008 0001"],
+            ["insufficient_fund", "Insufficient account balance", "Mastercard", "5305 6200 0005 0001"],
+            ["payment_cancelled", "Payment has been cancelled", "Visa", "4100 2800 0007 0002"],
+            ["payment_cancelled", "Payment has been cancelled", "Mastercard", "5305 6200 0004 0002"],
+            ["card_declined", "Declined by the bank", "Visa", "4100 2800 0006 0003"],
+            ["card_declined", "Declined by the bank", "Mastercard", "5305 6200 0003 0003"],
+            ["card_declined", "Declined by the bank", "Visa", "4100 2800 0005 0004"],
+            ["card_declined", "Declined by the bank", "Mastercard", "5305 6200 0002 0004"],
+            ["card_declined", "Declined by the bank", "Visa", "4100 2800 0004 0005"],
+            ["card_declined", "Declined by the bank", "Mastercard", "5305 6200 0001 0005"],
+            ["card_disabled_for_online_payments", "Card disabled for online payments", "Visa", "4100 2800 0003 0006"],
+            ["card_disabled_for_online_payments", "Card disabled for online payments", "Mastercard", "5305 6200 0000 0006"],
+            ["card_number_invalid", "Incorrect card number", "Visa", "4100 2800 0001 0008"],
+            ["card_number_invalid", "Incorrect card number", "Mastercard", "5305 6200 0008 0008"],
+        ],
+    )
+
+    doc.add_heading("Error cards — GATEWAY_ERROR", level=2)
+    doc.add_paragraph("CVV & expiry: random CVV + any future date.")
+    add_table(
+        doc,
+        ["Error reason", "What Razorpay shows (summary)", "Network", "Card number"],
+        [
+            ["gateway_technical_error", "Temporary issue; refund in 4–5 business days if debited", "Visa", "4100 2800 0002 0007"],
+            ["gateway_technical_error", "Temporary issue; refund in 4–5 business days if debited", "Mastercard", "5305 6200 0009 0007"],
+            ["authentication_failed", "Incorrect OTP / verification details", "Visa", "4100 2800 0000 0009"],
+            ["authentication_failed", "Incorrect OTP / verification details", "Mastercard", "5305 6200 0007 0009"],
+        ],
+    )
+
+    doc.add_paragraph(
+        "More detail for engineers: project-docs/RAZORPAY-UAT-MATRIX.md and project-docs/RAZORPAY.md."
     )
 
     doc.add_heading("5. Testing a brand-new customer (first-time setup)", level=1)
@@ -211,27 +278,66 @@ def main() -> None:
     add_test(
         doc,
         "6.2",
-        "Book a visit",
+        "Book a visit — Pay now (Razorpay success)",
         [
-            "From Home, start a new booking.",
-            "Pick a date and time slot.",
-            "Review the price and confirm payment (test mode—no real money).",
+            "From Home, start a new booking and complete scheduling.",
+            "On payment, choose Pay now.",
+            "Tap Proceed to pay (Powered by Razorpay caption is OK).",
+            f"In Razorpay Checkout, pay with Visa success card 4100 2800 0000 1007 (OTP {TEST_OTP} / bank test OTP if asked).",
+            "Wait on Confirming payment until Booking confirmed.",
         ],
-        ["Booking appears under the Bookings tab.", "You can open the booking detail screen."],
+        [
+            "Confirming timer appears, then Booking confirmed.",
+            "Payment summary shows amount + GST.",
+            "How you paid shows Status Paid, Paid via Razorpay, Method (e.g. Card), Order ID and Payment ID.",
+            "No cryptic truncated “Booking dccb…” line is required.",
+            "Booking appears under My bookings.",
+        ],
     )
     add_test(
         doc,
         "6.3",
+        "Book a visit — Pay after service",
+        [
+            "Start another booking.",
+            "On payment, choose Pay after service.",
+            "Confirm booking (no Razorpay Checkout).",
+        ],
+        [
+            "Booking confirmed without charging now.",
+            "How you paid (or success copy) makes clear payment is after cleaning.",
+            "Booking appears under My bookings as unpaid / pay later as designed.",
+        ],
+    )
+    add_test(
+        doc,
+        "6.4",
+        "Razorpay failure then retry",
+        [
+            "Start a prepaid booking to Checkout.",
+            "Pay with insufficient-funds Visa 4100 2800 0008 0001 and select failure on Razorpay’s screen.",
+            "On Booking not completed, tap Try again.",
+            "Complete with success Visa 4100 2800 0000 1007.",
+        ],
+        [
+            "First attempt shows a clear failure message and Try again / Back.",
+            "Booking is not confirmed after the failure.",
+            "Second attempt reaches Booking confirmed with How you paid.",
+        ],
+    )
+    add_test(
+        doc,
+        "6.5",
         "Track a visit",
         [
-            "Ask a colleague to assign a technician (see section 10) or use an existing active booking.",
+            "Ask a colleague to assign a technician (see section 9) or use an existing active booking.",
             "Open the booking and check status updates.",
         ],
         ["Status changes when the technician is on the way and when the job is done.", "Map or tracking view works if shown."],
     )
     add_test(
         doc,
-        "6.4",
+        "6.6",
         "Other tabs",
         [
             "Open AMC, Activity, and Profile tabs.",
@@ -241,7 +347,7 @@ def main() -> None:
     )
     add_test(
         doc,
-        "6.5",
+        "6.7",
         "Wrong app",
         ["Try logging into the customer app with vendor phone 900000000201."],
         ["A message says this account is not for the customer app."],
@@ -281,6 +387,20 @@ def main() -> None:
     add_test(
         doc,
         "7.4",
+        "Collect payment after a pay-later visit",
+        [
+            "Complete a visit that was booked as Pay after service.",
+            "Open the collect / payment screen after completion (QR or link for the customer).",
+            "Either: customer pays via app/QR with a success test card, or mark partner collected if that option is shown.",
+        ],
+        [
+            "Outstanding amount can be cleared.",
+            "Customer booking no longer shows unpaid for that visit.",
+        ],
+    )
+    add_test(
+        doc,
+        "7.5",
         "New technician setup (optional)",
         [
             "Vendor invites a new phone number from the Team section on the vendor portal.",
@@ -317,8 +437,22 @@ def main() -> None:
         [
             "Open vendor list and technician directory.",
             "Confirm Gamusa and Bharat Sun show as approved.",
+            "Confirm Amit Das (301) is listed under Gamusa Green Energy.",
         ],
-        ["Lists load and show expected partners."],
+        ["Lists load and show expected partners.", "Amit is assigned to Gamusa."],
+    )
+    add_test(
+        doc,
+        "8.4",
+        "Payments ops",
+        [
+            "Open Finance → Payments (or Payments under finance).",
+            "Find the payment from a successful Razorpay booking (search by order id if needed).",
+        ],
+        [
+            "Payment list loads.",
+            "Detail shows Razorpay order / payment ids and status (no card numbers or secrets).",
+        ],
     )
 
     doc.add_heading("9. Vendor portal tests (use Gamusa · 900000000201)", level=1)
@@ -373,11 +507,13 @@ def main() -> None:
     doc.add_heading("11. Full journey (do this once per release)", level=1)
     doc.add_paragraph("One person plays customer, others play admin, vendor, and technician:")
     journey = [
-        "Customer Raju (401) books a cleaning visit in the customer app.",
-        f"Admin Priya (101) logs in at {ADMIN_PORTAL_URL} and routes the booking to Gamusa.",
+        "Customer Raju (401) books a cleaning visit with Pay now and pays with Visa 4100 2800 0000 1007.",
+        "Confirm Booking confirmed shows How you paid (Razorpay + Order / Payment IDs).",
+        f"Admin Priya (101) logs in at {ADMIN_PORTAL_URL}, confirms the payment under Finance → Payments, and routes the booking to Gamusa if needed.",
         f"Vendor Gamusa (201) logs in at {VENDOR_PORTAL_URL} and assigns Amit (301).",
         "Technician Amit (301) completes the visit in the technician app.",
         "Customer Raju checks Bookings and Activity—the visit shows as completed.",
+        "Optional second pass: book Pay after service, complete the job, collect via technician QR / customer pay outstanding.",
         f"Support Ananya (111) can find the booking at {SUPPORT_PORTAL_URL} if needed.",
     ]
     for step in journey:
@@ -390,10 +526,14 @@ def main() -> None:
         "Technician APK installs and opens.",
         "All three web portals open in the browser.",
         f"OTP {TEST_OTP} works on every app.",
-        "Customer can book a visit.",
-        "Admin can route a booking.",
+        "Customer can book with Pay now (Razorpay success card).",
+        "Booking confirmed shows How you paid details.",
+        "At least one Razorpay failure card was tried (retry works).",
+        "Customer can book with Pay after service.",
+        "Admin can route a booking and view Payments ops.",
         "Vendor can assign a technician.",
         "Technician can complete a visit.",
+        "Pay-later collect path tested once (section 7.4).",
         "Customer sees the completed visit.",
         "No crash right after login on Android.",
         "New customer welcome + profile flow tested once (section 5).",

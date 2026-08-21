@@ -68,6 +68,7 @@ import {
 import { AssignedTechnicianCard } from "../components/assigned-technician-card";
 import { LiveTechnicianTrackCard } from "../components/live-technician-track-card";
 import { supabase } from "../lib/supabase";
+import { isRazorpayCheckoutEnabled, openRazorpayCheckout } from "../lib/razorpay-checkout";
 import { resolveServiceDestinationCoords } from "../lib/service-address-book";
 import {
   formatDisplayDate,
@@ -102,10 +103,20 @@ function normalizePaymentChannelLabel(raw: string | null | undefined): string {
   if (lower === "upi") return "UPI";
   if (lower === "netbanking" || lower === "net banking") return "Net banking";
   if (lower === "wallet") return "Wallet";
+  if (lower === "card") return "Card";
+  if (lower === "emi") return "EMI";
   if (lower === "credit card") return "Credit card";
   if (lower === "debit card") return "Debit card";
   if (lower === "credit or debit card") return "Credit or debit card";
+  if (lower === "razorpay") return "Razorpay";
   return t;
+}
+
+function paymentProviderLabel(provider: string | null | undefined): string {
+  if (provider === "razorpay") return "Razorpay";
+  if (provider === "dummy") return "Test payment";
+  if (provider === "partner_collected") return "Partner collected";
+  return "OorjaMan";
 }
 
 function buildServiceTaxInvoiceText(b: BookingRow): string {
@@ -269,7 +280,15 @@ export default function BookingDetailScreen() {
   const b = query.data;
   const successPayment = useMemo(() => {
     const rows = paymentsQuery.data ?? [];
-    return rows.find((p) => p.status === "success") ?? null;
+    return (
+      rows.find(
+        (p) =>
+          p.status === "success" ||
+          p.status === "partially_refunded" ||
+          p.status === "refund_pending" ||
+          p.status === "refunded",
+      ) ?? null
+    );
   }, [paymentsQuery.data]);
   const serviceOtp = b ? bookingApi.readBookingServiceOtpMeta(b.metadata) : null;
   const serviceFor = b ? serviceForDetails(b.metadata) : null;
@@ -401,6 +420,49 @@ export default function BookingDetailScreen() {
     },
     onError: (e: unknown) => {
       Alert.alert("Could not cancel", e instanceof Error ? e.message : "Try again or contact support.");
+    },
+  });
+
+  const postpaidPayMut = useMutation({
+    mutationFn: async () => {
+      if (!supabase || !bookingId || !b) throw new Error("Not ready");
+      if (!isRazorpayCheckoutEnabled()) {
+        throw new Error(
+          "Online payment is not available in this build. Pay via the technician QR or partner collection.",
+        );
+      }
+      const amountPaise = Math.max(0, b.final_price_cents ?? b.estimated_price_cents ?? 0);
+      const session = await paymentApi.createPostpaidCollectSession(supabase, {
+        bookingId,
+        amountPaise,
+      });
+      const result = await openRazorpayCheckout({
+        keyId: session.keyId,
+        orderId: session.orderId,
+        amountPaise: session.amountPaise,
+        description: "OorjaMan visit payment",
+      });
+      try {
+        await paymentApi.verifyRazorpayCheckoutCallback(supabase, {
+          razorpay_order_id: result.razorpay_order_id || session.orderId,
+          razorpay_payment_id: result.razorpay_payment_id,
+          razorpay_signature: result.razorpay_signature,
+          oorjaman_payment_id: session.paymentId,
+        });
+      } catch {
+        /* webhook/poll may still confirm */
+      }
+      const paid = await paymentApi.waitForPaymentTerminalStatus(supabase, session.paymentId);
+      if (paid.status !== "success") {
+        throw new Error(paid.customer_error_message || "Payment did not complete.");
+      }
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: queryKeys.payments.forBooking(bookingId!) });
+      Alert.alert("Payment successful", "Thank you — your visit payment is confirmed.");
+    },
+    onError: (e: unknown) => {
+      Alert.alert("Payment incomplete", e instanceof Error ? e.message : "Try again.");
     },
   });
 
@@ -725,11 +787,85 @@ export default function BookingDetailScreen() {
                   Paid via {normalizePaymentChannelLabel(successPayment.payment_method)} on{" "}
                   {formatPaymentDisplayTimestamp(successPayment.paid_at ?? successPayment.created_at)}
                 </Text>
+                <View style={styles.paymentMetaBlock}>
+                  <Text style={styles.label}>Gateway</Text>
+                  <Text style={styles.body}>{paymentProviderLabel(successPayment.provider)}</Text>
+                  {successPayment.razorpay_payment_id ? (
+                    <>
+                      <Text style={[styles.label, styles.labelSpaced]}>Payment ID</Text>
+                      <Text style={styles.paymentIdMono} selectable>
+                        {successPayment.razorpay_payment_id}
+                      </Text>
+                    </>
+                  ) : null}
+                  {successPayment.razorpay_order_id ? (
+                    <>
+                      <Text style={[styles.label, styles.labelSpaced]}>Order ID</Text>
+                      <Text style={styles.paymentIdMono} selectable>
+                        {successPayment.razorpay_order_id}
+                      </Text>
+                    </>
+                  ) : null}
+                  <Text style={styles.label}>Status</Text>
+                  <Text style={styles.body}>
+                    {successPayment.status === "success"
+                      ? "Paid (captured)"
+                      : successPayment.status === "partially_refunded"
+                        ? "Partially refunded"
+                        : successPayment.status === "refunded"
+                          ? "Refunded"
+                          : successPayment.status === "refund_pending"
+                            ? "Refund pending"
+                            : successPayment.status}
+                  </Text>
+                  {successPayment.amount_refunded > 0 ? (
+                    <>
+                      <Text style={[styles.label, styles.labelSpaced]}>Amount refunded</Text>
+                      <Text style={styles.body}>
+                        {formatMoney(successPayment.amount_refunded, b.currency)}
+                      </Text>
+                    </>
+                  ) : null}
+                  {successPayment.customer_error_message ? (
+                    <>
+                      <Text style={[styles.label, styles.labelSpaced]}>Note</Text>
+                      <Text style={styles.meta}>{successPayment.customer_error_message}</Text>
+                    </>
+                  ) : null}
+                </View>
                 <Text style={styles.paymentDisclaimer}>
                   Your partner will confirm the site details you provided and the final scope on arrival. If the final
                   amount differs from this advance, any balance (or credit) will be settled after they confirm.
                 </Text>
                 {completedInvoiceShare}
+              </>
+            ) : b.payment_timing === "postpaid" && b.status === "completed" && !successPayment ? (
+              <>
+                <Text style={styles.paymentAmount}>
+                  {formatMoney(b.final_price_cents ?? b.estimated_price_cents, b.currency)}
+                </Text>
+                <Text style={styles.meta}>
+                  Pay after service — amount is due now that your visit is completed. You can pay here, via QR from your
+                  Oorja Man, or confirm with them if you already paid the partner directly.
+                </Text>
+                <View style={{ marginTop: 12 }}>
+                  <Button
+                    variant="primary"
+                    loading={postpaidPayMut.isPending}
+                    onPress={() => void postpaidPayMut.mutateAsync()}
+                  >
+                    Pay outstanding
+                  </Button>
+                </View>
+              </>
+            ) : b.payment_timing === "postpaid" && !successPayment ? (
+              <>
+                <Text style={styles.paymentAmount}>
+                  {formatMoney(b.final_price_cents ?? b.estimated_price_cents, b.currency)}
+                </Text>
+                <Text style={styles.meta}>
+                  Pay after service. Payment unlocks when the technician marks this visit completed.
+                </Text>
               </>
             ) : b.status === "pending_payment" ? (
               <>
@@ -1183,6 +1319,15 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.md,
     lineHeight: 22,
+    color: colors.foreground,
+  },
+  paymentMetaBlock: {
+    marginTop: spacing.md,
+  },
+  paymentIdMono: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
     color: colors.foreground,
   },
   paymentDisclaimer: {

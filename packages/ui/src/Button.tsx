@@ -101,7 +101,7 @@ function FallbackButton({
                 : colors.primary
           }
         />
-      ) : (
+      ) : typeof children === "string" || typeof children === "number" ? (
         <Text
           style={[
             styles.label,
@@ -114,9 +114,14 @@ function FallbackButton({
                 ? styles.labelOutline
                 : styles.labelGhost,
           ]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.85}
         >
           {children}
         </Text>
+      ) : (
+        children
       )}
     </Pressable>
   );
@@ -176,7 +181,7 @@ function AnimatedButton({
                 : colors.primary
           }
         />
-      ) : (
+      ) : typeof children === "string" || typeof children === "number" ? (
         <Text
           style={[
             styles.label,
@@ -189,9 +194,14 @@ function AnimatedButton({
                 ? styles.labelOutline
                 : styles.labelGhost,
           ]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.85}
         >
           {children}
         </Text>
+      ) : (
+        children
       )}
     </AnimatedPressableImpl>
   );
@@ -228,18 +238,19 @@ const variantStyles = StyleSheet.create({
     borderWidth: 0,
   },
   secondary: {
-    backgroundColor: colors.backgroundSecondary,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    backgroundColor: colors.primaryMuted,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
   },
   outline: {
-    backgroundColor: colors.background,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
   },
   ghost: {
-    backgroundColor: "transparent",
-    borderWidth: 0,
+    backgroundColor: colors.muted,
+    borderWidth: 1.5,
+    borderColor: colors.border,
   },
 });
 
@@ -283,7 +294,7 @@ const styles = StyleSheet.create({
     color: colors.destructiveForeground,
   },
   labelOutline: {
-    color: colors.foreground,
+    color: colors.primary,
   },
   labelGhost: {
     color: colors.foreground,

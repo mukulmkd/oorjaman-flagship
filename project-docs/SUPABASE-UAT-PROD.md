@@ -2,12 +2,21 @@
 
 Use your **existing** Supabase project as **UAT**, and create a **second** project for **production**. Schema, RLS policies, views, and functions stay in sync by applying the **same git migrations** to both - never by hand-editing SQL in the dashboard.
 
+## Current projects (live)
+
+| Role | Display name | Project ref | Region | URL |
+| ---- | ------------ | ----------- | ------ | --- |
+| **UAT** | OorjaMan UAT | `caearbriteguqjvnbrcg` | `ap-southeast-1` (Singapore) | `https://caearbriteguqjvnbrcg.supabase.co` |
+| **PROD** | OorjaMan PROD | `nppfpegqnmclbcmmogux` | `ap-south-1` (Mumbai) | `https://nppfpegqnmclbcmmogux.supabase.co` |
+
+---
+
 **Naming suggestion (Dashboard only - does not affect URLs or keys):**
 
 | Role     | Supabase project display name                | Notes                                                      |
 | -------- | -------------------------------------------- | ---------------------------------------------------------- |
-| **UAT**  | `OorjaMan UAT` (rename current **OorjaMan**) | Keep using this project ref in all UAT web/mobile env vars |
-| **PROD** | `OorjaMan Prod` (new project)                | New URL + anon + service_role keys                         |
+| **UAT**  | `OorjaMan UAT` (`caearbriteguqjvnbrcg`)      | Singapore `ap-southeast-1` — all UAT web/mobile env vars   |
+| **PROD** | `OorjaMan PROD` (`nppfpegqnmclbcmmogux`)     | Mumbai `ap-south-1` — URL + anon + service_role in gitignored locals |
 
 Inside Supabase Cloud, the Postgres database is almost always named **`postgres`**. “OorjaManDB” is fine as a label in your docs; you do not need a separate physical database name on hosted Supabase.
 
@@ -38,18 +47,18 @@ Every schema or policy change should be a **new file** under `supabase/migration
 
 ### 2. Create production project
 
-1. Dashboard → **New project** → name **OorjaMan Prod**, region same as UAT if possible.
-2. Save **prod** URL, ref, anon, service_role separately (password manager / `.env.deployment.example`).
+1. **Done:** Dashboard project **OorjaMan PROD** — ref `nppfpegqnmclbcmmogux`, region **`ap-south-1` (Mumbai)** (not the same region as UAT Singapore).
+2. Prod URL / ref / anon / service_role are stored in gitignored `.env.production.local` and app `.env.production.local` files (examples under `*.example` use the concrete ref only — never commit service_role).
 
 ### 3. Record refs in repo-root `.env.uat.local` (gitignored)
 
 ```env
 # Scripts only - never commit
-SUPABASE_UAT_PROJECT_REF=<current-oorjaman-ref>
-SUPABASE_PROD_PROJECT_REF=<new-prod-ref>
+SUPABASE_UAT_PROJECT_REF=caearbriteguqjvnbrcg
+SUPABASE_PROD_PROJECT_REF=nppfpegqnmclbcmmogux
 
-SUPABASE_UAT_URL=https://<uat-ref>.supabase.co
-SUPABASE_PROD_URL=https://<prod-ref>.supabase.co
+SUPABASE_UAT_URL=https://caearbriteguqjvnbrcg.supabase.co
+SUPABASE_PROD_URL=https://nppfpegqnmclbcmmogux.supabase.co
 ```
 
 ### 4. CLI link (one project at a time)

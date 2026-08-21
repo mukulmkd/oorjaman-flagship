@@ -41,6 +41,7 @@ import {
 } from "@oorjaman/api";
 import { formatDisplayDate, formatDisplayDateTime } from "@oorjaman/utils";
 import { bookingStatusLabel } from "../../lib/booking-status";
+import { isRazorpayCheckoutEnabled, openRazorpayCheckout } from "../../lib/razorpay-checkout";
 import type {
   BookingRow,
   PricingAmcPlanRow,
@@ -60,6 +61,13 @@ import {
 } from "@oorjaman/ui";
 import { AmcUpgradeSheet } from "../../components/amc-upgrade-sheet";
 import { AmcPlanPriceLine } from "../../components/amc-plan-price-line";
+import {
+  buildCheckoutPaymentDetails,
+  CheckoutOutcomePanel,
+  type CheckoutOutcomePhase,
+  type CheckoutPaymentDetails,
+} from "../../components/checkout-outcome-panel";
+import { RazorpayPayLabel, RazorpayPoweredByCaption } from "../../components/razorpay-pay-label";
 import { ServiceAddressPickerSheet } from "../../components/service-address-picker-sheet";
 import { fontFamily, fontSize } from "../../constants/fonts";
 import {
@@ -118,6 +126,15 @@ export default function SubscriptionAmcScreen() {
   const [addressPickerOpen, setAddressPickerOpen] = useState(false);
   const [upgradeSheetOpen, setUpgradeSheetOpen] = useState(false);
   const [pastVisitsExpanded, setPastVisitsExpanded] = useState(false);
+  const [amcCheckoutOutcome, setAmcCheckoutOutcome] = useState<{
+    phase: CheckoutOutcomePhase;
+    amountPaise: number;
+    bodySuccess?: string | null;
+    bodyFailed?: string | null;
+    referenceLabel?: string | null;
+    paymentDetails?: CheckoutPaymentDetails | null;
+  } | null>(null);
+  const [amcCheckoutBusy, setAmcCheckoutBusy] = useState(false);
 
   const customerQuery = useQuery({
     queryKey: queryKeys.customers.mine(),
@@ -403,29 +420,134 @@ export default function SubscriptionAmcScreen() {
     onError: (e: Error) => Alert.alert("Couldn't subscribe", e.message),
   });
 
-  const payAmcMut = useMutation({
-    mutationFn: async () => {
-      if (!supabase || !customerQuery.data || !activeForSelected) {
-        throw new Error("Subscribe first, then pay for your AMC.");
+  const runAmcCheckout = useCallback(async () => {
+    if (!supabase || !customerQuery.data || !activeForSelected || amcCheckoutBusy) {
+      return;
+    }
+    const amountPaise = Math.max(0, Math.round(activeForSelected.amount_cents));
+    setAmcCheckoutBusy(true);
+    try {
+      if (isRazorpayCheckoutEnabled()) {
+        const session = await paymentApi.createRazorpayAmcCheckoutSession(supabase, {
+          subscriptionId: activeForSelected.id,
+          amountPaise,
+        });
+        let checkoutResult: {
+          razorpay_payment_id: string;
+          razorpay_order_id: string;
+          razorpay_signature: string;
+        };
+        try {
+          checkoutResult = await openRazorpayCheckout({
+            keyId: session.keyId,
+            orderId: session.orderId,
+            amountPaise: session.amountPaise,
+            description: `AMC · ${activeForSelected.plan_name}`,
+          });
+        } catch (e: unknown) {
+          await paymentApi.markDummyPaymentFailed(supabase, session.paymentId).catch(() => undefined);
+          const msg = e instanceof Error ? e.message : "Payment cancelled.";
+          setAmcCheckoutOutcome({
+            phase: "failed",
+            amountPaise,
+            bodyFailed: msg,
+            referenceLabel: session.orderId ? `Order ${session.orderId}` : null,
+          });
+          return;
+        }
+
+        setAmcCheckoutOutcome({
+          phase: "confirming",
+          amountPaise: session.amountPaise,
+          referenceLabel: `Order ${session.orderId}`,
+        });
+
+        try {
+          try {
+            await paymentApi.verifyRazorpayCheckoutCallback(supabase, {
+              razorpay_order_id: checkoutResult.razorpay_order_id || session.orderId,
+              razorpay_payment_id: checkoutResult.razorpay_payment_id,
+              razorpay_signature: checkoutResult.razorpay_signature,
+              oorjaman_payment_id: session.paymentId,
+            });
+          } catch (verifyErr: unknown) {
+            console.warn(
+              "verify-razorpay-payment failed; waiting for webhook/DB status",
+              verifyErr instanceof Error ? verifyErr.message : verifyErr,
+            );
+          }
+          const paid = await paymentApi.waitForPaymentTerminalStatus(supabase, session.paymentId);
+          if (paid.status !== "success") {
+            throw new Error(
+              paid.customer_error_message ||
+                "Payment did not complete. If you were charged, wait a moment and check My bookings.",
+            );
+          }
+          await paymentApi.finalizeRazorpayAmcAfterCapture(supabase, session.paymentId);
+          await qc.invalidateQueries({ queryKey: queryKeys.subscriptions.all() });
+          await qc.invalidateQueries({ queryKey: queryKeys.finance.all() });
+          setAmcCheckoutOutcome({
+            phase: "success",
+            amountPaise: session.amountPaise,
+            bodySuccess:
+              "Payment received. We will assign your dedicated partner shortly — you can schedule visits once they are assigned.",
+            referenceLabel: `Order ${session.orderId}`,
+            paymentDetails: buildCheckoutPaymentDetails({
+              timing: "prepaid",
+              payment: paid,
+              razorpayPaymentIdFallback: checkoutResult.razorpay_payment_id,
+              razorpayOrderIdFallback: checkoutResult.razorpay_order_id || session.orderId,
+            }),
+          });
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : "Payment confirmation failed.";
+          setAmcCheckoutOutcome({
+            phase: "failed",
+            amountPaise: session.amountPaise,
+            bodyFailed: msg,
+            referenceLabel: `Order ${session.orderId}`,
+          });
+        }
+        return;
       }
-      const amountPaise = Math.max(0, Math.round(activeForSelected.amount_cents));
+
+      setAmcCheckoutOutcome({ phase: "confirming", amountPaise });
       const pending = await paymentApi.createPendingAmcPayment(supabase, {
         customerId: customerQuery.data.id,
         subscriptionId: activeForSelected.id,
         amountPaise,
       });
-      return paymentApi.completeAmcSubscriptionPayment(supabase, pending.id, { paymentMethod: "UPI" });
-    },
-    onSuccess: async () => {
+      await paymentApi.completeAmcSubscriptionPayment(supabase, pending.id, { paymentMethod: "UPI" });
       await qc.invalidateQueries({ queryKey: queryKeys.subscriptions.all() });
       await qc.invalidateQueries({ queryKey: queryKeys.finance.all() });
-      Alert.alert(
-        "Payment received",
-        "Payment received. We will assign your dedicated partner shortly - you can schedule visits once they are assigned.",
-      );
-    },
-    onError: (e: Error) => Alert.alert("Payment failed", e.message),
-  });
+      setAmcCheckoutOutcome({
+        phase: "success",
+        amountPaise,
+        bodySuccess:
+          "Payment received. We will assign your dedicated partner shortly — you can schedule visits once they are assigned.",
+        paymentDetails: buildCheckoutPaymentDetails({
+          timing: "prepaid",
+          payment: {
+            provider: "dummy",
+            payment_method: "UPI",
+            method_type: null,
+            razorpay_order_id: null,
+            razorpay_payment_id: null,
+            collection_channel: "oorjaman",
+          },
+        }),
+      });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Payment failed.";
+      setAmcCheckoutOutcome({
+        phase: "failed",
+        amountPaise: Math.max(0, Math.round(activeForSelected.amount_cents)),
+        bodyFailed: msg,
+      });
+    } finally {
+      setAmcCheckoutBusy(false);
+    }
+  }, [supabase, customerQuery.data, activeForSelected, amcCheckoutBusy, qc]);
 
   const upgradeMut = useMutation({
     mutationFn: async (planCode: string) => {
@@ -786,20 +908,42 @@ export default function SubscriptionAmcScreen() {
                       ? `${visitAllowanceSummary.scheduledOrBooked} / ${activeForSelected.visits_included} visits scheduled`
                       : "Visit tracking"}
                   </Text>
-                  {activeForSelected.status === "trialing" ? (
+                  {amcCheckoutOutcome ? (
+                    <View style={{ marginTop: spacing.md }}>
+                      <CheckoutOutcomePanel
+                        phase={amcCheckoutOutcome.phase}
+                        amountPaise={amcCheckoutOutcome.amountPaise}
+                        titleSuccess="AMC payment confirmed"
+                        titleFailed="AMC payment not completed"
+                        bodySuccess={amcCheckoutOutcome.bodySuccess}
+                        bodyFailed={amcCheckoutOutcome.bodyFailed}
+                        referenceLabel={amcCheckoutOutcome.referenceLabel}
+                        paymentDetails={amcCheckoutOutcome.paymentDetails}
+                        primarySuccessLabel="Done"
+                        onPrimarySuccess={() => setAmcCheckoutOutcome(null)}
+                        onTryAgain={() => {
+                          setAmcCheckoutOutcome(null);
+                          void runAmcCheckout();
+                        }}
+                        onBackFromFailed={() => setAmcCheckoutOutcome(null)}
+                      />
+                    </View>
+                  ) : activeForSelected.status === "trialing" ? (
                     <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
                       <Text style={styles.metaLine}>
                         Pay {formatInrFromCents(activeForSelected.amount_cents)} to activate your AMC for this address.
                         Your dedicated partner is assigned after payment.
                       </Text>
                       <Button
-                        loading={payAmcMut.isPending}
+                        loading={amcCheckoutBusy}
+                        disabled={amcCheckoutBusy}
                         variant="primary"
                         size="sm"
-                        onPress={() => payAmcMut.mutate()}
+                        onPress={() => void runAmcCheckout()}
                       >
-                        Pay for AMC
+                        {isRazorpayCheckoutEnabled() ? <RazorpayPayLabel /> : "Pay for AMC"}
                       </Button>
+                      {isRazorpayCheckoutEnabled() ? <RazorpayPoweredByCaption /> : null}
                     </View>
                   ) : activeForSelected.status === "active" && !activeForSelected.assigned_vendor_id ? (
                     <Text style={[styles.metaLine, { marginTop: spacing.sm }]}>

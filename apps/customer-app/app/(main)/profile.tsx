@@ -48,6 +48,7 @@ import {
 } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../../constants/fonts";
 import { ServiceAddressPickerSheet } from "../../components/service-address-picker-sheet";
+import { clearSessionAddressGate } from "../../lib/session-address-gate";
 import { SitePhotoGallerySection } from "../../components/site-photo-gallery-section";
 import {
   buildAddressBookPatch,
@@ -514,6 +515,7 @@ export default function ProfileTab() {
     try {
       if (supabase) {
         markUserInitiatedSignOut();
+        clearSessionAddressGate();
         await authApi.signOut(supabase);
       }
       router.replace("/login");
@@ -538,6 +540,7 @@ export default function ProfileTab() {
       setDeleteModalOpen(false);
       setDeleteConfirmText("");
       markUserInitiatedSignOut();
+      clearSessionAddressGate();
       try {
         await authApi.signOut(supabase);
       } catch {

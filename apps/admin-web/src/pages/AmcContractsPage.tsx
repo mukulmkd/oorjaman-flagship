@@ -105,9 +105,14 @@ export function AmcContractsPage() {
         title="AMC contracts"
         subtitle="Customer AMC payments are collected by OorjaMan. Deferred balance is released per settled visit; platform revenue is recognized when you mark the AMC payout settled."
         actions={
-          <Link to="/dashboard/finance" className="amc-contracts-back-link">
-            ← Finance & settlements
-          </Link>
+          <>
+            <Link to="/dashboard/finance" className="amc-contracts-back-link">
+              ← Finance & settlements
+            </Link>
+            <Link to="/dashboard/finance/payments" className="amc-contracts-back-link" style={{ marginLeft: "0.75rem" }}>
+              Payments
+            </Link>
+          </>
         }
       />
 

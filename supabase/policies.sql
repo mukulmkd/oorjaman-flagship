@@ -2252,3 +2252,16 @@ using (
 );
 
 -- End of policies (generated)
+
+-- ----- 20260821200000_razorpay_payments_uat.sql -----
+drop policy if exists payments_update_own on public.payments;
+create policy payments_update_own
+on public.payments for update to authenticated
+using (customer_id = public.my_customer_id() or public.is_admin())
+with check (
+  (customer_id = public.my_customer_id() or public.is_admin())
+  and (
+    provider = 'dummy'
+    or (provider = 'razorpay' and status = 'failed'::public.payment_status)
+  )
+);

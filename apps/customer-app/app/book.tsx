@@ -80,6 +80,13 @@ import {
   BookVisitAmcChoiceGate,
 } from "../components/book-visit-amc-choice-gate";
 import { PriceGstBreakdown } from "../components/price-gst-breakdown";
+import {
+  buildCheckoutPaymentDetails,
+  CheckoutOutcomePanel,
+  type CheckoutOutcomePhase,
+  type CheckoutPaymentDetails,
+} from "../components/checkout-outcome-panel";
+import { RazorpayPoweredByCaption } from "../components/razorpay-pay-label";
 import { openSupportChat } from "../lib/support-chat-navigation";
 import { ServiceAddressPickerSheet } from "../components/service-address-picker-sheet";
 import {
@@ -92,13 +99,17 @@ import {
   type ServiceAddressEntry,
   type ServiceAddressSaveExtras,
 } from "../lib/service-address-book";
-import { buildPostCheckoutPartnerAlert } from "../lib/booking-partner-messaging";
+import {
+  buildPostCheckoutPartnerAlert,
+  customerConfirmedBookingStatusHelp,
+} from "../lib/booking-partner-messaging";
 import {
   activeAmcBlocksOneTimeBooking,
   amcVisitBookingGateMessage,
   navigateToAmcPlan,
   navigateToAmcRenewal,
 } from "../lib/book-visit-navigation";
+import { isRazorpayCheckoutEnabled, openRazorpayCheckout } from "../lib/razorpay-checkout";
 import { supabase } from "../lib/supabase";
 
 type BookingVendorPick = { mode: "preferred"; vendorId: string } | { mode: "any" };
@@ -416,6 +427,16 @@ export default function BookVisitModal() {
   const [notes, setNotes] = useState("");
   const addressPrefilledRef = useRef(false);
   const [paymentFailedBanner, setPaymentFailedBanner] = useState(false);
+  const [paymentTiming, setPaymentTiming] = useState<"prepaid" | "postpaid">("prepaid");
+  const [checkoutOutcome, setCheckoutOutcome] = useState<{
+    phase: CheckoutOutcomePhase;
+    amountPaise: number;
+    bodySuccess?: string | null;
+    bodyFailed?: string | null;
+    referenceLabel?: string | null;
+    paymentDetails?: CheckoutPaymentDetails | null;
+  } | null>(null);
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [bookingFor, setBookingFor] = useState<"self" | "other">("self");
   const [bookingPlanMode, setBookingPlanMode] = useState<"one_time" | "amc">("one_time");
   const [recipientName, setRecipientName] = useState("");
@@ -1139,7 +1160,13 @@ export default function BookVisitModal() {
         : step === 2
           ? "Site and partner"
           : step === 3
-            ? "Review and pay"
+            ? checkoutOutcome?.phase === "success"
+              ? "Booking confirmed"
+              : checkoutOutcome?.phase === "failed"
+                ? "Payment result"
+                : checkoutOutcome?.phase === "confirming"
+                  ? "Confirming payment"
+                  : "Review and pay"
             : undefined,
     onClose: requestCloseBooking,
     closeAccessibilityLabel: "Close booking",
@@ -1149,6 +1176,7 @@ export default function BookVisitModal() {
   useEffect(() => {
     if (step < 3) {
       setPaymentFailedBanner(false);
+      setCheckoutOutcome(null);
     }
   }, [step]);
 
@@ -1157,14 +1185,180 @@ export default function BookVisitModal() {
       /* Simulated decline only — no booking row exists until Pay Now succeeds. */
     },
     onSuccess: () => {
-      setPaymentFailedBanner(true);
+      setPaymentFailedBanner(false);
+      setCheckoutOutcome({
+        phase: "failed",
+        amountPaise: payableEstimatePaise,
+        bodyFailed: "This was a simulated decline. Nothing was saved — try again when you are ready.",
+      });
     },
   });
 
-  const paySuccessMut = useMutation({
-    mutationFn: async () => {
-      if (!supabase) throw new Error("Supabase is not configured.");
+  const razorpayEnabled = isRazorpayCheckoutEnabled();
+
+  const finishCheckoutSuccess = useCallback(
+    (
+      booking: Parameters<typeof buildPostCheckoutPartnerAlert>[0] &
+        Parameters<typeof customerConfirmedBookingStatusHelp>[0] & { id: string },
+      approved: VendorRow[],
+      paymentDetails?: CheckoutPaymentDetails | null,
+    ) => {
+      void notifyCustomerBookingCreated(booking.id);
+      void qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
+      void qc.invalidateQueries({ queryKey: queryKeys.payments.all() });
+      void qc.invalidateQueries({ queryKey: queryKeys.finance.customerOorjamanCredits() });
+      const partnerAlert = buildPostCheckoutPartnerAlert(booking, approved);
+      const statusHelp = customerConfirmedBookingStatusHelp(booking);
+      setCheckoutOutcome({
+        phase: "success",
+        amountPaise: payableEstimatePaise,
+        bodySuccess: partnerAlert?.message ?? statusHelp ?? "Your visit request is confirmed.",
+        paymentDetails: paymentDetails ?? null,
+      });
+    },
+    [payableEstimatePaise, qc],
+  );
+
+  const runOneTimeCheckout = useCallback(async () => {
+    if (!supabase || checkoutBusy) return;
+    setCheckoutBusy(true);
+    setPaymentFailedBanner(false);
+    try {
       const { payload, estimatePaise, approved, customerId } = await buildOneTimeCheckoutPayload();
+
+      // Pay later: confirm booking now; collect after visit completed.
+      if (paymentTiming === "postpaid") {
+        const booking = await paymentApi.createPostpaidOneTimeBooking(supabase, {
+          bookingInput: {
+            ...payload,
+            payment_timing: "postpaid",
+            metadata: {
+              ...(typeof payload.metadata === "object" && payload.metadata && !Array.isArray(payload.metadata)
+                ? (payload.metadata as Record<string, unknown>)
+                : {}),
+              payment_timing: "postpaid",
+            },
+          },
+        });
+        void notifyCustomerBookingCreated(booking.id);
+        void qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
+        const partnerAlert = buildPostCheckoutPartnerAlert(booking, approved);
+        const statusHelp = customerConfirmedBookingStatusHelp(booking);
+        setCheckoutOutcome({
+          phase: "success",
+          amountPaise: estimatePaise,
+          bodySuccess:
+            partnerAlert?.message ??
+            statusHelp ??
+            "Visit requested. Pay after the technician completes cleaning (app, QR from your Oorja Man, or partner collection).",
+          paymentDetails: buildCheckoutPaymentDetails({ timing: "postpaid" }),
+        });
+        return;
+      }
+
+      if (razorpayEnabled) {
+        const { session } = await paymentApi.createRazorpayOneTimeCheckoutSession(supabase, {
+          bookingInput: { ...payload, payment_timing: "prepaid" },
+          amountPaise: estimatePaise,
+        });
+        let checkoutResult: {
+          razorpay_payment_id: string;
+          razorpay_order_id: string;
+          razorpay_signature: string;
+        };
+        try {
+          checkoutResult = await openRazorpayCheckout({
+            keyId: session.keyId,
+            orderId: session.orderId,
+            amountPaise: session.amountPaise,
+            description: "One-time solar panel cleaning",
+          });
+        } catch (e: unknown) {
+          await paymentApi.abandonPendingCheckout(supabase, session.paymentId).catch(() => undefined);
+          const msg = e instanceof Error ? e.message : "Payment cancelled.";
+          setCheckoutOutcome({
+            phase: "failed",
+            amountPaise: estimatePaise,
+            bodyFailed: msg,
+            referenceLabel: session.orderId ? `Order ${session.orderId}` : null,
+          });
+          return;
+        }
+
+        setCheckoutOutcome({
+          phase: "confirming",
+          amountPaise: session.amountPaise,
+          referenceLabel: `Order ${session.orderId}`,
+        });
+
+        try {
+          // Prefer server verify; if it fails (fn not deployed / network), still poll —
+          // webhook may already have marked the payment success.
+          try {
+            await paymentApi.verifyRazorpayCheckoutCallback(supabase, {
+              razorpay_order_id: checkoutResult.razorpay_order_id || session.orderId,
+              razorpay_payment_id: checkoutResult.razorpay_payment_id,
+              razorpay_signature: checkoutResult.razorpay_signature,
+              oorjaman_payment_id: session.paymentId,
+            });
+          } catch (verifyErr: unknown) {
+            console.warn(
+              "verify-razorpay-payment failed; waiting for webhook/DB status",
+              verifyErr instanceof Error ? verifyErr.message : verifyErr,
+            );
+          }
+          const paid = await paymentApi.waitForPaymentTerminalStatus(supabase, session.paymentId);
+          if (paid.status !== "success") {
+            throw new Error(
+              paid.customer_error_message ||
+                "Payment did not complete. If you were charged, open My bookings in a minute — confirmation can lag briefly.",
+            );
+          }
+          const { booking: confirmed, payment } = await paymentApi.finalizeRazorpayOneTimeAfterCapture(
+            supabase,
+            session.paymentId,
+          );
+          if (creditsDiscountPaise > 0) {
+            await redeemCustomerOorjamanCredits(supabase, {
+              customer_id: customerId,
+              booking_id: confirmed.id,
+              payment_id: payment.id,
+              payable_paise: grossEstimatePaise,
+            });
+          }
+          finishCheckoutSuccess(
+            confirmed,
+            approved,
+            buildCheckoutPaymentDetails({
+              timing: "prepaid",
+              payment: {
+                provider: payment.provider,
+                collection_channel: payment.collection_channel,
+                payment_method: payment.payment_method ?? paid.payment_method,
+                method_type: payment.method_type ?? paid.method_type,
+                razorpay_order_id: payment.razorpay_order_id ?? paid.razorpay_order_id,
+                razorpay_payment_id: payment.razorpay_payment_id ?? paid.razorpay_payment_id,
+              },
+              razorpayPaymentIdFallback: checkoutResult.razorpay_payment_id,
+              razorpayOrderIdFallback: checkoutResult.razorpay_order_id || session.orderId,
+            }),
+          );
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : "Payment confirmation failed.";
+          setCheckoutOutcome({
+            phase: "failed",
+            amountPaise: session.amountPaise,
+            bodyFailed: msg,
+            referenceLabel: `Order ${session.orderId}`,
+          });
+        }
+        return;
+      }
+
+      setCheckoutOutcome({
+        phase: "confirming",
+        amountPaise: estimatePaise,
+      });
       const { booking, payment } = await paymentApi.createPaidOneTimeBookingCheckout(supabase, {
         bookingInput: payload,
         amountPaise: estimatePaise,
@@ -1178,20 +1372,32 @@ export default function BookVisitModal() {
           payable_paise: grossEstimatePaise,
         });
       }
-      const partnerAlert = buildPostCheckoutPartnerAlert(booking, approved);
-      if (partnerAlert) {
-        Alert.alert(partnerAlert.title, partnerAlert.message);
-      }
-      return booking;
-    },
-    onSuccess: (booking) => {
-      void notifyCustomerBookingCreated(booking.id);
-      void qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
-      void qc.invalidateQueries({ queryKey: queryKeys.payments.all() });
-      void qc.invalidateQueries({ queryKey: queryKeys.finance.customerOorjamanCredits() });
-      router.replace("/(main)/bookings");
-    },
-  });
+      finishCheckoutSuccess(
+        booking,
+        approved,
+        buildCheckoutPaymentDetails({ timing: "prepaid", payment }),
+      );
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Checkout failed.";
+      setCheckoutOutcome({
+        phase: "failed",
+        amountPaise: payableEstimatePaise,
+        bodyFailed: msg,
+      });
+    } finally {
+      setCheckoutBusy(false);
+    }
+  }, [
+    supabase,
+    checkoutBusy,
+    paymentTiming,
+    razorpayEnabled,
+    buildOneTimeCheckoutPayload,
+    creditsDiscountPaise,
+    grossEstimatePaise,
+    finishCheckoutSuccess,
+    payableEstimatePaise,
+  ]);
 
   const confirmAmcVisitMut = useMutation({
     mutationFn: async () => {
@@ -1835,7 +2041,7 @@ export default function BookVisitModal() {
                 <Text style={styles.summaryLine}>
                   <Text style={styles.summaryEm}>Partner: </Text>
                   {vendorPick.mode === "any"
-                    ? "OorjaMan will assign a partner for your area"
+                    ? "OorjaMan will assign a partner"
                     : routingPreview?.ok
                       ? routingPreview.resolvedName
                       : (selectedVendor?.business_name ?? "-")}
@@ -1950,24 +2156,37 @@ export default function BookVisitModal() {
             showsVerticalScrollIndicator={false}
             style={styles.confirmScroll}
           >
-            <Text style={styles.sectionTitle}>Test payment</Text>
+            {checkoutOutcome ? (
+              <CheckoutOutcomePanel
+                phase={checkoutOutcome.phase}
+                amountPaise={checkoutOutcome.amountPaise}
+                titleSuccess="Booking confirmed"
+                titleFailed="Booking not completed"
+                bodySuccess={checkoutOutcome.bodySuccess}
+                bodyFailed={checkoutOutcome.bodyFailed}
+                referenceLabel={checkoutOutcome.referenceLabel}
+                paymentDetails={checkoutOutcome.paymentDetails}
+                onPrimarySuccess={() => router.replace("/(main)/bookings")}
+                onTryAgain={() => {
+                  setCheckoutOutcome(null);
+                  void runOneTimeCheckout();
+                }}
+                onBackFromFailed={() => {
+                  setCheckoutOutcome(null);
+                  setStep(2);
+                }}
+              />
+            ) : (
+              <>
+            <Text style={styles.sectionTitle}>How would you like to pay?</Text>
             <Text style={styles.sectionBody}>
-              Dummy checkout - no real charge. Pick an outcome to finish your booking request.
+              Same professional cleaning either way. Choose what works for you.
             </Text>
-
-            <View style={styles.slaNote}>
-              <Card variant="muted" padded>
-                <Text style={styles.slaNoteText}>
-                  Once this completes, the assigned partner has about one hour to confirm your slot (see My bookings for
-                  status).
-                </Text>
-              </Card>
-            </View>
 
             {pricingQuery.data ? (
               <View style={styles.paymentAmountWrap}>
                 <Card variant="elevated" padded>
-                  <Text style={styles.paymentAmountLabel}>Amount due</Text>
+                  <Text style={styles.paymentAmountLabel}>Visit total</Text>
                   <Text style={styles.paymentAmountValue}>
                     {formatInrFromCents(payableEstimatePaise)}
                   </Text>
@@ -1986,92 +2205,167 @@ export default function BookVisitModal() {
                   ) : null}
                 </Card>
               </View>
-            ) : null}
+            ) : (
+              <View style={styles.paymentAmountWrap}>
+                <Card variant="muted" padded>
+                  <Text style={styles.paymentAmountLabel}>Loading price…</Text>
+                </Card>
+              </View>
+            )}
+
+            <Pressable
+              accessibilityRole="radio"
+              accessibilityState={{ selected: paymentTiming === "prepaid" }}
+              onPress={() => setPaymentTiming("prepaid")}
+              style={[
+                styles.payOptionCard,
+                paymentTiming === "prepaid" ? styles.payOptionCardSelected : null,
+              ]}
+            >
+              <View style={styles.payOptionRadioRow}>
+                <View
+                  style={[
+                    styles.payOptionRadio,
+                    paymentTiming === "prepaid" ? styles.payOptionRadioOn : null,
+                  ]}
+                >
+                  {paymentTiming === "prepaid" ? <View style={styles.payOptionRadioDot} /> : null}
+                </View>
+                <View style={styles.payOptionCopy}>
+                  <Text style={styles.payOptionTitle}>Pay now</Text>
+                  <Text style={styles.payOptionBody}>
+                    Secure checkout. Your visit is confirmed after payment succeeds.
+                  </Text>
+                </View>
+              </View>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="radio"
+              accessibilityState={{ selected: paymentTiming === "postpaid" }}
+              onPress={() => setPaymentTiming("postpaid")}
+              style={[
+                styles.payOptionCard,
+                paymentTiming === "postpaid" ? styles.payOptionCardSelected : null,
+              ]}
+            >
+              <View style={styles.payOptionRadioRow}>
+                <View
+                  style={[
+                    styles.payOptionRadio,
+                    paymentTiming === "postpaid" ? styles.payOptionRadioOn : null,
+                  ]}
+                >
+                  {paymentTiming === "postpaid" ? <View style={styles.payOptionRadioDot} /> : null}
+                </View>
+                <View style={styles.payOptionCopy}>
+                  <Text style={styles.payOptionTitle}>Pay after service</Text>
+                  <Text style={styles.payOptionBody}>
+                    Book now. Pay via UPI/QR or in the app after cleaning is completed.
+                  </Text>
+                </View>
+              </View>
+            </Pressable>
+
+            <View style={styles.slaNote}>
+              <Card variant="muted" padded>
+                <Text style={styles.slaNoteText}>
+                  {paymentTiming === "postpaid"
+                    ? "Partner has about one hour to accept after you book. Payment opens only when the technician marks the job done."
+                    : "After payment, your partner has about one hour to accept the slot. Track status in My bookings."}
+                </Text>
+              </Card>
+            </View>
 
             {paymentFailedBanner ? (
               <View style={styles.failBanner}>
                 <Card variant="muted" padded>
                   <Text style={styles.failBannerTitle}>Payment failed</Text>
                   <Text style={styles.failBannerBody}>
-                    This was a simulated decline. Nothing was saved — try Pay Now (Success) when you&apos;re ready.
+                    {razorpayEnabled
+                      ? "Checkout did not complete. Nothing was confirmed — try again when you are ready."
+                      : "This was a simulated decline. Nothing was saved — try again when you're ready."}
                   </Text>
                 </Card>
               </View>
             ) : null}
 
-            <Text style={styles.paymentSimLabel}>Simulate gateway</Text>
-            <View style={styles.gapSm} />
-            <Button
-              variant="primary"
-              size="md"
-              loading={paySuccessMut.isPending}
-              disabled={
-                !pricingQuery.data ||
-                paySuccessMut.isPending ||
-                failPaymentMut.isPending
-              }
-              onPress={() => void paySuccessMut.mutate()}
-            >
-              Pay Now (Success)
-            </Button>
-            <View style={styles.gapSm} />
-            <Button
-              variant="outline"
-              size="md"
-              loading={failPaymentMut.isPending}
-              disabled={
-                !pricingQuery.data ||
-                paySuccessMut.isPending ||
-                failPaymentMut.isPending
-              }
-              onPress={() => void failPaymentMut.mutate()}
-            >
-              Fail payment
-            </Button>
-
-            {paySuccessMut.isError ? (
-              <Text style={styles.error}>{(paySuccessMut.error as Error).message}</Text>
+            {!razorpayEnabled ? (
+              <>
+                <Text style={styles.paymentSimLabel}>Test mode — no real charge</Text>
+                <View style={styles.gapSm} />
+                <Button
+                  variant="outline"
+                  size="md"
+                  loading={failPaymentMut.isPending}
+                  disabled={!pricingQuery.data || checkoutBusy || failPaymentMut.isPending}
+                  onPress={() => void failPaymentMut.mutate()}
+                >
+                  Simulate decline
+                </Button>
+              </>
             ) : null}
+              </>
+            )}
           </ScrollView>
         ) : null}
 
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.sm }]}>
-          {step === 3 ? (
-            <>
-              <View style={styles.footerBtn}>
-                <Button
-                  variant="outline"
-                  size="md"
-                  style={styles.footerBtnStretch}
-                  onPress={() =>
-                    void (async () => {
-                      await abandonCheckoutIfNeeded();
-                      setStep(2);
-                    })()
-                  }
-                >
-                  Back
-                </Button>
-              </View>
-              <View style={styles.footerBtn} />
-            </>
+          {step === 3 && checkoutOutcome ? null : step === 3 ? (
+            <View style={styles.footerPayBlock}>
+              <Button
+                variant="primary"
+                size="lg"
+                style={styles.footerBtnStretch}
+                loading={checkoutBusy}
+                disabled={!pricingQuery.data || checkoutBusy || failPaymentMut.isPending}
+                onPress={() => void runOneTimeCheckout()}
+              >
+                {paymentTiming === "postpaid"
+                  ? `Book visit · pay later · ${formatInrFromCents(payableEstimatePaise)}`
+                  : `Proceed to pay · ${formatInrFromCents(payableEstimatePaise)}`}
+              </Button>
+              {razorpayEnabled && paymentTiming === "prepaid" ? (
+                <View style={styles.poweredByWrap}>
+                  <RazorpayPoweredByCaption />
+                </View>
+              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                disabled={checkoutBusy || failPaymentMut.isPending}
+                onPress={() =>
+                  void (async () => {
+                    await abandonCheckoutIfNeeded();
+                    setStep(2);
+                  })()
+                }
+                style={styles.footerBackLink}
+              >
+                <Text style={styles.footerBackLinkText}>Back</Text>
+              </Pressable>
+            </View>
           ) : (
             <>
               {step > 0 ? (
-                <View style={styles.footerBtn}>
-                  <Button variant="outline" size="md" style={styles.footerBtnStretch} onPress={() => setStep((s) => (s - 1) as Step)}>
+                <View style={styles.footerBtnSide}>
+                  <Button
+                    variant="outline"
+                    size="md"
+                    style={styles.footerBtnStretch}
+                    onPress={() => setStep((s) => (s - 1) as Step)}
+                  >
                     Back
                   </Button>
                 </View>
               ) : (
-                <View style={styles.footerBtn}>
-                  <Button variant="ghost" size="md" style={styles.footerBtnStretch} onPress={() => router.back()}>
+                <View style={styles.footerBtnSide}>
+                  <Button variant="outline" size="md" style={styles.footerBtnStretch} onPress={() => router.back()}>
                     Cancel
                   </Button>
                 </View>
               )}
               {step < 3 ? (
-                <View style={styles.footerBtn}>
+                <View style={styles.footerBtnMain}>
                   <Button
                     variant="primary"
                     size="md"
@@ -2101,8 +2395,8 @@ export default function BookVisitModal() {
                   >
                     {step === 2
                       ? bookingPlanMode === "amc"
-                        ? "Confirm AMC visit"
-                        : "Continue to payment"
+                        ? "Confirm visit"
+                        : "Continue"
                       : "Continue"}
                   </Button>
                 </View>
@@ -2601,6 +2895,66 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xxl,
     color: colors.foreground,
   },
+  payOptionCard: {
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: 16,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.card,
+  },
+  payOptionCardSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryMuted,
+  },
+  payOptionRadioRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.md,
+  },
+  payOptionRadio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: colors.mutedForeground,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  payOptionRadioOn: {
+    borderColor: colors.primary,
+  },
+  payOptionRadioDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.primary,
+  },
+  payOptionCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  payOptionTitle: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: fontSize.md,
+    color: colors.foreground,
+  },
+  payOptionBody: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+    color: colors.mutedForeground,
+  },
+  footerBackLink: {
+    alignItems: "center",
+    paddingVertical: spacing.sm,
+  },
+  footerBackLinkText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.md,
+    color: colors.primary,
+  },
   paymentSimLabel: {
     fontFamily: fontFamily.semiBold,
     fontSize: fontSize.sm,
@@ -2639,12 +2993,31 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     alignItems: "stretch",
   },
-  footerBtn: {
+  footerPayBlock: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  footerPayRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: spacing.sm,
+  },
+  footerBtnSide: {
+    flexGrow: 0,
+    flexShrink: 0,
+    width: 104,
+  },
+  footerBtnMain: {
     flex: 1,
     minWidth: 0,
+  },
+  poweredByWrap: {
+    alignItems: "center",
+    width: "100%",
   },
   footerBtnStretch: {
     alignSelf: "stretch",
     width: "100%",
+    minHeight: 52,
   },
 });

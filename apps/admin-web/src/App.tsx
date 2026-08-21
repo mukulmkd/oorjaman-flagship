@@ -21,6 +21,7 @@ import { AnalyticsDashboardPage } from "./pages/AnalyticsDashboardPage";
 import { FeatureManagementPage } from "./pages/FeatureManagementPage";
 import { AmcContractsPage } from "./pages/AmcContractsPage";
 import { FinanceSettlementsPage } from "./pages/FinanceSettlementsPage";
+import { PaymentsOpsPage } from "./pages/PaymentsOpsPage";
 import { BrandCollateralPage } from "./pages/BrandCollateralPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 
@@ -61,6 +62,7 @@ export default function App() {
         <Route path="pricing" element={<PricingManagementPage />} />
         <Route path="service-pricing" element={<ServiceCapacityPricingPage />} />
         <Route path="finance" element={<FinanceSettlementsPage />} />
+        <Route path="finance/payments" element={<PaymentsOpsPage />} />
         <Route path="finance/amc-contracts" element={<AmcContractsPage />} />
         <Route path="finance/amc-wallets" element={<Navigate to="/dashboard/finance/amc-contracts" replace />} />
       </Route>

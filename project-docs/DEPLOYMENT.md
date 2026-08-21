@@ -83,15 +83,15 @@ Use **two separate Supabase projects** so UAT never writes to production data.
 
 | Project                                                                      | Purpose                   | Used by                                                          |
 | ---------------------------------------------------------------------------- | ------------------------- | ---------------------------------------------------------------- |
-| **OorjaMan UAT** (rename your current **OorjaMan** project in the dashboard) | Staging / UAT             | Local dev, **Vercel portals**, UAT mobile, `npm run seed:dummy-users` |
-| **OorjaMan Prod** (new project)                                              | Live customers & partners | All 4 PROD web builds, store mobile builds                       |
+| **OorjaMan UAT** (`caearbriteguqjvnbrcg`, Singapore)                        | Staging / UAT             | Local dev, **Vercel portals**, UAT mobile, `npm run seed:dummy-users` |
+| **OorjaMan PROD** (`nppfpegqnmclbcmmogux`, Mumbai)                           | Live customers & partners | All 4 PROD web builds, store mobile builds                       |
 
 **Migrations, RLS, views, cron:** applied from `supabase/migrations/` via `npm run db:push` on **each** project (UAT first, then Prod). Full runbook: **[SUPABASE-UAT-PROD.md](SUPABASE-UAT-PROD.md)**.
 
 ### One-time: create the second project
 
-1. [Supabase Dashboard](https://supabase.com/dashboard) → **New project** (e.g. `oorjaman-uat`).
-2. Note **Project URL**, **anon key**, and **service_role** (server only).
+1. **Done:** Prod project **OorjaMan PROD** — ref `nppfpegqnmclbcmmogux` (`ap-south-1` Mumbai). UAT is `caearbriteguqjvnbrcg` (Singapore).
+2. Note **Project URL**, **anon key**, and **service_role** (server only) — already in gitignored prod locals.
 3. Link CLI to each project when pushing schema:
 
    ```bash

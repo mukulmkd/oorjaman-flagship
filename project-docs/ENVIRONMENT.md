@@ -129,6 +129,7 @@ Skips real SMS; fixed OTP then password login. Must match `DUMMY_AUTH_PASSWORD` 
 | `EXPO_PUBLIC_SITE_URL`            | localhost / dev web | `https://dev-oorjaman.oorjaman.com` | `https://oorjaman.com` | Legal links                     |
 | `EXPO_PUBLIC_USE_DUMMY_AUTH`      | `true` optional     | `true` optional                     | **off**                | No                              |
 | `EXPO_PUBLIC_DUMMY_OTP_*`         | QA values           | QA values                           | **omit**               | No                              |
+| `EXPO_PUBLIC_RAZORPAY_KEY_ID`     | Test key optional   | Test key (`rzp_test_…`)             | Live key later         | Checkout; see [RAZORPAY.md](RAZORPAY.md) + [RAZORPAY-UAT-MATRIX.md](RAZORPAY-UAT-MATRIX.md). Edge secrets: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`. Deploy `verify-razorpay-payment` + webhook. |
 | `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` | Dev-restricted key  | UAT bundle `*.customer.uat`         | Prod bundle            | Maps ([BILLING.md](BILLING.md)) |
 | `EXPO_PUBLIC_EAS_PROJECT_ID`      | EAS project UUID    | Same                                | Same                   | For **remote push**             |
 
@@ -409,6 +410,7 @@ Production: run migrations against the **production** project only from a contro
 | `EXPO_PUBLIC_SUPABASE_URL`        | customer, technician   | Dev project     | Prod project        |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY`   | customer, technician   | Dev anon        | Prod anon           |
 | `EXPO_PUBLIC_USE_DUMMY_AUTH`      | customer, technician   | optional `true` | **off**             |
+| `EXPO_PUBLIC_RAZORPAY_KEY_ID`     | customer               | test key optional | live later        |
 | `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` | customer               | Dev key         | Restricted prod key |
 | `EXPO_PUBLIC_EAS_PROJECT_ID`      | customer, technician   | EAS UUID        | EAS UUID            |
 | `VITE_SUPABASE_URL`               | admin, vendor, support | Dev             | Prod                |
@@ -422,10 +424,11 @@ Production: run migrations against the **production** project only from a contro
 
 - [README.md](README.md) — monorepo overview and run commands
 - [DEPLOYMENT.md](DEPLOYMENT.md) — full PROD vs UAT matrix
+- [RAZORPAY.md](RAZORPAY.md) — Razorpay Test Mode (UAT checkout + webhook)
 - [VERCEL.md](VERCEL.md) — live UAT portal deployment
 - [.env.deployment.example](../.env.deployment.example) — copy-paste matrix (no secrets)
 - [BILLING.md](BILLING.md) — Google Maps and other paid APIs
 - [docs/customer-push-setup.md](docs/customer-push-setup.md) — customer support chat remote push
 - [docs/technician-push-setup.md](docs/technician-push-setup.md) — technician support chat remote push
 
-_Last updated: 2026-05-20 — three-tier env files, Vercel UAT portals live._
+_Last updated: 2026-08-21 — Razorpay UAT Test Mode env + docs._

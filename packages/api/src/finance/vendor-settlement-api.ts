@@ -357,6 +357,10 @@ export async function adminBackfillVisitPayoutSettlements(
 
 export function settlementDisplayAmountPaise(row: VendorSettlementRow): number {
   if (row.kind === "visit_payout") {
+    // Partner held cash: settle = platform fee receivable (not net payout to vendor).
+    if (row.customer_paid_to === "partner") {
+      return row.platform_fee_paise ?? 0;
+    }
     return row.net_payout_paise ?? 0;
   }
   return row.penalty_final_paise ?? row.penalty_assessed_paise ?? 0;
@@ -367,11 +371,18 @@ export function settlementKindLabel(kind: VendorSettlementKind): string {
 }
 
 export function settlementVisitChannelLabel(
-  row: Pick<VendorSettlementRow, "kind" | "metadata"> & { is_amc_visit?: boolean },
+  row: Pick<VendorSettlementRow, "kind" | "metadata" | "customer_paid_to"> & { is_amc_visit?: boolean },
 ): string | null {
   if (row.kind !== "visit_payout") return null;
   if (row.is_amc_visit || settlementIsAmcVisit(row)) return "AMC visit";
+  if (row.customer_paid_to === "partner") return "One-time · partner collected";
   return "One-time visit";
+}
+
+export function settlementCustomerPaidToLabel(
+  paidTo: VendorSettlementRow["customer_paid_to"] | null | undefined,
+): string {
+  return paidTo === "partner" ? "Partner held (fee due to OorjaMan)" : "OorjaMan collected";
 }
 
 export function settlementStatusLabel(status: VendorSettlementStatus): string {

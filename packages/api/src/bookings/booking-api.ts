@@ -191,6 +191,7 @@ export type CreateBookingInput = Pick<
 > & {
   /** Customer inserts default to `pending_payment`; vendor inserts default to `confirmed`. */
   status?: BookingStatus;
+  payment_timing?: "prepaid" | "postpaid";
 };
 
 /**
@@ -225,6 +226,7 @@ export async function createBookingAsCustomer(
       currency: input.currency ?? "INR",
       customer_notes: input.customer_notes ?? null,
       metadata: input.metadata ?? {},
+      payment_timing: input.payment_timing ?? "prepaid",
       /** Checkout bookings stay `pending_payment` until payment succeeds → `confirmed`. */
       status: input.status ?? "pending_payment",
       created_by: uid,
