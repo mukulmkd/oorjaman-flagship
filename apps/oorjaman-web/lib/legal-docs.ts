@@ -30,11 +30,12 @@ export type LegalDocument = {
   sections: LegalSection[];
 };
 
-const LAST_UPDATED = "2026-08-18";
+const LAST_UPDATED = "2026-08-22";
 
 /** Footer “Legal” column - mandatory public links (order matters). */
 export const footerLegalSlugs = [
   "privacy-policy",
+  "data-storage",
   "terms-of-service",
   "refund-cancellation",
   "grievance-redressal",
@@ -123,7 +124,7 @@ export const legalDocuments: LegalDocument[] = [
         paragraphs: [
           "Depending on the nature of the processing and applicable law, we may process personal data with your consent where required; where processing is necessary to provide a service you requested; to perform contractual or service-related obligations; to comply with legal requirements; for legitimate and lawful operational purposes permitted under applicable law; to protect Platform security; and for other lawful purposes permitted under applicable law.",
           "Where consent is the basis, you may withdraw it where permitted by law. Withdrawal may affect optional or location-dependent features. Withdrawal does not affect processing that was lawfully carried out before withdrawal or that may continue under another lawful basis.",
-          "A plain-language summary of mobile app permissions is at /legal/app-permissions. Cookie choices are described in /legal/cookie-policy. Detailed subprocessors appear in /legal/data-processing.",
+          "A plain-language summary of mobile app permissions is at /legal/app-permissions. Cookie choices are described in /legal/cookie-policy. Where production data is hosted is described in /legal/data-storage. Detailed subprocessors appear in /legal/data-processing.",
         ],
       },
       {
@@ -197,8 +198,17 @@ export const legalDocuments: LegalDocument[] = [
         ],
       },
       {
+        id: "storage-location",
+        title: "14. Where we store personal data",
+        paragraphs: [
+          "Production Platform data — including customer accounts, booking and service records, job evidence stored in our databases and storage buckets, and related operational records — is hosted with our cloud infrastructure provider (Supabase) in India, in the Mumbai region (AWS ap-south-1).",
+          "A plain-language Data Storage Policy with provider categories and transfer notes is published at /legal/data-storage. Related processing detail: /legal/data-processing.",
+          "Some third-party providers (for example maps, push notification networks, payment rails, or analytics where enabled) may process limited information in other jurisdictions as needed to deliver those services. See Section 26 (International data processing).",
+        ],
+      },
+      {
         id: "account-deletion",
-        title: "14. Account deletion",
+        title: "15. Account deletion",
         paragraphs: [
           "You may request deletion of your OorjaMan customer account. Deletion generally removes sign-in access and personal profile information associated with the account. We may retain limited information where necessary for tax and accounting; fraud prevention; security; dispute resolution; legal claims; regulatory compliance; or other lawful retention requirements.",
           "In the customer app: Profile → Account → Delete Account, then type DELETE to confirm. Active or upcoming bookings may need to be cancelled or completed first. If you have an active AMC plan, the consequences of account deletion, including cancellation of the plan, will be communicated before deletion is completed. After confirmation, sign-in credentials are removed and you may be signed out.",
@@ -207,7 +217,7 @@ export const legalDocuments: LegalDocument[] = [
       },
       {
         id: "rights",
-        title: "15. Your privacy rights and choices",
+        title: "16. Your privacy rights and choices",
         paragraphs: [
           "Subject to applicable law, you may have rights to access information about your personal data; request correction of inaccurate or incomplete information; request deletion where legally applicable; withdraw consent where consent is the applicable legal basis; manage notification permissions; manage location permissions through your device; raise privacy-related complaints; and exercise other rights available under applicable law.",
           `You may update certain profile information in the application. For privacy-related requests, contact ${PRIVACY_EMAIL}. We may request reasonable information to verify your identity before processing a request.`,
@@ -216,7 +226,7 @@ export const legalDocuments: LegalDocument[] = [
       },
       {
         id: "privacy-grievance",
-        title: "16. Privacy grievance redressal",
+        title: "17. Privacy grievance redressal",
         paragraphs: [
           `We are committed to addressing privacy and data protection concerns promptly. If you believe your personal data has been processed improperly, or if you have a privacy-related complaint, contact ${PRIVACY_EMAIL}. Include sufficient information for us to understand and investigate. We may request additional information to verify identity.`,
           "We will handle grievances in accordance with applicable law and our internal procedures. Formal platform grievances (including non-privacy complaints) are described at /legal/grievance-redressal.",
@@ -224,7 +234,7 @@ export const legalDocuments: LegalDocument[] = [
       },
       {
         id: "cookies",
-        title: "17. Cookies and local storage",
+        title: "18. Cookies and local storage",
         paragraphs: [
           "The website may use a limited number of strictly necessary cookies and local-storage technologies to load and operate the site; maintain essential functionality; remember your cookie preferences; and maintain basic security and session functionality. These may remain enabled because certain functions cannot operate without them.",
           "We may use optional analytics technologies to understand aggregate traffic and improve content and performance. Analytics are activated only where you provide the applicable consent. If you decline, analytics scripts will not be enabled. You may also block or delete cookies in browser settings; some functions may not operate if necessary cookies or local storage are blocked. Details: /legal/cookie-policy.",
@@ -232,7 +242,7 @@ export const legalDocuments: LegalDocument[] = [
       },
       {
         id: "marketing",
-        title: "18. Marketing and notifications",
+        title: "19. Marketing and notifications",
         paragraphs: [
           "We may send essential service communications including booking confirmations; appointment reminders; OTPs; service status notifications; payment confirmations; refund notifications; and account and security notifications. These are necessary for operating the Platform and may continue even if you opt out of promotional communications.",
           "Where promotional communications are sent, you may have the option to opt out through the applicable channel or account settings.",
@@ -240,7 +250,7 @@ export const legalDocuments: LegalDocument[] = [
       },
       {
         id: "children",
-        title: "19. Children's data",
+        title: "20. Children's data",
         paragraphs: [
           "The Platform and services are intended for individuals who are legally capable of entering into applicable service arrangements. Users must be at least 18 years old to create an account or use OorjaMan services as a customer or service provider, unless otherwise permitted by applicable law.",
           `We do not knowingly permit children to create accounts in violation of applicable law or knowingly collect children's personal data for purposes not permitted under applicable law. If you believe a child has provided personal data improperly, contact ${PRIVACY_EMAIL}.`,
@@ -248,7 +258,7 @@ export const legalDocuments: LegalDocument[] = [
       },
       {
         id: "acceptable-use",
-        title: "20. Acceptable use and responsible conduct",
+        title: "21. Acceptable use and responsible conduct",
         paragraphs: [
           "Users are expected to use the Platform responsibly. You must provide accurate contact, property, rooftop, and access information; follow reasonable safety instructions; respect technicians and support personnel; use the Platform only for lawful purposes; and protect your account credentials.",
           "You must not attempt unauthorised access; access another person's account or data; submit false or misleading information; misuse customer, partner, or technician information; interfere with Platform security; use the Platform for unlawful activities; harass, threaten, or abuse technicians, partners, or support staff; use hate speech or threatening language; or circumvent Platform controls or payment mechanisms.",
@@ -257,7 +267,7 @@ export const legalDocuments: LegalDocument[] = [
       },
       {
         id: "site-safety",
-        title: "21. Customer safety and site information",
+        title: "22. Customer safety and site information",
         paragraphs: [
           "Customers are responsible for providing accurate information regarding property and rooftop access; known hazards; electrical risks; structural concerns; restricted areas; and special site requirements.",
           "Technicians and service partners may refuse, postpone, or terminate a visit where they reasonably believe conditions are unsafe or that performing the work may create a risk of injury, property damage, or electrical/structural hazard. You may be required to reschedule in accordance with cancellation and service policies.",
@@ -266,7 +276,7 @@ export const legalDocuments: LegalDocument[] = [
       },
       {
         id: "independent-partners",
-        title: "22. Independent service partners",
+        title: "23. Independent service partners",
         paragraphs: [
           "OorjaMan operates as a technology marketplace connecting customers with independent service partners. Partners are independent businesses responsible for technician conduct and credentials; required licences and documentation; safety compliance; insurance where required; quality of on-site work; and compliance with applicable laws.",
           "We facilitate booking, scheduling, payment workflows, quality processes, and settlement reporting but do not represent that every partner is an employee or agent of OorjaMan. More: /legal/vendor-partner-agreement.",
@@ -274,7 +284,7 @@ export const legalDocuments: LegalDocument[] = [
       },
       {
         id: "partner-processing",
-        title: "23. Partner data processing",
+        title: "24. Partner data processing",
         paragraphs: [
           "Partners and technicians may process customer information as necessary to perform services through the Platform, including viewing service addresses; contacting customers about appointments; accessing relevant site information and photographs; recording service evidence; updating booking status; and completing service reports.",
           "They must protect such information and must not use it for unrelated or unauthorised purposes. We may require partners and relevant providers to implement appropriate contractual and operational safeguards.",
@@ -282,28 +292,29 @@ export const legalDocuments: LegalDocument[] = [
       },
       {
         id: "processors",
-        title: "24. Data processors and subprocessors",
+        title: "25. Data processors and subprocessors",
         paragraphs: [
           "We may appoint third-party processors and infrastructure providers for cloud infrastructure; database management; authentication; storage; maps and geocoding; push notifications; payment processing; application monitoring; and communication infrastructure. We may update providers as the Platform develops. Where appropriate, processors are required to protect personal data through contractual, technical, and organisational measures. Current categories: /legal/data-processing.",
         ],
       },
       {
         id: "international",
-        title: "25. International data processing",
+        title: "26. International data processing",
         paragraphs: [
-          "Some third-party providers may process or store information in jurisdictions outside India. Where personal data is transferred, stored, or processed outside India, we will take such measures as may be required under applicable Indian law and other applicable legal requirements.",
+          "Our primary production database and file storage for the Platform are located in India (Mumbai), as described in Section 14 and /legal/data-storage.",
+          "Some third-party providers may nevertheless process or store limited information in jurisdictions outside India (for example global push-notification networks, mapping services, or other technical providers). Where personal data is transferred, stored, or processed outside India, we will take such measures as may be required under applicable Indian law and other applicable legal requirements.",
         ],
       },
       {
         id: "third-party-links",
-        title: "26. Third-party links and services",
+        title: "27. Third-party links and services",
         paragraphs: [
           "The Platform may contain links to or integrations with third-party websites and services. OorjaMan is not responsible for the privacy practices, security, or content of independent third parties. Review their policies and terms before providing personal information to them.",
         ],
       },
       {
         id: "cancellation-data",
-        title: "27. Cancellation and refund data",
+        title: "28. Cancellation and refund data",
         paragraphs: [
           "We may collect and retain cancellation and refund information to administer bookings and partner settlements. Customers may cancel a booked visit within the one-hour grace period after booking without a late-cancellation fee, as displayed in the application at the time of booking.",
           "Cancellations after the applicable grace period may result in a late-cancellation fee displayed in the application before you confirm. The fee may be recorded against the booking for settlement and accounting.",
@@ -312,28 +323,28 @@ export const legalDocuments: LegalDocument[] = [
       },
       {
         id: "partner-settlements-data",
-        title: "28. Data relating to partner settlements",
+        title: "29. Data relating to partner settlements",
         paragraphs: [
           "For partners, we may collect and process information relating to booking acceptance; completed visits; cancellation penalties; service payouts; platform fees; settlement records; payment references; partner documentation; technician credentials; and performance and service records. Visit payouts and cancellation penalties are governed by applicable Platform settlement rules and may be displayed in the partner finance dashboard.",
         ],
       },
       {
         id: "changes",
-        title: "29. Changes to this Policy",
+        title: "30. Changes to this Policy",
         paragraphs: [
           "We may update this Policy from time to time to reflect changes in the Platform, new services, technology, legal or regulatory requirements, or our data processing practices. When material changes are made, we may provide notice through the Platform, website, email, or other appropriate channels where required. The updated Policy will include a revised Last Updated date.",
         ],
       },
       {
         id: "governing-law",
-        title: "30. Governing law",
+        title: "31. Governing law",
         paragraphs: [
           "This Policy shall be interpreted in accordance with the laws of India, subject to applicable data protection, consumer protection, and other mandatory legal requirements. Nothing in this Policy is intended to limit any rights or protections that cannot lawfully be excluded or restricted under applicable law. Subject to those protections, courts in Guwahati, Assam shall have jurisdiction.",
         ],
       },
       {
         id: "contact",
-        title: "31. Contact information",
+        title: "32. Contact information",
         paragraphs: [
           `Privacy-related enquiries, data protection requests, complaints, or questions about this Policy: ${PRIVACY_EMAIL}.`,
           `General customer and service support: ${SUPPORT_EMAIL}.`,
@@ -343,7 +354,7 @@ export const legalDocuments: LegalDocument[] = [
       },
       {
         id: "notice",
-        title: "32. Important notice",
+        title: "33. Important notice",
         paragraphs: [
           "This Policy is intended to explain OorjaMan's data practices in a clear and transparent manner. Nothing in this Policy creates rights or obligations beyond those required by applicable law, OorjaMan's contractual terms, or the specific consent or permission provided by a user.",
           "Where applicable law provides users with rights or protections greater than those described in this Policy, those legal rights and protections will continue to apply.",
@@ -821,6 +832,79 @@ export const legalDocuments: LegalDocument[] = [
     ],
   },
   {
+    slug: "data-storage",
+    title: "Data Storage Policy",
+    description:
+      "Where OorjaMan stores production Platform data, which infrastructure we use, and how transfers outside India are handled.",
+    lastUpdated: LAST_UPDATED,
+    sections: [
+      {
+        id: "summary",
+        title: "Summary",
+        paragraphs: [
+          "This Data Storage Policy explains where OorjaMan stores personal data and related Platform records for the live (production) service. It complements the Privacy & Data Protection Policy (/legal/privacy-policy) and the Data Processing Notice (/legal/data-processing).",
+          `${COMPANY_LEGAL_NAME} is responsible for determining the purposes and means of processing customer Platform data, subject to applicable Indian law including the Digital Personal Data Protection Act, 2023 and the Digital Personal Data Protection Rules, 2025, as applicable.`,
+        ],
+      },
+      {
+        id: "primary-location",
+        title: "Primary storage location (production)",
+        paragraphs: [
+          "Production Platform data is hosted with our cloud infrastructure provider Supabase in India, in the Mumbai region (Amazon Web Services region ap-south-1).",
+          "This includes, without limitation: account and profile records; booking and AMC / subscription records; service and settlement records; in-app notification and support records; and files stored in our production storage buckets (for example job and site photographs), subject to retention and deletion rules in the Privacy Policy.",
+        ],
+      },
+      {
+        id: "what-is-stored",
+        title: "What is stored where",
+        bullets: [
+          "Primary application database and authentication for production: Supabase project hosted in Mumbai, India.",
+          "Object / file storage for production media and documents: Supabase Storage in the same production project (India / Mumbai).",
+          "Serverless functions that support the Platform: deployed against the same production project.",
+          "Non-production / staging environments (if used): may be hosted in other regions for testing only and are not the system of record for live customer service.",
+        ],
+        paragraphs: [],
+      },
+      {
+        id: "security",
+        title: "Security of stored data",
+        paragraphs: [
+          "We use encrypted transport (HTTPS/TLS) for Platform traffic; access-controlled storage buckets (including private buckets for sensitive job evidence); and role-based database access controls (including Row Level Security) designed so users and partners only reach data they are authorised to see.",
+          "Further security and retention detail: Privacy Policy Sections 11–15 and /legal/account-deletion.",
+        ],
+      },
+      {
+        id: "subprocessors",
+        title: "Other providers that may receive data",
+        paragraphs: [
+          "To operate the Platform we use subprocessors such as payment processors, mapping / geocoding providers, push-notification networks (for example Apple APNs and Google FCM, including through Expo where applicable), and other technical providers. Those providers may process limited data as needed to deliver their service, and some may operate infrastructure outside India.",
+          "Current categories and more detail: /legal/data-processing. We do not sell personal data.",
+        ],
+      },
+      {
+        id: "transfers",
+        title: "Transfers outside India",
+        paragraphs: [
+          "While our primary production database and file storage are in India (Mumbai), limited personal data may be processed outside India by certain third-party providers (for example global push or mapping networks). Where such processing occurs, we will take measures required under applicable Indian law.",
+        ],
+      },
+      {
+        id: "changes",
+        title: "Changes",
+        paragraphs: [
+          "If we change the primary production hosting region or material storage arrangements, we will update this Policy (and related notices) and revise the Last Updated date. Material changes may also be communicated through the Platform or website where appropriate.",
+        ],
+      },
+      {
+        id: "contact",
+        title: "Contact",
+        paragraphs: [
+          `Questions about data storage or privacy: ${PRIVACY_EMAIL}. Support: ${SUPPORT_EMAIL}. Grievances: /legal/grievance-redressal.`,
+        ],
+      },
+    ],
+  },
+  {
     slug: "data-processing",
     title: "Data Processing Notice",
     description:
@@ -850,14 +934,14 @@ export const legalDocuments: LegalDocument[] = [
         id: "storage",
         title: "Storage & security measures",
         paragraphs: [
-          "Data is hosted with our cloud infrastructure provider (Supabase) using encrypted transport, access-controlled storage buckets (e.g. private job photos), and role-based database policies (RLS). Retention follows the Privacy & Data Protection Policy and Account Deletion rules.",
+          "Production Platform data is hosted with our cloud infrastructure provider (Supabase) in India — Mumbai region (AWS ap-south-1) — using encrypted transport, access-controlled storage buckets (e.g. private job photos), and role-based database policies (RLS). See /legal/data-storage for the dedicated Data Storage Policy. Retention follows the Privacy & Data Protection Policy and Account Deletion rules.",
         ],
       },
       {
         id: "subprocessors",
         title: "Infrastructure & subprocessors",
         bullets: [
-          "Cloud database, authentication, storage, and serverless functions (Supabase).",
+          "Cloud database, authentication, storage, and serverless functions (Supabase) — production hosted in Mumbai, India.",
           "Maps and geocoding providers when you use location features.",
           "Push notification delivery (Apple APNs, Google FCM, including through Expo where applicable).",
           "Payment processors integrated for checkout (when enabled).",
@@ -871,7 +955,7 @@ export const legalDocuments: LegalDocument[] = [
         id: "international",
         title: "International processing",
         paragraphs: [
-          "Some third-party providers may process or store information in jurisdictions outside India. Where personal data is transferred, stored, or processed outside India, we will take such measures as may be required under applicable Indian law and other applicable legal requirements.",
+          "Primary production database and file storage are in India (Mumbai). Some third-party providers may still process or store limited information in jurisdictions outside India. Where personal data is transferred, stored, or processed outside India, we will take such measures as may be required under applicable Indian law and other applicable legal requirements. Full storage notice: /legal/data-storage.",
         ],
       },
       {

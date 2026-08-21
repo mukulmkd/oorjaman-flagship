@@ -13,7 +13,7 @@ export default function LegalIndexPage() {
   return (
     <MarketingPage
       title="Legal"
-      lead="Policies for customers, partners, and app-store compliance. Last updated August 2026."
+      lead="Policies for customers, partners, and app-store compliance. Includes where production data is stored (India / Mumbai). Last updated August 2026."
       closingCta={false}
     >
       <ul style={{ listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: "0.75rem" }}>
