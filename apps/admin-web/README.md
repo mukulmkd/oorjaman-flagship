@@ -2,7 +2,7 @@
 
 React + Vite SPA for platform operators: vendor approval, pricing, booking monitoring, analytics, notifications, brand print, and more.
 
-## Run locally
+## Run locally on system
 
 From repo root (loads `apps/admin-web/.env.development.local`):
 
