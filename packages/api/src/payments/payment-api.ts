@@ -6,7 +6,6 @@ import { emitAdminAmcAwaitingPartnerNotification } from "../notifications/amc-no
 import { customerAbandonUnpaidCheckoutBooking } from "../bookings/booking-api";
 import { requireSessionUserId, SupabaseApiError, takeRows, takeSingleRow } from "../result";
 import { isPaymentPaidDbStatus, isPaymentTerminalDbStatus } from "./razorpay-status";
-import { normalizeRazorpayError } from "./razorpay-errors";
 
 async function getCustomerIdForSession(client: SupabaseClient<Database>): Promise<string> {
   const { data: userData } = await client.auth.getUser();
