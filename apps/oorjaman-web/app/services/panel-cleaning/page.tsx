@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { MarketingPage } from "@/components/MarketingPage";
 import { ScrollReveal } from "@/components/ScrollReveal";
+import { FeatureCardGrid } from "@/components/marketing-sections";
 import { buildPageMetadata } from "@/lib/seo";
 import styles from "../service-detail.module.css";
 
@@ -15,14 +16,17 @@ const highlights = [
   {
     title: "Priced before you pay",
     body: "kW-band packages and geo-tier notes are shown in the app - no opaque rooftop quotes.",
+    icon: "tag" as const,
   },
   {
     title: "Verified partners only",
     body: "Approved vendors accept the job, assign a technician, and work to platform safety rules.",
+    icon: "shield" as const,
   },
   {
     title: "Evidence on close",
     body: "Booking-code start, checklist, and before/after photos so you know the visit happened.",
+    icon: "camera" as const,
   },
 ] as const;
 
@@ -37,7 +41,7 @@ export default function PanelCleaningPage() {
       cta={
         <>
           <Link href="/download" className="om-btn om-btn--primary">
-            Get the app
+            Book now
           </Link>
           <Link href="/pricing" className="om-btn om-btn--ghost-light">
             View pricing
@@ -52,14 +56,7 @@ export default function PanelCleaningPage() {
         </p>
       </ScrollReveal>
 
-      <div className={styles.highlightGrid}>
-        {highlights.map((h, i) => (
-          <ScrollReveal key={h.title} className={styles.highlightCard} delayMs={i * 60}>
-            <h2 className={styles.highlightTitle}>{h.title}</h2>
-            <p className={styles.highlightBody}>{h.body}</p>
-          </ScrollReveal>
-        ))}
-      </div>
+      <FeatureCardGrid items={highlights} />
 
       <ScrollReveal className={styles.visualStrip}>
         <Image
@@ -96,24 +93,6 @@ export default function PanelCleaningPage() {
         <p>
           Methods aim to protect manufacturer warranties - always follow your module OEM guidance. See{" "}
           <Link href="/legal/service-disclaimers">service disclaimers</Link> and <Link href="/safety">safety</Link>.
-        </p>
-      </ScrollReveal>
-
-      <ScrollReveal className={styles.ctaBand}>
-        <h2 className={styles.ctaBandTitle}>Ready for a one-time clean?</h2>
-        <p className={styles.ctaBandLead}>
-          Book in the customer app when partner coverage is available at your address.
-        </p>
-        <p className={styles.actions}>
-          <Link href="/download" className="om-btn om-btn--primary">
-            Get the app
-          </Link>
-          <Link href="/pricing" className="om-btn om-btn--outline">
-            View pricing
-          </Link>
-          <Link href="/services/amc-maintenance" className="om-btn om-btn--outline">
-            Compare AMC plans
-          </Link>
         </p>
       </ScrollReveal>
     </MarketingPage>

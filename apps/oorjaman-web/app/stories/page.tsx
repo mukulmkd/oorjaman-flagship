@@ -27,7 +27,7 @@ export default function StoriesPage() {
       cta={
         <>
           <Link href="/download" className="om-btn om-btn--primary">
-            Get the app
+            Book now
           </Link>
           <Link href="/how-it-works" className="om-btn om-btn--ghost-light">
             How it works
@@ -64,7 +64,7 @@ export default function StoriesPage() {
         ))}
       </div>
       <p className={styles.footerNote}>
-        <Link href="/how-it-works">How it works</Link> · <Link href="/download">Get the app</Link> ·{" "}
+        <Link href="/how-it-works">How it works</Link> · <Link href="/download">Book now</Link> ·{" "}
         <Link href="/partners">Become a partner</Link>
       </p>
     </MarketingPage>

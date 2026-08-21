@@ -14,6 +14,7 @@ export default function LegalIndexPage() {
     <MarketingPage
       title="Legal"
       lead="Policies for customers, partners, and app-store compliance. Last updated August 2026."
+      closingCta={false}
     >
       <ul style={{ listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         {legalNav.map((item) => (

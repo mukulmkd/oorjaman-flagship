@@ -24,7 +24,7 @@ import {
 } from "@oorjaman/api";
 import type { Json } from "@oorjaman/api";
 import { formatDisplayDateTime, formatDisplayDateTimeRange } from "@oorjaman/utils";
-import { Badge, Button, Card, Modal, PageHeader, TableRowsSkeleton } from "@oorjaman/web-ui";
+import { Badge, Button, Card, Modal, PageHeader, TableRowsSkeleton, BookingLiveTrackPanel, BookingSitePhotos } from "@oorjaman/web-ui";
 import {
   formatRoutingDetailLines,
   getRoutingDisplay,
@@ -624,6 +624,7 @@ export function BookingMonitoringPage() {
 
       <Modal
         open={Boolean(bookingAction && actionRow)}
+        size="lg"
         title={
           bookingAction?.view === "assign"
             ? "Assign partner"
@@ -704,6 +705,10 @@ export function BookingMonitoringPage() {
                 </>
               ) : null}
             </dl>
+
+            <BookingLiveTrackPanel booking={actionRow} />
+
+            <BookingSitePhotos booking={actionRow} />
 
             {formatRoutingDetailLines(actionRow, vendorNameById).length > 0 ? (
               <dl

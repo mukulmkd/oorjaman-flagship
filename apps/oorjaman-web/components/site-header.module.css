@@ -15,7 +15,7 @@
   flex-wrap: wrap;
 }
 
-.nav {
+.navDesktop {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem 1.15rem;
@@ -35,12 +35,12 @@
 }
 
 .navLinkActive {
-  color: var(--om-foreground);
+  color: var(--om-foreground, #0f2938);
   font-weight: 700;
 }
 
 .navLinkActive:hover {
-  color: var(--om-foreground);
+  color: var(--om-foreground, #0f2938);
 }
 
 .actions {
@@ -50,7 +50,6 @@
   gap: 1rem;
 }
 
-/* Hamburger button - hidden on desktop, shown on mobile */
 .menuButton {
   display: none;
   margin-left: auto;
@@ -63,6 +62,7 @@
   border: 1px solid rgb(197 217 212 / 0.7);
   border-radius: 12px;
   cursor: pointer;
+  z-index: 60;
 }
 
 .menuButton:hover {
@@ -112,14 +112,34 @@
   transform: rotate(-45deg);
 }
 
-/* Actions duplicated inside the mobile menu - hidden on desktop */
-.menuActions {
+/* Mobile drawer — siblings of sticky header (not inside it) */
+.backdrop {
   display: none;
 }
 
-@media (max-width: 820px) {
+.navDrawer {
+  display: none;
+}
+
+.menuActions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem 1.35rem 1.25rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid rgb(197 217 212 / 0.6);
+}
+
+.menuActions .navLink {
+  padding: 0.35rem 0;
+}
+
+.menuActions :global(.om-btn) {
+  width: 100%;
+}
+
+@media (max-width: 1080px) {
   .inner {
-    position: relative;
     flex-wrap: nowrap;
     gap: 1rem;
   }
@@ -128,50 +148,79 @@
     display: inline-flex;
   }
 
+  .navDesktop,
   .actions {
     display: none;
   }
 
-  .nav {
-    position: absolute;
-    top: 100%;
-    left: 0;
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 54;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: rgb(15 41 56 / 0.42);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.28s ease, visibility 0.28s ease;
+    cursor: pointer;
+  }
+
+  .backdrop[data-open="true"] {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  .navDrawer {
+    position: fixed;
+    top: 0;
     right: 0;
-    display: none;
+    bottom: 0;
+    z-index: 55;
+    display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 0;
-    padding: 0.5rem 0;
-    background: rgb(246 250 249 / 0.98);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgb(197 217 212 / 0.7);
-    box-shadow: 0 18px 40px -24px rgb(15 41 56 / 0.35);
+    gap: 0.15rem;
+    width: 75vw;
+    max-width: 22rem;
+    margin: 0;
+    padding: max(4.75rem, env(safe-area-inset-top, 0px) + 3.5rem) 0
+      max(1.5rem, env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: #f6faf9;
+    border-left: 1px solid rgb(197 217 212 / 0.85);
+    box-shadow: -18px 0 48px -28px rgb(15 41 56 / 0.45);
+    transform: translateX(100%);
+    visibility: hidden;
+    pointer-events: none;
+    transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.32s;
   }
 
-  .nav[data-open="true"] {
-    display: flex;
+  .navDrawer[data-open="true"] {
+    transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
   }
 
-  .nav .navLink {
-    padding: 0.85rem 1.25rem;
-    font-size: 1rem;
+  .navDrawer .navLink {
+    padding: 0.9rem 1.35rem;
+    font-size: 1.05rem;
   }
 
-  .nav .navLinkActive {
+  .navDrawer .navLinkActive {
     background: rgb(31 134 96 / 0.1);
     color: var(--om-primary);
   }
+}
 
-  .menuActions {
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-    padding: 0.85rem 1.25rem 0.35rem;
-    margin-top: 0.35rem;
-    border-top: 1px solid rgb(197 217 212 / 0.6);
-  }
-
-  .menuActions .navLink {
-    padding: 0;
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .navDrawer {
+    transition: none;
   }
 }

@@ -58,14 +58,25 @@ type DirectionsResponse = {
     overview_polyline?: { points?: string };
   }>;
   status?: string;
+  error_message?: string;
 };
 
-/** Driving route between two points. Returns null if Directions API is unavailable. */
-export async function fetchDrivingRoutePath(
+/**
+ * Key for Directions / Routes HTTP APIs.
+ * Prefer a dedicated unrestricted (or IP-restricted server) key — Maps SDK
+ * application-restricted keys cannot call Directions from the device.
+ */
+export function getGoogleDirectionsApiKey(): string | null {
+  const dedicated = process.env.EXPO_PUBLIC_GOOGLE_MAPS_DIRECTIONS_API_KEY?.trim();
+  if (dedicated) return dedicated;
+  return getGoogleMapsApiKey();
+}
+
+async function fetchGoogleDrivingRoute(
   origin: LatLng,
   destination: LatLng,
 ): Promise<Array<{ lat: number; lng: number }> | null> {
-  const key = getGoogleMapsApiKey();
+  const key = getGoogleDirectionsApiKey();
   if (!key) return null;
 
   const params = new URLSearchParams({
@@ -81,13 +92,82 @@ export async function fetchDrivingRoutePath(
     );
     if (!res.ok) return null;
     const data = (await res.json()) as DirectionsResponse;
-    if (data.status !== "OK") return null;
+    if (data.status !== "OK") {
+      if (__DEV__) {
+        console.warn(
+          "[map-directions] Google Directions:",
+          data.status,
+          data.error_message ?? "",
+        );
+      }
+      return null;
+    }
     const encoded = data.routes?.[0]?.overview_polyline?.points;
     if (!encoded) return null;
     return simplifyPath(decodeGooglePolyline(encoded), 72);
-  } catch {
+  } catch (err) {
+    if (__DEV__) {
+      console.warn("[map-directions] Google Directions request failed", err);
+    }
     return null;
   }
+}
+
+type OsrmResponse = {
+  code?: string;
+  routes?: Array<{
+    geometry?: {
+      coordinates?: Array<[number, number]>;
+    };
+  }>;
+};
+
+/**
+ * Public OSRM demo server — road-following fallback when Google Directions
+ * is unavailable (common with Maps SDK–restricted API keys).
+ */
+async function fetchOsrmDrivingRoute(
+  origin: LatLng,
+  destination: LatLng,
+): Promise<Array<{ lat: number; lng: number }> | null> {
+  const path = `${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}`;
+  const url =
+    `https://router.project-osrm.org/route/v1/driving/${path}` +
+    "?overview=simplified&geometries=geojson";
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = (await res.json()) as OsrmResponse;
+    if (data.code !== "Ok") return null;
+    const coords = data.routes?.[0]?.geometry?.coordinates;
+    if (!coords || coords.length < 2) return null;
+    const points = coords.map(([lng, lat]) => ({ lat, lng }));
+    return simplifyPath(points, 72);
+  } catch (err) {
+    if (__DEV__) {
+      console.warn("[map-directions] OSRM request failed", err);
+    }
+    return null;
+  }
+}
+
+/**
+ * Driving route between two points.
+ * Tries Google Directions, then OSRM. Returns null only if both fail
+ * (caller should fall back to a straight segment).
+ */
+export async function fetchDrivingRoutePath(
+  origin: LatLng,
+  destination: LatLng,
+): Promise<Array<{ lat: number; lng: number }> | null> {
+  const google = await fetchGoogleDrivingRoute(origin, destination);
+  if (google && google.length >= 2) return google;
+
+  const osrm = await fetchOsrmDrivingRoute(origin, destination);
+  if (osrm && osrm.length >= 2) return osrm;
+
+  return null;
 }
 
 export function straightLinePath(

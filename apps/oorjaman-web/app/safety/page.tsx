@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MarketingPage } from "@/components/MarketingPage";
 import { ScrollReveal } from "@/components/ScrollReveal";
+import { FeatureCardGrid } from "@/components/marketing-sections";
 import { buildPageMetadata } from "@/lib/seo";
 import styles from "./safety.module.css";
 
@@ -22,14 +23,17 @@ const pillars = [
   {
     title: "Built into the apps",
     body: "Partners and technicians cannot casually skip codes, checklists, or evidence when closing a visit.",
+    icon: "check" as const,
   },
   {
     title: "Site readiness first",
     body: "Access and water notes are captured at registration so crews arrive prepared for your rooftop.",
+    icon: "pin" as const,
   },
   {
     title: "Warranty-conscious methods",
-    body: "Cleaning approaches aim to respect module OEM guidance - see service disclaimers for limits.",
+    body: "Cleaning approaches aim to respect module OEM guidance — see service disclaimers for limits.",
+    icon: "shield" as const,
   },
 ] as const;
 
@@ -44,7 +48,7 @@ export default function SafetyPage() {
       cta={
         <>
           <Link href="/download" className="om-btn om-btn--primary">
-            Get the app
+            Book now
           </Link>
           <Link href="/how-it-works" className="om-btn om-btn--ghost-light">
             How it works
@@ -59,14 +63,7 @@ export default function SafetyPage() {
         </p>
       </ScrollReveal>
 
-      <div className={styles.grid}>
-        {pillars.map((p, i) => (
-          <ScrollReveal key={p.title} className={styles.card} delayMs={i * 55}>
-            <h2 className={styles.cardTitle}>{p.title}</h2>
-            <p className={styles.cardBody}>{p.body}</p>
-          </ScrollReveal>
-        ))}
-      </div>
+      <FeatureCardGrid items={pillars} />
 
       <ScrollReveal className={styles.section}>
         <h2 className="om-h3">On every visit</h2>
@@ -81,24 +78,9 @@ export default function SafetyPage() {
         <h2 className="om-h3">Site readiness</h2>
         <p>
           Rooftop access and water availability are captured when you register a site so technicians arrive prepared.
-          Methods aim to protect manufacturer warranties - follow OEM guidance for your modules and mounting.
+          Methods aim to protect manufacturer warranties — follow OEM guidance for your modules and mounting.
         </p>
       </ScrollReveal>
-
-      <p className={styles.actions}>
-        <Link href="/download" className="om-btn om-btn--primary">
-          Get the app
-        </Link>
-        <Link href="/how-it-works" className="om-btn om-btn--outline">
-          How it works
-        </Link>
-        <Link href="/partners" className="om-btn om-btn--outline">
-          Partner standards
-        </Link>
-        <Link href="/legal/service-disclaimers" className="om-btn om-btn--outline">
-          Service disclaimers
-        </Link>
-      </p>
     </MarketingPage>
   );
 }

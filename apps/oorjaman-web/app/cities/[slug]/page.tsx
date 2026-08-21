@@ -93,7 +93,7 @@ export default async function CityPage({ params }: Props) {
         cta={
           <>
             <Link href="/download" className="om-btn om-btn--primary">
-              Get the app
+              Book now
             </Link>
             <Link href="/pricing" className="om-btn om-btn--ghost-light">
               Pricing
@@ -147,18 +147,6 @@ export default async function CityPage({ params }: Props) {
             </Link>
           </div>
         </ScrollReveal>
-
-        <p className={styles.actions}>
-          <Link href="/download" className="om-btn om-btn--primary">
-            Get the app
-          </Link>
-          <Link href="/for-businesses" className="om-btn om-btn--outline">
-            Multi-site / business
-          </Link>
-          <Link href="/contact" className="om-btn om-btn--outline">
-            Contact
-          </Link>
-        </p>
       </MarketingPage>
     </>
   );

@@ -37,6 +37,7 @@ Topic-specific how-tos (push setup, local APK, realtime) remain in [`docs/`](../
 | --- | ---------- |
 | [OorjaMan-Architecture.docx](OorjaMan-Architecture.docx) | `npm run docs:architecture` |
 | [OorjaMan-Costing.docx](OorjaMan-Costing.docx) | `npm run docs:costing` |
+| [OorjaMan-Vendor-Technician-Onboarding-Prerequisites.docx](OorjaMan-Vendor-Technician-Onboarding-Prerequisites.docx) | `npm run docs:onboarding-prerequisites` |
 | [OorjaMan-Functional-Test-Spec.docx](OorjaMan-Functional-Test-Spec.docx) | `npm run docs:functional-test` |
 | [OorjaMan-E2E-Test-Guide.docx](OorjaMan-E2E-Test-Guide.docx) | `npm run docs:uat-guide` |
 

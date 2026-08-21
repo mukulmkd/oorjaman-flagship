@@ -7,8 +7,8 @@ import { JsonLd } from "@/components/JsonLd";
 import { CookieConsent } from "@/components/CookieConsent";
 import { Analytics } from "@/components/Analytics";
 import { StickySupportCall } from "@/components/StickySupportCall";
-import { homeMetadata } from "@/lib/seo";
-import { SITE_NAME, siteUrl, SUPPORT_EMAIL, SUPPORT_PHONE, INSTAGRAM_URL } from "@/lib/site";
+import { homeMetadata, brandEntityJsonLd } from "@/lib/seo";
+import { SITE_NAME } from "@/lib/site";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -27,37 +27,13 @@ export const metadata: Metadata = {
   title: {
     default: uatDeploy
       ? `${SITE_NAME} (UAT)`
-      : `${SITE_NAME} - Solar panel cleaning & AMC in India`,
+      : `${SITE_NAME} — Solar panel cleaning & AMC in India`,
     template: `%s | ${SITE_NAME}`,
   },
   icons: {
     icon: [{ url: "/favicon.png", type: "image/png" }],
     apple: [{ url: "/apple-touch-icon.png", type: "image/png" }],
   },
-};
-
-const organizationJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  name: SITE_NAME,
-  url: siteUrl(),
-  logo: siteUrl("/logo-icon.png"),
-  description: "Solar rooftop cleaning and annual maintenance contracts (AMC) in India.",
-  contactPoint: {
-    "@type": "ContactPoint",
-    contactType: "customer support",
-    email: SUPPORT_EMAIL,
-    telephone: SUPPORT_PHONE,
-    availableLanguage: ["English", "Hindi"],
-  },
-  sameAs: [INSTAGRAM_URL],
-};
-
-const websiteJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "WebSite",
-  name: SITE_NAME,
-  url: siteUrl(),
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -83,7 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <a href="#main" className="om-skip-link">
           Skip to content
         </a>
-        {uatDeploy ? null : <JsonLd data={[organizationJsonLd, websiteJsonLd]} />}
+        {uatDeploy ? null : <JsonLd data={brandEntityJsonLd()} />}
         <SiteHeader />
         <main id="main" style={{ flex: 1 }}>
           {children}

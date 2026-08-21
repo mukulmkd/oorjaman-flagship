@@ -1,75 +1,65 @@
 .leadExtra {
   margin: 0 0 1.5rem;
+  font-size: 1.05rem;
   line-height: 1.6;
-  font-size: 1.05rem;
-}
-
-.grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-}
-
-.card {
-  padding: 1.2rem 1.25rem;
-  border: 1px solid var(--om-border);
-  border-radius: var(--om-radius);
-  background: var(--om-card);
-}
-
-.cardTitle {
-  margin: 0 0 0.4rem;
-  font-size: 1.05rem;
-}
-
-.cardBody {
-  margin: 0;
-  font-size: 0.9375rem;
-  line-height: 1.55;
-  color: var(--om-muted);
-}
-
-.formBlock {
-  margin-top: 2rem;
-}
-
-.formTitle {
-  margin: 0 0 0.75rem;
-  font-size: 1.25rem;
-  letter-spacing: -0.015em;
+  color: var(--om-navy);
 }
 
 .split {
-  margin-top: 2rem;
   display: grid;
-  gap: 1.25rem;
+  gap: 1rem;
+  margin-top: 1.75rem;
   grid-template-columns: 1fr;
 }
 
 @media (min-width: 800px) {
   .split {
-    grid-template-columns: 1fr 1.15fr;
-    align-items: start;
+    grid-template-columns: 1fr 1fr;
   }
 }
 
 .splitCard {
-  padding: 1.35rem 1.35rem 1.5rem;
+  padding: 1.35rem 1.35rem 1.45rem;
   border: 1px solid var(--om-border);
   border-radius: var(--om-radius);
   background: var(--om-card);
 }
 
+.formTitle {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  letter-spacing: -0.015em;
+}
+
 .splitBody {
   margin: 0 0 1rem;
-  font-size: 0.9375rem;
+  font-size: 0.95rem;
   line-height: 1.55;
   color: var(--om-muted);
 }
 
-.actions {
+.segmentBlock {
+  margin: 2.5rem 0 0;
+  scroll-margin-top: 5.5rem;
+}
+
+.segmentList {
+  margin: 0 0 1.25rem;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--om-navy);
+  max-width: 40rem;
+}
+
+.segmentCta {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.75rem;
-  margin-top: 1.75rem;
+  margin: 0;
+  font-size: 0.9375rem;
 }

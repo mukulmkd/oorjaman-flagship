@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MarketingPage } from "@/components/MarketingPage";
 import { ScrollReveal } from "@/components/ScrollReveal";
+import { FeatureCardGrid } from "@/components/marketing-sections";
 import { buildPageMetadata } from "@/lib/seo";
 import { SUPPORT_EMAIL, vendorPortalPublicUrl } from "@/lib/site";
 import styles from "./partners.module.css";
@@ -15,14 +16,17 @@ const benefits = [
   {
     title: "Marketplace demand",
     body: "Receive assigned and marketplace bookings in your service area once approved.",
+    icon: "building" as const,
   },
   {
     title: "Partner + technician apps",
     body: "Accept jobs, assign Oorja Men, run safety checklists, and capture visit evidence.",
+    icon: "check" as const,
   },
   {
     title: "Clear settlements",
     body: "Finance views for visit payouts and platform adjustments in the partner portal.",
+    icon: "tag" as const,
   },
 ] as const;
 
@@ -60,14 +64,7 @@ export default function PartnersPage() {
         </>
       }
     >
-      <div className={styles.grid}>
-        {benefits.map((b, i) => (
-          <ScrollReveal key={b.title} className={styles.card} delayMs={i * 55}>
-            <h2 className={styles.cardTitle}>{b.title}</h2>
-            <p className={styles.cardBody}>{b.body}</p>
-          </ScrollReveal>
-        ))}
-      </div>
+      <FeatureCardGrid items={benefits} />
 
       <ScrollReveal className={styles.note}>
         <p>
@@ -84,16 +81,6 @@ export default function PartnersPage() {
           </p>
         </ScrollReveal>
       ) : null}
-
-      <p className={styles.actions}>
-        {applyCta("om-btn om-btn--primary")}
-        <Link href="/legal/vendor-partner-agreement" className="om-btn om-btn--outline">
-          Partner agreement
-        </Link>
-        <Link href="/safety" className="om-btn om-btn--outline">
-          Safety standards
-        </Link>
-      </p>
     </MarketingPage>
   );
 }

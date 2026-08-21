@@ -38,6 +38,7 @@ import {
   useModalStackHeader,
 } from "@oorjaman/ui";
 import { ModalHeaderSupportTrailing } from "../../../../components/modal-header-support-trailing";
+import { BookingSitePhotos } from "../../../../components/booking-site-photos";
 import { fontFamily, fontSize } from "../../../../constants/fonts";
 import { supabase } from "../../../../lib/supabase";
 import { pickJobEvidenceImageUri } from "../../../../lib/job-evidence-picker";
@@ -552,6 +553,14 @@ export default function JobExecutionWizardScreen() {
             )}
           </Card>
         ) : null}
+
+        <Card variant="elevated" padded>
+          <Text style={styles.sectionTitle}>Customer site photos</Text>
+          <Text style={styles.bodyMuted}>
+            Rooftop photos the customer uploaded for this address — review before or during the visit.
+          </Text>
+          <BookingSitePhotos booking={b} compact />
+        </Card>
 
         {step === 0 ? (
           <Card variant="elevated" padded>

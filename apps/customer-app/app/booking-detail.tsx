@@ -15,7 +15,6 @@ import {
 } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import * as Clipboard from "expo-clipboard";
 import {
   bookingApi,
   isBookingGpsTrackable,
@@ -318,7 +317,7 @@ export default function BookingDetailScreen() {
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: queryKeys.bookings.detail(bookingId!) });
-      Alert.alert("Happy Code updated", "Share the new Happy Code with the technician at completion.");
+      Alert.alert("Happy Code updated", "Show the new Happy Code to the technician at completion.");
     },
     onError: (e: unknown) => {
       Alert.alert("Could not regenerate", e instanceof Error ? e.message : "Please try again.");
@@ -645,14 +644,14 @@ export default function BookingDetailScreen() {
                 <Text style={styles.sectionTitle}>Job Start Code</Text>
                 <Text style={styles.visitCode}>{serviceOtp.startCode}</Text>
                 <Text style={styles.bodyMuted}>
-                  Share this code when the technician arrives. They must verify this before starting service.
+                  Tell the technician this code when they arrive. They must verify it before starting service.
                 </Text>
                 {showHappyCode && serviceOtp.happyCode ? (
                   <View style={styles.happyCodeBlock}>
                     <Text style={styles.sectionTitle}>Happy Code</Text>
                     <Text style={styles.visitCode}>{serviceOtp.happyCode}</Text>
                     <Text style={styles.bodyMutedHappy}>
-                      Share this at completion. It confirms service closure and unlocks final submission.
+                      Show this at completion. It confirms service closure and unlocks final submission.
                     </Text>
                     {b.status === "in_progress" ? (
                       <View style={styles.regenRow}>
@@ -672,32 +671,6 @@ export default function BookingDetailScreen() {
                     ) : null}
                   </View>
                 ) : null}
-                <View style={styles.codeActions}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Copy visit code"
-                    onPress={() => {
-                      void Clipboard.setStringAsync(serviceOtp.startCode!).then(() =>
-                        Alert.alert("Copied", "Job Start Code copied to clipboard."),
-                      );
-                    }}
-                    style={({ pressed }) => [styles.codeBtn, pressed && styles.codeBtnPressed]}
-                  >
-                    <Text style={styles.codeBtnText}>Copy code</Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Share visit code"
-                    onPress={() => {
-                      void Share.share({
-                        message: `Oorjaman Job Start Code: ${serviceOtp.startCode}${serviceOtp.happyCode ? ` | Happy Code: ${serviceOtp.happyCode}` : ""}`,
-                      }).catch(() => undefined);
-                    }}
-                    style={({ pressed }) => [styles.codeBtn, styles.codeBtnOutline, pressed && styles.codeBtnPressed]}
-                  >
-                    <Text style={styles.codeBtnTextOutline}>Share</Text>
-                  </Pressable>
-                </View>
               </Card>
             </View>
           ) : null}
@@ -1316,35 +1289,5 @@ const styles = StyleSheet.create({
   em: {
     fontFamily: fontFamily.semiBold,
     color: colors.foreground,
-  },
-  codeActions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-  },
-  codeBtn: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-  },
-  codeBtnOutline: {
-    backgroundColor: colors.background,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  codeBtnPressed: {
-    opacity: 0.88,
-  },
-  codeBtnText: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: fontSize.md,
-    color: colors.background,
-  },
-  codeBtnTextOutline: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: fontSize.md,
-    color: colors.primary,
   },
 });

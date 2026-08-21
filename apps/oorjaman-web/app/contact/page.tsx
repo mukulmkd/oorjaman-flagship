@@ -16,6 +16,7 @@ import {
   SUPPORT_PHONE,
   SUPPORT_PHONE_TEL,
 } from "@/lib/site";
+import styles from "./contact.module.css";
 
 export const metadata = buildPageMetadata({
   title: "Contact us",
@@ -26,84 +27,72 @@ export const metadata = buildPageMetadata({
 export default function ContactPage() {
   return (
     <MarketingPage title="Contact" lead="We typically respond within one business day.">
-      <div className="om-grid-3">
-        <div className="om-card">
-          <h2 className="om-h3">Customer support</h2>
-          <p style={{ margin: 0 }}>
+      <div className={styles.grid}>
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>Customer support</h2>
+          <p className={styles.line}>
             <a href={`tel:${SUPPORT_PHONE_TEL}`}>{SUPPORT_PHONE}</a>
           </p>
-          <p style={{ margin: "0.5rem 0 0" }}>
+          <p className={styles.line}>
             <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
           </p>
-          <p style={{ margin: "0.75rem 0 0", fontSize: "0.875rem", color: "var(--om-muted)" }}>
+          <p className={styles.meta}>
             Bookings, visits, payments, and in-app chat escalations. Hours: {SUPPORT_HOURS}.
           </p>
-          <div style={{ marginTop: "0.85rem" }}>
+          <div className={styles.social}>
             <SocialLinks tone="onLight" />
           </div>
         </div>
-        <div className="om-card">
-          <h2 className="om-h3">Privacy</h2>
-          <p style={{ margin: 0 }}>
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>Privacy</h2>
+          <p className={styles.line}>
             <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a>
           </p>
-          <p style={{ margin: "0.75rem 0 0", fontSize: "0.875rem", color: "var(--om-muted)" }}>
-            Data access, correction, and deletion requests.
-          </p>
+          <p className={styles.meta}>Data access, correction, and deletion requests.</p>
         </div>
-        <div className="om-card">
-          <h2 className="om-h3">Legal</h2>
-          <p style={{ margin: 0 }}>
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>Legal</h2>
+          <p className={styles.line}>
             <a href={`mailto:${LEGAL_EMAIL}`}>{LEGAL_EMAIL}</a>
           </p>
-          <p style={{ margin: "0.75rem 0 0", fontSize: "0.875rem", color: "var(--om-muted)" }}>
-            Terms, partner agreements, and compliance notices.
-          </p>
+          <p className={styles.meta}>Terms, partner agreements, and compliance notices.</p>
         </div>
       </div>
 
-      <div className="om-card" style={{ marginTop: "1.25rem" }}>
-        <h2 className="om-h3">Grievance Officer</h2>
-        <p style={{ margin: 0 }}>
+      <div className={styles.wideCard}>
+        <h2 className={styles.cardTitle}>Grievance Officer</h2>
+        <p className={styles.line}>
           <strong>{grievanceOfficerLabel()}</strong>
         </p>
-        <p style={{ margin: "0.5rem 0 0" }}>
+        <p className={styles.line}>
           <a href={`mailto:${GRIEVANCE_EMAIL}`}>{GRIEVANCE_EMAIL}</a>
         </p>
-        <p style={{ margin: "0.75rem 0 0", fontSize: "0.875rem", color: "var(--om-muted)" }}>
+        <p className={styles.meta}>
           Formal complaints about marketplace services, Partners, or platform conduct. Full process:{" "}
           <Link href="/legal/grievance-redressal">Grievance Redressal</Link>.
         </p>
       </div>
 
-      <div style={{ marginTop: "2rem" }}>
+      <div className={styles.section}>
         <h2 className="om-h3">Business / multi-site callback</h2>
         <BusinessCallbackForm context="contact" />
       </div>
 
-      <h2 className="om-h3" style={{ marginTop: "2rem" }}>
-        Registered entity
-      </h2>
-      <p>
-        <strong>{COMPANY_LEGAL_NAME}</strong>
-        <br />
-        {COMPANY_ADDRESS}
-        {COMPANY_GSTIN ? (
-          <>
-            <br />
-            GSTIN: {COMPANY_GSTIN}
-          </>
-        ) : null}
-      </p>
-      <p style={{ fontSize: "0.875rem", color: "var(--om-muted)" }}>
-        OorjaMan is a technology marketplace operated by {COMPANY_LEGAL_NAME}. On-site cleaning is fulfilled by
-        independent verified partners.
-      </p>
+      <div className={styles.section}>
+        <h2 className="om-h3">Registered entity</h2>
+        <p className={styles.entityName}>{COMPANY_LEGAL_NAME}</p>
+        <p className={styles.line}>{COMPANY_ADDRESS}</p>
+        {COMPANY_GSTIN ? <p className={styles.line}>GSTIN: {COMPANY_GSTIN}</p> : null}
+        <p className={styles.entityMeta}>
+          OorjaMan is a technology marketplace operated by {COMPANY_LEGAL_NAME}. On-site cleaning is fulfilled by
+          independent verified partners.
+        </p>
+      </div>
 
-      <p style={{ marginTop: "1.5rem" }}>
+      <p className={styles.footerLinks}>
         <Link href="/legal/account-deletion">Account deletion</Link> ·{" "}
         <Link href="/legal/privacy-policy">Privacy &amp; Data Protection</Link> ·{" "}
-        <Link href="/pricing">Pricing</Link> · <Link href="/download">Get the app</Link> ·{" "}
+        <Link href="/pricing">Pricing</Link> · <Link href="/download">Book now</Link> ·{" "}
         <Link href="/partners">Partner enquiries</Link>
       </p>
     </MarketingPage>

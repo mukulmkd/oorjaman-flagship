@@ -22,7 +22,7 @@ The **one** place to track everything required to take OorjaMan live. This file 
 | Email addresses & provider | `[~]` | Public mailboxes live; prod decisions pending (§6). |
 | Marketing site (oorjaman.com) | `[ ]` | Built for UAT on Vercel; prod host + SEO-on pending (§7). |
 | Portal hosting (admin/vendor/support) | `[ ]` | On Vercel UAT; prod-domain decision + security headers pending (§8). |
-| Mobile release prep | `[ ]` | EAS creds/secrets, Google Maps key, push per-project pending (§9). |
+| Mobile release prep | `[ ]` | EAS creds/secrets, Maps + Directions keys (prod), push per-project pending (§9). |
 | App store enrollment | `[~]` | Apple + Google verification in progress (§10). |
 | Legal / GSTIN / Razorpay | `[~]` | Drafts live; counsel + KYC pending (§11). |
 
@@ -129,6 +129,8 @@ Runbook: `project-docs/LAUNCH.md`, `project-docs/SEO.md`
 - [ ] Build `npm run build:godaddy -w oorjaman-web` → upload `apps/oorjaman-web/out/` → `public_html`.
 - [ ] Smoke: `/`, `/download`, `/pricing`, `/contact`, `/legal/`, `/legal/privacy-policy/`, `/legal/terms-of-service/`, `/legal/grievance-redressal/`, `/legal/account-deletion/`, `/legal/refund-cancellation/`, `/legal/app-permissions/`, `/legal/service-disclaimers/`.
 - [ ] Google Search Console → property `https://oorjaman.com` → submit `sitemap.xml`.
+- [ ] After indexing: search **OorjaMan** (brand query). Separate page hits are normal; sitelinks under the homepage (Razorpay-style) appear only when Google trusts the brand — not configurable in code.
+- [ ] Confirm homepage title/description and Organization JSON-LD in Rich Results / URL Inspection when live.
 
 ### 7a. Marketing legal / compliance prerequisites (must exist before public launch)
 
@@ -170,7 +172,7 @@ Your remaining actions for §7a:
 - [ ] Replace dummy home quotes in `lib/home-content.ts` with **3–6 real permissioned customer quotes**.
 - [ ] Replace dummy **`NEXT_PUBLIC_SUPPORT_PHONE`** with the live support number.
 - [ ] Confirm **`NEXT_PUBLIC_SUPPORT_HOURS`** if different from dummy Mon-Sat 9:00 AM - 6:00 PM IST.
-- [ ] Confirm or change proof metrics in `lib/home-content.ts` (`proofItems`).
+- [ ] Confirm or change trust strip copy in `lib/home-content.ts` (`trustItems`).
 - [ ] Optional: replace sample visit stories in `lib/visit-stories.ts` with permissioned real case studies + photos.
 - [ ] Optional: Bing Webmaster Tools (same sitemap).
 
@@ -193,8 +195,9 @@ Runbook: `project-docs/DEPLOYMENT.md`, `project-docs/VERCEL.md`, `project-docs/S
 Runbook: `project-docs/DEPLOYMENT.md` §Mobile + §Google Maps, `docs/customer-push-setup.md`, `docs/technician-push-setup.md`
 
 - [ ] **EAS setup:** `eas init` (both apps) → `EXPO_PUBLIC_EAS_PROJECT_ID`; `eas credentials` (APNs + FCM) for **prod** bundle IDs `com.oorjaman.customer` / `com.oorjaman.technician`.
-- [ ] **EAS production secrets:** `EXPO_PUBLIC_SUPABASE_URL` (prod), `EXPO_PUBLIC_SUPABASE_ANON_KEY` (prod), `EXPO_PUBLIC_SITE_URL=https://oorjaman.com`, `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`, `EXPO_PUBLIC_EAS_PROJECT_ID`. **No** dummy-auth vars.
-- [ ] **Google Maps key:** GCP project → **enable billing** → enable Maps SDK iOS/Android + Static API → create key → restrict to prod bundle IDs (+ Android release **SHA-1**) → store as EAS secret → **native rebuild** (not OTA).
+- [ ] **EAS production secrets:** `EXPO_PUBLIC_SUPABASE_URL` (prod), `EXPO_PUBLIC_SUPABASE_ANON_KEY` (prod), `EXPO_PUBLIC_SITE_URL=https://oorjaman.com`, `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` (and/or `_IOS` / `_ANDROID`), `EXPO_PUBLIC_GOOGLE_MAPS_DIRECTIONS_API_KEY`, `EXPO_PUBLIC_EAS_PROJECT_ID`. **No** dummy-auth vars.
+- [ ] **Google Maps (tiles):** GCP → billing on → enable Maps SDK iOS/Android + Static API → **app-restricted** key for prod bundle IDs (+ Android release **SHA-1**) → EAS secret → **native rebuild** (not OTA).
+- [ ] **Google Directions (live tracking road route):** enable **Directions API** → create a **separate Directions-only** key (**no** iOS/Android app restriction; API restriction = Directions only) → set `EXPO_PUBLIC_GOOGLE_MAPS_DIRECTIONS_API_KEY` on **prod** EAS env (UAT alone is not enough) → rebuild customer app. Without this key, tracking falls back to OSRM / straight line. Details: `project-docs/DEPLOYMENT.md` §Google Maps.
 - [ ] **Push per Supabase project:** deploy push functions (see §4) **and** set Postgres `app.*_push_function_url` settings + `PUSH_DISPATCH_SECRET` on the **prod** project; register FCM/APNs creds for prod bundle IDs.
 - [ ] Prod builds: `eas build --profile production --platform all` (both apps) → `eas submit`.
 

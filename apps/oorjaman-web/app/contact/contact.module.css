@@ -1,0 +1,79 @@
+.grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .card,
+  .wideCard {
+    padding: 1.1rem 1.1rem 1.15rem;
+  }
+}
+
+.card {
+  padding: 1.35rem 1.35rem 1.4rem;
+  border: 1px solid var(--om-border);
+  border-radius: var(--om-radius);
+  background: var(--om-card);
+}
+
+.wideCard {
+  margin-top: 1.25rem;
+  padding: 1.35rem 1.35rem 1.4rem;
+  border: 1px solid var(--om-border);
+  border-radius: var(--om-radius);
+  background: var(--om-card);
+}
+
+.cardTitle {
+  margin: 0 0 0.65rem;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.line {
+  margin: 0;
+}
+
+.line + .line {
+  margin-top: 0.45rem;
+}
+
+.meta {
+  margin: 0.75rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--om-muted);
+}
+
+.social {
+  margin-top: 0.85rem;
+}
+
+.section {
+  margin-top: 2rem;
+}
+
+.entityName {
+  margin: 0 0 0.35rem;
+  font-weight: 700;
+}
+
+.entityMeta {
+  margin: 0.75rem 0 0;
+  font-size: 0.875rem;
+  color: var(--om-muted);
+  line-height: 1.55;
+}
+
+.footerLinks {
+  margin-top: 1.75rem;
+  font-size: 0.9375rem;
+}

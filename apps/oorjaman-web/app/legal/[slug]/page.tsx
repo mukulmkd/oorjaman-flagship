@@ -27,7 +27,7 @@ export default async function LegalSlugPage({ params }: Props) {
   if (!doc) notFound();
 
   return (
-    <MarketingPage title={doc.title} lead={doc.description} eyebrow="Legal">
+    <MarketingPage title={doc.title} lead={doc.description} eyebrow="Legal" closingCta={false}>
       <LegalDocumentView doc={doc} hideTitle />
     </MarketingPage>
   );

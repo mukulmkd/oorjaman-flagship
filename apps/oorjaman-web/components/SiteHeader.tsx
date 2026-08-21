@@ -9,13 +9,16 @@ import styles from "./site-header.module.css";
 
 const NAV = [
   { href: "/how-it-works", label: "How it works" },
-  { href: "/services/panel-cleaning", label: "Services", matchPrefix: "/services" },
+  { href: "/services/panel-cleaning", label: "Panel cleaning", matchPrefix: "/services/panel-cleaning" },
+  { href: "/services/amc-maintenance", label: "AMC", matchPrefix: "/services/amc" },
   { href: "/pricing", label: "Pricing" },
+  { href: "/safety", label: "Safety & quality", matchPrefix: "/safety" },
+  { href: "/download", label: "App" },
+  { href: "/for-businesses", label: "Businesses & societies", matchPrefix: "/for-business" },
   ...(showVisitStories ? [{ href: "/stories", label: "Stories", matchPrefix: "/stories" }] : []),
   ...(showCityCoverage ? [{ href: "/cities", label: "Cities", matchPrefix: "/cities" }] : []),
-  { href: "/safety", label: "Safety" },
-  { href: "/faq", label: "FAQ" },
   { href: "/partners", label: "Partners" },
+  { href: "/contact", label: "Contact" },
 ];
 
 function pathMatches(pathname: string, href: string, matchPrefix?: string): boolean {
@@ -40,73 +43,94 @@ export function SiteHeader() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
   }, [open]);
 
-  return (
-    <header className={styles.header}>
-      <div className={`om-container ${styles.inner}`}>
-        <BrandLogo priority />
-
-        <button
-          type="button"
-          className={styles.menuButton}
-          aria-label={open ? "Close menu" : "Open menu"}
-          aria-expanded={open}
-          aria-controls="site-menu"
-          onClick={() => setOpen((v) => !v)}
+  function renderNavLinks(keyPrefix: string) {
+    return NAV.map((item) => {
+      const active = pathMatches(pathname, item.href, item.matchPrefix);
+      return (
+        <Link
+          key={`${keyPrefix}-${item.href}`}
+          href={item.href}
+          className={`${styles.navLink}${active ? ` ${styles.navLinkActive}` : ""}`}
+          aria-current={active ? "page" : undefined}
+          onClick={close}
+          tabIndex={keyPrefix === "drawer" && !open ? -1 : undefined}
         >
-          <span className={styles.menuIcon} data-open={open} aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </span>
-        </button>
+          {item.label}
+        </Link>
+      );
+    });
+  }
 
-        <nav id="site-menu" className={styles.nav} data-open={open} aria-label="Main">
-          {NAV.map((item) => {
-            const active = pathMatches(pathname, item.href, item.matchPrefix);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`${styles.navLink}${active ? ` ${styles.navLinkActive}` : ""}`}
-                aria-current={active ? "page" : undefined}
-                onClick={close}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-          <div className={styles.menuActions}>
-            <Link
-              href="/contact"
-              className={`${styles.navLink}${pathMatches(pathname, "/contact") ? ` ${styles.navLinkActive}` : ""}`}
-              aria-current={pathMatches(pathname, "/contact") ? "page" : undefined}
-              onClick={close}
-            >
-              Contact
-            </Link>
-            <Link href="/download" className="om-btn om-btn--primary" onClick={close}>
-              Get the app
+  return (
+    <>
+      <header className={styles.header}>
+        <div className={`om-container ${styles.inner}`}>
+          <BrandLogo priority />
+
+          <button
+            type="button"
+            className={styles.menuButton}
+            aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
+            aria-controls="site-menu-drawer"
+            onClick={() => setOpen((v) => !v)}
+          >
+            <span className={styles.menuIcon} data-open={open} aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+          </button>
+
+          <nav className={styles.navDesktop} aria-label="Main">
+            {renderNavLinks("desktop")}
+          </nav>
+
+          <div className={styles.actions}>
+            <Link href="/download" className="om-btn om-btn--primary">
+              Book now
             </Link>
           </div>
-        </nav>
+        </div>
+      </header>
 
-        <div className={styles.actions}>
+      <button
+        type="button"
+        className={styles.backdrop}
+        data-open={open}
+        aria-label="Close menu"
+        tabIndex={open ? 0 : -1}
+        onClick={close}
+      />
+      <nav
+        id="site-menu-drawer"
+        className={styles.navDrawer}
+        data-open={open}
+        aria-label="Main"
+        aria-hidden={!open}
+        inert={!open ? true : undefined}
+      >
+        {renderNavLinks("drawer")}
+        <div className={styles.menuActions}>
           <Link
-            href="/contact"
-            className={`${styles.navLink}${pathMatches(pathname, "/contact") ? ` ${styles.navLinkActive}` : ""}`}
-            aria-current={pathMatches(pathname, "/contact") ? "page" : undefined}
+            href="/download"
+            className="om-btn om-btn--primary"
+            onClick={close}
+            tabIndex={!open ? -1 : undefined}
           >
-            Contact
-          </Link>
-          <Link href="/download" className="om-btn om-btn--primary">
-            Get the app
+            Book now
           </Link>
         </div>
-      </div>
-    </header>
+      </nav>
+    </>
   );
 }

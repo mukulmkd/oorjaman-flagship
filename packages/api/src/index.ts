@@ -193,6 +193,19 @@ export {
   isBookingGpsTrackable,
   type CustomerBookingTechnicianProfile,
 } from "./bookings/customer-technician-profile";
+export {
+  bookingLiveTrackPhase,
+  bookingLiveTrackPhaseLabel,
+  bookingShowsPortalLiveStatusCard,
+  bookingShowsPortalLiveTrack,
+  buildGoogleMapsDirectionsUrl,
+  buildGoogleMapsPinUrl,
+  buildOsmEmbedTrackUrl,
+  portalTrackDistanceKm,
+  serviceSiteCoordsFromBookingAddress,
+  type BookingLiveTrackPhase,
+  type PortalTrackCoords,
+} from "./bookings/booking-live-track";
 export * from "./bookings/vendor-fallback";
 export {
   DEFAULT_VENDOR_PLATFORM_FEE_PERCENT,
