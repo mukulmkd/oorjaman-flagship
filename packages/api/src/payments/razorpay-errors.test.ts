@@ -1,7 +1,6 @@
 /**
  * Lightweight unit tests for Razorpay error normalization (Node test runner).
  * Run: node --experimental-strip-types --test packages/api/src/payments/razorpay-errors.test.ts
- * Or: npx tsx --test packages/api/src/payments/razorpay-errors.test.ts
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";

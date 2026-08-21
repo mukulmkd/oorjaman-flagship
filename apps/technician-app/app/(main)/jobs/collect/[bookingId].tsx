@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   Alert,
   Image,
@@ -41,7 +41,11 @@ export default function PostpaidCollectScreen() {
   const qc = useQueryClient();
   const [linkUrl, setLinkUrl] = useState<string | null>(null);
 
-  useModalStackHeader({ title: "Collect payment" });
+  const modalHeader = useModalStackHeader({
+    title: "Collect payment",
+    onClose: () => router.back(),
+    closeAccessibilityLabel: "Close collect payment",
+  });
 
   const bookingQuery = useQuery({
     queryKey: queryKeys.bookings.detail(bookingId ?? ""),
@@ -57,10 +61,7 @@ export default function PostpaidCollectScreen() {
   });
 
   const booking = bookingQuery.data;
-  const paid = useMemo(
-    () => (paymentsQuery.data ?? []).some((p) => p.status === "success"),
-    [paymentsQuery.data],
-  );
+  const paid = (paymentsQuery.data ?? []).some((p) => p.status === "success");
   const amountPaise = Math.max(
     0,
     booking?.final_price_cents ?? booking?.estimated_price_cents ?? 0,
@@ -115,7 +116,8 @@ export default function PostpaidCollectScreen() {
 
   if (bookingQuery.isLoading) {
     return (
-      <Screen edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER} style={styles.screen}>
+      <Screen edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+        {modalHeader}
         <SkeletonStack />
       </Screen>
     );
@@ -123,7 +125,8 @@ export default function PostpaidCollectScreen() {
 
   if (bookingQuery.isError || !booking) {
     return (
-      <Screen edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER} style={styles.screen}>
+      <Screen edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+        {modalHeader}
         <ErrorStateCard
           title="Booking unavailable"
           message={(bookingQuery.error as Error | null)?.message ?? "Not found"}
@@ -135,7 +138,8 @@ export default function PostpaidCollectScreen() {
 
   if (booking.payment_timing !== "postpaid") {
     return (
-      <Screen edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER} style={styles.screen}>
+      <Screen edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+        {modalHeader}
         <Card padded>
           <Text style={styles.body}>This visit was prepaid — no collection step needed.</Text>
           <Button variant="primary" onPress={() => router.replace("/(main)/jobs")}>
@@ -148,7 +152,8 @@ export default function PostpaidCollectScreen() {
 
   if (paid) {
     return (
-      <Screen edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER} style={styles.screen}>
+      <Screen edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+        {modalHeader}
         <Card padded>
           <Text style={styles.title}>Payment complete</Text>
           <Text style={styles.body}>This visit is paid. You can leave the site.</Text>
@@ -161,7 +166,8 @@ export default function PostpaidCollectScreen() {
   }
 
   return (
-    <Screen edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER} style={styles.screen}>
+    <Screen edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+      {modalHeader}
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.title}>Collect {formatInrFromCents(amountPaise)}</Text>
         <Text style={styles.body}>
@@ -169,50 +175,54 @@ export default function PostpaidCollectScreen() {
           partner cash/UPI, record partner collected — do not charge them again.
         </Text>
 
-        <Card padded style={styles.card}>
-          <Button
-            variant="primary"
-            loading={createLinkMut.isPending}
-            onPress={() => void createLinkMut.mutateAsync()}
-          >
-            {linkUrl ? "Refresh payment QR / link" : "Generate Razorpay QR / link"}
-          </Button>
+        <Card padded>
+          <View style={styles.cardBody}>
+            <Button
+              variant="primary"
+              loading={createLinkMut.isPending}
+              onPress={() => void createLinkMut.mutateAsync()}
+            >
+              {linkUrl ? "Refresh payment QR / link" : "Generate Razorpay QR / link"}
+            </Button>
 
-          {linkUrl ? (
-            <View style={styles.qrBlock}>
-              <Image source={{ uri: qrImageUrl(linkUrl) }} style={styles.qr} accessibilityLabel="Payment QR" />
-              <Pressable onPress={() => void Linking.openURL(linkUrl)}>
-                <Text style={styles.link}>{linkUrl}</Text>
-              </Pressable>
-              <Button variant="secondary" onPress={() => void shareLink()}>
-                Share link
-              </Button>
-            </View>
-          ) : null}
+            {linkUrl ? (
+              <View style={styles.qrBlock}>
+                <Image source={{ uri: qrImageUrl(linkUrl) }} style={styles.qr} accessibilityLabel="Payment QR" />
+                <Pressable onPress={() => void Linking.openURL(linkUrl)}>
+                  <Text style={styles.link}>{linkUrl}</Text>
+                </Pressable>
+                <Button variant="secondary" onPress={() => void shareLink()}>
+                  Share link
+                </Button>
+              </View>
+            ) : null}
+          </View>
         </Card>
 
-        <Card padded style={styles.card}>
-          <Text style={styles.section}>Already paid partner?</Text>
-          <Text style={styles.body}>
-            Use only if customer paid cash or the vendor/technician UPI. Settlement will treat this as partner-held
-            funds; OorjaMan fee is collected on vendor settlement.
-          </Text>
-          <Button
-            variant="outline"
-            loading={partnerMut.isPending}
-            onPress={() => {
-              Alert.alert(
-                "Confirm partner collection",
-                `Mark ${formatInrFromCents(amountPaise)} as collected by partner?`,
-                [
-                  { text: "Cancel", style: "cancel" },
-                  { text: "Confirm", onPress: () => void partnerMut.mutateAsync() },
-                ],
-              );
-            }}
-          >
-            Mark partner collected
-          </Button>
+        <Card padded>
+          <View style={styles.cardBody}>
+            <Text style={styles.section}>Already paid partner?</Text>
+            <Text style={styles.body}>
+              Use only if customer paid cash or the vendor/technician UPI. Settlement will treat this as partner-held
+              funds; OorjaMan fee is collected on vendor settlement.
+            </Text>
+            <Button
+              variant="outline"
+              loading={partnerMut.isPending}
+              onPress={() => {
+                Alert.alert(
+                  "Confirm partner collection",
+                  `Mark ${formatInrFromCents(amountPaise)} as collected by partner?`,
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Confirm", onPress: () => void partnerMut.mutateAsync() },
+                  ],
+                );
+              }}
+            >
+              Mark partner collected
+            </Button>
+          </View>
         </Card>
 
         <Button variant="ghost" onPress={() => router.replace("/(main)/jobs")}>
@@ -224,7 +234,6 @@ export default function PostpaidCollectScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
   title: {
     fontFamily: fontFamily.semiBold,
@@ -244,7 +253,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: spacing.sm,
   },
-  card: { gap: spacing.sm },
+  cardBody: { gap: spacing.sm },
   qrBlock: { alignItems: "center", gap: spacing.sm, marginTop: spacing.md },
   qr: { width: 220, height: 220, backgroundColor: colors.card },
   link: {

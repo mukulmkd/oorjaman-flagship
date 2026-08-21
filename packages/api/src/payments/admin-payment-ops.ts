@@ -202,9 +202,3 @@ export function adminPaymentStatusTone(
       return "neutral";
   }
 }
-
-/** Soft require for callers. */
-export function requireAdminPayment(row: AdminPaymentListRow | null): AdminPaymentListRow {
-  if (!row) throw new Error("Payment not found");
-  return row;
-}
