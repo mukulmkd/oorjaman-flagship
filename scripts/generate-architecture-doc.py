@@ -272,7 +272,7 @@ def add_applications(doc: Document) -> None:
             ["Partner display name", "OorjaMan Partner", "OorjaMan Partner (UAT)"],
             ["iOS bundle (customer)", "com.oorjaman.customer", "com.oorjaman.customer.uat"],
             ["Deep link scheme", "oorjaman-customer", "oorjaman-customer-uat"],
-            ["Env file (embedded builds)", ".env.production.local", "env/uat.local"],
+            ["Env file (embedded builds)", ".env.production.local", ".env.uat.local"],
         ],
     )
 
@@ -781,7 +781,7 @@ def add_environments(doc: Document) -> None:
         ["Tier", "Web env files", "Mobile env files", "Notes"],
         [
             ["Local dev", "apps/*/.env.development.local", "apps/*/.env.development.local", "Dummy auth typical"],
-            ["UAT", "apps/*/.env.uat.local + Vercel Dashboard", "apps/*/env/uat.local (embedded in APK)", "Vercel portals + UAT Supabase"],
+            ["UAT", "apps/*/.env.uat.local + Vercel Dashboard", "apps/*/.env.uat.local (embedded in APK)", "Vercel portals + UAT Supabase"],
             ["Production", "apps/*/.env.production.local", "apps/*/.env.production.local", "Real auth, Prod Supabase"],
         ],
     )

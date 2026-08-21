@@ -16,7 +16,7 @@ Catalog of **root** and **mobile app** `package.json` scripts: what each does, w
 
 **Dev env:** `expo run:*` and `*:rebuild` use `apps/<app>/.env.development.local`.
 
-**UAT APK / EAS:** `android:apk:*` and `eas:android:uat:*` load `apps/<app>/env/uat.local` via `scripts/run-with-expo-env.mjs`. **iOS QA:** `ios:uat:*` / `eas:ios:uat:*` — see [docs/ios-qa-distribution.md](../docs/ios-qa-distribution.md).
+**UAT APK / EAS:** `android:apk:*` and `eas:android:uat:*` load `apps/<app>/.env.uat.local` via `scripts/run-with-expo-env.mjs`. **iOS QA:** `ios:uat:*` / `eas:ios:uat:*` — see [docs/ios-qa-distribution.md](../docs/ios-qa-distribution.md).
 
 **Native folders:** `apps/*/ios/` and `apps/*/android/` are generated (gitignored). Regenerate with `*:rebuild` or `prebuild:android` / `ios:rebuild`, not by hand-editing.
 

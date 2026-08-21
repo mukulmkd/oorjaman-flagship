@@ -9,6 +9,25 @@ export type ServiceAddressSaveExtras = {
   location_accuracy_m?: number | null;
 };
 
+/** GPS patch for customer row when an address with coordinates is selected or saved. */
+export function extrasFromAddressEntry(
+  entry: ServiceAddressEntry | null | undefined,
+): ServiceAddressSaveExtras | undefined {
+  if (
+    entry?.service_lat == null ||
+    entry?.service_lng == null ||
+    !Number.isFinite(entry.service_lat) ||
+    !Number.isFinite(entry.service_lng)
+  ) {
+    return undefined;
+  }
+  return {
+    service_lat: entry.service_lat,
+    service_lng: entry.service_lng,
+    location_accuracy_m: entry.location_accuracy_m ?? null,
+  };
+}
+
 export type ServiceAddressEntry = {
   id: string;
   label: string;
@@ -257,4 +276,42 @@ export function buildAddressBookPatch(
     metadata: meta as Json,
     service_default_address,
   };
+}
+
+export type ServiceDestinationCoords = {
+  latitude: number;
+  longitude: number;
+};
+
+/** Saved service-site GPS for maps / tracking (address book entry, then customer columns). */
+export function resolveServiceDestinationCoords(
+  customer: CustomerRow | null | undefined,
+  serviceAddressId?: string | null,
+): ServiceDestinationCoords | null {
+  if (!customer) return null;
+
+  const book = readServiceAddressBook(customer);
+  const addrId = serviceAddressId?.trim() || book.defaultId || book.entries[0]?.id || null;
+  if (addrId) {
+    const entry = book.entries.find((e) => e.id === addrId);
+    if (
+      entry?.service_lat != null &&
+      entry?.service_lng != null &&
+      Number.isFinite(entry.service_lat) &&
+      Number.isFinite(entry.service_lng)
+    ) {
+      return { latitude: entry.service_lat, longitude: entry.service_lng };
+    }
+  }
+
+  if (
+    customer.service_lat != null &&
+    customer.service_lng != null &&
+    Number.isFinite(customer.service_lat) &&
+    Number.isFinite(customer.service_lng)
+  ) {
+    return { latitude: customer.service_lat, longitude: customer.service_lng };
+  }
+
+  return null;
 }

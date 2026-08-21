@@ -42,17 +42,17 @@ All need **Android Studio** (SDK + platform tools) and **JDK 17**.
 
 `EXPO_PUBLIC_*` values are baked into the JS bundle when Gradle runs.
 
-**Expo mobile apps use `env/uat.local`** for UAT APK / EAS builds (not `.env.uat.local` in the app root — that filename breaks Metro dev). Repo scripts use [`scripts/run-with-expo-env.mjs`](../scripts/run-with-expo-env.mjs).
+**Expo mobile apps use `.env.uat.local`** at the app root (same pattern as web portals). Repo scripts use [`scripts/run-with-expo-env.mjs`](../scripts/run-with-expo-env.mjs). Metro dev uses `.env.development.local` only — Expo does not load `.env.uat.local` during `expo start`.
 
 Per app:
 
 ```bash
-cp apps/customer-app/env/uat.local.example apps/customer-app/env/uat.local
-cp apps/technician-app/env/uat.local.example apps/technician-app/env/uat.local
-# Edit with your UAT Supabase URL, anon key, and Vercel portal URLs
+cp apps/customer-app/.env.uat.example apps/customer-app/.env.uat.local
+cp apps/technician-app/.env.uat.example apps/technician-app/.env.uat.local
+# Edit with your UAT Supabase URL, anon key, and portal URLs
 ```
 
-Minimum in each `apps/<app>/env/uat.local`:
+Minimum in each `apps/<app>/.env.uat.local`:
 
 ```env
 EXPO_PUBLIC_DEPLOY_ENV=uat
@@ -67,14 +67,14 @@ EXPO_PUBLIC_DUMMY_AUTH_PASSWORD=TestOtp123!
 | File | Used by |
 |------|---------|
 | `apps/<app>/.env.development.local` | **Local Metro** (`npm run customer`, iOS Simulator) |
-| `apps/<app>/env/uat.local` | **UAT APK / EAS** (via `run-with-expo-env.mjs`) |
-| `apps/<app>/.env.production.local` | **Production** native builds (or auto-synced from `env/uat.local` for UAT APK scripts) |
+| `apps/<app>/.env.uat.local` | **UAT APK / EAS** (via `run-with-expo-env.mjs`) |
+| `apps/<app>/.env.production.local` | **Production** native builds (or auto-synced from `.env.uat.local` for UAT APK scripts) |
 
 **Repo root** `.env.uat.local` is only for scripts (`npm run seed:dummy-users`) — not for mobile builds.
 
-**Important:** UAT APK scripts sync `apps/<app>/env/uat.local` → `.env.production.local` before Gradle runs. Release bundles read `.env.production.local` (because `NODE_ENV=production`). If you only edited `env/uat.local` but had placeholder values in `.env.production.local`, login will fail until you rebuild with the sync in place.
+**Important:** UAT APK scripts sync `apps/<app>/.env.uat.local` → `.env.production.local` before Gradle runs. Release bundles read `.env.production.local` (because `NODE_ENV=production`). If you only edited `.env.uat.local` but had placeholder values in `.env.production.local`, login will fail until you rebuild with the sync in place.
 
-**Metro / localhost dev** uses `apps/<app>/.env.development.local` only. Do not keep `apps/<app>/.env.uat.local` in the app root.
+**Metro / localhost dev** uses `apps/<app>/.env.development.local` only.
 
 ---
 
@@ -204,7 +204,7 @@ node ../../scripts/run-with-expo-env.mjs customer-app "npx eas-cli build --profi
 
 Or from repo root: `npm run eas:android:uat:local:customer`
 
-Requires `npx eas-cli login`. Loads env from `apps/customer-app/env/uat.local`.
+Requires `npx eas-cli login`. Loads env from `apps/customer-app/.env.uat.local`.
 
 ---
 
@@ -241,7 +241,7 @@ APK paths are in **Path A** (release) and **Path B** (debug).
 | Stale icons | `npm run android:rebuild` or `npm run android:apk:uat:*` |
 | `expo run:android` wants emulator | That command installs on a device — use `npm run android:apk:uat:*` for sharing APKs |
 | **Unable to load script** / Metro on device | You installed a **debug** APK (`app-debug.apk`). Rebuild with `npm run android:apk:uat:customer` and install `app-release.apk` |
-| Supabase env missing after install | Rebuild with `npm run android:apk:uat:customer` (uses `app-release.apk`). Env is baked in at bundle time from `env/uat.local` via `.env.production.local` |
+| Supabase env missing after install | Rebuild with `npm run android:apk:uat:customer` (uses `app-release.apk`). Env is baked in at bundle time from `.env.uat.local` via `.env.production.local` |
 | Emulator low disk | Not needed for APK builds; only if you use `expo run:android` for dev |
 | `BuildConfig` / `com.oorjaman.customer` compile error | Stale `app.json` `android.package` conflicted with UAT `app.config.ts` — fixed; run `npm run android:apk:debug:customer` (prebuild uses `--clean`) |
 | `BuildConfig` / `com.oorjamanpartneruat` (technician) | Stale Gradle autolinking cache — `npm run android:clear-autolinking -- technician-app` then rebuild (APK scripts clear this automatically) |

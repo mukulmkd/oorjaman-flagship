@@ -38,6 +38,7 @@ import {
   readBookingCustomerCancellationMeta,
   readBookingOpsMeta,
   readBookingRecipientMeta,
+  readServiceAddressIdFromBookingMetadata,
   technicianApi,
   userApi,
   vendorResponseDeadline,
@@ -66,7 +67,9 @@ import {
   isBookingAwaitingOorjamanPartnerAssignment,
 } from "../lib/booking-partner-messaging";
 import { AssignedTechnicianCard } from "../components/assigned-technician-card";
+import { LiveTechnicianTrackCard } from "../components/live-technician-track-card";
 import { supabase } from "../lib/supabase";
+import { resolveServiceDestinationCoords } from "../lib/service-address-book";
 import {
   formatDisplayDate,
   formatDisplayDateTime,
@@ -429,7 +432,7 @@ export default function BookingDetailScreen() {
     }
     if (bucket === "accepted") {
       if (b.status === "in_progress") return "Your technician is on site and working on your visit.";
-      if (b.technician_en_route_at) return "Your technician is on the way. Open the map below to track their trip.";
+      if (b.technician_en_route_at) return "Your technician is on the way — live ETA and map update below.";
       if (b.technician_id) return "Your technician is assigned. You will see their details here when they head to your site.";
       return "Your slot is locked in - watch here for technician assignment and arrival.";
     }
@@ -439,7 +442,15 @@ export default function BookingDetailScreen() {
   }, [b]);
 
   const showTrack = Boolean(b && isBookingGpsTrackable(b));
-  const showTechnicianProfile = bookingShowsTechnicianProfile(b);
+  const showTechnicianProfile = bookingShowsTechnicianProfile(b) && !showTrack;
+
+  const destinationCoords = useMemo(() => {
+    if (!b) return null;
+    const c = customerQuery.data;
+    if (!c || c.id !== b.customer_id) return null;
+    const addrId = readServiceAddressIdFromBookingMetadata(b.metadata);
+    return resolveServiceDestinationCoords(c, addrId);
+  }, [b, customerQuery.data]);
 
   const vendorSla = useMemo(() => {
     if (!b || b.status !== "confirmed") return null;
@@ -691,6 +702,19 @@ export default function BookingDetailScreen() {
             </View>
           ) : null}
 
+          {showTrack ? (
+            <View style={styles.section}>
+              <LiveTechnicianTrackCard
+                bookingId={b.id}
+                referenceCode={b.reference_code}
+                scheduledStart={b.scheduled_start}
+                destinationCoords={destinationCoords}
+                liveUpdatesEnabled
+                onExpandMap={() => router.push({ pathname: "/booking-track", params: { id: b.id } })}
+              />
+            </View>
+          ) : null}
+
           {showTechnicianProfile ? (
             <View style={styles.section}>
               <AssignedTechnicianCard
@@ -698,26 +722,6 @@ export default function BookingDetailScreen() {
                 enRouteAt={b.technician_en_route_at}
                 status={b.status}
               />
-            </View>
-          ) : null}
-
-          {showTrack ? (
-            <View style={styles.section}>
-              <Card variant="elevated" padded>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Open track technician map"
-                  onPress={() => router.push({ pathname: "/booking-track", params: { id: b.id } })}
-                  style={({ pressed }) => [styles.trackBtn, pressed && styles.trackBtnPressed]}
-                >
-                  <Text style={styles.trackBtnTitle}>Track technician</Text>
-                  <Text style={styles.trackBtnHint}>
-                    {b.technician_en_route_at
-                      ? "Live map refreshes every few seconds while they are en route"
-                      : "Map opens when your technician marks themselves en route"}
-                  </Text>
-                </Pressable>
-              </Card>
             </View>
           ) : null}
 
@@ -1087,23 +1091,6 @@ const styles = StyleSheet.create({
   },
   helpSpaced: {
     marginBottom: spacing.md,
-  },
-  trackBtn: {
-    paddingVertical: spacing.xs,
-  },
-  trackBtnPressed: {
-    opacity: 0.85,
-  },
-  trackBtnTitle: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: fontSize.md,
-    color: colors.primary,
-  },
-  trackBtnHint: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.mutedForeground,
-    marginTop: spacing["3xs"],
   },
   ratingRow: {
     flexDirection: "row",

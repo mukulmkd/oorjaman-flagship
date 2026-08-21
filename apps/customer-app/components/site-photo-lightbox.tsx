@@ -15,10 +15,13 @@ import { spacing } from "@oorjaman/config";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { openGoogleMapsInBrowser } from "../lib/google-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SitePhotoStampFooter } from "./site-photo-stamp-footer";
 
 export type SitePhotoViewerItem = SitePhotoWithSignedUrl & {
   /** Local file URI for optimistic preview right after capture. */
   local_uri?: string | null;
+  /** Optional address label from profile when captured. */
+  site_label?: string | null;
 };
 
 function viewerUri(item: SitePhotoViewerItem): string | null {
@@ -91,21 +94,36 @@ export function SitePhotoLightbox({ photos, visible, initialIndex, onClose }: Pr
           {loadError ? (
             <Text style={styles.errorText}>Could not load this photo.</Text>
           ) : (
-            <Image
-              key={`${photo.id}:${uri}`}
-              source={{ uri }}
-              style={styles.fullImage}
-              resizeMode="contain"
-              onLoadStart={() => {
-                setLoading(true);
-                setLoadError(false);
-              }}
-              onLoad={() => setLoading(false)}
-              onError={() => {
-                setLoading(false);
-                setLoadError(true);
-              }}
-            />
+            <View style={styles.photoFrame}>
+              <Image
+                key={`${photo.id}:${uri}`}
+                source={{ uri }}
+                style={styles.fullImage}
+                resizeMode="contain"
+                onLoadStart={() => {
+                  setLoading(true);
+                  setLoadError(false);
+                }}
+                onLoad={() => setLoading(false)}
+                onError={() => {
+                  setLoading(false);
+                  setLoadError(true);
+                }}
+              />
+              <View style={styles.stampOverlay} pointerEvents="none">
+                <SitePhotoStampFooter
+                  data={{
+                    geo: {
+                      lat: photo.lat,
+                      lng: photo.lng,
+                      accuracy_m: photo.accuracy_m ?? null,
+                    },
+                    capturedAt: photo.captured_at,
+                    siteLabel: photo.site_label,
+                  }}
+                />
+              </View>
+            </View>
           )}
         </View>
 
@@ -116,10 +134,7 @@ export function SitePhotoLightbox({ photos, visible, initialIndex, onClose }: Pr
             onPress={() => void openGoogleMapsInBrowser(photo.lat, photo.lng)}
             style={({ pressed }) => [styles.coordsPress, pressed && styles.coordsPressed]}
           >
-            <Text style={styles.coords}>
-              {photo.lat.toFixed(5)}, {photo.lng.toFixed(5)}
-            </Text>
-            <Text style={styles.coordsHint}>Open in Google Maps</Text>
+            <Text style={styles.coordsHint}>Open location in Google Maps</Text>
           </Pressable>
         </View>
 
@@ -175,9 +190,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  fullImage: {
+  photoFrame: {
     width: "100%",
     height: "100%",
+    justifyContent: "flex-end",
+    overflow: "hidden",
+    borderRadius: 8,
+  },
+  fullImage: {
+    ...StyleSheet.absoluteFill,
+  },
+  stampOverlay: {
+    width: "100%",
   },
   errorText: {
     fontFamily: fontFamily.regular,
@@ -198,16 +222,11 @@ const styles = StyleSheet.create({
   coordsPressed: {
     opacity: 0.88,
   },
-  coords: {
+  coordsHint: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
-    color: "#fff",
+    color: "rgba(255,255,255,0.85)",
     textDecorationLine: "underline",
-  },
-  coordsHint: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: "rgba(255,255,255,0.75)",
   },
   navBtn: {
     position: "absolute",

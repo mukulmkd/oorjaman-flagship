@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -18,9 +18,10 @@ import {
 import { colors, spacing } from "@oorjaman/config";
 import { Button, Card, Input, ModalSheetHeader } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
-import { fillAddressFromCurrentLocation } from "../lib/fill-address-from-gps";
+import { fillAddressFromCurrentLocation, type GpsAddressFill } from "../lib/fill-address-from-gps";
 import {
   serviceAddressFormatted,
+  extrasFromAddressEntry,
   type ServiceAddressEntry,
   type ServiceAddressSaveExtras,
 } from "../lib/service-address-book";
@@ -96,32 +97,68 @@ function ServiceAddressPickerSheetBody({
   const onEntryPress = async (entryId: string) => {
     if (saving) return;
     setAdding(false);
-    await commit(draftEntries, entryId, undefined);
+    const entry = draftEntries.find((e) => e.id === entryId);
+    await commit(draftEntries, entryId, extrasFromAddressEntry(entry));
   };
 
-  const onUseCurrentLocation = async () => {
-    setGpsBusy(true);
-    try {
-      const r = await fillAddressFromCurrentLocation();
-      if (!r) {
-        Alert.alert("Permission needed", "Allow location so we can fill your address from GPS.");
-        return;
+  const applyGpsFill = useCallback((r: GpsAddressFill) => {
+    setLine1(r.line1);
+    setLine2(r.line2);
+    setCity(r.city);
+    setState(r.state);
+    setPincode(r.pincode);
+    setGpsExtras({
+      service_lat: r.lat,
+      service_lng: r.lng,
+      location_accuracy_m: r.accuracyM,
+    });
+  }, []);
+
+  const runCurrentLocationFill = useCallback(
+    async (opts?: { showErrors?: boolean }) => {
+      const showErrors = opts?.showErrors === true;
+      setGpsBusy(true);
+      try {
+        const r = await fillAddressFromCurrentLocation({ quiet: !showErrors });
+        if (!r) {
+          if (showErrors) {
+            Alert.alert(
+              "Permission needed",
+              "Allow location access when prompted so we can fill your address from GPS, or enable it for OorjaMan in Settings.",
+            );
+          }
+          return;
+        }
+        applyGpsFill(r);
+      } catch (e: unknown) {
+        if (showErrors) {
+          Alert.alert("Location error", e instanceof Error ? e.message : "Could not read GPS.");
+        }
+      } finally {
+        setGpsBusy(false);
       }
-      setLine1(r.line1);
-      setLine2(r.line2);
-      setCity(r.city);
-      setState(r.state);
-      setPincode(r.pincode);
-      setGpsExtras({
-        service_lat: r.lat,
-        service_lng: r.lng,
-        location_accuracy_m: r.accuracyM,
-      });
-    } catch (e: unknown) {
-      Alert.alert("Location error", e instanceof Error ? e.message : "Could not read GPS.");
-    } finally {
-      setGpsBusy(false);
-    }
+    },
+    [applyGpsFill],
+  );
+
+  const beginAdding = useCallback(() => {
+    setLabel("");
+    setLine1("");
+    setLine2("");
+    setCity("");
+    setState("");
+    setPincode("");
+    setGpsExtras(null);
+    setAdding(true);
+  }, []);
+
+  useEffect(() => {
+    if (!visible || !adding) return;
+    void runCurrentLocationFill({ showErrors: false });
+  }, [adding, visible, runCurrentLocationFill]);
+
+  const onUseCurrentLocation = () => {
+    void runCurrentLocationFill({ showErrors: true });
   };
 
   return (
@@ -145,7 +182,7 @@ function ServiceAddressPickerSheetBody({
           title="Select service location"
           subtitle={
             draftEntries.length === 0
-              ? "Add your site address or use current location, then you can continue."
+              ? "We’ll pre-fill from your current GPS. Review the fields, add a label, then save."
               : undefined
           }
           onClose={onClose}
@@ -181,8 +218,8 @@ function ServiceAddressPickerSheetBody({
 
           {adding ? (
             <Card variant="muted" padded>
-              <Button variant="outline" size="md" loading={gpsBusy} onPress={() => void onUseCurrentLocation()}>
-                Use current location
+              <Button variant="outline" size="md" loading={gpsBusy} onPress={onUseCurrentLocation}>
+                {gpsBusy ? "Reading location…" : "Refresh from current location"}
               </Button>
               <View style={styles.gap} />
               <Input label="Address label *" value={label} onChangeText={setLabel} placeholder="e.g. Home rooftop, Factory" />
@@ -236,6 +273,17 @@ function ServiceAddressPickerSheetBody({
                       label: trimmedLabel,
                       address,
                       created_at: new Date().toISOString(),
+                      ...(gpsExtras?.service_lat != null &&
+                      gpsExtras?.service_lng != null &&
+                      Number.isFinite(gpsExtras.service_lat) &&
+                      Number.isFinite(gpsExtras.service_lng)
+                        ? {
+                            service_lat: gpsExtras.service_lat,
+                            service_lng: gpsExtras.service_lng,
+                            location_accuracy_m: gpsExtras.location_accuracy_m ?? null,
+                            location_recorded_at: new Date().toISOString(),
+                          }
+                        : {}),
                     };
                     const wasEmpty = draftEntries.length === 0;
                     const nextEntries = [...draftEntries, next];
@@ -248,10 +296,9 @@ function ServiceAddressPickerSheetBody({
                     setState("");
                     setPincode("");
                     const extras = gpsExtras ?? undefined;
+                    setGpsExtras(null);
                     if (wasEmpty) {
                       void commit(nextEntries, next.id, extras);
-                    } else {
-                      setGpsExtras(null);
                     }
                   }}
                 >
@@ -272,7 +319,7 @@ function ServiceAddressPickerSheetBody({
               </View>
             </Card>
           ) : (
-            <Button variant="outline" size="md" onPress={() => setAdding(true)}>
+            <Button variant="outline" size="md" onPress={beginAdding}>
               {draftEntries.length === 0 ? "Add address" : "Add another address"}
             </Button>
           )}

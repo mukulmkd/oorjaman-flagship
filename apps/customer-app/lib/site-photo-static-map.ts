@@ -1,9 +1,14 @@
 import { File, Paths } from "expo-file-system";
 import { buildGoogleStaticMapImageUrl, buildOpenStreetMapStaticUrl, buildOpenStreetMapTileUrl } from "./google-maps";
 
-async function downloadMapImage(url: string, dest: string): Promise<string | null> {
+async function downloadMapImage(url: string, dest: string, timeoutMs = 10_000): Promise<string | null> {
   try {
-    const result = await File.downloadFileAsync(url, new File(dest));
+    const result = await Promise.race([
+      File.downloadFileAsync(url, new File(dest)),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Map download timeout")), timeoutMs),
+      ),
+    ]);
     if (result.exists && (result.size ?? 0) > 500) {
       return result.uri;
     }

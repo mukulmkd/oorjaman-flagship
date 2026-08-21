@@ -25,11 +25,13 @@ import { colors, spacing } from "@oorjaman/config";
 import { Button } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { uploadCustomerSitePhotoFromUri } from "../lib/customer-site-photo-upload";
+import { ensureForegroundLocationAccess } from "../lib/location-access";
 import { openGoogleMapsInBrowser } from "../lib/google-maps";
 import { promptSitePhotoSource } from "../lib/site-photo-source-prompt";
 import type { ServiceAddressEntry } from "../lib/service-address-book";
 import { supabase } from "../lib/supabase";
 import { SitePhotoLightbox, type SitePhotoViewerItem } from "./site-photo-lightbox";
+import { SitePhotoStampFooter } from "./site-photo-stamp-footer";
 import { useSitePhotoStamp } from "./site-photo-stamp-provider";
 
 const EMPTY_SITE_PHOTOS: SitePhotoRecord[] = [];
@@ -145,6 +147,13 @@ export function SitePhotoGallerySection({
       return;
     }
 
+    const locationAccess = await ensureForegroundLocationAccess({
+      settingsTitle: "Location required for site photos",
+      settingsMessage:
+        "Site photos need GPS for the map stamp. Allow location access when prompted, or enable it for OorjaMan in Settings.",
+    });
+    if (!locationAccess.ok) return;
+
     const source = await promptSitePhotoSource();
     if (!source) return;
 
@@ -163,6 +172,7 @@ export function SitePhotoGallerySection({
         source: pick.source,
         signed_url: null,
         local_uri: pick.uri,
+        site_label: addressLabel,
       };
       setDisplay((prev) => [...prev, optimistic]);
 
@@ -315,7 +325,23 @@ export function SitePhotoGallerySection({
                   style={({ pressed }) => [styles.thumbPress, pressed && styles.thumbPressed]}
                 >
                   {thumbUri ? (
-                    <Image source={{ uri: thumbUri }} style={styles.thumb} />
+                    <View style={styles.thumbFrame}>
+                      <Image source={{ uri: thumbUri }} style={styles.thumb} />
+                      <View style={styles.thumbStamp} pointerEvents="none">
+                        <SitePhotoStampFooter
+                          compact
+                          data={{
+                            geo: {
+                              lat: p.lat,
+                              lng: p.lng,
+                              accuracy_m: p.accuracy_m ?? null,
+                            },
+                            capturedAt: p.captured_at,
+                            siteLabel: p.site_label,
+                          }}
+                        />
+                      </View>
+                    </View>
                   ) : (
                     <View style={[styles.thumb, styles.thumbMissing]}>
                       <Text style={styles.thumbMissingText}>{missing ? "Missing" : "…"}</Text>
@@ -326,16 +352,6 @@ export function SitePhotoGallerySection({
                       <Text style={styles.tapHint}>View</Text>
                     </View>
                   ) : null}
-                </Pressable>
-                <Pressable
-                  accessibilityRole="link"
-                  accessibilityLabel={`Open ${p.lat.toFixed(4)}, ${p.lng.toFixed(4)} in Google Maps`}
-                  onPress={() => void openGoogleMapsInBrowser(p.lat, p.lng)}
-                  style={({ pressed }) => [pressed && styles.coordsPressed]}
-                >
-                  <Text style={styles.thumbMeta} numberOfLines={1}>
-                    {p.lat.toFixed(4)}, {p.lng.toFixed(4)}
-                  </Text>
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
@@ -463,6 +479,18 @@ const styles = StyleSheet.create({
     width: 140,
     height: 100,
     backgroundColor: colors.muted,
+  },
+  thumbFrame: {
+    width: 140,
+    overflow: "hidden",
+    borderRadius: 12,
+    backgroundColor: colors.muted,
+  },
+  thumbStamp: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   thumbPressed: {
     opacity: 0.92,
