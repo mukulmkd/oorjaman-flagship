@@ -17,9 +17,27 @@ Customer checkout uses **Razorpay Standard Checkout** for one-time visits and AM
    - `refund.*` → `payment_refunds` + payment `refund_pending` / `partially_refunded` / `refunded` / `refund_failed`
 6. App shows **confirming** UI + polls until terminal status (authorized alone is not terminal success).
 
+### Auto refunds (cancellation)
+
+OorjaMan calls Edge Function **`create-razorpay-refund`**, which creates the refund at Razorpay; webhooks still finalize `processed` / `failed`.
+
+**Partner decline / cancel does not refund.** Vendor reject and vendor cancel-after-accept both return the visit to ops for reassignment (possibly to another partner). A Razorpay refund runs only when the **customer** cancels, or when **admin** gives up and cancels because no partner can fulfill.
+
+| Trigger | Refund amount |
+|---------|----------------|
+| Customer cancel within grace (or before technician assigned) | Full remaining |
+| Customer late cancel (after 1h post-assignment) | `remaining − late_fee_paise` (platform setting) |
+| Vendor **reject** (confirmed, within response window) | **No** refund — booking stays `confirmed`, unassigned for ops |
+| Vendor **Cancel & reassign** (after accept) | **No** refund — booking stays live for reassignment |
+| Admin **Cancel + refund** (no partner available) | Full remaining, or net late fee if ops checks the box |
+| Admin **Initiate refund** (Finance → Payments) | Full remaining or explicit amount |
+| Postpaid / unpaid / AMC contract cancel | **No** gateway refund in v1 |
+
+Cancel always succeeds even if Razorpay refund fails; `metadata.refund_attempt` records the outcome for ops retry.
+
 **Booking status is independent of payment status.**
 
-Domain helpers: `@oorjaman/api` → `razorpay-status`, `razorpay-errors`.  
+Domain helpers: `@oorjaman/api` → `razorpay-status`, `razorpay-errors`, `refund-api`.  
 UAT matrix + **Test mode cards / error cards**: [RAZORPAY-UAT-MATRIX.md](RAZORPAY-UAT-MATRIX.md).
 
 If `EXPO_PUBLIC_RAZORPAY_KEY_ID` is **unset**, the customer app keeps the **Simulate gateway** buttons.
@@ -55,6 +73,7 @@ Migrations:
 ```bash
 npm run functions:deploy -- create-razorpay-order
 npm run functions:deploy -- verify-razorpay-payment
+npm run functions:deploy -- create-razorpay-refund
 npm run functions:deploy -- razorpay-webhook --no-verify-jwt
 ```
 
@@ -98,7 +117,9 @@ Migration: `20260821220000_postpaid_one_time.sql`. Redeploy `create-razorpay-ord
 
 ## Admin ops
 
-Admin web → **Finance → Payments** (`/dashboard/finance/payments`): filterable payment list, detail modal with Razorpay IDs, attempts, refunds, and failure diagnostics (no secrets/card data). Booking actions also link “View payments for this booking”.
+Admin web → **Finance → Payments** (`/dashboard/finance/payments`): filterable payment list, detail modal with Razorpay IDs, attempts, refunds, **Initiate refund**, and failure diagnostics (no secrets/card data). Booking actions also link “View payments for this booking”.
+
+Admin web → **Bookings** monitoring: **Cancel booking + refund** for `pending_payment` / `confirmed` / `accepted` rows.
 
 - Clients cannot set Razorpay payments to `success` (RLS).
 - No secrets in client bundles.

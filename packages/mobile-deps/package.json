@@ -8,7 +8,9 @@
     "typecheck": "node -e \"process.exit(0)\""
   },
   "dependencies": {
+    "@babel/core": "^7.26.0",
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
+    "@expo/image-utils": "~0.9.0",
     "@expo/vector-icons": "^15.1.1",
     "@oorjaman/api": "*",
     "@oorjaman/config": "*",
@@ -17,7 +19,9 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "@shopify/flash-list": "2.0.2",
     "@tanstack/react-query": "^5.90.12",
-    "expo": "~57.0.11",
+    "@types/react": "~19.2.14",
+    "babel-preset-expo": "~57.0.0",
+    "expo": "~57.0.16",
     "expo-build-properties": "~57.0.9",
     "expo-constants": "~57.0.9",
     "expo-device": "~57.0.1",
@@ -26,7 +30,9 @@
     "expo-location": "~57.0.8",
     "expo-network": "~57.0.1",
     "expo-notifications": "~57.0.9",
+    "expo-print": "~57.0.1",
     "expo-router": "~57.0.11",
+    "expo-sharing": "~57.0.2",
     "expo-splash-screen": "~57.0.5",
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.2",
@@ -38,10 +44,6 @@
     "react-native-screens": "~4.26.0",
     "react-native-url-polyfill": "^3.0.0",
     "react-native-web": "^0.21.0",
-    "@babel/core": "^7.26.0",
-    "@expo/image-utils": "~0.9.0",
-    "@types/react": "~19.2.14",
-    "babel-preset-expo": "~57.0.0",
     "typescript": "~6.0.3"
   }
 }

@@ -31,6 +31,10 @@ export const RATE_LIMIT_PROFILES = {
   "process-notification-events": { max: 60, windowSeconds: 60 } satisfies RateLimitProfile,
   /** Customer creates Razorpay order (checkout). */
   "create-razorpay-order": { max: 30, windowSeconds: 60 } satisfies RateLimitProfile,
+  /** Customer / vendor / admin initiates Razorpay refund. */
+  "create-razorpay-refund": { max: 20, windowSeconds: 60 } satisfies RateLimitProfile,
+  /** Checkout verify callback. */
+  "verify-razorpay-payment": { max: 60, windowSeconds: 60 } satisfies RateLimitProfile,
 } as const;
 
 export type EdgeFunctionName = keyof typeof RATE_LIMIT_PROFILES;

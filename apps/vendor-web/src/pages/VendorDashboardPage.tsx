@@ -12,6 +12,7 @@ import {
   inviteFullNameForTechnician,
   listVendorJobReports,
   listVendorPayments,
+  normalizePhoneE164,
   queryKeys,
   readBookingCustomerCancellationMeta,
   readBookingOpsMeta,
@@ -550,7 +551,7 @@ export default function VendorDashboardPage() {
     mutationFn: async () =>
       technicianApi.vendorInviteTechnician(supabase!, {
         full_name: inviteName.trim() || undefined,
-        invite_phone_e164: invitePhone.trim(),
+        invite_phone_e164: normalizePhoneE164(invitePhone.trim()),
         invite_email: inviteEmail.trim() || undefined,
         channels: ["email", "sms", "whatsapp"],
       }),
@@ -1907,7 +1908,8 @@ export default function VendorDashboardPage() {
         }
       >
         <p style={{ margin: "0 0 0.75rem", fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)" }}>
-          This removes your assignment and sends the booking back to Oorjaman operations for reassignment.
+          This removes your assignment and sends the booking back to OorjaMan operations for reassignment.
+          The customer is not refunded — ops will try another partner. Refunds happen only if ops cannot place the job.
         </p>
         <TextArea
           label="Reason"
@@ -2007,6 +2009,10 @@ export default function VendorDashboardPage() {
             : undefined
         }
       >
+        <p style={{ margin: "0 0 0.75rem", fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)", lineHeight: 1.45 }}>
+          Rejecting returns this visit to OorjaMan operations so they can assign another partner.
+          The customer is <strong>not</strong> refunded at this step. A refund is issued only if ops cannot place the job with any partner.
+        </p>
         <TextArea
           label="Reason"
           required

@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   adminGetPaymentOpsDetail,
+  adminInitiatePaymentRefund,
   adminListPayments,
   adminPaymentStatusLabel,
   adminPaymentStatusTone,
   formatInrFromPaise,
+  isRefundableRazorpayPayment,
   queryKeys,
+  remainingRefundablePaise,
   type PaymentStatus,
 } from "@oorjaman/api";
 import { formatDisplayDateTime } from "@oorjaman/utils";
@@ -46,6 +49,7 @@ function mono(value: string | null | undefined): string {
 
 export function PaymentsOpsPage() {
   const supabase = useSupabase();
+  const qc = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const bookingIdFromUrl = searchParams.get("booking_id")?.trim() || "";
   const paymentIdFromUrl = searchParams.get("payment_id")?.trim() || "";
@@ -56,6 +60,9 @@ export function PaymentsOpsPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(paymentIdFromUrl || null);
+  const [refundAmountRupees, setRefundAmountRupees] = useState("");
+  const [refundReason, setRefundReason] = useState("");
+  const [refundNotice, setRefundNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (paymentIdFromUrl) setSelectedPaymentId(paymentIdFromUrl);
@@ -86,6 +93,46 @@ export function PaymentsOpsPage() {
     enabled: Boolean(supabase && selectedPaymentId),
   });
 
+  const refundMut = useMutation({
+    mutationFn: async () => {
+      if (!supabase || !selectedPaymentId) throw new Error("Payment not ready.");
+      const current = detailQuery.data?.payment;
+      if (!current) throw new Error("Payment not ready.");
+      const remaining = remainingRefundablePaise(current);
+      const trimmed = refundAmountRupees.replace(/,/g, "").trim();
+      let amountPaise: number | undefined;
+      if (trimmed) {
+        const rupees = Number(trimmed);
+        if (!Number.isFinite(rupees) || rupees <= 0) {
+          throw new Error("Enter a positive refund amount in rupees, or leave blank for full remaining.");
+        }
+        amountPaise = Math.round(rupees * 100);
+        if (amountPaise > remaining) {
+          throw new Error(`Amount exceeds remaining ${formatInrFromPaise(remaining)}.`);
+        }
+      }
+      return adminInitiatePaymentRefund(supabase, {
+        paymentId: selectedPaymentId,
+        amountPaise,
+        reason: refundReason.trim() || "Admin-initiated refund",
+      });
+    },
+    onSuccess: async (result) => {
+      setRefundNotice(
+        result.status === "already_refunded"
+          ? "Payment was already fully refunded."
+          : `Refund of ${formatInrFromPaise(result.amountPaise)} initiated. Webhook will mark it processed.`,
+      );
+      setRefundAmountRupees("");
+      setRefundReason("");
+      await qc.invalidateQueries({ queryKey: queryKeys.payments.adminDetail(selectedPaymentId ?? "") });
+      await qc.invalidateQueries({ queryKey: queryKeys.payments.adminList(filtersKey) });
+    },
+    onError: (e: unknown) => {
+      setRefundNotice(e instanceof Error ? e.message : "Refund failed.");
+    },
+  });
+
   const rows = listQuery.data ?? [];
   const pageRows = useMemo(
     () => rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
@@ -100,6 +147,9 @@ export function PaymentsOpsPage() {
 
   const closeDetail = () => {
     setSelectedPaymentId(null);
+    setRefundAmountRupees("");
+    setRefundReason("");
+    setRefundNotice(null);
     if (paymentIdFromUrl) {
       const next = new URLSearchParams(searchParams);
       next.delete("payment_id");
@@ -109,6 +159,7 @@ export function PaymentsOpsPage() {
 
   const detail = detailQuery.data;
   const pay = detail?.payment;
+  const canInitiateRefund = pay ? isRefundableRazorpayPayment(pay) : false;
 
   return (
     <div className="dash-page pay-ops-page">
@@ -431,6 +482,53 @@ export function PaymentsOpsPage() {
 
             <section className="pay-ops-section">
               <h3 className="pay-ops-section-title">Refunds</h3>
+              {canInitiateRefund ? (
+                <div style={{ marginBottom: "1rem" }}>
+                  <p className="dash-muted-line" style={{ marginBottom: "0.75rem" }}>
+                    Remaining refundable: {formatInrFromPaise(remainingRefundablePaise(pay!))}. Leave amount blank to
+                    refund the full remaining balance.
+                  </p>
+                  <label className="pay-ops-field" style={{ display: "block", marginBottom: "0.5rem" }}>
+                    <span>Amount (₹, optional)</span>
+                    <input
+                      className="web-input"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="Full remaining"
+                      value={refundAmountRupees}
+                      onChange={(e) => setRefundAmountRupees(e.target.value)}
+                    />
+                  </label>
+                  <label className="pay-ops-field" style={{ display: "block", marginBottom: "0.75rem" }}>
+                    <span>Reason</span>
+                    <textarea
+                      className="web-input"
+                      rows={2}
+                      value={refundReason}
+                      onChange={(e) => setRefundReason(e.target.value)}
+                      placeholder="Admin-initiated refund"
+                    />
+                  </label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="danger"
+                    loading={refundMut.isPending}
+                    disabled={refundMut.isPending}
+                    onClick={() => {
+                      setRefundNotice(null);
+                      void refundMut.mutateAsync();
+                    }}
+                  >
+                    Initiate refund
+                  </Button>
+                  {refundNotice ? (
+                    <p className="dash-muted-line" style={{ marginTop: "0.5rem" }}>
+                      {refundNotice}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
               {(detail.refunds?.length ?? 0) === 0 ? (
                 <p className="dash-muted-line">No refunds recorded.</p>
               ) : (

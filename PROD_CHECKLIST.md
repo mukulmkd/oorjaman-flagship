@@ -88,6 +88,7 @@ Link PROD, then `npm run functions:deploy -- <name>`:
 - [x] `process-notification-events`
 - [ ] **Razorpay (Live):** `create-razorpay-order`
 - [ ] **Razorpay (Live):** `verify-razorpay-payment`
+- [ ] **Razorpay (Live):** `create-razorpay-refund`
 - [ ] **Razorpay (Live):** `razorpay-webhook` with **`--no-verify-jwt`** (Razorpay cannot send Supabase JWT)
 - [ ] Prod dashboard secrets: `PUSH_DISPATCH_SECRET`, cron dispatch secret, service-role (as used), **`CORS_ALLOWED_ORIGINS`** (SECURITY_REVIEW L2 — pin to real portal origins; unset = `*`).
 - [ ] Prod Razorpay Edge secrets (see §11a): `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` (**live** values — never Test keys on Prod).
@@ -102,10 +103,13 @@ Runbook: `project-docs/DEPLOYMENT.md` §Auth, `project-docs/SECURITY-VERCEL.md`,
 
 - [ ] Auth → URL config: production redirect URLs (`https://oorjaman.com`, portal subdomains) + Vercel UAT if still used.
 - [ ] **Real SMS/OTP provider** configured with prod credentials + rate limits (no dummy).
+  - **Local/UAT:** `EXPO_PUBLIC_USE_DUMMY_AUTH=true` / `VITE_USE_DUMMY_AUTH=true` → Email + Mobile tabs; both accept dummy OTP **123456** (no SMS/email sent). Seeded users: `npm run seed:dummy-users` (Auth email = display email, e.g. `priya.sharma@oorjaman.in`).
+  - **Prod (customer + technician apps, admin / vendor / support portals):** dummy hard-disabled → **Email OTP only** (Resend/custom SMTP); **Mobile OTP Coming soon**.
 - [x] **Auth → Rate Limits** reviewed on UAT (defaults kept; IP forwarding Off). Re-check PROD when real SMS OTP goes live — `project-docs/RATE-LIMITING.md` §B.
 - [ ] Verify dummy auth OFF in prod (hard-disabled in code by `resolveDummyAuthSettings()` when `DEPLOY_ENV=production` — SECURITY_REVIEW H1 — but confirm env).
-- [ ] **Supabase Auth email templates (prod)** — branded, no dummy domain.
+- [ ] **Supabase Auth email templates (prod)** — Magic Link template must include `{{ .Token }}` for Email OTP; branded sender via custom SMTP when ready.
 - [ ] Do **not** run `npm run seed:dummy-users` against prod.
+- [ ] **Portal staff accounts (prod):** create real Auth users with emails for admin / support / vendor; Email OTP must land in those inboxes.
 
 ### CAPTCHA — defer until real OTP (do **not** enable while dummy auth is in use)
 
@@ -191,11 +195,11 @@ Your remaining actions for §7a:
 
 Runbook: `project-docs/DEPLOYMENT.md`, `project-docs/VERCEL.md`, `project-docs/SECURITY-VERCEL.md`
 
-- [ ] **Decide prod host:** keep on **Vercel with custom domains** (`admin/vendor/support.oorjaman.com`) **or** move to **GoDaddy** 8-host layout.
-- [ ] DNS/SSL for the three subdomains; SPA routing (`vercel.json` rewrites on Vercel, or `.htaccess` on GoDaddy).
-- [ ] Rebuild with prod `VITE_*` (prod Supabase URL + anon; `VITE_*_PORTAL_URL` → real subdomains; **no** dummy-auth vars).
-- [ ] **Host security headers** present in prod (the `vercel.json` header set, or GoDaddy `.htaccess` equivalent) — SECURITY-VERCEL.md.
-- [ ] Optional: Vercel Deployment Protection if any portal should not be public.
+- [x] **Decide prod host:** **GoDaddy** 8-host layout (`admin` / `vendor` / `support.oorjaman.com`). UAT stays on Vercel for now.
+- [ ] DNS/SSL for the three subdomains; SPA routing via `apps/*/public/.htaccess` (copied into `dist/` on build).
+- [ ] Rebuild with prod `VITE_*` (prod Supabase URL + anon; `VITE_*_PORTAL_URL` → real subdomains; **no** dummy-auth vars). Upload zips from `dist-godaddy/` (gitignored).
+- [ ] **Host security headers** present in prod (`.htaccess` mirrors `vercel.json`: `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`) — SECURITY-VERCEL.md.
+- [ ] Optional: Vercel Deployment Protection if any UAT portal should not be public.
 
 ---
 
@@ -265,11 +269,13 @@ Runbook: [project-docs/RAZORPAY.md](project-docs/RAZORPAY.md). Do **not** reuse 
 # link PROD project first
 npm run functions:deploy -- create-razorpay-order
 npm run functions:deploy -- verify-razorpay-payment
+npm run functions:deploy -- create-razorpay-refund
 npm run functions:deploy -- razorpay-webhook --no-verify-jwt
 ```
 
 - [ ] Deploy `create-razorpay-order` to PROD.
 - [ ] Deploy `verify-razorpay-payment` to PROD.
+- [ ] Deploy `create-razorpay-refund` to PROD.
 - [ ] Deploy `razorpay-webhook` to PROD with **`--no-verify-jwt`**.
 
 #### Webhook (Live Dashboard → PROD URL)
@@ -298,7 +304,7 @@ npm run functions:deploy -- razorpay-webhook --no-verify-jwt
 - [ ] Prepaid one-time: Pay now → Checkout → capture → Confirming → Booking confirmed + How you paid.
 - [ ] One deliberate Live failure / cancel → Try again; booking not wrongly confirmed.
 - [ ] AMC pay (if AMC live at launch) with Live Checkout.
-- [ ] Refund smoke (partial or full) from Dashboard → OorjaMan payment moves to refund family statuses.
+- [ ] Refund smoke: auto-refund on customer cancel (grace = full) + admin **Initiate refund** / **Cancel + refund**; payment moves to refund family statuses via webhook.
 - [ ] Confirm authorized-only is **never** treated as paid until capture.
 
 #### Security (must stay true on Prod)

@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
@@ -12,6 +12,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
@@ -26,7 +27,7 @@ import {
 } from "@oorjaman/api";
 import type { Json, TechnicianDocKind, TechnicianRow, VendorRow } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
-import { AppScaffold, Button, Input, Screen, SCREEN_EDGES_FULL_SCREEN } from "@oorjaman/ui";
+import { Button, Input, KeyboardFormScreen, Screen, SCREEN_EDGES_FULL_SCREEN } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
 import {
   allOnboardingSafetyAcksChecked,
@@ -34,6 +35,7 @@ import {
   ONBOARDING_SAFETY_ACKS,
   type OnboardingSafetyAckKey,
 } from "../lib/onboarding-safety-acks";
+import { pickJobEvidenceImageUri } from "../lib/job-evidence-picker";
 import { supabase } from "../lib/supabase";
 import { navigateToTechnicianMainAfterApproval } from "../lib/technician-approval-toast";
 
@@ -313,6 +315,7 @@ function existingDocPath(row: TechnicianRow | null | undefined, kind: Technician
 }
 
 export default function TechnicianOnboardingScreen() {
+  const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormFields>(() => emptyForm());
@@ -332,6 +335,14 @@ export default function TechnicianOnboardingScreen() {
     },
     enabled: Boolean(supabase),
   });
+
+  const signInPhoneQuery = useQuery({
+    queryKey: [...queryKeys.users.me(), "sign-in-phone"] as const,
+    queryFn: () => userApi.getMySignInPhoneE164(supabase!),
+    enabled: Boolean(supabase),
+  });
+
+  const signInPhone = signInPhoneQuery.data?.trim() || "";
 
   const techQuery = useQuery({
     queryKey: queryKeys.technicians.me(),
@@ -379,7 +390,7 @@ export default function TechnicianOnboardingScreen() {
             withOnboardingPersonalPhone(
               { ...emptyForm(), ...(formRaw as FormFields) },
               tech.personal_phone,
-              userQuery.data?.phone,
+              signInPhone,
               invite?.invite_phone_e164,
             ),
           );
@@ -394,7 +405,7 @@ export default function TechnicianOnboardingScreen() {
       withOnboardingPersonalPhone(
         techToForm(tech),
         tech.personal_phone,
-        userQuery.data?.phone,
+        signInPhone,
         invite?.invite_phone_e164,
       ),
     );
@@ -403,7 +414,7 @@ export default function TechnicianOnboardingScreen() {
     tech?.verification_status,
     tech?.metadata,
     tech?.personal_phone,
-    userQuery.data?.phone,
+    signInPhone,
     invite?.invite_phone_e164,
   ]);
 
@@ -415,12 +426,12 @@ export default function TechnicianOnboardingScreen() {
   useEffect(() => {
     const personal_phone = resolveOnboardingPersonalPhone(
       tech?.personal_phone,
-      userQuery.data?.phone,
+      signInPhone,
       invite?.invite_phone_e164,
     );
     if (!personal_phone) return;
     setForm((f) => (f.personal_phone === personal_phone ? f : { ...f, personal_phone }));
-  }, [tech?.personal_phone, userQuery.data?.phone, invite?.invite_phone_e164]);
+  }, [tech?.personal_phone, signInPhone, invite?.invite_phone_e164]);
 
   const employerVendorId = form.vendor_id.trim() || lockedVendorId || tech?.vendor_id?.trim() || "";
   const employerVendor = useMemo(
@@ -443,6 +454,22 @@ export default function TechnicianOnboardingScreen() {
       ...d,
       [kind]: { uri: a.uri, name: a.name ?? "document", mime: a.mimeType ?? null },
     }));
+  }, []);
+
+  const takePassportPhoto = useCallback(async () => {
+    try {
+      const uri = await pickJobEvidenceImageUri({
+        source: "camera",
+        cameraType: ImagePicker.CameraType.front,
+      });
+      if (!uri) return;
+      setDocs((d) => ({
+        ...d,
+        passport_photo: { uri, name: "passport-photo.jpg", mime: "image/jpeg" },
+      }));
+    } catch (e: unknown) {
+      Alert.alert("Photo failed", e instanceof Error ? e.message : "Could not capture photo.");
+    }
   }, []);
 
   const submitMut = useMutation({
@@ -522,7 +549,7 @@ export default function TechnicianOnboardingScreen() {
         throw new Error("Enter an 11-character IFSC code (letters and numbers, e.g. HDFC0001234).");
       }
 
-      const userPhone = userQuery.data?.phone?.trim() ?? "";
+      const userPhone = signInPhone || userQuery.data?.phone?.trim() || "";
 
       await technicianApi.submitTechnicianOnboarding(supabase, {
         vendor_id: form.vendor_id.trim(),
@@ -638,7 +665,7 @@ export default function TechnicianOnboardingScreen() {
     );
   }
 
-  if (userQuery.isPending || techQuery.isPending || vendorAccessQuery.isPending) {
+  if (userQuery.isPending || signInPhoneQuery.isPending || techQuery.isPending || vendorAccessQuery.isPending) {
     return (
       <Screen edges={SCREEN_EDGES_FULL_SCREEN}>
         <ActivityIndicator style={styles.loading} color={colors.primary} />
@@ -733,48 +760,20 @@ export default function TechnicianOnboardingScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.select({ ios: "padding", android: undefined })}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 72 : 0}
-    >
-      <AppScaffold
-        edges={SCREEN_EDGES_FULL_SCREEN}
-        header={
-          <>
-            <Text style={styles.title}>Partner onboarding</Text>
-            <Text style={styles.stepLabel}>
-              Step {step + 1} of {STEPS.length}: {STEPS[step]}
-            </Text>
-          </>
-        }
-        footer={
-          <View style={styles.navRow}>
-            {step > 0 ? (
-              <Button variant="outline" size="md" onPress={back}>
-                Back
-              </Button>
-            ) : (
-              <View style={styles.flexFill} />
-            )}
-            {step < STEPS.length - 1 ? (
-              <Button variant="primary" size="md" disabled={!canNext} onPress={next}>
-                Next
-              </Button>
-            ) : (
-              <Button
-                variant="primary"
-                size="md"
-                loading={submitMut.isPending}
-                disabled={submitMut.isPending || !bankStepReady}
-                onPress={() => void submitMut.mutateAsync()}
-              >
-                Submit profile
-              </Button>
-            )}
-          </View>
-        }
-      >
+    <Screen edges={SCREEN_EDGES_FULL_SCREEN} padded={false}>
+      <View style={styles.flex}>
+        <View style={styles.onboardingHeader}>
+          <Text style={styles.title}>Partner onboarding</Text>
+          <Text style={styles.stepLabel}>
+            Step {step + 1} of {STEPS.length}: {STEPS[step]}
+          </Text>
+        </View>
+
+        <KeyboardFormScreen
+          scrollToEndOnKeyboard
+          keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+          contentContainerStyle={styles.onboardingScrollContent}
+        >
 
         {tech?.verification_status === "rejected" && tech.verification_rejection_reason ? (
           <View style={styles.banner}>
@@ -907,10 +906,24 @@ export default function TechnicianOnboardingScreen() {
                   <Text style={styles.docMeta}>
                     {docs[kind]?.name ?? existingDocPath(tech, kind) ?? "No file"}
                   </Text>
+                  {kind === "passport_photo" ? (
+                    <Text style={styles.hint}>Use Take photo for a live selfie, or Choose file from your gallery.</Text>
+                  ) : null}
                 </View>
-                <Button variant="outline" size="sm" onPress={() => void pickDoc(kind)}>
-                  Choose
-                </Button>
+                {kind === "passport_photo" ? (
+                  <View style={styles.docActions}>
+                    <Button variant="outline" size="sm" onPress={() => void takePassportPhoto()}>
+                      Take photo
+                    </Button>
+                    <Button variant="outline" size="sm" onPress={() => void pickDoc(kind)}>
+                      Choose file
+                    </Button>
+                  </View>
+                ) : (
+                  <Button variant="outline" size="sm" onPress={() => void pickDoc(kind)}>
+                    Choose
+                  </Button>
+                )}
               </View>
             ))}
           </>
@@ -1090,8 +1103,36 @@ export default function TechnicianOnboardingScreen() {
             Sign out
           </Button>
         </View>
-      </AppScaffold>
-    </KeyboardAvoidingView>
+        </KeyboardFormScreen>
+
+        <View style={[styles.onboardingFooter, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+          <View style={styles.navRow}>
+            {step > 0 ? (
+              <Button variant="outline" size="md" onPress={back}>
+                Back
+              </Button>
+            ) : (
+              <View style={styles.flexFill} />
+            )}
+            {step < STEPS.length - 1 ? (
+              <Button variant="primary" size="md" disabled={!canNext} onPress={next}>
+                Next
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                size="md"
+                loading={submitMut.isPending}
+                disabled={submitMut.isPending || !bankStepReady}
+                onPress={() => void submitMut.mutateAsync()}
+              >
+                Submit profile
+              </Button>
+            )}
+          </View>
+        </View>
+      </View>
+    </Screen>
   );
 }
 
@@ -1247,6 +1288,26 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
+  onboardingHeader: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.background,
+  },
+  onboardingScrollContent: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    paddingBottom: spacing.xl,
+  },
+  onboardingFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.card,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+  },
   scroll: {
     paddingBottom: spacing.xl,
     gap: spacing.sm,
@@ -1360,6 +1421,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     marginBottom: spacing.md,
+  },
+  docActions: {
+    gap: spacing.xs,
+    alignItems: "flex-end",
   },
   sectionTitle: {
     fontFamily: fontFamily.semiBold,

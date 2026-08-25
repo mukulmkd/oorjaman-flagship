@@ -2,13 +2,13 @@
 export const OORJAMAN_GST_RATE_PERCENT = 18;
 
 export const OORJAMAN_ONE_TIME_VISIT_PRICES_INR: ReadonlyArray<{ kw: number; priceInr: number }> = [
-  { kw: 3, priceInr: 599 },
-  { kw: 4, priceInr: 699 },
-  { kw: 5, priceInr: 799 },
-  { kw: 6, priceInr: 899 },
-  { kw: 8, priceInr: 1099 },
-  { kw: 9, priceInr: 1199 },
-  { kw: 10, priceInr: 1299 },
+  { kw: 3, priceInr: 619 },
+  { kw: 4, priceInr: 719 },
+  { kw: 5, priceInr: 819 },
+  { kw: 6, priceInr: 929 },
+  { kw: 8, priceInr: 1129 },
+  { kw: 9, priceInr: 1229 },
+  { kw: 10, priceInr: 1339 },
 ];
 
 export type OorjamanAmcPublishedPlan = {
@@ -20,18 +20,18 @@ export type OorjamanAmcPublishedPlan = {
 };
 
 export const OORJAMAN_AMC_PLANS_INR: ReadonlyArray<OorjamanAmcPublishedPlan> = [
-  { kw: 3, spLabel: "SP-1", visitsLabel: "3 services in 1 year", listPriceInr: 1797, specialPriceInr: 1599 },
-  { kw: 3, spLabel: "SP-2", visitsLabel: "6 services in 2 years", listPriceInr: 3594, specialPriceInr: 3199 },
-  { kw: 4, spLabel: "SP-1", visitsLabel: "3 services in 1 year", listPriceInr: 2097, specialPriceInr: 1999 },
-  { kw: 4, spLabel: "SP-2", visitsLabel: "6 services in 2 years", listPriceInr: 4194, specialPriceInr: 3799 },
-  { kw: 5, spLabel: "SP-1", visitsLabel: "3 services in 1 year", listPriceInr: 2397, specialPriceInr: 2299 },
-  { kw: 5, spLabel: "SP-2", visitsLabel: "6 services in 2 years", listPriceInr: 4794, specialPriceInr: 4299 },
-  { kw: 6, spLabel: "SP-1", visitsLabel: "3 services in 1 year", listPriceInr: 2697, specialPriceInr: 2599 },
-  { kw: 6, spLabel: "SP-2", visitsLabel: "6 services in 2 years", listPriceInr: 5394, specialPriceInr: 4999 },
-  { kw: 8, spLabel: "SP-1", visitsLabel: "3 services in 1 year", listPriceInr: 3297, specialPriceInr: 2999 },
-  { kw: 8, spLabel: "SP-2", visitsLabel: "6 services in 2 years", listPriceInr: 6594, specialPriceInr: 5999 },
-  { kw: 10, spLabel: "SP-1", visitsLabel: "3 services in 1 year", listPriceInr: 3897, specialPriceInr: 3599 },
-  { kw: 10, spLabel: "SP-2", visitsLabel: "6 services in 2 years", listPriceInr: 7794, specialPriceInr: 7599 },
+  { kw: 3, spLabel: "SP-1", visitsLabel: "3 services in 1 year", listPriceInr: 1857, specialPriceInr: 1639 },
+  { kw: 3, spLabel: "SP-2", visitsLabel: "6 services in 2 years", listPriceInr: 3714, specialPriceInr: 3279 },
+  { kw: 4, spLabel: "SP-1", visitsLabel: "3 services in 1 year", listPriceInr: 2157, specialPriceInr: 2049 },
+  { kw: 4, spLabel: "SP-2", visitsLabel: "6 services in 2 years", listPriceInr: 4314, specialPriceInr: 3899 },
+  { kw: 5, spLabel: "SP-1", visitsLabel: "3 services in 1 year", listPriceInr: 2457, specialPriceInr: 2359 },
+  { kw: 5, spLabel: "SP-2", visitsLabel: "6 services in 2 years", listPriceInr: 4914, specialPriceInr: 4409 },
+  { kw: 6, spLabel: "SP-1", visitsLabel: "3 services in 1 year", listPriceInr: 2787, specialPriceInr: 2669 },
+  { kw: 6, spLabel: "SP-2", visitsLabel: "6 services in 2 years", listPriceInr: 5574, specialPriceInr: 5129 },
+  { kw: 8, spLabel: "SP-1", visitsLabel: "3 services in 1 year", listPriceInr: 3387, specialPriceInr: 3079 },
+  { kw: 8, spLabel: "SP-2", visitsLabel: "6 services in 2 years", listPriceInr: 6774, specialPriceInr: 6149 },
+  { kw: 10, spLabel: "SP-1", visitsLabel: "3 services in 1 year", listPriceInr: 4017, specialPriceInr: 3689 },
+  { kw: 10, spLabel: "SP-2", visitsLabel: "6 services in 2 years", listPriceInr: 8034, specialPriceInr: 7789 },
 ];
 
 export function formatInrWhole(amountInr: number): string {

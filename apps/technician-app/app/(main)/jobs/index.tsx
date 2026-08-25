@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { useQuery } from "@tanstack/react-query";
@@ -20,6 +20,7 @@ import { JobSegmentBar } from "../../../components/job-segment-bar";
 import { TabScreenHeader } from "../../../components/tab-screen-header";
 import {
   filterBookingsBySegment,
+  pickDefaultJobListSegment,
   sortBookingsForSegment,
   type JobListSegment,
 } from "../../../lib/job-list-filters";
@@ -35,6 +36,7 @@ function JobRowSkeleton() {
 
 export default function AssignedJobsScreen() {
   const [segment, setSegment] = useState<JobListSegment>("today");
+  const autoSegmentAppliedRef = useRef(false);
 
   const query = useQuery({
     queryKey: queryKeys.bookings.list({ scope: "technician-assigned" }),
@@ -43,6 +45,21 @@ export default function AssignedJobsScreen() {
   });
 
   const all = query.data ?? [];
+
+  useEffect(() => {
+    autoSegmentAppliedRef.current = false;
+  }, [query.dataUpdatedAt]);
+
+  useEffect(() => {
+    if (autoSegmentAppliedRef.current || query.isPending || all.length === 0) return;
+    if (filterBookingsBySegment(all, segment).length > 0) {
+      autoSegmentAppliedRef.current = true;
+      return;
+    }
+    const next = pickDefaultJobListSegment(all);
+    if (next !== segment) setSegment(next);
+    autoSegmentAppliedRef.current = true;
+  }, [all, query.isPending, segment]);
 
   const segmentCounts = useMemo(() => {
     const counts: Partial<Record<JobListSegment, number>> = {};
@@ -82,7 +99,7 @@ export default function AssignedJobsScreen() {
   const header = (
     <View style={styles.headerBlock}>
       <TabScreenHeader
-        lede="Filtered by visit timing. Open a job to start with the customer's Job Start Code."
+        lede="Today includes in-progress and overdue visits. Use Active, Upcoming, or Done if you do not see a job here."
         style={styles.headerInScaffold}
       />
       <View style={styles.segmentBleed}>
@@ -132,7 +149,11 @@ export default function AssignedJobsScreen() {
         >
           <EmptyStateCard
             title={`No ${segment} jobs`}
-            description="Try another filter or pull down to refresh after dispatch assigns a visit."
+            description={
+              all.length > 0
+                ? "This job may be under another filter — check Active, Upcoming, or Done. Pull down to refresh."
+                : "When dispatch assigns you a visit, it will appear here. Pull down to refresh."
+            }
           />
         </ScrollView>
       ) : (

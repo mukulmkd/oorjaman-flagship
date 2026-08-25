@@ -4,8 +4,11 @@ import { createBookingAsCustomer, type CreateBookingInput } from "../bookings/bo
 import { fundAmcWalletFromPayment } from "../finance/amc-wallet-api";
 import { emitAdminAmcAwaitingPartnerNotification } from "../notifications/amc-notifications";
 import { customerAbandonUnpaidCheckoutBooking } from "../bookings/booking-api";
-import { requireSessionUserId, SupabaseApiError, takeRows, takeSingleRow } from "../result";
+import { requireSessionUserId, SupabaseApiError, takeSingleRow } from "../result";
 import { isPaymentPaidDbStatus, isPaymentTerminalDbStatus } from "./razorpay-status";
+import { listPaymentsForBooking } from "./payment-queries";
+
+export { listPaymentsForBooking } from "./payment-queries";
 
 async function getCustomerIdForSession(client: SupabaseClient<Database>): Promise<string> {
   const { data: userData } = await client.auth.getUser();
@@ -57,19 +60,6 @@ export async function createPendingPayment(
     .select()
     .single();
   return takeSingleRow(data, error) as PaymentRow;
-}
-
-/** Payments linked to a booking (RLS: customer / vendor / admin). Newest first. */
-export async function listPaymentsForBooking(
-  client: SupabaseClient<Database>,
-  bookingId: string,
-): Promise<PaymentRow[]> {
-  const { data, error } = await client
-    .from("payments")
-    .select("*")
-    .eq("booking_id", bookingId)
-    .order("created_at", { ascending: false });
-  return takeRows(data, error) as PaymentRow[];
 }
 
 export async function getPaymentById(

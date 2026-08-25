@@ -4,19 +4,18 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Linking,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Redirect, router } from "expo-router";
 import { customerApi, queryKeys, userApi } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
-import { Button, FadeInView, Input, Screen, SCREEN_EDGES_FULL_SCREEN } from "@oorjaman/ui";
+import { Button, FadeInView, Input, KeyboardFormScreen, Screen, SCREEN_EDGES_FULL_SCREEN } from "@oorjaman/ui";
 import { Ionicons } from "@expo/vector-icons";
 import { fontFamily, fontSize } from "../constants/fonts";
 import {
@@ -35,6 +34,7 @@ import { supabase } from "../lib/supabase";
 const STEPS = ["About you", "Address", "Location", "Solar & site", "Safety & terms"] as const;
 
 export default function CustomerRegistrationScreen() {
+  const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const [step, setStep] = useState(0);
   const [displayName, setDisplayName] = useState("");
@@ -112,6 +112,12 @@ export default function CustomerRegistrationScreen() {
     }
   }, [customer?.id]);
 
+  useEffect(() => {
+    if (contactEmail.trim()) return;
+    const fromUser = userQuery.data?.email?.trim();
+    if (fromUser) setContactEmail(fromUser);
+  }, [userQuery.data?.email, contactEmail]);
+
   const wrongRole = userQuery.data && userQuery.data.role !== "customer";
 
   const submitMut = useMutation({
@@ -132,6 +138,9 @@ export default function CustomerRegistrationScreen() {
         throw new Error("Confirm all service terms to continue.");
       }
       if (!addr.label.trim()) throw new Error("Enter a short site label (e.g. Home, Factory).");
+      if (alternatePhone.replace(/\D/g, "").length < 10) {
+        throw new Error("Enter a 10-digit mobile number so crews can reach you.");
+      }
 
       let lastCleaningIso: string | null = null;
       const lc = lastCleaning.trim();
@@ -208,7 +217,9 @@ export default function CustomerRegistrationScreen() {
   }, []);
 
   const canNext = useMemo(() => {
-    if (step === 0) return displayName.trim().length > 0;
+    if (step === 0) {
+      return displayName.trim().length > 0 && alternatePhone.replace(/\D/g, "").length >= 10;
+    }
     if (step === 1)
       return (
         addr.label.trim().length > 0 &&
@@ -241,6 +252,7 @@ export default function CustomerRegistrationScreen() {
   }, [
     step,
     displayName,
+    alternatePhone,
     addr,
     capacity,
     panels,
@@ -297,13 +309,12 @@ export default function CustomerRegistrationScreen() {
   }
 
   return (
-    <Screen edges={SCREEN_EDGES_FULL_SCREEN}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.select({ ios: "padding", android: undefined })}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
+    <Screen edges={SCREEN_EDGES_FULL_SCREEN} padded={false}>
+      <KeyboardFormScreen
+        scrollToEndOnKeyboard
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+        contentContainerStyle={styles.scroll}
       >
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <Text style={styles.kicker}>Your solar site</Text>
           <Text style={styles.title}>Complete your profile</Text>
           <Text style={styles.lede}>A few steps so we can match the right crew and equipment.</Text>
@@ -325,20 +336,23 @@ export default function CustomerRegistrationScreen() {
               <>
                 <Field label="Full name *" value={displayName} onChangeText={setDisplayName} placeholder="As on utility bill" />
                 <Field
-                  label="Email (optional)"
+                  label="Email for booking updates (optional)"
                   value={contactEmail}
                   onChangeText={setContactEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  placeholder="For booking confirmations"
+                  placeholder="Confirmations and reminders"
                 />
                 <Field
-                  label="Alternate phone (optional)"
+                  label="Contact mobile *"
                   value={alternatePhone}
                   onChangeText={(t) => setAlternatePhone(t.replace(/\D/g, "").slice(0, 15))}
                   keyboardType="number-pad"
-                  placeholder="Backup contact for the visit"
+                  placeholder="10-digit number for visit contact"
                 />
+                <Text style={styles.fieldHint}>
+                  For crews and visit coordination. Sign-in stays on email OTP.
+                </Text>
               </>
             ) : null}
 
@@ -587,8 +601,7 @@ export default function CustomerRegistrationScreen() {
               </Button>
             )}
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardFormScreen>
     </Screen>
   );
 }
@@ -630,6 +643,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scroll: {
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
   },
   kicker: {
@@ -653,6 +667,14 @@ const styles = StyleSheet.create({
     color: colors.mutedForeground,
     marginTop: spacing.xs,
     marginBottom: spacing.md,
+  },
+  fieldHint: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+    color: colors.mutedForeground,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.sm,
   },
   progressTrack: {
     flexDirection: "row",

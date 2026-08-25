@@ -31,7 +31,8 @@ import {
 import { ModalHeaderSupportTrailing } from "../../../components/modal-header-support-trailing";
 import { fontFamily, fontSize } from "../../../constants/fonts";
 import { BookingSitePhotos } from "../../../components/booking-site-photos";
-import { ensureForegroundLocationEnabled } from "../../../lib/location-permission";
+import { ensureEnRouteLocationFix } from "../../../lib/location-permission";
+import { useForegroundLocationGranted } from "../../../lib/use-foreground-location-granted";
 import { openGoogleMapsForCoordinates } from "../../../lib/open-google-maps";
 import { supabase } from "../../../lib/supabase";
 import { formatDisplayDateTimeRange } from "@oorjaman/utils";
@@ -103,6 +104,7 @@ export default function JobDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string | string[] }>();
   const bookingId = Array.isArray(id) ? id[0] : id;
   const qc = useQueryClient();
+  const locationGranted = useForegroundLocationGranted();
 
   const query = useQuery({
     queryKey: bookingId ? queryKeys.bookings.detail(bookingId) : [],
@@ -122,7 +124,15 @@ export default function JobDetailScreen() {
   }, [b]);
 
   const enRouteMut = useMutation({
-    mutationFn: () => technicianApi.technicianMarkEnRoute(supabase!, bookingId!),
+    mutationFn: async (fix: { lat: number; lng: number; recordedAt: string }) => {
+      const row = await technicianApi.technicianMarkEnRoute(supabase!, bookingId!);
+      await technicianApi.recordTechnicianLocation(supabase!, {
+        lat: fix.lat,
+        lng: fix.lng,
+        recordedAt: fix.recordedAt,
+      });
+      return row;
+    },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.bookings.detail(bookingId!) });
       void qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
@@ -138,14 +148,22 @@ export default function JobDetailScreen() {
   });
 
   const handleEnRoute = useCallback(async () => {
-    const ok = await ensureForegroundLocationEnabled({
-      title: "Location required",
-      message:
-        "Turn on location before marking en route so the customer can track your trip to their site.",
-    });
-    if (!ok) return;
-    enRouteMut.mutate();
-  }, [enRouteMut]);
+    if (locationGranted === false) {
+      Alert.alert(
+        "Location required",
+        "Turn on location before marking en route so the customer can track your trip.",
+        [{ text: "OK" }],
+        { cancelable: false },
+      );
+      return;
+    }
+    const fix = await ensureEnRouteLocationFix();
+    if (!fix) return;
+    enRouteMut.mutate(fix);
+  }, [enRouteMut, locationGranted]);
+
+  const enRouteBlocked = locationGranted === false;
+  const enRouteChecking = locationGranted === null;
 
   const statusNote = useMemo(() => {
     if (!b) return undefined;
@@ -241,13 +259,13 @@ export default function JobDetailScreen() {
             <DetailSection title="Customer codes">
               <Text style={styles.bodyMuted}>
                 The customer sees these in their app. You will enter the Job Start Code when you begin the visit and the
-                Happy Code when you complete it.
+                Job finish code when you complete it.
               </Text>
               {serviceOtp.startCode ? (
                 <Text style={styles.meta}>Job Start Code is verified at visit start (not shown here).</Text>
               ) : null}
               {serviceOtp.happyCode ? (
-                <Text style={styles.meta}>Happy Code is required to submit completion.</Text>
+                <Text style={styles.meta}>Job finish code is required to submit completion.</Text>
               ) : null}
             </DetailSection>
           ) : null}
@@ -317,14 +335,23 @@ export default function JobDetailScreen() {
           {b.status === "accepted" || b.status === "in_progress" ? (
             <View style={styles.executeFooter}>
               {b.status === "accepted" && !b.technician_en_route_at ? (
-                <Button
-                  size="lg"
-                  variant="outline"
-                  loading={enRouteMut.isPending}
-                  onPress={() => void handleEnRoute()}
-                >
-                  En route to customer
-                </Button>
+                <>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    loading={enRouteMut.isPending || enRouteChecking}
+                    disabled={enRouteBlocked || enRouteMut.isPending || enRouteChecking}
+                    onPress={() => void handleEnRoute()}
+                  >
+                    En route to customer
+                  </Button>
+                  {enRouteBlocked ? (
+                    <Text style={styles.locationHint}>
+                      Location must be on before you can mark en route. Use the location prompt on the home
+                      screen or enable it in Settings.
+                    </Text>
+                  ) : null}
+                </>
               ) : null}
               {b.status === "accepted" && b.technician_en_route_at && siteCoords ? (
                 <Button
@@ -443,5 +470,12 @@ const styles = StyleSheet.create({
   mapsBtn: {
     marginTop: spacing.sm,
     alignSelf: "flex-start",
+  },
+  locationHint: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+    color: colors.mutedForeground,
+    textAlign: "center",
   },
 });

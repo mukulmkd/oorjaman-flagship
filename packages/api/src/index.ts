@@ -9,6 +9,8 @@ export { OFFLINE_SCREEN_MESSAGE, OFFLINE_SCREEN_TITLE } from "./connectivity";
 export * as authApi from "./auth/auth-api";
 export {
   clearInvalidStoredSession,
+  dummyAuthEmailCandidatesForPhone,
+  dummyAuthEmailForPhone,
   dummyEmailFromPhoneE164,
   isDummyAuthEmail,
   isInvalidRefreshTokenError,
@@ -37,7 +39,8 @@ export {
   type TechnicianAppPostAuthPath,
 } from "./auth/post-auth-routes";
 export * as userApi from "./users/user-api";
-export { resolvePortalSessionDisplay, loadPortalSessionDisplay, authPhoneFromUser, resolveSignInAccountPhone, resolveSignInAccountEmail } from "./users/session-display";
+export { resolvePortalSessionDisplay, authPhoneFromUser, resolveSignInAccountPhone, resolveSignInAccountEmail, resolveCustomerContactPhone } from "./users/session-display";
+export { loadPortalSessionDisplay } from "./users/portal-session";
 export * as vendorApi from "./vendors/vendor-api";
 export {
   createEmptyCoverageZone,
@@ -168,6 +171,7 @@ export {
   vendorCancelAcceptedBooking,
   vendorAcceptBookingRequest,
   vendorRejectBookingRequest,
+  adminCancelBookingWithRefund,
   vendorResponseDeadline,
   type BookingServiceOtpMeta,
   type BookingCustomerCancellationMeta,
@@ -513,6 +517,20 @@ export {
 export * as paymentApi from "./payments/payment-api";
 export * from "./payments/razorpay-status";
 export * from "./payments/razorpay-errors";
+export {
+  adminInitiatePaymentRefund,
+  computeCancelRefundPaise,
+  customerFacingRefundMessage,
+  estimateBookingCancelRefund,
+  findRefundableRazorpayPaymentForBooking,
+  initiateBookingPaymentRefund,
+  isRefundableRazorpayPayment,
+  readBookingRefundAttemptMeta,
+  remainingRefundablePaise,
+  type BookingRefundAttemptMeta,
+  type RefundAttemptResult,
+  type RefundAttemptStatus,
+} from "./payments/refund-api";
 export {
   adminGetPaymentById,
   adminGetPaymentOpsDetail,

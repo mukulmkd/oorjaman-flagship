@@ -13,6 +13,7 @@ from the monorepo root. This folder receives copies for the Expo bundle.
 | Asset | Tagline | Used for |
 |-------|---------|----------|
 | `logo-icon.png` | No | Splash icon, composed lockup, loaders |
+| `invoice-mark.png` | No | Tax invoice PDF header mark (160×160) |
 | `sunburst.png` | No | Decorative background on splash |
 
 Splash and login use a **composed** lockup (`BrandWordmark` + tagline text), not a raster lockup PNG.

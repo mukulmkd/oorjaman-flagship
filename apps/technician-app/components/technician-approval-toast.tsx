@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -6,6 +6,7 @@ import { colors, spacing } from "@oorjaman/config";
 import { fontFamily, fontSize } from "../constants/fonts";
 
 const AUTO_DISMISS_MS = 4500;
+const SHOW_DELAY_MS = 600;
 
 type Props = {
   visible: boolean;
@@ -14,21 +15,36 @@ type Props = {
 
 export function TechnicianApprovalToast({ visible, onDismiss }: Props) {
   const insets = useSafeAreaInsets();
+  const [rendered, setRendered] = useState(false);
+
+  const dismiss = useCallback(() => {
+    setRendered(false);
+    onDismiss();
+  }, [onDismiss]);
 
   useEffect(() => {
-    if (!visible) return;
-    const timer = setTimeout(onDismiss, AUTO_DISMISS_MS);
-    return () => clearTimeout(timer);
-  }, [visible, onDismiss]);
+    if (!visible) {
+      setRendered(false);
+      return;
+    }
+    const showTimer = setTimeout(() => setRendered(true), SHOW_DELAY_MS);
+    return () => clearTimeout(showTimer);
+  }, [visible]);
 
-  if (!visible) return null;
+  useEffect(() => {
+    if (!rendered) return;
+    const timer = setTimeout(dismiss, AUTO_DISMISS_MS);
+    return () => clearTimeout(timer);
+  }, [rendered, dismiss]);
+
+  if (!visible || !rendered) return null;
 
   return (
     <View pointerEvents="box-none" style={[styles.host, { top: insets.top + spacing.sm }]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="You're approved. Assigned jobs will appear under Jobs. Dismiss."
-        onPress={onDismiss}
+        onPress={dismiss}
         style={({ pressed }) => [styles.toast, pressed && styles.toastPressed]}
       >
         <Ionicons name="checkmark-circle" size={22} color={colors.primary} />

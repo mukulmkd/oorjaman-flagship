@@ -69,6 +69,7 @@ import {
   ErrorStateCard,
   FadeInView,
   Input,
+  KEYBOARD_AVOIDING_BEHAVIOR,
   modalScrollContentStyle,
   notifyCustomerBookingCreated,
   SkeletonBar,
@@ -1610,7 +1611,7 @@ export default function BookVisitModal() {
   return (
     <KeyboardAvoidingView
       style={[styles.flex, modalShellStyle]}
-      behavior={Platform.select({ ios: "padding", android: undefined })}
+      behavior={KEYBOARD_AVOIDING_BEHAVIOR}
       keyboardVerticalOffset={Platform.OS === "ios" ? keyboardHeaderOffset : 0}
     >
       {modalHeader}
@@ -1653,7 +1654,7 @@ export default function BookVisitModal() {
               </Card>
             ) : null}
             {vendorsQuery.isPending ? (
-              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always">
                 {BOOK_VENDOR_SKEL_KEYS.map((k) => (
                   <BookVendorSkeletonRow key={k} />
                 ))}
@@ -1668,7 +1669,7 @@ export default function BookVisitModal() {
               <FadeInView style={styles.vendorList}>
                 <ScrollView
                   showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
+                  keyboardShouldPersistTaps="always"
                   contentContainerStyle={styles.vendorScrollContent}
                 >
                   {preferredVendorCards.length === 0 ? (
@@ -1748,7 +1749,7 @@ export default function BookVisitModal() {
 
         {step === 1 ? (
           <ScrollView
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
             showsVerticalScrollIndicator={false}
             style={styles.scheduleScroll}
             contentContainerStyle={styles.scheduleScrollContent}
@@ -1896,7 +1897,7 @@ export default function BookVisitModal() {
 
         {step === 2 ? (
           <ScrollView
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
             showsVerticalScrollIndicator={false}
             style={styles.confirmScroll}
           >
@@ -2152,7 +2153,7 @@ export default function BookVisitModal() {
 
         {step === 3 && bookingPlanMode === "one_time" ? (
           <ScrollView
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
             showsVerticalScrollIndicator={false}
             style={styles.confirmScroll}
           >

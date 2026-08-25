@@ -10,6 +10,9 @@ import {
 } from "react-native";
 import { colors } from "@oorjaman/config";
 
+/** Shared across form screens, modals, and scaffolds (iOS padding, Android height). */
+export const KEYBOARD_AVOIDING_BEHAVIOR = Platform.OS === "ios" ? "padding" : "height";
+
 export type KeyboardFormScreenRef = {
   /** Scroll content so lower fields (OTP, buttons) sit above the keyboard. */
   scrollToEnd: (animated?: boolean) => void;
@@ -47,7 +50,7 @@ export const KeyboardFormScreen = forwardRef<KeyboardFormScreenRef, KeyboardForm
     return (
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={KEYBOARD_AVOIDING_BEHAVIOR}
         keyboardVerticalOffset={keyboardVerticalOffset}
       >
         <ScrollView

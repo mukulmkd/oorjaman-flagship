@@ -33,10 +33,10 @@ export function TechnicianLocationTracker() {
   });
 
   const hasActiveJob = (activeJobQuery.data?.length ?? 0) > 0;
-  const shouldSample = Boolean(supabase) && appActive && hasActiveJob;
+  const shouldTrack = Boolean(supabase) && hasActiveJob;
 
   useEffect(() => {
-    if (!supabase || Platform.OS === "web" || !shouldSample) return;
+    if (!supabase || Platform.OS === "web" || !shouldTrack) return;
     const client = supabase;
 
     let cancelled = false;
@@ -47,6 +47,9 @@ export function TechnicianLocationTracker() {
       try {
         const perm = await Location.getForegroundPermissionsAsync();
         if (perm.status !== "granted") return;
+
+        const servicesOn = await Location.hasServicesEnabledAsync();
+        if (!servicesOn) return;
 
         const pos = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
@@ -65,19 +68,14 @@ export function TechnicianLocationTracker() {
       }
     };
 
-    void (async () => {
-      const req = await Location.requestForegroundPermissionsAsync();
-      if (cancelled || req.status !== "granted") return;
-
-      await sample();
-      intervalId = setInterval(sample, LOCATION_TICK_MS);
-    })();
+    void sample();
+    intervalId = setInterval(sample, LOCATION_TICK_MS);
 
     return () => {
       cancelled = true;
       if (intervalId != null) clearInterval(intervalId);
     };
-  }, [shouldSample, supabase]);
+  }, [shouldTrack, supabase]);
 
   return null;
 }

@@ -6,8 +6,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
-  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -22,8 +20,6 @@ import {
   customerBookingRefModalSubtitle,
   customerBookingVisitDateVisible,
   formatInrFromCents,
-  INDIAN_GST_RATE_PERCENT,
-  splitGstFromInclusiveTotal,
   isAmcSubscriptionBooking,
   getBookingRoutingDefaults,
   HAPPY_CODE_REGENERATE_COOLDOWN_MS,
@@ -37,6 +33,10 @@ import {
   readBookingCustomerCancellationMeta,
   readBookingOpsMeta,
   readBookingRecipientMeta,
+  readBookingRefundAttemptMeta,
+  customerFacingRefundMessage,
+  computeCancelRefundPaise,
+  isRefundableRazorpayPayment,
   readServiceAddressIdFromBookingMetadata,
   technicianApi,
   userApi,
@@ -51,6 +51,8 @@ import {
   EmptyStateCard,
   ErrorStateCard,
   FadeInView,
+  KEYBOARD_AVOIDING_BEHAVIOR,
+  KeyboardFormScreen,
   ModalSheetHeader,
   modalBodyInsetStyle,
   modalScrollContentStyle,
@@ -70,8 +72,9 @@ import { LiveTechnicianTrackCard } from "../components/live-technician-track-car
 import { supabase } from "../lib/supabase";
 import { isRazorpayCheckoutEnabled, openRazorpayCheckout } from "../lib/razorpay-checkout";
 import { resolveServiceDestinationCoords } from "../lib/service-address-book";
+import { shareBookingTaxInvoice, downloadBookingTaxInvoice, prepareBookingTaxInvoiceHtml } from "../lib/share-tax-invoice";
+import { TaxInvoicePreviewModal } from "../components/tax-invoice-preview-modal";
 import {
-  formatDisplayDate,
   formatDisplayDateTime,
   formatDisplayDateTimeRange,
 } from "@oorjaman/utils";
@@ -117,26 +120,6 @@ function paymentProviderLabel(provider: string | null | undefined): string {
   if (provider === "dummy") return "Test payment";
   if (provider === "partner_collected") return "Partner collected";
   return "OorjaMan";
-}
-
-function buildServiceTaxInvoiceText(b: BookingRow): string {
-  const amountCents =
-    b.final_price_cents != null ? b.final_price_cents : b.estimated_price_cents;
-  const money = formatMoney(amountCents, b.currency);
-  const gst = splitGstFromInclusiveTotal(amountCents);
-  const visitEnd = b.actual_end ?? b.scheduled_end;
-  const visitWhen = formatDisplayDate(visitEnd);
-  const bookingLabel = customerBookingDisplayTitle(b);
-  return [
-    "Oorjaman - Service receipt (tax invoice summary)",
-    `Booking: ${bookingLabel}`,
-    `Service date: ${visitWhen}`,
-    `Service value: ${formatInrFromCents(gst.taxable_value_cents)}`,
-    `GST (${INDIAN_GST_RATE_PERCENT}%): ${formatInrFromCents(gst.gst_cents)}`,
-    `Total (incl. GST): ${money}`,
-    "",
-    "Retain this for your records. For a GST-compliant invoice with IRN, email support if your organisation needs it.",
-  ].join("\n");
 }
 
 function stringifyAddress(value: unknown): string {
@@ -290,6 +273,10 @@ export default function BookingDetailScreen() {
       ) ?? null
     );
   }, [paymentsQuery.data]);
+  const refundablePayment = useMemo(() => {
+    const rows = paymentsQuery.data ?? [];
+    return rows.find(isRefundableRazorpayPayment) ?? null;
+  }, [paymentsQuery.data]);
   const serviceOtp = b ? bookingApi.readBookingServiceOtpMeta(b.metadata) : null;
   const serviceFor = b ? serviceForDetails(b.metadata) : null;
   const opsMeta = b ? readBookingOpsMeta(b.metadata) : null;
@@ -308,6 +295,11 @@ export default function BookingDetailScreen() {
   const [ratingNote, setRatingNote] = useState("");
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [invoiceSharing, setInvoiceSharing] = useState(false);
+  const [invoiceDownloading, setInvoiceDownloading] = useState(false);
+  const [invoiceViewing, setInvoiceViewing] = useState(false);
+  const [invoicePreviewOpen, setInvoicePreviewOpen] = useState(false);
+  const [invoicePreviewHtml, setInvoicePreviewHtml] = useState<string | null>(null);
   useEffect(() => {
     if (!reportQuery.data) return;
     setRatingValue(Math.max(0, Math.round(Number(reportQuery.data.customer_rating ?? 0))));
@@ -336,7 +328,7 @@ export default function BookingDetailScreen() {
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: queryKeys.bookings.detail(bookingId!) });
-      Alert.alert("Happy Code updated", "Show the new Happy Code to the technician at completion.");
+      Alert.alert("Job finish code updated", "Show the new job finish code to the technician at completion.");
     },
     onError: (e: unknown) => {
       Alert.alert("Could not regenerate", e instanceof Error ? e.message : "Please try again.");
@@ -408,13 +400,24 @@ export default function BookingDetailScreen() {
       await qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
       if (bookingId) {
         await qc.invalidateQueries({ queryKey: queryKeys.bookings.detail(bookingId) });
+        await qc.invalidateQueries({ queryKey: queryKeys.payments.forBooking(bookingId) });
       }
       const cc = readBookingCustomerCancellationMeta(data.metadata);
+      const refundMeta = readBookingRefundAttemptMeta(data.metadata);
       const feeSentence =
         cc && !cc.withinGraceWindow && cc.lateFeePaise > 0
-          ? ` A late cancellation of up to ${formatInrFromCents(cc.lateFeePaise)} was recorded - final charges or refunds follow OorjaMan policy.`
+          ? ` A late cancellation fee of ${formatInrFromCents(cc.lateFeePaise)} was retained.`
           : "";
-      Alert.alert("Booking cancelled", `We’ve recorded your cancellation.${feeSentence}`);
+      const refundSentence = refundMeta
+        ? customerFacingRefundMessage({
+            status: refundMeta.status,
+            amountPaise: refundMeta.amountPaise,
+            paymentId: refundMeta.paymentId,
+            razorpayRefundId: refundMeta.razorpayRefundId,
+            error: refundMeta.error,
+          })
+        : "";
+      Alert.alert("Booking cancelled", `We’ve recorded your cancellation.${feeSentence}${refundSentence}`);
       setCancelModalOpen(false);
       setCancelReason("");
     },
@@ -640,27 +643,69 @@ export default function BookingDetailScreen() {
 
   const lateFeePaise = routingDefaultsQuery.data?.customerLateCancelFeePaise ?? 0;
 
+  const invoiceParams =
+    b != null
+      ? {
+          booking: b,
+          customer: customerQuery.data ?? null,
+          user: userQuery.data ?? null,
+          payment: successPayment,
+        }
+      : null;
+
   const completedInvoiceShare =
-    b.status === "completed" ? (
+    b.status === "completed" && invoiceParams ? (
       <View style={styles.invoiceBlock}>
-        <Button
-          variant="outline"
-          size="md"
-          accessibilityLabel="Download or share tax invoice"
-          onPress={() => {
-            void Share.share({
-              title: `Tax invoice - ${customerBookingDisplayTitle(b)}`,
-              message: buildServiceTaxInvoiceText(b),
-            }).catch(() =>
-              Alert.alert("Could not open share", "Try again, or copy the booking reference for your records."),
-            );
-          }}
-        >
-          Download / share tax invoice
-        </Button>
+        <View style={styles.invoiceActions}>
+          <Button
+            variant="outline"
+            size="md"
+            loading={invoiceViewing}
+            disabled={invoiceViewing || invoiceSharing}
+            accessibilityLabel="View tax invoice"
+            style={styles.invoiceActionBtn}
+            onPress={() => {
+              setInvoiceViewing(true);
+              setInvoicePreviewOpen(true);
+              setInvoicePreviewHtml(null);
+              void prepareBookingTaxInvoiceHtml(invoiceParams)
+                .then((html) => setInvoicePreviewHtml(html))
+                .catch((e: unknown) => {
+                  setInvoicePreviewOpen(false);
+                  Alert.alert(
+                    "Could not open invoice",
+                    e instanceof Error ? e.message : "Try again in a moment.",
+                  );
+                })
+                .finally(() => setInvoiceViewing(false));
+            }}
+          >
+            View invoice
+          </Button>
+          <Button
+            variant="primary"
+            size="md"
+            loading={invoiceSharing}
+            disabled={invoiceSharing || invoiceViewing}
+            accessibilityLabel="Share tax invoice PDF"
+            style={styles.invoiceActionBtn}
+            onPress={() => {
+              setInvoiceSharing(true);
+              void shareBookingTaxInvoice(invoiceParams)
+                .catch((e: unknown) => {
+                  Alert.alert(
+                    "Could not share invoice",
+                    e instanceof Error ? e.message : "Try again in a moment.",
+                  );
+                })
+                .finally(() => setInvoiceSharing(false));
+            }}
+          >
+            Share PDF
+          </Button>
+        </View>
         <Text style={[styles.meta, styles.invoiceHint]}>
-          Opens your phone’s share sheet so you can save to Files, send by email, or message - same flow as other
-          service apps.
+          View the tax invoice here, or share a PDF via Files, email, or WhatsApp.
         </Text>
       </View>
     ) : null;
@@ -669,7 +714,7 @@ export default function BookingDetailScreen() {
     <Screen padded={false} edges={SCREEN_EDGES_MODAL}>
       {modalHeader}
       <FadeInView style={styles.fadeFlex}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <KeyboardFormScreen scrollToEndOnKeyboard contentContainerStyle={styles.scroll}>
           <View style={styles.pageIntro}>
             <View style={styles.statusRow}>
               <DetailChip row={b} />
@@ -710,7 +755,7 @@ export default function BookingDetailScreen() {
                 </Text>
                 {showHappyCode && serviceOtp.happyCode ? (
                   <View style={styles.happyCodeBlock}>
-                    <Text style={styles.sectionTitle}>Happy Code</Text>
+                    <Text style={styles.sectionTitle}>Job finish code</Text>
                     <Text style={styles.visitCode}>{serviceOtp.happyCode}</Text>
                     <Text style={styles.bodyMutedHappy}>
                       Show this at completion. It confirms service closure and unlocks final submission.
@@ -723,7 +768,7 @@ export default function BookingDetailScreen() {
                           loading={regenHappyCodeMut.isPending}
                           onPress={() => void regenHappyCodeMut.mutateAsync()}
                         >
-                          Regenerate Happy Code
+                          Regenerate job finish code
                         </Button>
                         <Text style={styles.cooldownMeta}>
                           Cooldown: {Math.round(HAPPY_CODE_REGENERATE_COOLDOWN_MS / 60_000)} minutes between
@@ -949,7 +994,7 @@ export default function BookingDetailScreen() {
                 ) {
                   return (
                     <Text style={[styles.meta, styles.metaSpaced]}>
-                      Late cancellation: up to {formatInrFromCents(cc.lateFeePaise)} assessed (settlements per policy).
+                      Late cancellation: {formatInrFromCents(cc.lateFeePaise)} retained from refund.
                     </Text>
                   );
                 }
@@ -1080,12 +1125,48 @@ export default function BookingDetailScreen() {
               </Card>
             </View>
           )}
-        </ScrollView>
+        </KeyboardFormScreen>
       </FadeInView>
 
+      <TaxInvoicePreviewModal
+        visible={invoicePreviewOpen}
+        html={invoicePreviewHtml}
+        loading={invoiceViewing && !invoicePreviewHtml}
+        title={b ? `Tax invoice · ${customerBookingDisplayTitle(b)}` : "Tax invoice"}
+        shareLoading={invoiceSharing}
+        downloadLoading={invoiceDownloading}
+        onClose={() => {
+          setInvoicePreviewOpen(false);
+          setInvoicePreviewHtml(null);
+        }}
+        onDownload={() => {
+          if (!invoiceParams) return;
+          setInvoiceDownloading(true);
+          void downloadBookingTaxInvoice(invoiceParams)
+            .catch((e: unknown) => {
+              Alert.alert(
+                "Could not download invoice",
+                e instanceof Error ? e.message : "Try again in a moment.",
+              );
+            })
+            .finally(() => setInvoiceDownloading(false));
+        }}
+        onShare={() => {
+          if (!invoiceParams) return;
+          setInvoiceSharing(true);
+          void shareBookingTaxInvoice(invoiceParams)
+            .catch((e: unknown) => {
+              Alert.alert(
+                "Could not share invoice",
+                e instanceof Error ? e.message : "Try again in a moment.",
+              );
+            })
+            .finally(() => setInvoiceSharing(false));
+        }}
+      />
       <Modal visible={cancelModalOpen} transparent animationType="fade" onRequestClose={() => setCancelModalOpen(false)}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={KEYBOARD_AVOIDING_BEHAVIOR}
           style={styles.cancelModalRoot}
         >
           <Pressable
@@ -1112,8 +1193,8 @@ export default function BookingDetailScreen() {
             />
             {cancelSla && cancelSla.penaltyEligible && !cancelSla.within && lateFeePaise > 0 ? (
               <Text style={[styles.meta, styles.cancelModalFee]}>
-                Late cancellation fee (reference): up to {formatInrFromCents(lateFeePaise)}. This applies because a
-                technician was already assigned. Final settlement may net this against any refund.
+                Late cancellation fee: {formatInrFromCents(lateFeePaise)}. This applies because a
+                technician was already assigned.
               </Text>
             ) : cancelSla && cancelSla.penaltyEligible && !cancelSla.within ? (
               <Text style={[styles.meta, styles.cancelModalFee]}>
@@ -1121,6 +1202,36 @@ export default function BookingDetailScreen() {
                 you will confirm on the next step if applicable.
               </Text>
             ) : null}
+            {(() => {
+              if (!refundablePayment) {
+                return (
+                  <Text style={[styles.meta, styles.cancelModalFee]}>
+                    No prepaid Razorpay payment to refund for this booking.
+                  </Text>
+                );
+              }
+              const applyLate =
+                Boolean(cancelSla?.penaltyEligible && !cancelSla?.within && lateFeePaise > 0);
+              const refundPaise = computeCancelRefundPaise(
+                refundablePayment,
+                applyLate ? lateFeePaise : 0,
+              );
+              if (refundPaise <= 0) {
+                return (
+                  <Text style={[styles.meta, styles.cancelModalFee]}>
+                    Late fee equals or exceeds the paid amount — no Razorpay refund will be issued.
+                  </Text>
+                );
+              }
+              return (
+                <Text style={[styles.meta, styles.cancelModalFee]}>
+                  {applyLate
+                    ? `Refund ${formatInrFromCents(refundPaise)} (paid amount minus late fee). `
+                    : `Full refund ${formatInrFromCents(refundPaise)}. `}
+                  Funds typically return to your original payment method in 5–10 business days.
+                </Text>
+              );
+            })()}
 
             <View style={styles.cancelModalActions}>
               <Button variant="outline" size="md" disabled={cancelMut.isPending} onPress={() => setCancelModalOpen(false)}>
@@ -1340,6 +1451,13 @@ const styles = StyleSheet.create({
   invoiceBlock: {
     marginTop: spacing.lg,
     gap: spacing.xs,
+  },
+  invoiceActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  invoiceActionBtn: {
+    flex: 1,
   },
   invoiceHint: {
     marginTop: spacing.xs,

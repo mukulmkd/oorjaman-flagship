@@ -97,5 +97,8 @@
     "supabase": "^2.106.0",
     "typescript": "~6.0.3"
   },
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "dependencies": {
+    "react-native-webview": "13.16.1"
+  }
 }

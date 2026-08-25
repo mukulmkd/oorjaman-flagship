@@ -66,7 +66,7 @@ async function withAuthRetry(label, fn, attempts = 5) {
   throw lastErr;
 }
 
-/** Must stay in sync with `dummyEmailFromPhoneE164` in `@oorjaman/api` auth-api.ts */
+/** Legacy synthetic Auth email — keep for finding older seeded users before re-seed. */
 function dummyEmailFromPhoneE164(phone) {
   const digits = phone.replace(/\D/g, "");
   return `u${digits}@oorjaman-dummy.test`;
@@ -133,8 +133,11 @@ function defByPhone(phone) {
   return row;
 }
 
-async function findAuthUserIdByPhone(phone) {
-  const wantEmail = dummyEmailFromPhoneE164(phone).toLowerCase();
+async function findAuthUserIdByPhone(phone, displayEmail) {
+  const wantLegacy = dummyEmailFromPhoneE164(phone).toLowerCase();
+  const wantDisplay = String(displayEmail ?? "")
+    .trim()
+    .toLowerCase();
   let page = 1;
   for (;;) {
     const { data, error } = await withAuthRetry(`listUsers p${page}`, () =>
@@ -144,7 +147,9 @@ async function findAuthUserIdByPhone(phone) {
     const hit = data.users.find((u) => {
       if (u.phone && phonesMatch(phone, u.phone)) return true;
       const em = u.email?.toLowerCase();
-      return Boolean(em && em === wantEmail);
+      if (!em) return false;
+      if (wantDisplay && em === wantDisplay) return true;
+      return em === wantLegacy;
     });
     if (hit) return hit.id;
     if (data.users.length < 200) break;
@@ -154,7 +159,9 @@ async function findAuthUserIdByPhone(phone) {
 }
 
 async function ensureAuthUser({ phone, role, fullName, email: displayEmail }) {
-  const authEmail = dummyEmailFromPhoneE164(phone);
+  // Auth email = display email so Email OTP dummy login matches portal/mobile UX.
+  // Phone dummy login resolves the same address via `dummyAuthEmailForPhone` in @oorjaman/api.
+  const authEmail = String(displayEmail).trim().toLowerCase();
   const authPatch = {
     phone,
     email: authEmail,
@@ -164,7 +171,7 @@ async function ensureAuthUser({ phone, role, fullName, email: displayEmail }) {
     user_metadata: { role, phone, full_name: fullName, label: fullName },
   };
 
-  let uid = await findAuthUserIdByPhone(phone);
+  let uid = await findAuthUserIdByPhone(phone, authEmail);
 
   if (uid) {
     const { error } = await withAuthRetry(`updateUserById ${phone}`, () =>
@@ -180,9 +187,10 @@ async function ensureAuthUser({ phone, role, fullName, email: displayEmail }) {
     } else if (
       error &&
       (error.code === "phone_exists" ||
+        error.code === "email_exists" ||
         String(error.message ?? "").toLowerCase().includes("already registered"))
     ) {
-      uid = await findAuthUserIdByPhone(phone);
+      uid = await findAuthUserIdByPhone(phone, authEmail);
       if (!uid) throw error;
       const { error: uerr } = await withAuthRetry(`updateUserById ${phone}`, () =>
         admin.auth.admin.updateUserById(uid, authPatch),

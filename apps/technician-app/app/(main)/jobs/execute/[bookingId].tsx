@@ -30,6 +30,7 @@ import {
   EmptyStateCard,
   ErrorStateCard,
   FadeInView,
+  KeyboardFormScreen,
   notifyTechnicianJobCompleted,
   Screen,
   SCREEN_EDGES_BENEATH_NATIVE_HEADER,
@@ -65,7 +66,7 @@ const STEP_HEADING: Record<(typeof STEPS)[number], string> = {
   before: "Before photos",
   after: "After photos",
   issues: "Issues & notes",
-  submit: "Happy Code & finish",
+  submit: "Job finish code & finish",
 };
 
 function readPreStartFromChecklist(checklist: Json | null | undefined): {
@@ -203,6 +204,7 @@ export default function JobExecutionWizardScreen() {
   const [selfieSignedUrl, setSelfieSignedUrl] = useState<string | null>(null);
   const [issueNotes, setIssueNotes] = useState("");
   const [uploading, setUploading] = useState<"before" | "after" | "selfie" | null>(null);
+  const [pickingSelfie, setPickingSelfie] = useState(false);
 
   useEffect(() => {
     if (!supabase) return;
@@ -411,21 +413,51 @@ export default function JobExecutionWizardScreen() {
     setSafety((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
-  async function captureStartSelfie() {
+  async function saveSelfieFromUri(uri: string) {
     if (!supabase || !bookingId) return;
-    const uri = await pickJobEvidenceImageUri({
-      source: "camera",
-      cameraType: ImagePicker.CameraType.front,
-    });
-    if (!uri) return;
+    setUploading("selfie");
     try {
-      setUploading("selfie");
       const storagePath = await uploadJobPhotoFromUri(supabase, bookingId, "start_selfie", uri);
       setStartSelfieUrl(storagePath);
     } catch (e) {
       Alert.alert("Selfie upload failed", e instanceof Error ? e.message : "Unknown error");
     } finally {
       setUploading(null);
+    }
+  }
+
+  async function captureStartSelfie() {
+    if (!supabase || !bookingId || pickingSelfie || uploading === "selfie") return;
+    setPickingSelfie(true);
+    try {
+      const uri = await pickJobEvidenceImageUri({
+        source: "camera",
+        cameraType: ImagePicker.CameraType.front,
+      });
+      if (!uri) {
+        Alert.alert(
+          "No photo captured",
+          "Allow camera access in Settings, or tap Choose photo to pick from your gallery.",
+        );
+        return;
+      }
+      await saveSelfieFromUri(uri);
+    } catch (e) {
+      Alert.alert("Camera error", e instanceof Error ? e.message : "Could not open the camera.");
+    } finally {
+      setPickingSelfie(false);
+    }
+  }
+
+  async function chooseSelfieFromLibrary() {
+    if (!supabase || !bookingId || pickingSelfie || uploading === "selfie") return;
+    setPickingSelfie(true);
+    try {
+      const uri = await pickJobEvidenceImageUri({ source: "library" });
+      if (!uri) return;
+      await saveSelfieFromUri(uri);
+    } finally {
+      setPickingSelfie(false);
     }
   }
 
@@ -554,7 +586,7 @@ export default function JobExecutionWizardScreen() {
     <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
       {modalHeader}
       <FadeInView style={styles.fadeFlex}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <KeyboardFormScreen scrollToEndOnKeyboard contentContainerStyle={styles.scroll}>
         {b.actual_start ? (
           <Card variant="elevated" padded>
             <Text style={styles.timerLabel}>Job timer</Text>
@@ -657,12 +689,21 @@ export default function JobExecutionWizardScreen() {
             ) : null}
             <View style={styles.photoActions}>
               <Button
-                loading={uploading === "selfie"}
+                loading={uploading === "selfie" || pickingSelfie}
+                disabled={uploading === "selfie" || pickingSelfie}
                 size="md"
                 variant="primary"
                 onPress={() => void captureStartSelfie()}
               >
                 {startSelfieUrl ? "Retake selfie" : "Take selfie"}
+              </Button>
+              <Button
+                disabled={uploading === "selfie" || pickingSelfie}
+                size="md"
+                variant="outline"
+                onPress={() => void chooseSelfieFromLibrary()}
+              >
+                Choose photo
               </Button>
             </View>
           </Card>
@@ -761,30 +802,30 @@ export default function JobExecutionWizardScreen() {
           <Card variant="elevated" padded>
             <Text style={styles.sectionTitle}>Complete job</Text>
             <Text style={styles.bodyMuted}>
-              Ask the customer for their Happy Code, then submit. This stops the timer and marks the visit
+              Ask the customer for their job finish code, then submit. This stops the timer and marks the visit
               completed.
             </Text>
-            <Text style={styles.label}>Happy Code (from customer app) *</Text>
+            <Text style={styles.label}>Job finish code (from customer app) *</Text>
             <Text style={styles.bodyMuted}>
-              Ask the customer for the Happy Code shown in their booking after you finish cleaning.
+              Ask the customer for the job finish code shown in their booking after you finish cleaning.
             </Text>
             <TextInput
-              accessibilityLabel="Happy Code from customer"
+              accessibilityLabel="Job finish code from customer"
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="number-pad"
               editable={!finalize.isPending}
               onChangeText={setHappyCodeInput}
-              placeholder="4-digit Happy Code"
+              placeholder="4-digit job finish code"
               placeholderTextColor={colors.mutedForeground}
               style={styles.codeInput}
               value={happyCodeInput}
             />
             {happyCodeRequired && !happyCodeInput.trim() ? (
-              <Text style={styles.codeWarn}>Happy Code is required to complete this visit.</Text>
+              <Text style={styles.codeWarn}>Job finish code is required to complete this visit.</Text>
             ) : null}
             {!happyCodeOk && happyCodeInput.trim().length > 0 ? (
-              <Text style={styles.codeWarn}>Happy Code does not match this booking.</Text>
+              <Text style={styles.codeWarn}>Job finish code does not match this booking.</Text>
             ) : null}
             <Text style={styles.meta}>Booking</Text>
             <Text style={styles.body}>{b.reference_code}</Text>
@@ -807,7 +848,7 @@ export default function JobExecutionWizardScreen() {
             ) : null}
           </Card>
         ) : null}
-      </ScrollView>
+      </KeyboardFormScreen>
       <View style={[styles.stickyCta, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
         <View style={styles.stickyCtaRow}>
           {step > minStep ? (
@@ -957,6 +998,7 @@ const styles = StyleSheet.create({
   },
   photoActions: {
     marginBottom: spacing.md,
+    gap: spacing.sm,
   },
   thumbRow: {
     marginBottom: spacing.md,

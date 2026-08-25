@@ -10,6 +10,8 @@ import {
   adminGetBookingsMonitoringBySubscriptionBucket,
   adminGetBookingsMonitoringBySubscriptionBucketPaged,
   adminRefloatMarketplaceBooking,
+  adminCancelBookingWithRefund,
+  formatInrFromCents,
   queryKeys,
   readBookingRecipientMeta,
   readBookingServiceOtpMeta,
@@ -111,8 +113,12 @@ type BookingActionState =
   | null
   | {
     row: BookingMonitoringEnriched;
-    view: "menu" | "assign" | "amc_reassign";
+    view: "menu" | "assign" | "amc_reassign" | "cancel_refund";
   };
+
+function canAdminCancelWithRefund(row: BookingMonitoringEnriched): boolean {
+  return row.status === "pending_payment" || row.status === "confirmed" || row.status === "accepted";
+}
 
 function formatTiming(row: BookingMonitoringEnriched): { scheduled: string; actual?: string } {
   const scheduled = formatDisplayDateTimeRange(row.scheduled_start, row.scheduled_end);
@@ -288,6 +294,7 @@ function hasAssignableAction(row: BookingMonitoringEnriched, risks: OpsRisk[]): 
     canReassignAmcBooking(row) ||
     canFloatToMarketplace(row) ||
     canRefloatMarketplace(row) ||
+    canAdminCancelWithRefund(row) ||
     risks.length > 0
   );
 }
@@ -301,6 +308,10 @@ export function BookingMonitoringPage() {
   const [bookingAction, setBookingAction] = useState<BookingActionState>(null);
   const [assignVendorId, setAssignVendorId] = useState<string>("");
   const [opsIssueType, setOpsIssueType] = useState<OpsIssueType | "">("");
+  const [cancelRefundReason, setCancelRefundReason] = useState("");
+  const [cancelApplyLateFee, setCancelApplyLateFee] = useState(false);
+  const [cancelLateFeeRupees, setCancelLateFeeRupees] = useState("");
+  const [cancelRefundNotice, setCancelRefundNotice] = useState<string | null>(null);
 
   useEffect(() => {
     setPage(1);
@@ -376,6 +387,44 @@ export function BookingMonitoringPage() {
     },
   });
 
+  const cancelRefundMut = useMutation({
+    mutationFn: async () => {
+      if (!supabase || !bookingAction?.row) throw new Error("Booking not ready.");
+      const reason = cancelRefundReason.trim();
+      if (reason.length < 4) throw new Error("Enter a reason (at least 4 characters).");
+      let applyLateFeePaise = 0;
+      if (cancelApplyLateFee) {
+        const rupees = Number(cancelLateFeeRupees.replace(/,/g, "").trim());
+        if (!Number.isFinite(rupees) || rupees < 0) {
+          throw new Error("Enter a valid late fee in rupees (0 or more).");
+        }
+        applyLateFeePaise = Math.round(rupees * 100);
+      }
+      return adminCancelBookingWithRefund(supabase, bookingAction.row.id, {
+        reason,
+        applyLateFeePaise: applyLateFeePaise > 0 ? applyLateFeePaise : undefined,
+      });
+    },
+    onSuccess: async ({ refund }) => {
+      const refundNote =
+        refund.status === "initiated" || refund.status === "already_initiated"
+          ? ` Refund ${formatInrFromCents(refund.amountPaise)} initiated.`
+          : refund.status === "failed"
+            ? ` Booking cancelled but refund failed: ${refund.error ?? "unknown error"}. Retry from Payments.`
+            : refund.status === "skipped"
+              ? " No Razorpay refund was needed (unpaid / already refunded)."
+              : "";
+      setCancelRefundNotice(`Booking cancelled.${refundNote}`);
+      setCancelRefundReason("");
+      setCancelApplyLateFee(false);
+      setCancelLateFeeRupees("");
+      await invalidateAdminBookingMonitoringQueries(qc, bucketTab);
+    },
+    onError: (e: unknown) => {
+      setCancelRefundNotice(e instanceof Error ? e.message : "Cancel + refund failed.");
+    },
+  });
+
   const rowsWithRisk = useMemo(
     () =>
       (summaryQuery.data ?? []).map((row) => ({
@@ -394,12 +443,20 @@ export function BookingMonitoringPage() {
   const medRiskCount = rowsWithRisk.filter((x) => x.risks.some((r) => r.level === "medium")).length;
 
   const mutating =
-    floatMut.isPending || refloatMut.isPending || opsFlagMut.isPending || assignMut.isPending;
+    floatMut.isPending ||
+    refloatMut.isPending ||
+    opsFlagMut.isPending ||
+    assignMut.isPending ||
+    cancelRefundMut.isPending;
 
   const closeActionModal = () => {
     if (mutating) return;
     setBookingAction(null);
     setAssignVendorId("");
+    setCancelRefundReason("");
+    setCancelApplyLateFee(false);
+    setCancelLateFeeRupees("");
+    setCancelRefundNotice(null);
   };
 
   const openActionMenu = (row: BookingMonitoringEnriched) => {
@@ -630,9 +687,11 @@ export function BookingMonitoringPage() {
             ? "Assign partner"
             : bookingAction?.view === "amc_reassign"
               ? "Change AMC partner"
-              : bookingAction?.row
-                ? `Actions · ${bookingAction.row.reference_code}`
-                : "Actions"
+              : bookingAction?.view === "cancel_refund"
+                ? "Cancel + refund"
+                : bookingAction?.row
+                  ? `Actions · ${bookingAction.row.reference_code}`
+                  : "Actions"
         }
         description={
           actionRow
@@ -805,6 +864,24 @@ export function BookingMonitoringPage() {
                 </Button>
               ) : null}
 
+              {canAdminCancelWithRefund(actionRow) ? (
+                <Button
+                  type="button"
+                  variant="danger"
+                  size="sm"
+                  disabled={mutating}
+                  onClick={() => {
+                    setCancelRefundNotice(null);
+                    setCancelRefundReason("");
+                    setCancelApplyLateFee(false);
+                    setCancelLateFeeRupees("");
+                    setBookingAction({ row: actionRow, view: "cancel_refund" });
+                  }}
+                >
+                  Cancel + refund (no partner)…
+                </Button>
+              ) : null}
+
               {detectOpsRisks(actionRow).length > 0 ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                   <p style={{ margin: 0, fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)" }}>
@@ -922,6 +999,93 @@ export function BookingMonitoringPage() {
               </Button>
             </div>
             {assignMut.isError ? <p className="bm-error">{(assignMut.error as Error).message}</p> : null}
+          </div>
+        ) : null}
+
+        {bookingAction?.view === "cancel_refund" && actionRow ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+            <p style={{ margin: 0, fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)", lineHeight: 1.5 }}>
+              Use this when OorjaMan cannot assign any partner (after reject / cancel-and-reassign attempts). Cancels the
+              booking and initiates a Razorpay refund for captured prepaid payments. Prefer <strong>Assign partner</strong>{" "}
+              when another vendor can still take the visit. Default refund is full remaining; optionally retain a late fee.
+              Unpaid / postpaid bookings cancel without a gateway call.
+            </p>
+            <label className="dash-card-label" htmlFor="admin-cancel-refund-reason">
+              Reason
+            </label>
+            <textarea
+              id="admin-cancel-refund-reason"
+              className="web-input"
+              rows={3}
+              value={cancelRefundReason}
+              onChange={(e) => setCancelRefundReason(e.target.value)}
+              placeholder="Why is ops cancelling this booking?"
+            />
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                fontSize: webTypography.size.sm,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={cancelApplyLateFee}
+                onChange={(e) => setCancelApplyLateFee(e.target.checked)}
+              />
+              Retain late-cancellation fee from refund
+            </label>
+            {cancelApplyLateFee ? (
+              <label className="dash-card-label" htmlFor="admin-cancel-late-fee">
+                Late fee (₹)
+                <input
+                  id="admin-cancel-late-fee"
+                  className="web-input"
+                  type="text"
+                  inputMode="decimal"
+                  value={cancelLateFeeRupees}
+                  onChange={(e) => setCancelLateFeeRupees(e.target.value)}
+                  placeholder="e.g. 99"
+                />
+              </label>
+            ) : null}
+            {cancelRefundNotice ? (
+              <p style={{ margin: 0, fontSize: webTypography.size.sm }}>{cancelRefundNotice}</p>
+            ) : null}
+            <div className="dash-card-actions bm-modal-actions">
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                disabled={cancelRefundMut.isPending}
+                onClick={() => setBookingAction({ row: actionRow, view: "menu" })}
+              >
+                Back
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                disabled={cancelRefundMut.isPending}
+                onClick={closeActionModal}
+              >
+                Close
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                type="button"
+                loading={cancelRefundMut.isPending}
+                disabled={cancelRefundReason.trim().length < 4}
+                onClick={() => {
+                  setCancelRefundNotice(null);
+                  void cancelRefundMut.mutateAsync();
+                }}
+              >
+                Confirm cancel + refund
+              </Button>
+            </div>
           </div>
         ) : null}
       </Modal>

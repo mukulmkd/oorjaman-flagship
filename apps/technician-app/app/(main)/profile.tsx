@@ -13,6 +13,7 @@ import { Button, Card, Screen, SCREEN_EDGES_BENEATH_NATIVE_HEADER, SkeletonBar }
 import { colors, spacing } from "@oorjaman/config";
 import { fontFamily, fontSize } from "../../constants/fonts";
 import { preferredWorkCity, stringifyAddress } from "../../lib/booking-display";
+import { clearPartnerSessionQueries } from "../../lib/partner-session-cache";
 import { supabase } from "../../lib/supabase";
 
 function ProfileSection({ title, children }: { title: string; children: React.ReactNode }) {
@@ -92,11 +93,12 @@ export default function ProfileTab() {
         markUserInitiatedSignOut();
         await authApi.signOut(supabase);
       }
+      clearPartnerSessionQueries(qc);
       router.replace("/login");
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [qc]);
 
   const verified =
     tech?.is_verified && tech.verification_status === "verified" && tech.vendor_review_status === "approved";

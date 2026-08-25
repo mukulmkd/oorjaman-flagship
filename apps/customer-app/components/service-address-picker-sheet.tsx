@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -16,7 +17,7 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { colors, spacing } from "@oorjaman/config";
-import { Button, Card, Input, ModalSheetHeader } from "@oorjaman/ui";
+import { Button, Card, Input, KEYBOARD_AVOIDING_BEHAVIOR, ModalSheetHeader } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { fillAddressFromCurrentLocation, type GpsAddressFill } from "../lib/fill-address-from-gps";
 import {
@@ -189,12 +190,13 @@ function ServiceAddressPickerSheetBody({
           showClose={!blockDismiss}
           closeAccessibilityLabel="Close address picker"
         />
-        <ScrollView
-          style={styles.list}
-          contentContainerStyle={styles.listContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+        <KeyboardAvoidingView behavior={KEYBOARD_AVOIDING_BEHAVIOR} style={styles.list}>
+          <ScrollView
+            contentContainerStyle={styles.listContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          >
           {draftEntries.map((e) => {
             const rowBusy = savingEntryId === e.id;
             return (
@@ -323,7 +325,8 @@ function ServiceAddressPickerSheetBody({
               {draftEntries.length === 0 ? "Add address" : "Add another address"}
             </Button>
           )}
-        </ScrollView>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </View>
     </View>
   );

@@ -8,12 +8,12 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -31,7 +31,9 @@ import {
   queryKeys,
   readAddressEntryGps,
   readSubscriptionCapacityTierCode,
+  resolveSignInAccountEmail,
   resolveSignInAccountPhone,
+  resolveCustomerContactPhone,
   snapProfileCapacityInputToAllowedKw,
   subscriptionApi,
   type AmcTierRealignmentSummary,
@@ -41,6 +43,8 @@ import {
 import { colors, spacing } from "@oorjaman/config";
 import {
   Button,
+  KEYBOARD_AVOIDING_BEHAVIOR,
+  KeyboardFormScreen,
   ModalSheetHeader,
   modalBodyInsetStyle,
   Screen,
@@ -143,6 +147,7 @@ function AccountRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function ProfileTab() {
+  const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const [hydrated, setHydrated] = useState(false);
   const [displayName, setDisplayName] = useState("");
@@ -317,6 +322,9 @@ export default function ProfileTab() {
     if (!water) throw new Error("Select water availability.");
     if (!addr.label.trim()) throw new Error("Enter a short site label (e.g. Home, Office plant).");
     if (!addr.line1.trim()) throw new Error("Enter address line 1.");
+    if (alternatePhone.replace(/\D/g, "").length < 10) {
+      throw new Error("Enter a 10-digit mobile number so crews can reach you.");
+    }
 
     let lastCleaningIso: string | null = null;
     const lc = lastCleaning.trim();
@@ -572,6 +580,8 @@ export default function ProfileTab() {
   );
 
   const accountPhone = resolveSignInAccountPhone(user, authUserQuery.data);
+  const accountEmail = resolveSignInAccountEmail(user, authUserQuery.data);
+  const contactPhone = resolveCustomerContactPhone(customer, user, authUserQuery.data);
 
   if (!supabase) {
     return (
@@ -612,25 +622,20 @@ export default function ProfileTab() {
 
   return (
     <Screen padded={false} edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.select({ ios: "padding", android: undefined })}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
+      <KeyboardFormScreen
+        scrollToEndOnKeyboard
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 44 : 0}
+        contentContainerStyle={styles.scroll}
       >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-        >
           <Text style={styles.lede}>
-            Account phone and email are tied to sign-in. Everything else matches what you entered during onboarding and
-            can be updated anytime.
+            Sign-in uses email OTP. Contact mobile is for crews and visit coordination — you can update it anytime.
           </Text>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Sign-in account</Text>
-            <Text style={styles.sectionHint}>Used for login - contact support to change.</Text>
-            <AccountRow label="Phone" value={accountPhone} />
+            <Text style={styles.sectionHint}>Used for login — contact support to change.</Text>
+            <AccountRow label="Email" value={accountEmail || "—"} />
+            {accountPhone ? <AccountRow label="Sign-in phone" value={accountPhone} /> : null}
           </View>
 
           <View style={styles.section}>
@@ -645,12 +650,17 @@ export default function ProfileTab() {
               placeholder="Confirmations and reminders"
             />
             <Field
-              label="Alternate phone (optional)"
+              label="Contact mobile *"
               value={alternatePhone}
               onChangeText={(t) => setAlternatePhone(t.replace(/\D/g, "").slice(0, 15))}
               keyboardType="number-pad"
-              placeholder="Backup contact for visits"
+              placeholder="10-digit number for visit contact"
             />
+            {contactPhone && !alternatePhone.trim() ? (
+              <Text style={styles.sectionHint}>
+                Showing sign-in phone as contact until you save a contact mobile above.
+              </Text>
+            ) : null}
           </View>
 
           <View style={styles.section}>
@@ -952,8 +962,7 @@ export default function ProfileTab() {
               {signOutBusy ? "Signing out…" : "Sign out"}
             </Text>
           </Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardFormScreen>
       <Modal
         visible={deleteModalOpen}
         animationType="slide"
@@ -962,7 +971,7 @@ export default function ProfileTab() {
           if (!deleteBusy) setDeleteModalOpen(false);
         }}
       >
-        <View style={styles.deleteModalBackdrop}>
+        <KeyboardAvoidingView behavior={KEYBOARD_AVOIDING_BEHAVIOR} style={styles.deleteModalBackdrop}>
           <View style={styles.deleteModalSheet}>
             <ModalSheetHeader
               title="Delete your account?"
@@ -1006,7 +1015,7 @@ export default function ProfileTab() {
               </View>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
       <ServiceAddressPickerSheet
         visible={addressSheetOpen}

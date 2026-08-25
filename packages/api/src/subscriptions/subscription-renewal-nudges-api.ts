@@ -70,7 +70,7 @@ async function hydrateRenewalCandidates(
   const customerIds = [...new Set(rows.map((r) => r.customer_id))];
   const { data: customers, error: custErr } = await client
     .from("customers")
-    .select("id, user_id, display_name, contact_email")
+    .select("id, user_id, display_name, contact_email, alternate_phone")
     .in("id", customerIds);
   if (custErr) throw new SupabaseApiError(custErr.message, custErr);
   const customerById = new Map((customers ?? []).map((c) => [c.id, c] as const));
@@ -95,7 +95,7 @@ async function hydrateRenewalCandidates(
       customer_name: c?.display_name ?? null,
       customer_email:
         c?.contact_email ?? (u?.email && !isDummyAuthEmail(u.email) ? u.email : null),
-      customer_phone: u?.phone ?? null,
+      customer_phone: c?.alternate_phone?.trim() || u?.phone || null,
       plan_name: s.plan_name,
       ends_at: s.ends_at,
       renewal_audience: audience,
