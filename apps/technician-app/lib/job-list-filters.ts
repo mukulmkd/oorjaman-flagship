@@ -12,13 +12,21 @@ export const JOB_LIST_SEGMENTS: { id: JobListSegment; label: string }[] = [
 
 const OPEN_STATUSES: BookingStatus[] = ["confirmed", "accepted", "in_progress"];
 
+function isOpenStatus(status: BookingStatus): boolean {
+  return OPEN_STATUSES.includes(status);
+}
+
+/** Open visits scheduled before today (still assigned, not completed). */
+function isOverdueOpenJob(row: BookingRow, today: string): boolean {
+  const day = formatJobDayKey(row.scheduled_start);
+  return day < today && isOpenStatus(row.status) && row.status !== "confirmed";
+}
+
 export function filterBookingsBySegment(rows: BookingRow[], segment: JobListSegment): BookingRow[] {
   const today = todayIstDayKey();
-  const now = Date.now();
 
   return rows.filter((b) => {
     const day = formatJobDayKey(b.scheduled_start);
-    const startMs = new Date(b.scheduled_start).getTime();
 
     switch (segment) {
       case "completed":
@@ -27,15 +35,14 @@ export function filterBookingsBySegment(rows: BookingRow[], segment: JobListSegm
         return b.status === "in_progress";
       case "today":
         return (
-          day === today &&
-          OPEN_STATUSES.includes(b.status) &&
-          b.status !== "in_progress"
+          isOpenStatus(b.status) &&
+          (day === today || isOverdueOpenJob(b, today))
         );
       case "upcoming":
         return (
-          OPEN_STATUSES.includes(b.status) &&
+          isOpenStatus(b.status) &&
           b.status !== "in_progress" &&
-          (day > today || (day === today && startMs > now + 15 * 60 * 1000))
+          day > today
         );
       default:
         return true;
@@ -74,4 +81,10 @@ export function completedBookings(rows: BookingRow[]): BookingRow[] {
     rows.filter((b) => b.status === "completed"),
     "completed",
   );
+}
+
+/** First Jobs tab segment that has at least one row (Today → Active → Upcoming → Done). */
+export function pickDefaultJobListSegment(rows: BookingRow[]): JobListSegment {
+  const order: JobListSegment[] = ["today", "active", "upcoming", "completed"];
+  return order.find((seg) => filterBookingsBySegment(rows, seg).length > 0) ?? "today";
 }

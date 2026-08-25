@@ -5,6 +5,7 @@ export * from "./FadeInView";
 export * from "./Input";
 export * from "./KeyboardFormScreen";
 export * from "./LoginPhoneRow";
+export * from "./LoginAuthMethodTabs";
 export * from "./OtpCodeInput";
 export * from "./mobile-auth-session-guard";
 export * from "./mobile-offline-gate";

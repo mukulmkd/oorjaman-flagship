@@ -1,7 +1,6 @@
-import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
 import type { UserRow } from "../database.types";
-import { isDummyAuthEmail } from "../auth/auth-api";
-import { getMyUserRecord } from "./user-api";
+import { isDummyAuthEmail, normalizePhoneE164 } from "../auth/auth-identity";
 
 function pickDisplayEmail(...candidates: (string | null | undefined)[]): string | null {
   for (const raw of candidates) {
@@ -26,7 +25,9 @@ export function resolveSignInAccountPhone(
   publicUser: UserRow | null | undefined,
   authUser: User | null | undefined,
 ): string {
-  return publicUser?.phone?.trim() || authPhoneFromUser(authUser) || "";
+  const raw = publicUser?.phone?.trim() || authPhoneFromUser(authUser) || "";
+  if (!raw) return "";
+  return normalizePhoneE164(raw);
 }
 
 /** Sign-in email for profile UI — hides dummy-auth synthetic addresses. */
@@ -35,6 +36,28 @@ export function resolveSignInAccountEmail(
   authUser: User | null | undefined,
 ): string {
   return pickDisplayEmail(publicUser?.email, authUser?.email) ?? "";
+}
+
+/**
+ * Customer contact mobile for crews / ops / invoices.
+ * Prefer `customers.alternate_phone` (profile); fall back to Auth/`users.phone` for legacy phone-OTP accounts.
+ */
+export function resolveCustomerContactPhone(
+  customer: { alternate_phone?: string | null } | null | undefined,
+  publicUser?: { phone?: string | null } | null,
+  authUser?: User | null,
+): string {
+  const fromProfile = customer?.alternate_phone?.trim();
+  if (fromProfile) {
+    const digits = fromProfile.replace(/\D/g, "");
+    if (digits.length >= 10) {
+      return fromProfile.startsWith("+") ? fromProfile : normalizePhoneE164(fromProfile);
+    }
+    return fromProfile;
+  }
+  const fromAuthMirror = publicUser?.phone?.trim() || authPhoneFromUser(authUser) || "";
+  if (!fromAuthMirror) return "";
+  return normalizePhoneE164(fromAuthMirror);
 }
 
 /** Portal top-bar label: prefer public profile name/email over synthetic auth email. */
@@ -66,34 +89,4 @@ export function resolvePortalSessionDisplay(input: {
     : (email || phone || input.authUserId).trim().slice(0, 2).toUpperCase() || "?";
 
   return { hint, chip };
-}
-
-/** Portal top bar — never leaves "Checking session…" if profile fetch fails. */
-export async function loadPortalSessionDisplay(
-  supabase: SupabaseClient,
-  options?: { unsignedHint?: string },
-): Promise<{ hint: string; chip: string }> {
-  const unsignedHint = options?.unsignedHint ?? "Sign in required.";
-  try {
-    const { data } = await supabase.auth.getSession();
-    const u = data.session?.user;
-    if (!u) {
-      return { hint: unsignedHint, chip: "?" };
-    }
-    let row: UserRow | null = null;
-    try {
-      row = await getMyUserRecord(supabase);
-    } catch {
-      // Fall back to auth identity when public.users is missing or unreachable.
-    }
-    return resolvePortalSessionDisplay({
-      authEmail: u.email,
-      authPhone: authPhoneFromUser(u),
-      authUserId: u.id,
-      publicFullName: row?.full_name,
-      publicEmail: row?.email,
-    });
-  } catch {
-    return { hint: "Session unavailable", chip: "?" };
-  }
 }

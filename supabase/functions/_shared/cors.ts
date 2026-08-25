@@ -26,13 +26,25 @@ function allowlist(): string[] {
 export function corsHeaders(req: Request): Record<string, string> {
   const list = allowlist();
   const origin = req.headers.get("Origin") ?? "";
-  const allowOrigin = list.length === 0 ? "*" : list.includes(origin) ? origin : list[0]!;
+  const isLoopback =
+    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin) ||
+    /^https?:\/\/\[::1\](:\d+)?$/i.test(origin);
+  // When an allowlist is set, still reflect local Vite origins so admin/vendor portals
+  // work on localhost (token-authenticated endpoints; production browsers never send these Origins).
+  const allowOrigin =
+    list.length === 0
+      ? "*"
+      : list.includes(origin)
+        ? origin
+        : isLoopback
+          ? origin
+          : list[0]!;
 
   const headers: Record<string, string> = {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Headers": ALLOW_HEADERS,
     "Access-Control-Allow-Methods": ALLOW_METHODS,
   };
-  if (list.length > 0) headers["Vary"] = "Origin";
+  if (list.length > 0 || isLoopback) headers["Vary"] = "Origin";
   return headers;
 }

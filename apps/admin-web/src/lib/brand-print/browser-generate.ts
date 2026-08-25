@@ -238,7 +238,11 @@ async function buildInvoicePdf(contact: BrandPrintContact, lockupPng: Uint8Array
   let headerY = pageH - margin - 10;
   page.drawText("TAX INVOICE", { x: rightX - fontBold.widthOfTextAtSize("TAX INVOICE", 16), y: headerY, size: 16, font: fontBold, color: C.man });
   headerY -= 18;
-  for (const line of [`Invoice No: INV-________`, `Date: ____________`, `GSTIN: __________`]) {
+  for (const line of [
+    `Invoice No: INV-________`,
+    `Date: ____________`,
+    `GSTIN: ${contact.gstin || "__________"}`,
+  ]) {
     const w = font.widthOfTextAtSize(line, 9.5);
     page.drawText(line, { x: rightX - w, y: headerY, size: 9.5, font, color: C.man });
     headerY -= 13;

@@ -35,7 +35,7 @@ export default function HomePage() {
   const storesLive = customerStoreListingsLive();
   const primaryCta = storesLive ? "Book now" : "Get notified";
   const media = getMarketingMedia();
-  const cleaningFrom = OORJAMAN_ONE_TIME_VISIT_PRICES_INR[0]?.priceInr ?? 599;
+  const cleaningFrom = OORJAMAN_ONE_TIME_VISIT_PRICES_INR[0]?.priceInr ?? 619;
   const amcFrom = Math.min(...OORJAMAN_AMC_PLANS_INR.map((p) => p.specialPriceInr));
 
   return (

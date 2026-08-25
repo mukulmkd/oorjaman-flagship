@@ -75,7 +75,7 @@ export default function HomeTab() {
       headerTintColor: colors.foreground,
       headerRight: () => <SupportChatHeaderButton />,
       headerRightContainerStyle: { paddingRight: 8 },
-      headerLeftContainerStyle: { paddingLeft: 4, maxWidth: "72%" },
+      headerLeftContainerStyle: { paddingLeft: 4, flexGrow: 0, flexShrink: 1, maxWidth: "78%" },
       headerLeft: () => (
         <Pressable
           accessibilityRole="button"
@@ -88,7 +88,12 @@ export default function HomeTab() {
           <Text style={styles.navEmployerText} numberOfLines={1}>
             {headerLine}
           </Text>
-          <Ionicons name={employerOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
+          <Ionicons
+            name={employerOpen ? "chevron-up" : "chevron-down"}
+            size={16}
+            color={colors.mutedForeground}
+            style={styles.navEmployerChevron}
+          />
         </Pressable>
       ),
     });
@@ -213,18 +218,21 @@ const styles = StyleSheet.create({
   navEmployer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
     paddingVertical: 4,
-    paddingRight: 8,
+    paddingRight: 4,
     minHeight: 40,
+    maxWidth: "100%",
     flexShrink: 1,
   },
   navEmployerText: {
-    flex: 1,
     flexShrink: 1,
     fontFamily: fontFamily.semiBold,
     fontSize: fontSize.sm,
     color: colors.foreground,
+  },
+  navEmployerChevron: {
+    flexShrink: 0,
   },
   employerCard: {
     marginBottom: spacing.md,

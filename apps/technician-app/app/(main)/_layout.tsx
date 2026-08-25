@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Tabs, Redirect } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -9,6 +9,7 @@ import { colors } from "@oorjaman/config";
 import { fontFamily, fontSize } from "../../constants/fonts";
 import { supabase } from "../../lib/supabase";
 import { TechnicianLocationTracker } from "../../components/technician-location-tracker";
+import { MandatoryLocationGate } from "../../components/mandatory-location-gate";
 import { TechnicianBookingRealtime } from "../../components/technician-booking-realtime";
 import { TechnicianApprovalToast } from "../../components/technician-approval-toast";
 import { consumeTechnicianApprovalToastPending } from "../../lib/technician-approval-toast";
@@ -26,6 +27,7 @@ export default function MainTabsLayout() {
 
   const tech = q.data;
   const isOnboarded = technicianApi.technicianIsFullyOnboarded(tech);
+  const dismissApprovalToast = useCallback(() => setShowApprovalToast(false), []);
 
   useEffect(() => {
     if (!isOnboarded) return;
@@ -34,7 +36,7 @@ export default function MainTabsLayout() {
     }
   }, [isOnboarded]);
 
-  if (!supabase || (q.isLoading && q.data === undefined)) {
+  if (!supabase || q.isPending) {
     return <TabShellSkeleton tabSlots={5} />;
   }
 
@@ -46,11 +48,8 @@ export default function MainTabsLayout() {
   }
 
   return (
-    <>
-      <TechnicianApprovalToast
-        visible={showApprovalToast}
-        onDismiss={() => setShowApprovalToast(false)}
-      />
+    <MandatoryLocationGate>
+      <TechnicianApprovalToast visible={showApprovalToast} onDismiss={dismissApprovalToast} />
       <TechnicianLocationTracker />
       <TechnicianBookingRealtime technicianId={tech?.id} />
       <Tabs
@@ -142,6 +141,6 @@ export default function MainTabsLayout() {
           }}
         />
       </Tabs>
-    </>
+    </MandatoryLocationGate>
   );
 }

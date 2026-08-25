@@ -56,7 +56,8 @@ export async function resolveTechnicianAppPostAuthPath(
   client: SupabaseClient<Database>,
 ): Promise<TechnicianAppPostAuthPath> {
   const user = await getMyUserRecordWithRetry(client);
-  if (!user) return "/wrong-role";
+  // New email/password signups can briefly lag `public.users`; treat as onboarding.
+  if (!user) return "/technician-onboarding";
 
   if (user.role !== "technician") return "/wrong-role";
 

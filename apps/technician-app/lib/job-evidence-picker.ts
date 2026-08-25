@@ -1,6 +1,6 @@
 import * as Device from "expo-device";
 import * as ImagePicker from "expo-image-picker";
-import { Alert, Platform } from "react-native";
+import { Alert, Linking, Platform } from "react-native";
 
 /** iOS returns HEIC by default; Storage buckets allow JPEG/PNG/WebP only. */
 const IOS_JPEG_PICK_OPTIONS: Pick<
@@ -26,7 +26,7 @@ async function pickFromLibrary(): Promise<string | null> {
     return null;
   }
   const picked = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    mediaTypes: ["images"],
     quality: 0.85,
     ...IOS_JPEG_PICK_OPTIONS,
   });
@@ -36,23 +36,47 @@ async function pickFromLibrary(): Promise<string | null> {
 async function pickFromCamera(cameraType?: ImagePicker.CameraType): Promise<string | null> {
   const camPerm = await ImagePicker.requestCameraPermissionsAsync();
   if (!camPerm.granted) {
-    Alert.alert("Camera", "Camera permission is required to take a photo.");
+    Alert.alert(
+      "Camera permission needed",
+      "Allow camera access in Settings so you can take on-site photos and selfies.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Open Settings", onPress: () => void Linking.openSettings() },
+      ],
+    );
     return null;
   }
   try {
     const shot = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
       quality: 0.85,
       cameraType,
       ...IOS_JPEG_PICK_OPTIONS,
     });
     return shot.canceled ? null : (shot.assets[0]?.uri ?? null);
   } catch (e: unknown) {
-    if (!isCameraUnavailableError(e)) throw e;
-    Alert.alert(
-      "Camera unavailable",
-      "Opening your photo library instead. On a real device, the camera is used.",
-    );
-    return pickFromLibrary();
+    if (cameraType === ImagePicker.CameraType.front) {
+      try {
+        const shot = await ImagePicker.launchCameraAsync({
+          mediaTypes: ["images"],
+          quality: 0.85,
+          cameraType: ImagePicker.CameraType.back,
+          ...IOS_JPEG_PICK_OPTIONS,
+        });
+        return shot.canceled ? null : (shot.assets[0]?.uri ?? null);
+      } catch {
+        /* fall through to library / alert */
+      }
+    }
+    if (isCameraUnavailableError(e)) {
+      Alert.alert(
+        "Camera unavailable",
+        "Opening your photo library instead. On a real device, the camera is used.",
+      );
+      return pickFromLibrary();
+    }
+    Alert.alert("Camera error", e instanceof Error ? e.message : "Could not open the camera.");
+    return null;
   }
 }
 

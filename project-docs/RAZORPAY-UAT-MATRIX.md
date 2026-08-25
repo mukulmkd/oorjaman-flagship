@@ -108,6 +108,12 @@ CVV & expiry: random CVV + any future date.
 | Refund pending | refund.created | `refund_pending` | unchanged | Refund initiated… | — | refund.created | refunds row pending |
 | Refund failed | refund.failed | `refund_failed` | unchanged | — | — | refund.failed | refunds row failed |
 | Duplicate refund webhook | same refund id | unchanged | unchanged | — | — | duplicate | unique refund id |
+| **Auto: customer grace cancel** | create-razorpay-refund + processed | `refunded` | `cancelled` | Refund initiated… | — | refund.* | full remaining |
+| **Auto: customer late cancel** | partial refund | `partially_refunded` or `refunded` | `cancelled` | Late fee retained + refund | — | refund.* | amount = paid − late_fee |
+| **Vendor reject prepaid** | none | payment unchanged | stays `confirmed`, unassigned | — | ops reassigns | — | no refund |
+| **Vendor cancel & reassign** | none | payment unchanged | stays live for reassignment | — | ops reassigns | — | no refund |
+| **Admin Cancel + refund** (no partner) | create-razorpay-refund | refund family | `cancelled` | — | — | refund.* | full or net late fee |
+| **Admin Initiate refund** | create-razorpay-refund | refund family | unchanged | — | — | refund.* | amount as entered |
 | Amount mismatch webhook | captured wrong amount | reject fulfill | no confirm | — | — | 500/error | no success |
 
 ---
@@ -120,8 +126,10 @@ CVV & expiry: random CVV + any future date.
 4. **At least one GATEWAY_ERROR card** — e.g. auth failed Visa `4100 2800 0000 0009`.
 5. **User dismisses Checkout** — cancelled / abandon path.
 6. **Pay after service** — book without capture; complete job; collect via technician QR or customer outstanding pay.
-7. **Admin** — Finance → Payments shows the payment with Razorpay ids / failure category.
-8. **AMC pay** (if testing subscriptions) — same success + one failure card.
+7. **Admin** — Finance → Payments shows the payment with Razorpay ids / failure category; **Initiate refund** works on a paid row.
+8. **Auto refund** — prepaid pay → customer cancel within grace → `refund_pending` → `refunded`; late cancel nets platform late fee.
+9. **Vendor reject / cancel** — visit returns to ops for reassignment; **no** Razorpay refund; admin can assign another partner or **Cancel + refund** if none available.
+10. **AMC pay** (if testing subscriptions) — same success + one failure card.
 
 ---
 

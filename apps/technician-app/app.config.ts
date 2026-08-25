@@ -39,6 +39,7 @@ const config: ExpoConfig = {
     },
     package: isUat ? "com.oorjaman.technician.uat" : "com.oorjaman.technician",
     softwareKeyboardLayoutMode: "resize",
+    permissions: ["android.permission.CAMERA"],
   },
   plugins: [
     expoBuildPropertiesFromSource,
@@ -65,7 +66,7 @@ const config: ExpoConfig = {
       "expo-image-picker",
       {
         photosPermission: "Allow OorjaMan Partner to attach before and after photos for job reports.",
-        cameraPermission: "Allow OorjaMan Partner to capture site photos for job reports.",
+        cameraPermission: "Allow OorjaMan Partner to capture your passport photo and job site evidence.",
       },
     ],
   ] as NonNullable<ExpoConfig["plugins"]>,

@@ -3,37 +3,15 @@ import type { Database } from "../database.types";
 import { resolveDummyAuthSettings } from "../env";
 import { SupabaseApiError } from "../result";
 import { syncMyUserFromAuth } from "../users/user-api";
+import { dummyAuthEmailCandidatesForPhone } from "./auth-identity";
 
-/** Normalize typed mobile input toward E.164 (defaults 10-digit local numbers to `+91…`). */
-export function normalizePhoneE164(raw: string, defaultCc = "91"): string {
-  const trimmed = raw.trim().replace(/[\s-]/g, "");
-  const digitsOnly = trimmed.replace(/\D/g, "");
-  if (trimmed.startsWith("+")) {
-    return `+${digitsOnly}`;
-  }
-  if (digitsOnly.startsWith(defaultCc) && digitsOnly.length >= defaultCc.length + 8) {
-    return `+${digitsOnly}`;
-  }
-  if (digitsOnly.length === 10) {
-    return `+${defaultCc}${digitsOnly}`;
-  }
-  return `+${digitsOnly}`;
-}
-
-/**
- * Synthetic email used only for dummy auth password sign-in (must match `seed-dummy-test-users.mjs`).
- * Supabase often rejects `signInWithPassword({ phone })` with 422; email + password is reliable.
- */
-export function dummyEmailFromPhoneE164(phone: string): string {
-  const digits = phone.replace(/\D/g, "");
-  return `u${digits}@oorjaman-dummy.test`;
-}
-
-/** Dev-only synthetic emails; not shown as a verified contact in product UI. */
-export function isDummyAuthEmail(email: string | null | undefined): boolean {
-  if (!email) return false;
-  return email.trim().toLowerCase().endsWith("@oorjaman-dummy.test");
-}
+export {
+  dummyAuthEmailCandidatesForPhone,
+  dummyAuthEmailForPhone,
+  dummyEmailFromPhoneE164,
+  isDummyAuthEmail,
+  normalizePhoneE164,
+} from "./auth-identity";
 
 async function syncPublicUserAfterAuth(client: SupabaseClient<Database>): Promise<void> {
   try {
@@ -86,13 +64,19 @@ export async function verifyPhoneOtp(
 ) {
   const dummy = resolveDummyAuthSettings(options?.frameworkEnv);
   if (dummy.enabled && token.trim() === dummy.otpCode) {
-    const { data, error } = await client.auth.signInWithPassword({
-      email: dummyEmailFromPhoneE164(phone),
-      password: dummy.password,
-    });
-    if (error) throw new SupabaseApiError(error.message, error);
-    await syncPublicUserAfterAuth(client);
-    return data;
+    let lastMessage = "Invalid or expired code.";
+    for (const email of dummyAuthEmailCandidatesForPhone(phone)) {
+      const { data, error } = await client.auth.signInWithPassword({
+        email,
+        password: dummy.password,
+      });
+      if (!error) {
+        await syncPublicUserAfterAuth(client);
+        return data;
+      }
+      lastMessage = error.message;
+    }
+    throw new SupabaseApiError(lastMessage);
   }
   const { data, error } = await client.auth.verifyOtp({
     phone,
@@ -105,7 +89,78 @@ export async function verifyPhoneOtp(
 }
 
 /**
+ * Email + password sign-in (temporary launch path while SMS OTP is pending).
+ */
+export async function signInWithEmailPassword(
+  client: SupabaseClient<Database>,
+  email: string,
+  password: string,
+) {
+  const { data, error } = await client.auth.signInWithPassword({
+    email: email.trim().toLowerCase(),
+    password,
+  });
+  if (error) throw new SupabaseApiError(error.message, error);
+  await syncPublicUserAfterAuth(client);
+  return data;
+}
+
+/**
+ * Email + password sign-up. Pass `data.role` (`customer` | `technician` | `vendor`) for
+ * `public.users` provisioning on first insert. May return `session: null` when email
+ * confirmation is required in the Auth project settings.
+ */
+export async function signUpWithEmailPassword(
+  client: SupabaseClient<Database>,
+  email: string,
+  password: string,
+  options?: {
+    data?: Record<string, unknown>;
+  },
+) {
+  const { data, error } = await client.auth.signUp({
+    email: email.trim().toLowerCase(),
+    password,
+    options: {
+      data: options?.data,
+    },
+  });
+  if (error) throw new SupabaseApiError(error.message, error);
+  if (data.session) {
+    await syncPublicUserAfterAuth(client);
+  }
+  return data;
+}
+
+/**
+ * Sends a password-reset email. Configure Auth redirect URLs for the app scheme
+ * (e.g. `oorjaman-customer://reset-password`) in the Supabase dashboard.
+ */
+export async function requestPasswordReset(
+  client: SupabaseClient<Database>,
+  email: string,
+  redirectTo?: string,
+) {
+  const { error } = await client.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+    redirectTo,
+  });
+  if (error) throw new SupabaseApiError(error.message, error);
+}
+
+/** After recovery deep link: set a new password while the recovery session is active. */
+export async function updatePassword(
+  client: SupabaseClient<Database>,
+  password: string,
+) {
+  const { data, error } = await client.auth.updateUser({ password });
+  if (error) throw new SupabaseApiError(error.message, error);
+  return data;
+}
+
+/**
  * Email OTP / magic link - requires email provider configuration in Supabase.
+ * Local/UAT with dummy auth: send is a no-op; verify with `DUMMY_OTP_CODE` (default 123456)
+ * via password login for seeded users (same password as phone dummy).
  */
 export async function requestEmailOtp(
   client: SupabaseClient<Database>,
@@ -114,10 +169,16 @@ export async function requestEmailOtp(
     shouldCreateUser?: boolean;
     /** Applied on first sign-up as `raw_user_meta_data` (e.g. `{ role: "vendor" }`). */
     data?: Record<string, unknown>;
+    /** Pass `import.meta.env` from Vite so dummy auth flags apply. */
+    frameworkEnv?: Record<string, string | boolean | undefined>;
   },
 ) {
+  const dummy = resolveDummyAuthSettings(options?.frameworkEnv);
+  if (dummy.enabled) {
+    return { user: null, session: null };
+  }
   const { data, error } = await client.auth.signInWithOtp({
-    email,
+    email: email.trim().toLowerCase(),
     options: {
       shouldCreateUser: options?.shouldCreateUser ?? true,
       data: options?.data,
@@ -127,9 +188,28 @@ export async function requestEmailOtp(
   return data;
 }
 
-export async function verifyEmailOtp(client: SupabaseClient<Database>, email: string, token: string) {
+export async function verifyEmailOtp(
+  client: SupabaseClient<Database>,
+  email: string,
+  token: string,
+  options?: {
+    /** Pass `import.meta.env` from Vite so dummy auth flags apply. */
+    frameworkEnv?: Record<string, string | boolean | undefined>;
+  },
+) {
+  const trimmed = email.trim().toLowerCase();
+  const dummy = resolveDummyAuthSettings(options?.frameworkEnv);
+  if (dummy.enabled && token.trim() === dummy.otpCode) {
+    const { data, error } = await client.auth.signInWithPassword({
+      email: trimmed,
+      password: dummy.password,
+    });
+    if (error) throw new SupabaseApiError(error.message, error);
+    await syncPublicUserAfterAuth(client);
+    return data;
+  }
   const { data, error } = await client.auth.verifyOtp({
-    email,
+    email: trimmed,
     token,
     type: "email",
   });

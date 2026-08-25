@@ -58,3 +58,10 @@ export function validateEmailFormat(raw: string): string | null {
   if (/[<>'"&]/.test(t)) return "Enter a valid email address.";
   return null;
 }
+
+/** Returns an error message or `null` when the password meets signup rules. */
+export function validatePasswordForSignup(raw: string): string | null {
+  if (!raw || raw.length < 8) return "Use at least 8 characters for your password.";
+  if (raw.length > 72) return "Password is too long.";
+  return null;
+}

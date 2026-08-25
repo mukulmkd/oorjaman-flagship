@@ -97,6 +97,8 @@ blob-report/
 **/dist/
 **/dist-ssr/
 **/.vite/
+# Local GoDaddy upload packages (npm run build portals → zip)
+/dist-godaddy/
 
 # -----------------------------------------------------------------------------
 # Web app - Next.js (oorjaman-web)

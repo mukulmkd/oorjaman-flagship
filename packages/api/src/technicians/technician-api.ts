@@ -16,7 +16,9 @@ import {
   takeRows,
   takeSingleRow,
 } from "../result";
+import { getMySignInPhoneE164 } from "../users/user-api";
 import { syncUserDisplayNameFromTechnician } from "../users/user-display-name";
+import { normalizePhoneE164 } from "../auth/auth-api";
 import { mergeInviteFullNameIntoMetadata } from "./technician-display-name";
 import {
   offsetRangeForPage,
@@ -564,9 +566,16 @@ export type VendorTechnicianInviteInput = {
 };
 
 function normalizeInvitePhone(raw: string): string {
-  const cleaned = raw.replace(/[^\d+]/g, "").trim();
-  if (!cleaned) throw new SupabaseApiError("Invite phone is required.");
-  return cleaned.startsWith("+") ? cleaned : `+${cleaned}`;
+  const trimmed = raw.trim();
+  if (!trimmed) throw new SupabaseApiError("Invite phone is required.");
+  return normalizePhoneE164(trimmed);
+}
+
+async function resolveCurrentUserInvitePhone(
+  client: SupabaseClient<Database>,
+): Promise<string | null> {
+  const phone = (await getMySignInPhoneE164(client)).trim();
+  return phone || null;
 }
 
 function createInviteToken(): string {
@@ -836,17 +845,7 @@ export async function submitTechnicianOnboarding(
 async function markInviteCompletedForCurrentUser(
   client: SupabaseClient<Database>,
 ): Promise<void> {
-  const { data: userData, error: userErr } = await client.auth.getUser();
-  if (userErr) throw new SupabaseApiError(userErr.message, userErr);
-  const uid = userData.user?.id;
-  if (!uid) return;
-  const { data: userRow, error: userRowErr } = await client
-    .from("users")
-    .select("phone")
-    .eq("id", uid)
-    .maybeSingle();
-  if (userRowErr) throw new SupabaseApiError(userRowErr.message, userRowErr);
-  const phone = userRow?.phone?.trim();
+  const phone = await resolveCurrentUserInvitePhone(client);
   if (!phone) return;
   const { error } = await client
     .from("vendor_technician_invites")
@@ -952,18 +951,7 @@ export async function technicianHasVendorOnboardingAccess(
   const tech = await getMyTechnicianProfile(client);
   if (tech) return true;
 
-  const { data: userData, error: userErr } = await client.auth.getUser();
-  if (userErr) throw new SupabaseApiError(userErr.message, userErr);
-  const uid = userData.user?.id;
-  if (!uid) return false;
-
-  const { data: userRow, error: rowErr } = await client
-    .from("users")
-    .select("phone")
-    .eq("id", uid)
-    .maybeSingle();
-  if (rowErr) throw new SupabaseApiError(rowErr.message, rowErr);
-  const phone = userRow?.phone?.trim();
+  const phone = await resolveCurrentUserInvitePhone(client);
   if (!phone) return false;
 
   const { data, error } = await client
@@ -982,15 +970,9 @@ export async function technicianGetMyInvite(
 ): Promise<VendorTechnicianInviteRow | null> {
   const { data: userData, error: userErr } = await client.auth.getUser();
   if (userErr) throw new SupabaseApiError(userErr.message, userErr);
-  const uid = userData.user?.id;
-  if (!uid) return null;
-  const { data: userRow, error: rowErr } = await client
-    .from("users")
-    .select("phone")
-    .eq("id", uid)
-    .maybeSingle();
-  if (rowErr) throw new SupabaseApiError(rowErr.message, rowErr);
-  const phone = userRow?.phone?.trim();
+  if (!userData.user?.id) return null;
+
+  const phone = await resolveCurrentUserInvitePhone(client);
   if (!phone) return null;
   const { data, error } = await client
     .from("vendor_technician_invites")
@@ -1199,7 +1181,7 @@ export async function technicianFinalizeJobReport(
   const booking = await getBookingById(client, bookingId);
   if (booking.status !== "in_progress") {
     throw new SupabaseApiError(
-      "Happy Code completion is only allowed when the job is in progress.",
+      "Job finish code completion is only allowed when the job is in progress.",
     );
   }
   const otpMeta = readBookingServiceOtpMeta(booking.metadata);
@@ -1208,14 +1190,14 @@ export async function technicianFinalizeJobReport(
     Date.now() < new Date(otpMeta.happyLockedUntil).getTime()
   ) {
     throw new SupabaseApiError(
-      "Happy Code entry is temporarily locked. Please retry in a few minutes.",
+      "Job finish code entry is temporarily locked. Please retry in a few minutes.",
     );
   }
   if (booking.actual_start) {
     const ageMs = Date.now() - new Date(booking.actual_start).getTime();
     if (Number.isFinite(ageMs) && ageMs > HAPPY_CODE_MAX_AGE_MS) {
       throw new SupabaseApiError(
-        "Happy Code expired for this visit. Ask customer to regenerate from app.",
+        "Job finish code expired for this visit. Ask customer to regenerate from app.",
       );
     }
   }
@@ -1223,7 +1205,7 @@ export async function technicianFinalizeJobReport(
     const provided = normalizeCodeInput(input.happyCode ?? "");
     if (!provided)
       throw new SupabaseApiError(
-        "Enter Happy Code before completing the visit.",
+        "Enter job finish code before completing the visit.",
       );
     if (provided !== otpMeta.happyCode) {
       const fail = await recordServiceOtpFailure(
@@ -1234,8 +1216,8 @@ export async function technicianFinalizeJobReport(
       );
       throw new SupabaseApiError(
         fail.lockedUntil
-          ? "Happy Code locked for 5 minutes due to repeated mismatches."
-          : `Happy Code does not match (${fail.failCount}/${OTP_MAX_ATTEMPTS}).`,
+          ? "Job finish code locked for 5 minutes due to repeated mismatches."
+          : `Job finish code does not match (${fail.failCount}/${OTP_MAX_ATTEMPTS}).`,
       );
     }
   }

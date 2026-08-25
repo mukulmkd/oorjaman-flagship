@@ -5,3 +5,4 @@ export * from "./card-front-layout";
 export * from "./email-signature";
 export * from "./letterhead-header-layout";
 export * from "./letterhead-footer-layout";
+export * from "./tax-invoice";

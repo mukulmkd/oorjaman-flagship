@@ -30,6 +30,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatDisplayDateTime } from "@oorjaman/utils";
 import { colors, spacing } from "@oorjaman/config";
 import { Button } from "./Button";
+import { KEYBOARD_AVOIDING_BEHAVIOR } from "./KeyboardFormScreen";
 import { ModalSheetHeader } from "./ModalSheetHeader";
 import { mobileBrandFontFamily as fontFamily } from "./brand/mobile-brand-fonts";
 import { mobileBrandFontSize as fontSize } from "./brand/brand-assets";
@@ -587,7 +588,7 @@ export function HelpSupportModalBody({
         />
 
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={KEYBOARD_AVOIDING_BEHAVIOR}
           style={[styles.sheetBody, fullscreen && styles.sheetBodyScreen]}
           keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
         >

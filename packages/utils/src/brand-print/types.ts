@@ -13,6 +13,8 @@ export type BrandPrintContact = {
   address: string;
   cardName: string;
   cardTitle: string;
+  /** Seller GSTIN for tax invoices. Override when finance confirms a change. */
+  gstin: string;
 };
 
 export const DEFAULT_BRAND_PRINT_CONTACT: BrandPrintContact = {
@@ -27,6 +29,7 @@ export const DEFAULT_BRAND_PRINT_CONTACT: BrandPrintContact = {
   address: "House No. 18, Bye Lane 2, Zoo Road Tiniali, Guwahati, Assam 781001, India",
   cardName: "Your Name",
   cardTitle: "Designated Partner",
+  gstin: "18AAKFO2664E1Z5",
 };
 
 export function slugifyBrandFileName(name: string): string {

@@ -5,6 +5,7 @@ import {
   buildLoginE164,
   LOGIN_PHONE_COUNTRIES,
   DEFAULT_LOGIN_COUNTRY_DIAL,
+  resolveDummyAuthSettings,
   supportApi,
   userApi,
   validateEmailFormat,
@@ -47,7 +48,11 @@ export default function SupportLoginPage() {
   const autoPhoneOtp = useRef<string | null>(null);
   const autoEmailOtp = useRef<string | null>(null);
 
-  const [method, setMethod] = useState<SignInMethod>("phone");
+  const viteEnv = import.meta.env;
+  /** Local/UAT: Email + Mobile dummy OTP. Prod: Email OTP only (SMS Coming soon). */
+  const allowPhoneOtp = resolveDummyAuthSettings(viteEnv).enabled;
+
+  const [method, setMethod] = useState<SignInMethod>("email");
   const [countryDial, setCountryDial] = useState(DEFAULT_LOGIN_COUNTRY_DIAL);
   const [nationalPhone, setNationalPhone] = useState("");
   const [e164, setE164] = useState<string | null>(null);
@@ -63,15 +68,13 @@ export default function SupportLoginPage() {
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
-  const viteEnv = import.meta.env;
-
   useEffect(() => {
     if (!supabase) return;
     void (async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) return;
       const row = await userApi.getMyUserRecord(supabase);
-      if (row?.role === "admin") {
+      if (row && supportApi.isSupportDeskRole(row.role)) {
         navigate("/insights", { replace: true });
         return;
       }
@@ -94,6 +97,18 @@ export default function SupportLoginPage() {
     autoEmailOtp.current = null;
     setError(null);
   }, [email]);
+
+  useEffect(() => {
+    if (phoneOtp.length < OTP_LEN) autoPhoneOtp.current = null;
+  }, [phoneOtp]);
+
+  useEffect(() => {
+    if (emailOtp.length < OTP_LEN) autoEmailOtp.current = null;
+  }, [emailOtp]);
+
+  useEffect(() => {
+    if (!allowPhoneOtp && method === "phone") setMethod("email");
+  }, [allowPhoneOtp, method]);
 
   const sendPhoneOtp = useCallback(async () => {
     setError(null);
@@ -134,7 +149,7 @@ export default function SupportLoginPage() {
     const trimmed = email.trim().toLowerCase();
     setSending(true);
     try {
-      await authApi.requestEmailOtp(supabase, trimmed);
+      await authApi.requestEmailOtp(supabase, trimmed, { frameworkEnv: viteEnv });
       setEmailForVerify(trimmed);
       setEmailOtpSent(true);
       emailOtpRef.current?.focus();
@@ -143,7 +158,7 @@ export default function SupportLoginPage() {
     } finally {
       setSending(false);
     }
-  }, [email, supabase]);
+  }, [email, supabase, viteEnv]);
 
   const verifyPhone = useCallback(async () => {
     setError(null);
@@ -178,14 +193,14 @@ export default function SupportLoginPage() {
     }
     setVerifying(true);
     try {
-      await authApi.verifyEmailOtp(supabase, emailForVerify, emailOtp);
+      await authApi.verifyEmailOtp(supabase, emailForVerify, emailOtp, { frameworkEnv: viteEnv });
       await routeAfterSupportLogin(supabase, navigate, setError);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Invalid or expired code.");
     } finally {
       setVerifying(false);
     }
-  }, [emailForVerify, emailOtp, navigate, supabase]);
+  }, [emailForVerify, emailOtp, navigate, supabase, viteEnv]);
 
   useEffect(() => {
     if (!phoneOtpSent || phoneOtp.length !== OTP_LEN || verifying || sending || !e164 || !supabase) return;
@@ -207,47 +222,52 @@ export default function SupportLoginPage() {
 
   const canSubmitPhone = phoneOtpSent && phoneOtp.length === OTP_LEN && !verifying;
   const canSubmitEmail = emailOtpSent && emailOtp.length === OTP_LEN && !verifying;
+  const showPhoneForm = allowPhoneOtp && method === "phone";
 
   return (
     <div className="al-root">
       <PortalLoginBrand persona="support" />
       <Card padded className="al-card">
         <p className="al-lede">
-          Sign in to manage customer chats. Operations console and partner portal use separate apps.
+          {allowPhoneOtp
+            ? "Sign in with a one-time code on your email or mobile to manage customer chats. Operations console and partner portal use separate apps."
+            : "Sign in with a one-time code emailed to you to manage customer chats. Operations console and partner portal use separate apps."}
         </p>
 
-        <div className="al-tabs" role="tablist" aria-label="Sign-in method">
-          <button
-            type="button"
-            role="tab"
-            className={`al-tab ${method === "phone" ? "al-tab--active" : ""}`}
-            aria-selected={method === "phone"}
-            disabled={verifying}
-            onClick={() => {
-              setMethod("phone");
-              setError(null);
-            }}
-          >
-            Mobile
-          </button>
-          <button
-            type="button"
-            role="tab"
-            className={`al-tab ${method === "email" ? "al-tab--active" : ""}`}
-            aria-selected={method === "email"}
-            disabled={verifying}
-            onClick={() => {
-              setMethod("email");
-              setError(null);
-            }}
-          >
-            Email
-          </button>
-        </div>
+        {allowPhoneOtp ? (
+          <div className="al-tabs" role="tablist" aria-label="Sign-in method">
+            <button
+              type="button"
+              role="tab"
+              className={`al-tab ${method === "email" ? "al-tab--active" : ""}`}
+              aria-selected={method === "email"}
+              disabled={verifying}
+              onClick={() => {
+                setMethod("email");
+                setError(null);
+              }}
+            >
+              Email
+            </button>
+            <button
+              type="button"
+              role="tab"
+              className={`al-tab ${method === "phone" ? "al-tab--active" : ""}`}
+              aria-selected={method === "phone"}
+              disabled={verifying}
+              onClick={() => {
+                setMethod("phone");
+                setError(null);
+              }}
+            >
+              Mobile OTP
+            </button>
+          </div>
+        ) : null}
 
         {error ? <p className="al-error">{error}</p> : null}
 
-        {method === "phone" ? (
+        {showPhoneForm ? (
           <div className="al-fields">
             <PhoneCountryLogin
               label="Mobile number"
@@ -336,6 +356,25 @@ export default function SupportLoginPage() {
             >
               Sign in
             </Button>
+            <p className="al-hint">
+              {allowPhoneOtp
+                ? "We email a one-time code (or use the local/UAT test code when dummy auth is on)."
+                : "We email you a one-time code. Check spam if it does not arrive within a minute."}
+            </p>
+
+            {!allowPhoneOtp ? (
+              <div className="al-coming-soon">
+                <span className="al-coming-soon-badge">Coming soon</span>
+                <p className="al-coming-soon-title">Sign in with mobile OTP</p>
+                <p className="al-coming-soon-body">
+                  SMS one-time codes will return once our India SMS provider is live. Until then, use
+                  email OTP.
+                </p>
+                <Button variant="outline" className="al-coming-soon-btn" disabled>
+                  Mobile OTP
+                </Button>
+              </div>
+            ) : null}
           </div>
         )}
       </Card>

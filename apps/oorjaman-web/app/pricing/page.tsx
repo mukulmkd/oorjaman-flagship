@@ -25,9 +25,9 @@ const chips = [
 ] as const;
 
 export default function PricingPage() {
-  const sampleGst = splitGstFromInclusiveInr(1599);
-  const cleaningFrom = OORJAMAN_ONE_TIME_VISIT_PRICES_INR[0]?.priceInr ?? 599;
+  const cleaningFrom = OORJAMAN_ONE_TIME_VISIT_PRICES_INR[0]?.priceInr ?? 619;
   const amcFrom = Math.min(...OORJAMAN_AMC_PLANS_INR.map((p) => p.specialPriceInr));
+  const sampleGst = splitGstFromInclusiveInr(amcFrom);
 
   return (
     <MarketingPage
@@ -79,9 +79,9 @@ export default function PricingPage() {
 
       <ScrollReveal>
         <p>
-          <strong>GST ({OORJAMAN_GST_RATE_PERCENT}%)</strong> is included in every price below. Example for a ₹1,599 AMC
-          plan: service value {formatInrWhole(sampleGst.taxableValueInr)}, GST {formatInrWhole(sampleGst.gstInr)}, total{" "}
-          {formatInrWhole(sampleGst.totalInr)}.
+          <strong>GST ({OORJAMAN_GST_RATE_PERCENT}%)</strong> is included in every price below. Example for a{" "}
+          {formatInrWhole(amcFrom)} AMC plan: service value {formatInrWhole(sampleGst.taxableValueInr)}, GST{" "}
+          {formatInrWhole(sampleGst.gstInr)}, total {formatInrWhole(sampleGst.totalInr)}.
         </p>
       </ScrollReveal>
 

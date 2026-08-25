@@ -1,8 +1,16 @@
-import type { ReactNode } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { useEffect, useRef, type ReactNode } from "react";
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 import { SafeAreaView, type Edge } from "react-native-safe-area-context";
 import { colors, spacing } from "@oorjaman/config";
 import { SCREEN_EDGES_ABOVE_TAB_BAR } from "./Screen";
+import { KEYBOARD_AVOIDING_BEHAVIOR } from "./KeyboardFormScreen";
 
 type AppScaffoldProps = {
   header?: ReactNode;
@@ -15,6 +23,11 @@ type AppScaffoldProps = {
    * `SCREEN_EDGES_FULL_SCREEN` from `./Screen`.
    */
   edges?: readonly Edge[];
+  /** Lift scrollable content when the keyboard opens (forms with text inputs). */
+  keyboardAware?: boolean;
+  keyboardVerticalOffset?: number;
+  /** Scroll to end when the keyboard opens — useful for OTP / bottom fields. */
+  scrollToEndOnKeyboard?: boolean;
 };
 
 /**
@@ -28,23 +41,52 @@ export function AppScaffold({
   scrollable = true,
   contentContainerStyle,
   edges = SCREEN_EDGES_ABOVE_TAB_BAR,
+  keyboardAware = false,
+  keyboardVerticalOffset = 0,
+  scrollToEndOnKeyboard = false,
 }: AppScaffoldProps) {
+  const scrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    if (!keyboardAware || !scrollToEndOnKeyboard || !scrollable) return;
+    const event = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const sub = Keyboard.addListener(event, () => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    });
+    return () => sub.remove();
+  }, [keyboardAware, scrollToEndOnKeyboard, scrollable]);
+
+  const scrollBody = scrollable ? (
+    <ScrollView
+      ref={scrollRef}
+      style={styles.content}
+      contentContainerStyle={[styles.contentContainer, contentContainerStyle]}
+      keyboardShouldPersistTaps={keyboardAware ? "always" : "handled"}
+      keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+      showsVerticalScrollIndicator={false}
+    >
+      {children}
+    </ScrollView>
+  ) : (
+    <View style={[styles.content, styles.contentContainer, contentContainerStyle]}>{children}</View>
+  );
+
+  const main = keyboardAware ? (
+    <KeyboardAvoidingView
+      style={styles.content}
+      behavior={KEYBOARD_AVOIDING_BEHAVIOR}
+      keyboardVerticalOffset={keyboardVerticalOffset}
+    >
+      {scrollBody}
+    </KeyboardAvoidingView>
+  ) : (
+    scrollBody
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={edges}>
       {header ? <View style={styles.header}>{header}</View> : null}
-      {scrollable ? (
-        <ScrollView
-          style={styles.content}
-          contentContainerStyle={[styles.contentContainer, contentContainerStyle]}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          showsVerticalScrollIndicator={false}
-        >
-          {children}
-        </ScrollView>
-      ) : (
-        <View style={[styles.content, styles.contentContainer, contentContainerStyle]}>{children}</View>
-      )}
+      {main}
       {footer ? <View style={styles.footer}>{footer}</View> : null}
     </SafeAreaView>
   );

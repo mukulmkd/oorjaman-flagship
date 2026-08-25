@@ -47,6 +47,11 @@ import {
   customerLocationSignalsFromServiceSiteAddress,
   vendorCoversCustomerSignals,
 } from "../vendors/vendor-service-area";
+import {
+  initiateBookingPaymentRefund,
+  refundAttemptToMetadataJson,
+  type RefundAttemptResult,
+} from "../payments/refund-api";
 
 /** One hour to accept or reject an incoming customer request (see {@link vendorResponseDeadline}). */
 export const VENDOR_BOOKING_RESPONSE_WINDOW_MS = 60 * 60 * 1000;
@@ -1189,7 +1194,9 @@ export async function vendorAcceptBookingRequest(
 }
 
 /**
- * Vendor declines a customer request within the response window (stores cancellation reason).
+ * Vendor declines a customer request within the response window.
+ * Does **not** refund the customer — booking returns to OorjaMan ops for reassignment.
+ * Refund only when admin later cancels because no partner can fulfill.
  */
 export async function vendorRejectBookingRequest(
   client: SupabaseClient<Database>,
@@ -1216,22 +1223,41 @@ export async function vendorRejectBookingRequest(
   const { data: userData } = await client.auth.getUser();
   const uid = requireSessionUserId(userData.user?.id);
   const now = new Date().toISOString();
+  const previousVendorId = booking.vendor_id;
 
   const metadata = mergeBookingMetadata(booking.metadata, {
     vendor_rejection: {
       rejected_at: now,
       reason: trimmed,
+      previous_vendor_id: previousVendorId,
     },
+    marketplace: {
+      mode: "default_vendor",
+      floated: false,
+      awaiting_admin_assignment: true,
+      vendor_rejected_reassign: true,
+      reassign_requested_at: now,
+    } as Json,
+    vendor_reassignment: {
+      awaiting_admin_assignment: true,
+      cancelled_by_vendor_at: now,
+      cancelled_by_user_id: uid,
+      previous_vendor_id: previousVendorId,
+      previous_technician_id: booking.technician_id,
+      reason: trimmed,
+      source: "vendor_reject",
+    } as Json,
   });
 
   const updated = await updateBooking(client, bookingId, {
-    status: "cancelled",
-    cancellation_reason: trimmed,
-    cancelled_at: now,
-    cancelled_by: uid,
+    status: "confirmed",
+    vendor_id: null,
+    technician_id: null,
+    booking_code: null,
     metadata,
   });
-  const vendorName = await resolveVendorDisplayName(client, updated.vendor_id);
+
+  const vendorName = await resolveVendorDisplayName(client, previousVendorId);
   const declinedCopy = adminVendorDeclinedCopy(updated, vendorName, trimmed);
   await emitAdminBookingNotification(client, {
     booking: updated,
@@ -1240,12 +1266,13 @@ export async function vendorRejectBookingRequest(
     vendorName,
     note: trimmed,
   });
-  const cancelledCopy = adminBookingCancelledCopy(updated);
+  const reassignCopy = adminReassignmentNeededCopy(updated, vendorName);
   await emitAdminBookingNotification(client, {
     booking: updated,
-    eventType: "admin_booking_cancelled",
-    ...cancelledCopy,
+    eventType: "admin_booking_needs_reassignment",
+    ...reassignCopy,
     vendorName,
+    note: trimmed,
   });
   return updated;
 }
@@ -2566,13 +2593,109 @@ export async function customerCancelBooking(
     customer_cancellation: custCancelMeta as unknown as Json,
   });
 
-  return updateBooking(client, bookingId, {
+  const cancelled = await updateBooking(client, bookingId, {
     status: "cancelled",
     cancellation_reason: trimmed,
     cancelled_at: now,
     cancelled_by: uid,
     metadata: nextMeta,
   });
+
+  // Prepaid captured → auto Razorpay refund (partial = paid − late fee when late).
+  const refundAttempt = await initiateBookingPaymentRefund(client, {
+    bookingId,
+    lateFeePaise: grace ? 0 : lateFeePaise,
+    reason: `Customer cancelled booking: ${trimmed}`,
+    idempotencyKey: `customer-cancel-${bookingId}`,
+  });
+  return attachRefundAttemptToBooking(client, cancelled, refundAttempt, trimmed);
+}
+
+async function attachRefundAttemptToBooking(
+  client: SupabaseClient<Database>,
+  booking: BookingRow,
+  attempt: RefundAttemptResult,
+  reason: string,
+): Promise<BookingRow> {
+  if (attempt.status === "skipped" && !attempt.paymentId) {
+    return booking;
+  }
+  const metadata = mergeBookingMetadata(booking.metadata, {
+    refund_attempt: refundAttemptToMetadataJson(attempt, reason),
+  });
+  return updateBooking(client, booking.id, { metadata });
+}
+
+/**
+ * Admin cancels a prepaid booking and initiates a Razorpay refund.
+ * Default: full remaining amount. Pass `applyLateFeePaise` to net a late fee (1A).
+ */
+export async function adminCancelBookingWithRefund(
+  client: SupabaseClient<Database>,
+  bookingId: string,
+  params: {
+    reason: string;
+    /** When set, refund = remaining − this fee (clamped at 0). */
+    applyLateFeePaise?: number;
+  },
+): Promise<{ booking: BookingRow; refund: RefundAttemptResult }> {
+  const trimmed = params.reason.trim();
+  if (trimmed.length < 4) {
+    throw new SupabaseApiError("Enter a short reason (at least 4 characters).");
+  }
+
+  const booking = await getBookingById(client, bookingId);
+  if (!["pending_payment", "confirmed", "accepted"].includes(booking.status)) {
+    throw new SupabaseApiError(
+      "Only pending, confirmed, or accepted bookings can be cancelled with refund.",
+    );
+  }
+
+  const { data: userData } = await client.auth.getUser();
+  const uid = requireSessionUserId(userData.user?.id);
+  const now = new Date().toISOString();
+  const lateFee = Math.max(0, Math.round(params.applyLateFeePaise ?? 0));
+
+  const nextMeta = mergeBookingMetadata(booking.metadata, {
+    admin_cancellation: {
+      cancelled_from: "admin_web",
+      late_fee_paise: lateFee,
+      cancelled_at: now,
+    } as unknown as Json,
+  });
+
+  const cancelled = await updateBooking(client, bookingId, {
+    status: "cancelled",
+    cancellation_reason: trimmed,
+    cancelled_at: now,
+    cancelled_by: uid,
+    metadata: nextMeta,
+  });
+
+  const refund = await initiateBookingPaymentRefund(client, {
+    bookingId,
+    lateFeePaise: lateFee,
+    reason: `Admin cancelled booking: ${trimmed}`,
+    idempotencyKey: `admin-cancel-${bookingId}`,
+  });
+  const withRefund = await attachRefundAttemptToBooking(
+    client,
+    cancelled,
+    refund,
+    trimmed,
+  );
+
+  const vendorName = await resolveVendorDisplayName(client, withRefund.vendor_id);
+  const cancelledCopy = adminBookingCancelledCopy(withRefund);
+  await emitAdminBookingNotification(client, {
+    booking: withRefund,
+    eventType: "admin_booking_cancelled",
+    ...cancelledCopy,
+    vendorName,
+    note: trimmed,
+  });
+
+  return { booking: withRefund, refund };
 }
 
 async function fetchCustomerLateCancelFeePaise(
@@ -2674,7 +2797,7 @@ export async function customerRegenerateBookingHappyCode(
   const booking = await getBookingById(client, bookingId);
   if (!["accepted", "in_progress"].includes(booking.status)) {
     throw new SupabaseApiError(
-      "Happy Code can only be regenerated for accepted or in-progress visits.",
+      "Job finish code can only be regenerated for accepted or in-progress visits.",
     );
   }
   const otp = readBookingServiceOtpMeta(booking.metadata);
