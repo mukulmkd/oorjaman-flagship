@@ -25,12 +25,11 @@ export function SupportChatHeaderButton() {
       <Ionicons name="chatbubbles-outline" size={24} color={colors.primary} />
       {unreadCount > 0 ? (
         <View
-          style={styles.badge}
-          pointerEvents="none"
+          style={[styles.badge, styles.badgeIgnoreHits]}
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
         >
-          <Text style={styles.badgeText} pointerEvents="none">
+          <Text style={[styles.badgeText, styles.badgeIgnoreHits]}>
             {badgeLabel}
           </Text>
         </View>
@@ -69,5 +68,8 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
     lineHeight: 12,
+  },
+  badgeIgnoreHits: {
+    pointerEvents: "none",
   },
 });

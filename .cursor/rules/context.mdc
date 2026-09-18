@@ -1,0 +1,221 @@
+---
+alwaysApply: true
+---
+
+## APPLICATIONS
+
+1. Customer App (Expo + Expo Router)
+
+- Splash screen + onboarding (first-time users)
+- OTP login (Supabase Auth)
+- Vendor listing (approved vendors only)
+- Book cleaning service (date + time slot)
+- AMC subscription plans (monthly, quarterly)
+- Booking history
+- Upcoming services
+- Profile & address management
+
+2. Technician App (Expo + Expo Router)
+
+- Login (Supabase Auth)
+- View assigned jobs
+- Enter booking code for verification
+- Complete safety checklist before starting job
+- Start job timer
+- Upload before cleaning photo (Supabase Storage)
+- Upload after cleaning photo (Supabase Storage)
+- Submit job completion report
+
+3. Admin Web App (React + Vite)
+
+- Vendor onboarding approval workflow
+- View and manage bookings
+- Monitor vendor performance
+- Assign default vendors (fallback logic)
+- View reports and analytics (MIS)
+
+---
+
+## CORE FEATURES
+
+VENDOR ONBOARDING:
+
+- Vendors and technicians register with documents
+- Data stored in Supabase tables
+- Admin reviews and approves/rejects vendors
+- Only approved vendors are visible to customers
+
+CUSTOMER BOOKING:
+
+- Customer selects vendor and time slot
+- Booking request is stored in Supabase
+- Vendor must accept within 1 hour
+- Booking code is generated after acceptance
+
+VENDOR FLOW:
+
+- Vendor receives booking request
+- Assigns technician (Oorja Man)
+- Confirms operational readiness
+- Confirms safety compliance before accepting
+
+TECHNICIAN FLOW:
+
+- Technician enters booking code from customer
+- Must confirm safety checklist
+- Starts job → timer begins
+- Uploads before/after photos to Supabase Storage
+- Submits completion report
+
+---
+
+## AMC / SUBSCRIPTIONS
+
+- Customers can subscribe to recurring cleaning plans
+
+- Plans include:
+  - Monthly
+  - Quarterly
+  - Custom frequency
+
+- Each subscription includes:
+  - Start date
+  - Frequency (in days)
+  - Next service date
+  - Status (active / paused / cancelled)
+
+- System automatically:
+  - Generates bookings for upcoming services
+  - Updates next service date after completion
+
+- Users can:
+  - Pause subscription
+  - Resume subscription
+  - Cancel subscription
+
+---
+
+## BUSINESS LOGIC
+
+VENDOR VISIBILITY:
+
+- Only vendors with status = "approved" are visible
+
+BOOKING ACCEPTANCE:
+
+- Vendor must accept within 1 hour
+
+FALLBACK LOGIC:
+
+- If vendor does not accept, system assigns default vendor
+
+BOOKING TIME RULE:
+
+- If booking is placed after 7 PM,
+  earliest slot = next day after 12 PM
+
+BOOKING CODE:
+
+- Generated after vendor acceptance
+- Required for technician to start job
+
+---
+
+## USER DATA
+
+CUSTOMER DATA:
+
+- Name
+- Mobile number (OTP via Supabase Auth)
+- Address
+- GPS location
+- Solar installation details
+- Roof type
+- Water availability
+
+TECHNICIAN DATA:
+
+- Name
+- Aadhaar
+- PAN (optional)
+- Skills and experience
+- Safety training
+- Bank details
+
+---
+
+## SUPABASE USAGE (CRITICAL)
+
+Authentication:
+
+- Use Supabase Auth (OTP-based login)
+- Roles stored in database (not in Auth metadata)
+
+Database:
+
+- PostgreSQL (Supabase)
+- All tables must be created in OorjaManDB
+
+Storage:
+
+- Use Supabase Storage for:
+  - Before cleaning images
+  - After cleaning images
+  - Vendor documents (Aadhaar, PAN, etc.)
+
+Security:
+
+- Use Row Level Security (RLS) on all tables
+- Enforce role-based access:
+  - customer
+  - vendor
+  - technician
+  - admin
+
+API:
+
+- All frontend apps must use Supabase client from packages/api
+- Do NOT create custom backend servers
+
+---
+
+## UX PRINCIPLES
+
+- Mobile-first design
+- Clean, minimal UI
+- Fast and responsive interactions
+- Smooth onboarding experience
+
+ONBOARDING:
+
+- Splash screen
+- 2-3 onboarding slides
+- Permission requests (location, notifications)
+- OTP login
+
+TECHNICIAN EXPERIENCE:
+
+- Simple UI
+- Large buttons
+- Minimal steps
+- High visibility UI for outdoor usage
+
+---
+
+## GOAL
+
+Build a production-grade, scalable platform using:
+
+- Expo (latest)
+- React Native
+- React Web
+- Supabase (OorjaManDB)
+
+Focus on:
+
+- Clean architecture
+- High performance
+- Excellent UX
+- Strong subscription (AMC) system
+
+All implementations must strictly follow this context.

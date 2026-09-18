@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Platform, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, spacing } from "@oorjaman/config";
@@ -40,7 +40,7 @@ export function TechnicianApprovalToast({ visible, onDismiss }: Props) {
   if (!visible || !rendered) return null;
 
   return (
-    <View pointerEvents="box-none" style={[styles.host, { top: insets.top + spacing.sm }]}>
+    <View style={[styles.host, styles.hostPassThrough, { top: insets.top + spacing.sm }]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="You're approved. Assigned jobs will appear under Jobs. Dismiss."
@@ -66,6 +66,9 @@ const styles = StyleSheet.create({
     zIndex: 100,
     elevation: 8,
   },
+  hostPassThrough: {
+    pointerEvents: "box-none",
+  },
   toast: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -76,10 +79,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.primaryBorder,
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
+    ...(Platform.OS === "web"
+      ? { boxShadow: "0px 4px 12px rgba(15, 23, 42, 0.12)" }
+      : {
+          shadowColor: "#0f172a",
+          shadowOpacity: 0.12,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 4 },
+        }),
   },
   toastPressed: {
     opacity: 0.92,

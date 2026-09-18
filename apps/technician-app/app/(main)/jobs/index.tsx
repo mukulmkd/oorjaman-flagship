@@ -3,7 +3,7 @@ import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { bookingApi, queryKeys } from "@oorjaman/api";
+import { bookingApi, paymentApi, queryKeys } from "@oorjaman/api";
 import type { BookingRow } from "@oorjaman/api";
 import {
   AppScaffold,
@@ -24,6 +24,7 @@ import {
   sortBookingsForSegment,
   type JobListSegment,
 } from "../../../lib/job-list-filters";
+import { isPostpaidCompleted, TECHNICIAN_POSTPAID_UNPAID_QUERY_KEY } from "../../../lib/postpaid-collect";
 import { supabase } from "../../../lib/supabase";
 
 function JobRowSkeleton() {
@@ -45,6 +46,28 @@ export default function AssignedJobsScreen() {
   });
 
   const all = query.data ?? [];
+
+  const postpaidCompletedIds = useMemo(
+    () => all.filter(isPostpaidCompleted).map((b) => b.id).sort(),
+    [all],
+  );
+
+  const unpaidCollectQuery = useQuery({
+    queryKey: [...TECHNICIAN_POSTPAID_UNPAID_QUERY_KEY, ...postpaidCompletedIds],
+    queryFn: async () => {
+      const entries = await Promise.all(
+        postpaidCompletedIds.map(async (id) => {
+          const paid = await paymentApi.bookingHasSuccessfulPayment(supabase!, id);
+          return [id, !paid] as const;
+        }),
+      );
+      return Object.fromEntries(entries) as Record<string, boolean>;
+    },
+    enabled: Boolean(supabase && postpaidCompletedIds.length > 0),
+    staleTime: 5_000,
+  });
+
+  const unpaidByBookingId = unpaidCollectQuery.data ?? {};
 
   useEffect(() => {
     autoSegmentAppliedRef.current = false;
@@ -75,25 +98,46 @@ export default function AssignedJobsScreen() {
   );
 
   const renderItem: ListRenderItem<BookingRow> = useCallback(
-    ({ item }) => (
-      <JobListCard
-        item={item}
-        onPress={() => {
-          if (item.status === "in_progress") {
-            router.push(`/(main)/jobs/execute/${item.id}`);
-          } else {
-            router.push(`/(main)/jobs/${item.id}`);
+    ({ item }) => {
+      const paymentDue = isPostpaidCompleted(item) && unpaidByBookingId[item.id] === true;
+      return (
+        <JobListCard
+          item={item}
+          paymentDue={paymentDue}
+          cta={
+            paymentDue
+              ? "Collect payment"
+              : item.status === "in_progress"
+                ? "Continue visit"
+                : "View job"
           }
-        }}
-      />
-    ),
-    [],
+          onPress={() => {
+            if (paymentDue) {
+              router.push(`/(main)/jobs/collect/${item.id}`);
+              return;
+            }
+            if (item.status === "in_progress") {
+              router.push(`/(main)/jobs/execute/${item.id}`);
+            } else {
+              router.push(`/(main)/jobs/${item.id}`);
+            }
+          }}
+        />
+      );
+    },
+    [unpaidByBookingId],
   );
 
   const Separator = useCallback(() => <View style={styles.gapMd} />, []);
 
   const refreshControl = (
-    <RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} />
+    <RefreshControl
+      refreshing={query.isRefetching || unpaidCollectQuery.isRefetching}
+      onRefresh={() => {
+        void query.refetch();
+        void unpaidCollectQuery.refetch();
+      }}
+    />
   );
 
   const header = (

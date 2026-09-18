@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, Text, View, type TextStyle } from "react-native";
+import { USE_NATIVE_DRIVER } from "../use-native-driver";
 import { BRAND_TAGLINE, brandTextColors, mobileBrandFontSize } from "./brand-assets";
 import { mobileBrandFontFamily as fontFamily } from "./mobile-brand-fonts";
 
@@ -36,13 +37,13 @@ export function BrandSplashWordmark({
             toValue: 1,
             duration: 440,
             easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
+            useNativeDriver: USE_NATIVE_DRIVER,
           }),
           Animated.timing(nameY, {
             toValue: 0,
             duration: 520,
             easing: Easing.out(Easing.back(1.1)),
-            useNativeDriver: true,
+            useNativeDriver: USE_NATIVE_DRIVER,
           }),
         ]),
         Animated.parallel([
@@ -50,13 +51,13 @@ export function BrandSplashWordmark({
             toValue: 1,
             duration: 400,
             easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
+            useNativeDriver: USE_NATIVE_DRIVER,
           }),
           Animated.timing(tagX, {
             toValue: 0,
             duration: 480,
             easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
+            useNativeDriver: USE_NATIVE_DRIVER,
           }),
         ]),
       ]).start();

@@ -1,0 +1,12 @@
+{
+  "version": 3,
+  "frame_w": 916,
+  "frame_h": 1776,
+  "screen_x": 94,
+  "screen_y": 76,
+  "screen_w": 728,
+  "screen_h": 1624,
+  "screen_radius": 52,
+  "mask": "phone-screen-mask.png",
+  "src_aspect": 0.44814814814814813
+}

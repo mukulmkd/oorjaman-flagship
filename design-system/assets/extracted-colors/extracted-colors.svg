@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" role="img" aria-label="OorjaMan extracted colours">
+  <rect width="960" height="420" fill="#f6faf9"/>
+  <text x="32" y="40" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="18" font-weight="700" fill="#0f2938">OorjaMan extracted colours</text>
+  <text x="32" y="62" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="12" fill="#516a7b">From packages/config  not Tailwind leftovers</text>
+  <g font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="11" fill="#0f2938">
+    <rect x="32" y="88" width="88" height="88" rx="12" fill="#1f8660"/>
+    <text x="32" y="196">Primary</text><text x="32" y="212" fill="#516a7b">#1f8660</text>
+    <rect x="136" y="88" width="88" height="88" rx="12" fill="#1a734f"/>
+    <text x="136" y="196">Primary dark</text><text x="136" y="212" fill="#516a7b">#1a734f</text>
+    <rect x="240" y="88" width="88" height="88" rx="12" fill="#549048"/>
+    <text x="240" y="196">Oorja</text><text x="240" y="212" fill="#516a7b">#549048</text>
+    <rect x="344" y="88" width="88" height="88" rx="12" fill="#1C4276"/>
+    <text x="344" y="196">Man</text><text x="344" y="212" fill="#516a7b">#1C4276</text>
+    <rect x="448" y="88" width="88" height="88" rx="12" fill="#9fc93c"/>
+    <text x="448" y="196">Accent</text><text x="448" y="212" fill="#516a7b">#9fc93c</text>
+    <rect x="552" y="88" width="88" height="88" rx="12" fill="#0f2938"/>
+    <text x="552" y="196">Ink</text><text x="552" y="212" fill="#516a7b">#0f2938</text>
+    <rect x="656" y="88" width="88" height="88" rx="12" fill="#516a7b"/>
+    <text x="656" y="196">Muted</text><text x="656" y="212" fill="#516a7b">#516a7b</text>
+    <rect x="760" y="88" width="88" height="88" rx="12" fill="#ffffff" stroke="#c5d9d4"/>
+    <text x="760" y="196">Surface</text><text x="760" y="212" fill="#516a7b">#ffffff</text>
+    <rect x="32" y="248" width="88" height="88" rx="12" fill="#f6faf9" stroke="#c5d9d4"/>
+    <text x="32" y="356">Canvas</text><text x="32" y="372" fill="#516a7b">#f6faf9</text>
+    <rect x="136" y="248" width="88" height="88" rx="12" fill="#d8eee4"/>
+    <text x="136" y="356">Primary light</text><text x="136" y="372" fill="#516a7b">#d8eee4</text>
+    <rect x="240" y="248" width="88" height="88" rx="12" fill="#c5d9d4"/>
+    <text x="240" y="356">Border</text><text x="240" y="372" fill="#516a7b">#c5d9d4</text>
+    <rect x="344" y="248" width="88" height="88" rx="12" fill="#1a7d52"/>
+    <text x="344" y="356">Success</text><text x="344" y="372" fill="#516a7b">#1a7d52</text>
+    <rect x="448" y="248" width="88" height="88" rx="12" fill="#dc2626"/>
+    <text x="448" y="356">Error</text><text x="448" y="372" fill="#516a7b">#dc2626</text>
+    <rect x="552" y="248" width="88" height="88" rx="12" fill="#92400e"/>
+    <text x="552" y="356">Warning</text><text x="552" y="372" fill="#516a7b">#92400e</text>
+    <rect x="656" y="248" width="88" height="88" rx="12" fill="#246488"/>
+    <text x="656" y="356">Chart 2</text><text x="656" y="372" fill="#516a7b">#246488</text>
+    <rect x="760" y="248" width="88" height="88" rx="12" fill="#9B9B9B"/>
+    <text x="760" y="356">Tagline</text><text x="760" y="372" fill="#516a7b">#9B9B9B</text>
+  </g>
+</svg>

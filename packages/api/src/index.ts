@@ -8,6 +8,15 @@ export { OFFLINE_SCREEN_MESSAGE, OFFLINE_SCREEN_TITLE } from "./connectivity";
 
 export * as authApi from "./auth/auth-api";
 export {
+  isPlayReviewEmailForApp,
+  normalizeAuthEmail,
+  playReviewEmailForApp,
+  PLAY_REVIEW_CUSTOMER_EMAIL,
+  PLAY_REVIEW_PASSWORD,
+  PLAY_REVIEW_TECHNICIAN_EMAIL,
+  type PlayReviewApp,
+} from "./auth/play-review-auth";
+export {
   clearInvalidStoredSession,
   dummyAuthEmailCandidatesForPhone,
   dummyAuthEmailForPhone,
@@ -62,6 +71,16 @@ export {
   type VendorIntakeSignupForm,
   type VendorIntakeSignupSection,
 } from "./vendors/vendor-intake-validation";
+export {
+  VENDOR_PROFILE_COMPLETE_SECTIONS,
+  vendorDocPathsFromRow,
+  vendorHasBankDetailsOnFile,
+  vendorProfileFirstIncompleteStepIndex,
+  vendorProfileIsComplete,
+  vendorRowToProfileForm,
+  validateVendorProfileCompleteSection,
+  type VendorProfileCompleteSection,
+} from "./vendors/vendor-profile-completeness";
 export {
   VENDOR_INTAKE_ASYNC_ID_KEY,
   VENDOR_INTAKE_ASYNC_TOKEN_KEY,

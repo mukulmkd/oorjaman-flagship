@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 import { colors } from "@oorjaman/config";
+import { USE_WEB_LAYOUT, webContentColumnStyle } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../../../constants/fonts";
 
 export default function JobsStackLayout() {
@@ -21,6 +22,7 @@ export default function JobsStackLayout() {
         contentStyle: {
           flex: 1,
           backgroundColor: colors.background,
+          ...(USE_WEB_LAYOUT ? webContentColumnStyle("form") : null),
         },
       }}
     >

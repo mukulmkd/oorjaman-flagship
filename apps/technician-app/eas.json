@@ -22,6 +22,7 @@
       }
     },
     "production": {
+      "autoIncrement": true,
       "channel": "production",
       "env": {
         "EXPO_PUBLIC_DEPLOY_ENV": "production"

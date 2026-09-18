@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { showCityCoverage, showVisitStories } from "@/lib/launch-flags";
+import { customerWebLoginUrl } from "@/lib/site";
 import { BrandLogo } from "./BrandLogo";
 import styles from "./site-header.module.css";
 
@@ -33,6 +34,9 @@ export function SiteHeader() {
   const pathname = usePathname() ?? "/";
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
+  const webLogin = customerWebLoginUrl();
+  const bookHref = webLogin ?? "/download";
+  const bookIsExternal = Boolean(webLogin);
 
   useEffect(() => {
     setOpen(false);
@@ -96,9 +100,15 @@ export function SiteHeader() {
           </nav>
 
           <div className={styles.actions}>
-            <Link href="/download" className="om-btn om-btn--primary">
-              Book now
-            </Link>
+            {bookIsExternal ? (
+              <a href={bookHref} className="om-btn om-btn--primary" rel="noopener noreferrer">
+                Book now
+              </a>
+            ) : (
+              <Link href={bookHref} className="om-btn om-btn--primary">
+                Book now
+              </Link>
+            )}
           </div>
         </div>
       </header>
@@ -121,14 +131,26 @@ export function SiteHeader() {
       >
         {renderNavLinks("drawer")}
         <div className={styles.menuActions}>
-          <Link
-            href="/download"
-            className="om-btn om-btn--primary"
-            onClick={close}
-            tabIndex={!open ? -1 : undefined}
-          >
-            Book now
-          </Link>
+          {bookIsExternal ? (
+            <a
+              href={bookHref}
+              className="om-btn om-btn--primary"
+              onClick={close}
+              tabIndex={!open ? -1 : undefined}
+              rel="noopener noreferrer"
+            >
+              Book now
+            </a>
+          ) : (
+            <Link
+              href={bookHref}
+              className="om-btn om-btn--primary"
+              onClick={close}
+              tabIndex={!open ? -1 : undefined}
+            >
+              Book now
+            </Link>
+          )}
         </div>
       </nav>
     </>

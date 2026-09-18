@@ -4,22 +4,23 @@ import { LoginAuthMethodTabs, type LoginAuthMethod } from "@oorjaman/ui";
 import { LoginEmailOtpScreen } from "../components/login-email-otp-screen";
 import { LoginPhoneOtpScreen } from "../components/login-phone-otp-screen";
 
-/**
- * Local/UAT (dummy auth on): Email OTP + Mobile OTP (dummy) tabs.
- * Production (dummy hard-disabled): Email OTP only; SMS OTP Coming soon.
- */
+/** Email and mobile sign-in tabs; production mobile OTP remains visibly unavailable. */
 export default function LoginScreen() {
   const allowPhoneOtp = resolveDummyAuthSettings().enabled;
   const [method, setMethod] = useState<LoginAuthMethod>("email");
 
-  if (!allowPhoneOtp) {
-    return <LoginEmailOtpScreen showSmsComingSoon />;
-  }
-
   const tabs = <LoginAuthMethodTabs method={method} onChange={setMethod} />;
 
   if (method === "phone") {
-    return <LoginPhoneOtpScreen methodTabs={tabs} />;
+    return (
+      <LoginPhoneOtpScreen methodTabs={tabs} comingSoon={!allowPhoneOtp} />
+    );
   }
-  return <LoginEmailOtpScreen methodTabs={tabs} showSmsComingSoon={false} />;
+  return (
+    <LoginEmailOtpScreen
+      methodTabs={tabs}
+      showSmsComingSoon={false}
+      useTestAccountCopy={allowPhoneOtp}
+    />
+  );
 }

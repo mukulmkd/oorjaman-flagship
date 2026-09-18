@@ -77,7 +77,7 @@ export function LoginPhoneRow({
             onPress={() => setOpen(false)}
             accessibilityLabel="Close country picker"
           />
-          <View style={styles.modalCenter} pointerEvents="box-none">
+          <View style={[styles.modalCenter, styles.modalCenterPassThrough]}>
             <View style={styles.sheet}>
               <Text style={styles.sheetTitle}>Country code</Text>
               {countries.map((c) => (
@@ -160,6 +160,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     justifyContent: "center",
     paddingHorizontal: spacing.lg,
+  },
+  modalCenterPassThrough: {
+    pointerEvents: "box-none",
   },
   sheet: {
     borderRadius: 14,

@@ -1,0 +1,32 @@
+# OorjaMan product demo — event-synced narration beats
+# Authoritative timings: voiceover-beats.json + events.jsonl
+
+[open]
+OorjaMan. Professional solar panel cleaning — one connected platform.
+
+[home]
+On the left, the customer. On the right, the field partner.
+
+[booking]
+The customer books a visit — chooses a day, a time, and pays after service.
+
+[confirmed]
+The booking is confirmed.
+
+[assign]
+Operations assigns a verified partner. The job appears in the technician queue.
+
+[codes]
+Both sides stay aligned with Job Start and finish codes.
+
+[execute]
+On site, the partner starts the visit — safety, a start selfie, then the job timer.
+
+[photos]
+Before and after photos capture proof of work.
+
+[complete]
+The partner submits the finish code. The visit completes on both sides.
+
+[close]
+OorjaMan. We clean. You generate.

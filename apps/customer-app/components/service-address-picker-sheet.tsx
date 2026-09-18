@@ -381,6 +381,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.xs,
+    ...(Platform.OS === "web"
+      ? ({ outlineStyle: "none", outlineWidth: 0 } as const)
+      : {}),
   },
   entryLabel: { fontFamily: fontFamily.medium, fontSize: fontSize.md, color: colors.foreground },
   entryAddress: { fontFamily: fontFamily.regular, fontSize: fontSize.sm, color: colors.mutedForeground },

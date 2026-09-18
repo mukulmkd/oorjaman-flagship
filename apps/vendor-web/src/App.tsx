@@ -1,8 +1,10 @@
 import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { RequireApprovedVendor } from "./components/RequireApprovedVendor";
+import { RequireCompleteVendorProfile } from "./components/RequireCompleteVendorProfile";
 import { RequireSession } from "@oorjaman/web-ui";
 import { RequireVendorRole } from "./components/RequireVendorRole";
 import { VendorLayout } from "./layouts/VendorLayout";
+import VendorCompleteProfilePage from "./pages/VendorCompleteProfilePage";
 import VendorDashboardPage from "./pages/VendorDashboardPage";
 import VendorLoginPage from "./pages/VendorLoginPage";
 import VendorPortalPage from "./pages/VendorPortalPage";
@@ -16,11 +18,23 @@ export default function App() {
       <Route path="/vendor-login" element={<Navigate to="/login" replace />} />
       <Route path="/vendor-signup" element={<Navigate to="/signup" replace />} />
       <Route
+        path="/complete-profile"
+        element={
+          <RequireSession loginPath="/login">
+            <RequireVendorRole>
+              <VendorCompleteProfilePage />
+            </RequireVendorRole>
+          </RequireSession>
+        }
+      />
+      <Route
         path="/"
         element={
           <RequireSession loginPath="/login">
             <RequireVendorRole>
-              <VendorLayout />
+              <RequireCompleteVendorProfile>
+                <VendorLayout />
+              </RequireCompleteVendorProfile>
             </RequireVendorRole>
           </RequireSession>
         }

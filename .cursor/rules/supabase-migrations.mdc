@@ -1,0 +1,44 @@
+---
+description: Supabase schema migrations, reference SQL sync, and UAT/Prod deploy workflow
+globs: supabase/**/*
+alwaysApply: false
+---
+
+# Supabase migrations & reference SQL
+
+## Source of truth
+
+- **Authoritative:** `supabase/migrations/*.sql` only.
+- **Read-only snapshots:** `supabase/schema.sql`, `supabase/policies.sql` (generated — never edit by hand for structural changes).
+- **Deploy to any environment (UAT, Prod):** `supabase db push` / `npm run db:push` — not pasting `schema.sql` in the dashboard.
+
+## When you add or change schema / RLS / views / cron
+
+1. Add a **new** file: `supabase/migrations/YYYYMMDDHHMMSS_short_name.sql`  
+   (or `npx supabase migration new short_name`).
+2. Put all DDL, RLS, functions, triggers, and cron in that migration — not in `schema.sql`.
+3. Regenerate reference files:
+   ```bash
+   npm run db:reference
+   ```
+4. Commit: migration file(s) **and** updated `supabase/schema.sql` + `supabase/policies.sql`.
+5. Deploy **UAT first**, then Prod:
+   ```bash
+   npx supabase link --project-ref <UAT_REF>
+   npm run db:push:yes
+   npx supabase link --project-ref <PROD_REF>
+   npm run db:push:yes
+   ```
+
+## Agent checklist (after editing migrations)
+
+- [ ] New migration file under `supabase/migrations/`
+- [ ] Run `npm run db:reference` and include changed `schema.sql` / `policies.sql` in the same PR
+- [ ] Do **not** hand-edit `schema.sql` or `policies.sql`
+- [ ] Remind user to `db:push` on UAT before Prod
+
+## Environment parity
+
+UAT and Prod must have the **same migration history** (`npx supabase migration list` on each). Data differs; schema/RLS must match.
+
+See `SUPABASE-UAT-PROD.md` and `ENVIRONMENT.md`.

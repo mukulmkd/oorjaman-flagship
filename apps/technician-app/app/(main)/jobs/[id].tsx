@@ -6,6 +6,7 @@ import {
   bookingApi,
   customerLocationSignalsFromServiceSiteAddress,
   formatInrFromCents,
+  paymentApi,
   queryKeys,
   technicianApi,
   readBookingCustomerCancellationMeta,
@@ -16,6 +17,7 @@ import type { BookingStatus } from "@oorjaman/api";
 import { readBookingRecipientMeta } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
 import { jobStatusLabel, jobUiBucket } from "../../../lib/job-status";
+import { bookingNeedsPostpaidCollect, isPostpaidCompleted } from "../../../lib/postpaid-collect";
 import {
   Button,
   Card,
@@ -123,6 +125,15 @@ export default function JobDetailScreen() {
     return { lat: signals.lat, lng: signals.lng };
   }, [b]);
 
+  const paymentsQuery = useQuery({
+    queryKey: queryKeys.payments.forBooking(bookingId ?? ""),
+    queryFn: () => paymentApi.listPaymentsForBooking(supabase!, bookingId!),
+    enabled: Boolean(supabase && bookingId && b && isPostpaidCompleted(b)),
+    refetchInterval: b && isPostpaidCompleted(b) ? 5000 : false,
+  });
+  const hasSuccessfulPayment = (paymentsQuery.data ?? []).some((p) => p.status === "success");
+  const needsCollect = Boolean(b && bookingNeedsPostpaidCollect(b, hasSuccessfulPayment));
+
   const enRouteMut = useMutation({
     mutationFn: async (fix: { lat: number; lng: number; recordedAt: string }) => {
       const row = await technicianApi.technicianMarkEnRoute(supabase!, bookingId!);
@@ -172,10 +183,14 @@ export default function JobDetailScreen() {
     }
     if (b.status === "accepted") return "You are assigned - mark en route when you leave for the site.";
     if (b.status === "in_progress") return "Job marked in progress.";
+    if (needsCollect) return "Visit completed — payment still outstanding.";
+    if (b.status === "completed" && b.payment_timing === "postpaid" && hasSuccessfulPayment) {
+      return "Visit completed — payment recorded.";
+    }
     if (b.status === "completed") return "This visit is completed.";
     if (b.status === "cancelled") return "This job was cancelled.";
     return undefined;
-  }, [b]);
+  }, [b, hasSuccessfulPayment, needsCollect]);
 
   const modalHeader = useModalStackHeader({
     title: b?.reference_code ?? "Job details",
@@ -364,6 +379,23 @@ export default function JobDetailScreen() {
               ) : null}
               <Button size="lg" variant="primary" onPress={() => router.push(`/(main)/jobs/execute/${b.id}`)}>
                 {b.status === "in_progress" ? "Continue visit" : "Start visit on site"}
+              </Button>
+            </View>
+          ) : null}
+
+          {needsCollect ? (
+            <View style={styles.executeFooter}>
+              <Text style={styles.bodyMuted}>
+                Outstanding postpaid amount:{" "}
+                {formatInrFromCents(b.final_price_cents ?? b.estimated_price_cents ?? 0)}. Generate a Razorpay QR/link
+                or mark partner collected if they already paid you.
+              </Text>
+              <Button
+                size="lg"
+                variant="primary"
+                onPress={() => router.push(`/(main)/jobs/collect/${b.id}`)}
+              >
+                Collect payment
               </Button>
             </View>
           ) : null}

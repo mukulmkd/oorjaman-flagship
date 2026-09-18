@@ -1,0 +1,53 @@
+{
+  "name": "oorjaman-production-e2e-demo",
+  "environment": "uat",
+  "story": "One connected cleaning visit: customer books → operations assigns → technician executes → both sides complete.",
+  "packages": {
+    "customer": "com.oorjaman.customer.uat",
+    "technician": "com.oorjaman.technician.uat"
+  },
+  "devices": {
+    "customer": "emulator-5554",
+    "technician": "emulator-5556"
+  },
+  "customer": {
+    "account_email": "appreview.customer@oorjaman.com",
+    "auth": "play_review_password",
+    "site_label": "Home — Guwahati",
+    "booking": {
+      "type": "one_time",
+      "partner_mode": "assign_for_me",
+      "schedule": "future_relative",
+      "schedule_offset_days": 1,
+      "prefer_slot_labels": ["12:00 pm", "1:00 pm", "2:00 pm", "3:00 pm"],
+      "payment_mode": "pay_after_service"
+    }
+  },
+  "assignment": {
+    "mechanism": "scripts/product-demo/phase2_assign_booking.mjs",
+    "notes": "Vendor/ops step — technician does not Accept in-app. Job appears under Upcoming."
+  },
+  "technician": {
+    "account_email": "amit.das@gamusagreen.in",
+    "auth": "email_otp_dummy",
+    "expected_job_segment": "Upcoming",
+    "workflow": [
+      "open_job",
+      "start_visit",
+      "job_start_code",
+      "safety",
+      "start_selfie",
+      "start_timer",
+      "before_photo",
+      "after_photo",
+      "job_finish_code",
+      "submit_report"
+    ]
+  },
+  "presentation": {
+    "customer_side": "LEFT",
+    "technician_side": "RIGHT",
+    "default_layout": "side_by_side",
+    "fullscreen_allowed": ["brand_open", "brand_close"]
+  }
+}

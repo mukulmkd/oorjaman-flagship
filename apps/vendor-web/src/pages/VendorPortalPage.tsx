@@ -177,11 +177,11 @@ export default function VendorPortalPage() {
             </Button>
           </div>
           <p className="al-note">
-            To amend company details or documents after approval, use the{" "}
-            <Link to="/signup" className="al-link-strong">
-              registration &amp; documents form
+            To update service coverage and PIN codes, open{" "}
+            <Link to="/dashboard/coverage" className="al-link-strong">
+              Coverage
             </Link>
-            . The sidebar links above stay available from any page.
+            . Organisation legal details were completed during partner profile setup.
           </p>
         </Card>
       </div>

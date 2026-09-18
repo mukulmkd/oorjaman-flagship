@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
+import { USE_NATIVE_DRIVER } from "../use-native-driver";
 import { brandTextColors } from "./brand-assets";
 import { mobileBrandFontFamily as fontFamily } from "./mobile-brand-fonts";
 
@@ -62,7 +63,7 @@ export function BrandLoadingIndicator({
         toValue: 1,
         duration: SPLASH_LOADING_FADE_MS,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }).start();
     }, delayMs);
 
@@ -71,7 +72,7 @@ export function BrandLoadingIndicator({
         toValue: 1,
         duration: SPLASH_LOADING_FILL_MS,
         easing: Easing.inOut(Easing.cubic),
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       });
 
       fillAnim = loop

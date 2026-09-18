@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -22,7 +28,13 @@ import {
   validateLoginNationalPhone,
 } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
-import { Button, LoginPhoneRow, OtpCodeInput, dismissOtpKeyboard, KeyboardFormScreen, type KeyboardFormScreenRef } from "@oorjaman/ui";
+import {
+  Button,
+  LoginPhoneRow,
+  OtpCodeInput,
+  dismissOtpKeyboard,
+  KeyboardFormScreen,
+} from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { BrandLockup } from "@oorjaman/ui";
 import { supabase } from "../lib/supabase";
@@ -31,16 +43,20 @@ const OTP_LEN = 6;
 const RESEND_SEC = 48;
 
 export type LoginPhoneOtpScreenProps = {
-  /** Local/UAT method switcher (Mobile OTP | Email). */
+  /** Mobile OTP | Email method switcher. */
   methodTabs?: ReactNode;
+  /** Render a non-interactive production placeholder until SMS delivery is live. */
+  comingSoon?: boolean;
 };
 
 /** Local / UAT: phone OTP (dummy auth when `EXPO_PUBLIC_USE_DUMMY_AUTH=true`). */
-export function LoginPhoneOtpScreen({ methodTabs }: LoginPhoneOtpScreenProps) {
+export function LoginPhoneOtpScreen({
+  methodTabs,
+  comingSoon = false,
+}: LoginPhoneOtpScreenProps) {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const otpRef = useRef<TextInput>(null);
-  const formRef = useRef<KeyboardFormScreenRef>(null);
   const autoVerifyOtpRef = useRef<string | null>(null);
   const sendInFlightRef = useRef(false);
 
@@ -100,9 +116,10 @@ export function LoginPhoneOtpScreen({ methodTabs }: LoginPhoneOtpScreenProps) {
       setOtpSent(true);
       setCooldown(RESEND_SEC);
       otpRef.current?.focus();
-      requestAnimationFrame(() => formRef.current?.scrollToEnd(true));
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Could not send code. Try again.");
+      setError(
+        e instanceof Error ? e.message : "Could not send code. Try again.",
+      );
     } finally {
       sendInFlightRef.current = false;
       setSending(false);
@@ -139,7 +156,15 @@ export function LoginPhoneOtpScreen({ methodTabs }: LoginPhoneOtpScreenProps) {
   }, [e164, otp, qc]);
 
   useEffect(() => {
-    if (!otpSent || otp.length !== OTP_LEN || verifying || sending || !e164 || !supabase) return;
+    if (
+      !otpSent ||
+      otp.length !== OTP_LEN ||
+      verifying ||
+      sending ||
+      !e164 ||
+      !supabase
+    )
+      return;
     if (autoVerifyOtpRef.current === otp) return;
     autoVerifyOtpRef.current = otp;
     const id = setTimeout(() => void verify(), 380);
@@ -147,16 +172,23 @@ export function LoginPhoneOtpScreen({ methodTabs }: LoginPhoneOtpScreenProps) {
   }, [otp, otpSent, verifying, sending, e164, verify]);
 
   const resendLabel =
-    cooldown > 0 ? `Resend code (${cooldown}s)` : otpSent ? "Resend code" : "Send code";
+    cooldown > 0
+      ? `Resend code (${cooldown}s)`
+      : otpSent
+        ? "Resend code"
+        : "Send code";
 
   return (
     <KeyboardFormScreen
-      ref={formRef}
-      scrollToEndOnKeyboard
       keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      webVariant="auth"
+      centerVertically
       contentContainerStyle={[
         styles.root,
-        { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.md },
+        {
+          paddingTop: insets.top + spacing.md,
+          paddingBottom: insets.bottom + spacing.md,
+        },
       ]}
     >
       <View style={styles.brandHeader}>
@@ -165,75 +197,94 @@ export function LoginPhoneOtpScreen({ methodTabs }: LoginPhoneOtpScreenProps) {
       {methodTabs}
       <Text style={styles.title}>Sign in with mobile</Text>
       <Text style={styles.lede}>
-        {methodTabs
-          ? "Send code, then enter the one-time code for your test mobile."
-          : "We'll text you a one-time code. Standard SMS rates may apply from your carrier."}
+        {comingSoon
+          ? "Mobile sign-in is not available yet. Use the Email tab to continue securely."
+          : methodTabs
+            ? "Send code, then enter the one-time code for your test mobile."
+            : "We'll text you a one-time code. Standard SMS rates may apply from your carrier."}
       </Text>
 
-      {error ? (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>{error}</Text>
+      {comingSoon ? (
+        <View style={styles.comingSoon}>
+          <Text style={styles.comingSoonBadge}>Coming soon</Text>
+          <Text style={styles.comingSoonTitle}>Mobile OTP sign-in</Text>
+          <Text style={styles.comingSoonBody}>
+            We’re completing India SMS delivery setup. Until it is live, sign in
+            with the one-time code sent to your email.
+          </Text>
         </View>
-      ) : null}
+      ) : (
+        <>
+          {error ? (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
 
-      <LoginPhoneRow
-        countries={LOGIN_PHONE_COUNTRIES}
-        countryDialCode={countryDial}
-        onCountryDialCodeChange={setCountryDial}
-        nationalDigits={nationalPhone}
-        onNationalDigitsChange={setNationalPhone}
-        editable={!verifying}
-      />
+          <LoginPhoneRow
+            countries={LOGIN_PHONE_COUNTRIES}
+            countryDialCode={countryDial}
+            onCountryDialCodeChange={setCountryDial}
+            nationalDigits={nationalPhone}
+            onNationalDigitsChange={setNationalPhone}
+            editable={!verifying}
+          />
 
-      <View style={styles.otpHeader}>
-        <Text style={styles.label}>One-time code</Text>
-        <Button
-          variant="secondary"
-          size="sm"
-          accessibilityLabel={resendLabel}
-          loading={sending}
-          disabled={sending || verifying || cooldown > 0}
-          onPress={() => void sendOtp()}
-          style={styles.sendCodeBtn}
-        >
-          {resendLabel}
-        </Button>
-      </View>
+          <View style={styles.otpHeader}>
+            <Text style={styles.label}>One-time code</Text>
+            <Button
+              variant="secondary"
+              size="sm"
+              accessibilityLabel={resendLabel}
+              loading={sending}
+              disabled={sending || verifying || cooldown > 0}
+              onPress={() => void sendOtp()}
+              style={styles.sendCodeBtn}
+            >
+              {resendLabel}
+            </Button>
+          </View>
 
-      <Text style={styles.otpSmsHint}>
-        After you send the code, tap the boxes to enter your code. On iPhone and many Android phones, the code can
-        autofill from SMS when the message contains a 6-digit code.
+          <Text style={styles.otpSmsHint}>
+            Use the UAT one-time code 123456.
+          </Text>
+
+          {!verifying ? (
+            <OtpCodeInput
+              ref={otpRef}
+              value={otp}
+              onChangeText={setOtp}
+              length={OTP_LEN}
+              editable={otpSent && !verifying}
+            />
+          ) : null}
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Verify and continue"
+            disabled={verifying || otp.length !== OTP_LEN || !otpSent}
+            onPress={() => void verify()}
+            style={({ pressed }) => [
+              styles.primary,
+              (verifying || otp.length !== OTP_LEN || !otpSent) &&
+                styles.primaryDisabled,
+              pressed &&
+                !(verifying || otp.length !== OTP_LEN || !otpSent) &&
+                styles.primaryPressed,
+            ]}
+          >
+            {verifying ? (
+              <ActivityIndicator color={colors.primaryForeground} />
+            ) : (
+              <Text style={styles.primaryLabel}>Verify & continue</Text>
+            )}
+          </Pressable>
+        </>
+      )}
+
+      <Text style={styles.hint}>
+        Signed-in sessions persist across app restarts on this device.
       </Text>
-
-      {!verifying ? (
-        <OtpCodeInput
-          ref={otpRef}
-          value={otp}
-          onChangeText={setOtp}
-          length={OTP_LEN}
-          editable={otpSent && !verifying}
-        />
-      ) : null}
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Verify and continue"
-        disabled={verifying || otp.length !== OTP_LEN || !otpSent}
-        onPress={() => void verify()}
-        style={({ pressed }) => [
-          styles.primary,
-          (verifying || otp.length !== OTP_LEN || !otpSent) && styles.primaryDisabled,
-          pressed && !(verifying || otp.length !== OTP_LEN || !otpSent) && styles.primaryPressed,
-        ]}
-      >
-        {verifying ? (
-          <ActivityIndicator color={colors.primaryForeground} />
-        ) : (
-          <Text style={styles.primaryLabel}>Verify & continue</Text>
-        )}
-      </Pressable>
-
-      <Text style={styles.hint}>Signed-in sessions persist across app restarts on this device.</Text>
     </KeyboardFormScreen>
   );
 }
@@ -260,6 +311,34 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: colors.mutedForeground,
     marginBottom: spacing.sm,
+  },
+  comingSoon: {
+    marginTop: spacing.sm,
+    padding: spacing.md,
+    borderRadius: 16,
+    backgroundColor: colors.primaryMuted,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.primaryBorder,
+    gap: spacing.xs,
+  },
+  comingSoonBadge: {
+    alignSelf: "flex-start",
+    fontFamily: fontFamily.semiBold,
+    fontSize: fontSize.xs,
+    color: colors.primary,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  comingSoonTitle: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: fontSize.md,
+    color: colors.foreground,
+  },
+  comingSoonBody: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+    color: colors.mutedForeground,
   },
   errorBanner: {
     padding: spacing.sm,

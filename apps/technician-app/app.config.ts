@@ -4,6 +4,7 @@ import {
   withNativeDisplayName,
   withAndroidWhiteAdaptiveIcon,
   withAndroidNotificationBranding,
+  withAndroidPhoneOnlyScreens,
 } from "@oorjaman/mobile-config";
 import {
   expoBuildPropertiesFromSource,
@@ -27,7 +28,7 @@ const config: ExpoConfig = {
   assetBundlePatterns: ["**/*"],
   ios: {
     deploymentTarget: "16.4",
-    supportsTablet: true,
+    supportsTablet: false,
     bundleIdentifier: isUat ? "com.oorjaman.technician.uat" : "com.oorjaman.technician",
   },
   android: {
@@ -41,11 +42,19 @@ const config: ExpoConfig = {
     softwareKeyboardLayoutMode: "resize",
     permissions: ["android.permission.CAMERA"],
   },
+  // Universal Web (CSR SPA). Do not put native identity fields here.
+  web: {
+    bundler: "metro",
+    output: "single",
+    favicon: "./assets/images/favicon.png",
+    name: displayName,
+  },
   plugins: [
     expoBuildPropertiesFromSource,
     withIosPodfileFixes,
     withNativeDisplayName,
     withAndroidWhiteAdaptiveIcon,
+    withAndroidPhoneOnlyScreens,
     splashScreenPlugin,
     "expo-system-ui",
     "expo-status-bar",

@@ -1,0 +1,250 @@
+{
+  "$description": "OorjaMan design tokens. origin: extracted = ships in product today; recommended = proposed alignment; new-standard = named scale not previously tokenised. Do not treat recommended/new-standard as live product law until implemented.",
+  "meta": {
+    "brand": "OorjaMan",
+    "tagline": "WE CLEAN. YOU GENERATE.",
+    "version": "1.0.0-audit",
+    "date": "2026-09-14",
+    "sources": [
+      "packages/config/src/brand.ts",
+      "packages/config/src/colors.ts",
+      "packages/config/src/typography.ts",
+      "packages/config/src/spacing.ts",
+      "packages/ui",
+      "packages/web-ui"
+    ]
+  },
+  "colors": {
+    "brand": {
+      "primary": {
+        "name": "Product primary",
+        "hex": "#1f8660",
+        "rgb": [31, 134, 96],
+        "hsl": [158, 62, 32],
+        "usage": "CTAs, active tabs, links, Razorpay theme",
+        "do": "Use for interactive emphasis in apps and portals.",
+        "dont": "Do not use as the 'Oorja' wordmark colour.",
+        "origin": "extracted"
+      },
+      "primaryDark": {
+        "name": "Primary dark",
+        "hex": "#1a734f",
+        "rgb": [26, 115, 79],
+        "hsl": [156, 63, 28],
+        "usage": "Pressed primary, hover darken, primary borders",
+        "origin": "extracted"
+      },
+      "primaryLight": {
+        "name": "Primary light",
+        "hex": "#d8eee4",
+        "rgb": [216, 238, 228],
+        "hsl": [153, 39, 89],
+        "usage": "Soft fills, pending chips, secondary button fill",
+        "origin": "extracted"
+      },
+      "secondary": {
+        "name": "Man navy",
+        "hex": "#1C4276",
+        "rgb": [28, 66, 118],
+        "hsl": [215, 62, 29],
+        "usage": "'Man' wordmark, partner badge glyph, support persona accent",
+        "do": "Use on identity lockups and partner chrome.",
+        "dont": "Do not replace product ink #0f2938 with this in body copy.",
+        "origin": "extracted"
+      },
+      "accent": {
+        "name": "Solar lime",
+        "hex": "#9fc93c",
+        "rgb": [159, 201, 60],
+        "hsl": [78, 57, 51],
+        "usage": "Sparse highlight; sampled from the O; on-dark 'Oorja' on marketing",
+        "do": "Tiny accents, chart spark, on-dark wordmark.",
+        "dont": "Never use as small text on white (1.93:1).",
+        "origin": "extracted"
+      },
+      "oorja": {
+        "name": "Oorja green",
+        "hex": "#549048",
+        "rgb": [84, 144, 72],
+        "hsl": [110, 33, 42],
+        "usage": "'Oorja' wordmark, splash bar start, partner persona accent",
+        "dont": "Not a button colour. Fails AA as body text on white (3.85:1).",
+        "origin": "extracted"
+      },
+      "tagline": {
+        "name": "Tagline grey",
+        "hex": "#9B9B9B",
+        "rgb": [155, 155, 155],
+        "hsl": [0, 0, 61],
+        "usage": "Tagline and splash Loading label",
+        "dont": "Fails WCAG AA on white (2.78:1). Display sizes only, or use text.muted.",
+        "origin": "extracted"
+      },
+      "ring": {
+        "name": "Focus ring",
+        "hex": "#5cbd8c",
+        "rgb": [92, 189, 140],
+        "hsl": [150, 42, 55],
+        "usage": "Focus / airy green",
+        "origin": "extracted"
+      }
+    },
+    "neutrals": {
+      "background": { "name": "Background", "hex": "#f6faf9", "rgb": [246, 250, 249], "hsl": [165, 29, 97], "usage": "App and portal canvas", "origin": "extracted" },
+      "backgroundSecondary": { "name": "Background alt", "hex": "#edf2f2", "rgb": [237, 242, 242], "hsl": [180, 16, 94], "usage": "Alternate canvas", "origin": "extracted" },
+      "surface": { "name": "Surface", "hex": "#ffffff", "rgb": [255, 255, 255], "hsl": [0, 0, 100], "usage": "Cards, inputs", "origin": "extracted" },
+      "surfaceElevated": { "name": "Surface elevated", "hex": "#f0f7f5", "rgb": [240, 247, 245], "hsl": [163, 30, 95], "usage": "Elevated mint, completed chips", "origin": "extracted" },
+      "muted": { "name": "Muted surface", "hex": "#e9f1ef", "rgb": [233, 241, 239], "hsl": [165, 22, 93], "usage": "Muted cards, ghost buttons", "origin": "extracted" },
+      "border": { "name": "Border", "hex": "#c5d9d4", "rgb": [197, 217, 212], "hsl": [165, 21, 81], "usage": "Hairline borders, tab bar top", "origin": "extracted" },
+      "divider": { "name": "Divider", "hex": "#c5d9d4", "rgb": [197, 217, 212], "hsl": [165, 21, 81], "usage": "Same as border until a lighter token exists", "origin": "extracted" },
+      "overlay": { "name": "Overlay", "hex": "#00000066", "rgb": [0, 0, 0], "hsl": [0, 0, 0], "usage": "Sheet dim (customer address picker)", "origin": "extracted" },
+      "track": { "name": "Loading track", "hex": "#e4e4e4", "rgb": [228, 228, 228], "hsl": [0, 0, 89], "usage": "Splash loading bar track", "origin": "extracted" }
+    },
+    "text": {
+      "primary": { "name": "Text primary", "hex": "#0f2938", "rgb": [15, 41, 56], "hsl": [202, 58, 14], "usage": "Headings and body", "origin": "extracted" },
+      "secondary": { "name": "Text secondary", "hex": "#516a7b", "rgb": [81, 106, 123], "hsl": [204, 21, 40], "usage": "Muted copy; preferred accessible tagline alternative", "origin": "extracted" },
+      "muted": { "name": "Text muted", "hex": "#516a7b", "rgb": [81, 106, 123], "hsl": [204, 21, 40], "usage": "Alias of secondary", "origin": "extracted" },
+      "disabled": { "name": "Text disabled", "hex": "#9B9B9B", "rgb": [155, 155, 155], "hsl": [0, 0, 61], "usage": "Currently opacity 0.45–0.55 on controls; this hex is tagline grey", "origin": "inferred" },
+      "inverse": { "name": "Text inverse", "hex": "#ffffff", "rgb": [255, 255, 255], "hsl": [0, 0, 100], "usage": "On primary buttons", "origin": "extracted" },
+      "onDestructive": { "name": "On destructive", "hex": "#fafafa", "rgb": [250, 250, 250], "hsl": [0, 0, 98], "usage": "Destructive button label", "origin": "extracted" }
+    },
+    "semantic": {
+      "success": { "name": "Success", "hex": "#1a7d52", "rgb": [26, 125, 82], "hsl": [154, 66, 30], "usage": "Success states. Very close to primary — pair with a label.", "origin": "extracted" },
+      "warning": { "name": "Warning text", "hex": "#92400e", "rgb": [146, 64, 14], "hsl": [23, 82, 31], "usage": "Web warning badge text (already in web-ui.css)", "origin": "extracted" },
+      "warningSurface": { "name": "Warning surface", "hex": "#fef3c7", "rgb": [254, 243, 199], "hsl": [48, 96, 89], "usage": "Web warning badge fill; UAT banner", "origin": "extracted" },
+      "error": { "name": "Error", "hex": "#dc2626", "rgb": [220, 38, 38], "hsl": [0, 72, 51], "usage": "Errors, destructive buttons", "origin": "extracted" },
+      "info": { "name": "Info", "hex": "#1C4276", "rgb": [28, 66, 118], "hsl": [215, 62, 29], "usage": "NEW STANDARD: use Man navy for info, not #2563eb", "origin": "new-standard" }
+    },
+    "dataVisualization": {
+      "chart1": { "name": "Chart 1", "hex": "#1f8660", "origin": "extracted", "usage": "Bookings / jobs series" },
+      "chart2": { "name": "Chart 2", "hex": "#246488", "rgb": [36, 100, 136], "hsl": [202, 58, 34], "origin": "extracted", "usage": "Revenue series in admin analytics" },
+      "chart3": { "name": "Chart 3", "hex": "#1C4276", "origin": "new-standard", "usage": "Third series — Man navy" },
+      "chart4": { "name": "Chart 4", "hex": "#549048", "origin": "new-standard", "usage": "Fourth series — Oorja green" },
+      "chart5": { "name": "Chart 5", "hex": "#9fc93c", "origin": "new-standard", "usage": "Fifth series — lime spark" },
+      "positive": { "name": "Positive", "hex": "#1a7d52", "origin": "extracted" },
+      "negative": { "name": "Negative", "hex": "#dc2626", "origin": "extracted" },
+      "neutral": { "name": "Neutral", "hex": "#516a7b", "origin": "extracted" },
+      "grid": { "name": "Grid", "hex": "#c5d9d4", "origin": "recommended", "usage": "Use product border, not slate #e7e5e4" }
+    },
+    "doNotUse": {
+      "slateInk": "#0f172a",
+      "slateMuted": "#64748b",
+      "stoneBorder": "#e7e5e4",
+      "linkBlue": "#2563eb",
+      "wrongPrimaryTeal": "#0f766e",
+      "wrongPrimaryGreen": "#16a34a",
+      "deprecated": ["#6FB53E", "#0F4D92", "#0B1C3A", "#082B5B", "#8BC53F"]
+    }
+  },
+  "typography": {
+    "family": {
+      "primary": "Plus Jakarta Sans",
+      "primaryStack": "Plus Jakarta Sans, Inter, system-ui, -apple-system, Segoe UI, sans-serif",
+      "fallbackOffice": "Calibri, Arial, Helvetica, sans-serif",
+      "fallbackPrint": "Arial, Helvetica, sans-serif",
+      "origin": "extracted",
+      "note": "Secondary family in config is unused (same as primary). Do not use Poppins/DM Sans/Montserrat in product."
+    },
+    "weight": {
+      "regular": "400",
+      "medium": "500",
+      "semibold": "600",
+      "bold": "700"
+    },
+    "size": {
+      "xs": { "px": 12, "rem": 0.75, "lineHeightPx": 16 },
+      "sm": { "px": 14, "rem": 0.875, "lineHeightPx": 20 },
+      "md": { "px": 16, "rem": 1, "lineHeightPx": 24 },
+      "lg": { "px": 18, "rem": 1.125, "lineHeightPx": 28 },
+      "xl": { "px": 22, "rem": 1.375, "lineHeightPx": 32 },
+      "xxl": { "px": 28, "rem": 1.75, "lineHeightPx": 38 },
+      "display": { "px": 36, "rem": 2.25, "lineHeightPx": 44 }
+    },
+    "roles": {
+      "display": { "font": "Plus Jakarta Sans", "weight": 700, "sizePx": 36, "lineHeightPx": 44, "letterSpacing": "-0.03em", "case": "sentence", "usage": "Marketing display", "origin": "extracted" },
+      "h1": { "font": "Plus Jakarta Sans", "weight": 700, "sizePx": 28, "lineHeightPx": 34, "letterSpacing": "-0.4px", "case": "sentence", "usage": "Splash wordmark / major titles", "origin": "extracted" },
+      "h2": { "font": "Plus Jakarta Sans", "weight": 600, "sizePx": 22, "lineHeightPx": 32, "letterSpacing": "-0.02em", "case": "sentence", "usage": "Screen titles", "origin": "extracted" },
+      "h3": { "font": "Plus Jakarta Sans", "weight": 600, "sizePx": 18, "lineHeightPx": 28, "case": "sentence", "usage": "Card titles, empty states", "origin": "extracted" },
+      "h4": { "font": "Plus Jakarta Sans", "weight": 600, "sizePx": 16, "lineHeightPx": 24, "case": "sentence", "usage": "Subsection titles", "origin": "inferred" },
+      "bodyLarge": { "font": "Plus Jakarta Sans", "weight": 400, "sizePx": 18, "lineHeightPx": 28, "case": "sentence", "usage": "Lead body", "origin": "inferred" },
+      "body": { "font": "Plus Jakarta Sans", "weight": 400, "sizePx": 16, "lineHeightPx": 24, "case": "sentence", "usage": "Default body", "origin": "extracted" },
+      "bodySmall": { "font": "Plus Jakarta Sans", "weight": 400, "sizePx": 14, "lineHeightPx": 20, "case": "sentence", "usage": "Helpers, secondary", "origin": "extracted" },
+      "caption": { "font": "Plus Jakarta Sans", "weight": 500, "sizePx": 12, "lineHeightPx": 16, "letterSpacing": "0.4px", "case": "sentence or uppercase chips", "usage": "Captions, chips", "origin": "extracted" },
+      "label": { "font": "Plus Jakarta Sans", "weight": 500, "sizePx": 14, "lineHeightPx": 20, "case": "sentence", "usage": "Input labels", "origin": "extracted" },
+      "button": { "font": "Plus Jakarta Sans", "weight": 500, "sizePx": 16, "lineHeightPx": 24, "case": "sentence", "usage": "Button labels (md)", "origin": "extracted" },
+      "kpi": { "font": "Plus Jakarta Sans", "weight": 700, "sizePx": 28, "lineHeightPx": 32, "letterSpacing": "-0.03em", "case": "none", "usage": "Admin KPI values, en-IN numbers", "origin": "extracted" },
+      "navigation": { "font": "Plus Jakarta Sans", "weight": 500, "sizePx": 12, "lineHeightPx": 16, "case": "sentence", "usage": "Tab labels", "origin": "extracted" },
+      "kicker": { "font": "Plus Jakarta Sans", "weight": 500, "sizePx": 14, "lineHeightPx": 20, "letterSpacing": "0.6px", "case": "uppercase", "color": "#1f8660", "usage": "BOOKINGS / JOBS / AMC headers", "origin": "extracted" },
+      "tagline": { "font": "Plus Jakarta Sans", "weight": 600, "sizePx": 11, "lineHeightPx": 14, "letterSpacing": "2.2px", "case": "uppercase", "color": "#9B9B9B", "usage": "WE CLEAN. YOU GENERATE.", "origin": "extracted" }
+    }
+  },
+  "spacing": {
+    "base": 4,
+    "origin": "extracted",
+    "scale": {
+      "none": 0,
+      "3xs": 2,
+      "xs": 4,
+      "sm": 8,
+      "md": 12,
+      "lg": 16,
+      "xl": 24,
+      "xxl": 32,
+      "xxxl": 48
+    },
+    "aliases": {
+      "XS": 4,
+      "SM": 8,
+      "MD": 12,
+      "LG": 16,
+      "XL": 24,
+      "XXL": 32
+    },
+    "note": "Screen horizontal padding in shared Screen is md (12), not 16. Magic 10/11/14/18/20 still appear in screens."
+  },
+  "radius": {
+    "origin": "new-standard",
+    "note": "Values extracted from components; names are new. Button md is currently 11 (outlier) — standard snaps to 12.",
+    "small": { "px": 10, "usage": "Small buttons, web buttons, tab thumbs", "extractedFrom": [10] },
+    "medium": { "px": 12, "usage": "Inputs, OTP, large buttons", "extractedFrom": [12] },
+    "large": { "px": 14, "usage": "Cards, toasts, KPI tiles", "extractedFrom": [14] },
+    "xl": { "px": 16, "usage": "Sheets, some list rows", "extractedFrom": [16] },
+    "pill": { "px": 999, "usage": "Chips, badges, avatars, marketing hero buttons", "extractedFrom": [999] }
+  },
+  "elevation": {
+    "origin": "extracted",
+    "none": { "mobile": "hairline border #c5d9d4", "web": "none", "usage": "Default cards" },
+    "card": { "web": "0 1px 2px rgb(15 41 56 / 0.06)", "mobile": "border only", "usage": "Web cards" },
+    "float": { "mobile": "opacity 0.06–0.18, elevation 2–4", "usage": "Live-track, partner badge" },
+    "modal": { "web": "0 12px 40px rgb(15 41 56 / 0.12)", "mobile": "elevation 8–12", "usage": "Sheets, toasts, tooltips" }
+  },
+  "icons": {
+    "primaryFamily": "Ionicons",
+    "style": "outline",
+    "strokeWidth": "1.75-2 (optical)",
+    "cornerTreatment": "round cap / round join",
+    "sizes": { "small": 16, "default": 24, "large": 48 },
+    "active": "#1f8660",
+    "inactive": "#516a7b",
+    "container": "none on tabs; 13% primary wash on onboarding",
+    "origin": "extracted"
+  },
+  "motion": {
+    "easing": { "standard": "cubic-out", "splashOvershoot": "back(1.05-1.1)", "origin": "extracted" },
+    "fast": { "ms": 90, "usage": "Press in", "origin": "extracted" },
+    "medium": { "ms": 140, "usage": "Press out", "origin": "extracted" },
+    "slow": { "ms": 320, "usage": "FadeInView / page fade", "origin": "extracted" },
+    "splash": {
+      "logoFadeMs": 500,
+      "logoScaleMs": 650,
+      "wordmarkDelayMs": 580,
+      "loadingDelayMs": 1500,
+      "loadingFillMs": 1800,
+      "totalApproxMs": 3400,
+      "readmeClaimMs": 2400,
+      "origin": "extracted"
+    },
+    "web": { "controlMs": 150, "spinMs": 650, "origin": "extracted" },
+    "press": { "opacity": 0.88, "scale": 0.98, "origin": "extracted" }
+  }
+}

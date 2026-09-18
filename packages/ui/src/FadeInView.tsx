@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { Animated, Easing, type StyleProp, type ViewStyle } from "react-native";
+import { USE_NATIVE_DRIVER } from "./use-native-driver";
 
 type Props = {
   children: ReactNode;
@@ -19,7 +20,7 @@ export function FadeInView({ children, style, duration = 320 }: Props) {
       toValue: 1,
       duration,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
+      useNativeDriver: USE_NATIVE_DRIVER,
     });
     anim.start();
     return () => anim.stop();

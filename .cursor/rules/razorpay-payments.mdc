@@ -1,0 +1,20 @@
+# Razorpay payments (OorjaMan)
+
+## Non-negotiables
+
+- **TypeScript** monorepo / Deno edge — follow existing stack (do not introduce a parallel JS-only payment stack).
+- **Never** put `RAZORPAY_KEY_SECRET` or webhook secret in Expo/web client env (`EXPO_PUBLIC_*`).
+- **Never** treat Checkout SDK success or `payment.authorized` as paid. Only **captured** (`payments.status = success`) is PAID.
+- **Booking status ≠ payment status.** A booking may be `cancelled` while payment is `success` / `refund_pending` / `refunded`.
+- Webhook HMAC + `razorpay_webhook_events` event-id claim for idempotency.
+- Frontend must call `verify-razorpay-payment` then poll; webhook remains source of truth for races.
+
+## Domain modules
+
+- `packages/api/src/payments/razorpay-status.ts` — OorjaMan payment vocabulary ↔ DB enum
+- `packages/api/src/payments/razorpay-errors.ts` — reason → category → customer message → action
+
+## Docs
+
+- [project-docs/RAZORPAY.md](mdc:project-docs/RAZORPAY.md)
+- [project-docs/RAZORPAY-UAT-MATRIX.md](mdc:project-docs/RAZORPAY-UAT-MATRIX.md)

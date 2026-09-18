@@ -1,0 +1,139 @@
+---
+alwaysApply: true
+---
+
+## ARCHITECTURE
+
+Monorepo structure inside "oorjaman-flagship":
+
+- apps/
+  - customer-app (Expo + Expo Router)
+  - technician-app (Expo + Expo Router)
+  - admin-web (React Vite - OorjaMan operations staff)
+  - vendor-web (React Vite - vendor partner portal)
+
+- packages/
+  - ui (cross-platform components)
+  - config (theme, fonts, spacing)
+  - api (supabase client + queries)
+  - utils (hooks/helpers)
+
+- supabase/
+  - schema.sql
+  - policies.sql
+
+---
+
+## EXPO RULES (MANDATORY)
+
+- Use Expo Router (NOT React Navigation manually)
+
+- Use file-based routing inside app/ directory
+
+- Use expo-font for fonts
+
+- Use expo-splash-screen for splash handling
+
+- Use expo-secure-store for tokens
+
+- Use expo-image for optimized images
+
+- Use expo-location for GPS
+
+- Follow latest Expo patterns only
+
+- Avoid deprecated APIs
+
+---
+
+## UI / UX RULES (MODERN 2025)
+
+- Clean, minimal, premium UI
+- Smooth animations (use Reanimated if needed)
+- Skeleton loaders (no blocking spinners)
+- Bottom tabs for primary navigation
+- Gesture-friendly interactions
+- Proper empty states
+
+ONBOARDING FLOW:
+
+- Splash screen (brand logo)
+- 2-3 onboarding slides (value props)
+- Permission screens (location, notifications)
+- OTP login
+
+AUTH UX:
+
+- Mobile-first OTP login
+- Auto-fill OTP where possible
+- Persistent login session
+
+PERFORMANCE:
+
+- Lazy load screens
+- Use FlashList for lists
+- Avoid re-renders
+- Optimistic updates
+
+TECHNICIAN UX:
+
+- Extremely simple UI
+- Big buttons
+- Minimal steps
+- Offline-safe interactions
+
+---
+
+## STATE & DATA
+
+- React Query (server state)
+- Zustand (client state)
+- Supabase client from packages/api
+
+---
+
+## BUSINESS RULES
+
+VENDOR:
+
+- Vendors must be approved before visibility
+
+BOOKING:
+
+- Customer selects vendor + slot
+- Vendor accepts within 1 hour
+- Booking code is generated
+
+TECHNICIAN FLOW:
+
+- Booking code required
+- Safety checklist mandatory
+- Timer-based execution
+- Before/after photos required
+
+AMC / SUBSCRIPTIONS:
+
+- Recurring cleaning plans
+- Monthly / Quarterly frequencies
+- Auto-generate bookings
+- Pause / Resume / Cancel
+
+---
+
+## CODE QUALITY
+
+- TypeScript strict mode
+- Reusable components
+- Modular structure
+- No inline styles
+- Theme-based styling only
+
+---
+
+## ALWAYS FOLLOW
+
+- Use Expo Router for navigation
+- Use shared components from packages/ui
+- Use theme from packages/config
+- Use API layer from packages/api
+- Keep everything production-ready

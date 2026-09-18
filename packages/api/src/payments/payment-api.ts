@@ -332,6 +332,9 @@ async function messageFromFunctionsInvokeError(error: unknown): Promise<string> 
   if (fallback.includes("non-2xx")) {
     return "Checkout could not start. Deploy create-razorpay-order on UAT and set RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET secrets.";
   }
+  if (/failed to send a request to the edge function/i.test(fallback)) {
+    return "Could not reach create-razorpay-order. Check network, that the app points at the UAT Supabase URL, and that the function is deployed with Razorpay secrets.";
+  }
   return fallback;
 }
 

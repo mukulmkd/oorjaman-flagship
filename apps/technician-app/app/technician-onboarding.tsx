@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -36,6 +35,7 @@ import {
   type OnboardingSafetyAckKey,
 } from "../lib/onboarding-safety-acks";
 import { pickJobEvidenceImageUri } from "../lib/job-evidence-picker";
+import { pickTechnicianDocument } from "../lib/pick-document";
 import { supabase } from "../lib/supabase";
 import { navigateToTechnicianMainAfterApproval } from "../lib/technician-approval-toast";
 
@@ -444,16 +444,16 @@ export default function TechnicianOnboardingScreen() {
   );
 
   const pickDoc = useCallback(async (kind: TechnicianDocKind) => {
-    const res = await DocumentPicker.getDocumentAsync({
-      type: ["application/pdf", "image/*"],
-      copyToCacheDirectory: true,
-    });
-    if (res.canceled) return;
-    const a = res.assets[0];
-    setDocs((d) => ({
-      ...d,
-      [kind]: { uri: a.uri, name: a.name ?? "document", mime: a.mimeType ?? null },
-    }));
+    try {
+      const picked = await pickTechnicianDocument();
+      if (!picked) return;
+      setDocs((d) => ({
+        ...d,
+        [kind]: { uri: picked.uri, name: picked.name, mime: picked.mime },
+      }));
+    } catch (e: unknown) {
+      Alert.alert("Document", e instanceof Error ? e.message : "Could not pick a document.");
+    }
   }, []);
 
   const takePassportPhoto = useCallback(async () => {
@@ -760,7 +760,7 @@ export default function TechnicianOnboardingScreen() {
   };
 
   return (
-    <Screen edges={SCREEN_EDGES_FULL_SCREEN} padded={false}>
+    <Screen edges={SCREEN_EDGES_FULL_SCREEN} padded={false} webVariant="form">
       <View style={styles.flex}>
         <View style={styles.onboardingHeader}>
           <Text style={styles.title}>Partner onboarding</Text>
@@ -772,6 +772,7 @@ export default function TechnicianOnboardingScreen() {
         <KeyboardFormScreen
           scrollToEndOnKeyboard
           keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+          webVariant="form"
           contentContainerStyle={styles.onboardingScrollContent}
         >
 
@@ -1179,7 +1180,7 @@ function DobField({ value, onChangeIso }: { value: string; onChangeIso: (iso: st
         accessibilityRole="button"
         accessibilityLabel="Choose date of birth"
       >
-        <View pointerEvents="none">
+        <View style={styles.dobFieldIgnoreHits}>
           <Input
             label="Date of birth *"
             value={value.trim() ? formatDisplay(value) : ""}
@@ -1287,6 +1288,9 @@ function ToggleRow({
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
+  },
+  dobFieldIgnoreHits: {
+    pointerEvents: "none",
   },
   onboardingHeader: {
     paddingHorizontal: spacing.md,

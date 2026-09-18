@@ -1,0 +1,59 @@
+{
+  "voice": "Rishi",
+  "voice_rate": 168,
+  "brand_open_sec": 6.0,
+  "brand_close_sec": 5.0,
+  "open": {
+    "offset_in_open_sec": 1.2,
+    "text": "OorjaMan — professional solar panel cleaning, one connected platform."
+  },
+  "close": {
+    "offset_in_close_sec": 1.0,
+    "text": "OorjaMan — we clean, you generate."
+  },
+  "beats": [
+    {
+      "id": "home",
+      "anchor": "CUSTOMER_HOME",
+      "text": "On the left, the customer. On the right, the field partner."
+    },
+    {
+      "id": "booking",
+      "anchor": "CUSTOMER_HOME",
+      "delay_sec": 5.0,
+      "text": "The customer books a visit — chooses a day, a time, and pays after service."
+    },
+    {
+      "id": "confirmed",
+      "anchor": "BOOKING_CONFIRMED",
+      "text": "The booking is confirmed."
+    },
+    {
+      "id": "assign",
+      "anchor": "BOOKING_ASSIGNED",
+      "text": "Operations assigns a verified partner. The job appears in the technician queue."
+    },
+    {
+      "id": "codes",
+      "anchor": "CODES_ALIGNED",
+      "text": "Both apps stay aligned on Job Start and finish codes."
+    },
+    {
+      "id": "execute",
+      "anchor": "CODES_ALIGNED",
+      "delay_sec": 5.5,
+      "text": "On site, the partner starts the visit — safety, a start selfie, then the job timer."
+    },
+    {
+      "id": "photos",
+      "anchor": "TECHNICIAN_STARTED",
+      "delay_sec": 0.5,
+      "text": "Before and after photos capture proof of work."
+    },
+    {
+      "id": "complete",
+      "anchor": "TECHNICIAN_SUBMITTED",
+      "text": "The partner submits the finish code. The visit completes on both sides."
+    }
+  ]
+}

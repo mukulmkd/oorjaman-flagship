@@ -30,7 +30,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatDisplayDateTime } from "@oorjaman/utils";
 import { colors, spacing } from "@oorjaman/config";
 import { Button } from "./Button";
-import { KEYBOARD_AVOIDING_BEHAVIOR } from "./KeyboardFormScreen";
+import { KEYBOARD_AVOIDING_BEHAVIOR } from "./KeyboardFormScreen.shared";
 import { ModalSheetHeader } from "./ModalSheetHeader";
 import { mobileBrandFontFamily as fontFamily } from "./brand/mobile-brand-fonts";
 import { mobileBrandFontSize as fontSize } from "./brand/brand-assets";

@@ -309,10 +309,11 @@ export default function CustomerRegistrationScreen() {
   }
 
   return (
-    <Screen edges={SCREEN_EDGES_FULL_SCREEN} padded={false}>
+    <Screen edges={SCREEN_EDGES_FULL_SCREEN} padded={false} webVariant="form">
       <KeyboardFormScreen
         scrollToEndOnKeyboard
         keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+        webVariant="form"
         contentContainerStyle={styles.scroll}
       >
           <Text style={styles.kicker}>Your solar site</Text>

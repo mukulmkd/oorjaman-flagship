@@ -299,16 +299,19 @@ export default function MyBookingsScreen() {
             Visits for your selected service site (change it from Home), sorted by visit date (newest first). Pull down
             to refresh.
           </Text>
-          <Button
-            variant="primary"
-            size="md"
-            onPress={() => {
-              if (!supabase) return;
-              void navigateToBookVisit(supabase, customerQuery.data ?? null);
-            }}
-          >
-            New request
-          </Button>
+          {/* Only when the list has rows — empty state already offers "Book a visit". */}
+          {sortedBookings.length > 0 ? (
+            <Button
+              variant="primary"
+              size="md"
+              onPress={() => {
+                if (!supabase) return;
+                void navigateToBookVisit(supabase, customerQuery.data ?? null);
+              }}
+            >
+              New request
+            </Button>
+          ) : null}
         </View>
       }
     >

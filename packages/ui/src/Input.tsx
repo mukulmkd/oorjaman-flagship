@@ -1,4 +1,10 @@
-import { forwardRef, type ReactNode, useState } from "react";
+import {
+  forwardRef,
+  type ReactNode,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import {
   Platform,
   StyleSheet,
@@ -7,7 +13,13 @@ import {
   View,
   type TextInputProps,
 } from "react-native";
-import { colors, fontFamily, fontSize, lineHeight, spacing } from "@oorjaman/config";
+import {
+  colors,
+  fontFamily,
+  fontSize,
+  lineHeight,
+  spacing,
+} from "@oorjaman/config";
 
 export type InputProps = TextInputProps & {
   label?: string;
@@ -25,13 +37,18 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
     leftAccessory,
     rightAccessory,
     editable = true,
+    onFocus,
+    onBlur,
     ...rest
   },
   ref,
 ) {
+  const inputRef = useRef<TextInput>(null);
   const [focused, setFocused] = useState(false);
   const showError = Boolean(errorText);
   const multiline = Boolean(rest.multiline);
+
+  useImperativeHandle(ref, () => inputRef.current as TextInput);
 
   return (
     <View style={styles.wrapper}>
@@ -44,13 +61,19 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
         style={[
           styles.fieldRow,
           multiline && styles.fieldRowMultiline,
-          showError ? styles.fieldRowError : focused ? styles.fieldRowFocused : styles.fieldRowDefault,
+          showError
+            ? styles.fieldRowError
+            : focused
+              ? styles.fieldRowFocused
+              : styles.fieldRowDefault,
           !editable && styles.fieldRowDisabled,
         ]}
       >
-        {leftAccessory ? <View style={styles.accessory}>{leftAccessory}</View> : null}
+        {leftAccessory ? (
+          <View style={styles.accessory}>{leftAccessory}</View>
+        ) : null}
         <TextInput
-          ref={ref}
+          ref={inputRef}
           editable={editable}
           placeholderTextColor={colors.mutedForeground}
           style={[styles.input, multiline && styles.inputMultiline]}
@@ -62,15 +85,17 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
             : {})}
           onFocus={(e) => {
             setFocused(true);
-            rest.onFocus?.(e);
+            onFocus?.(e);
           }}
           onBlur={(e) => {
             setFocused(false);
-            rest.onBlur?.(e);
+            onBlur?.(e);
           }}
           {...rest}
         />
-        {rightAccessory ? <View style={styles.accessory}>{rightAccessory}</View> : null}
+        {rightAccessory ? (
+          <View style={styles.accessory}>{rightAccessory}</View>
+        ) : null}
       </View>
       {showError ? (
         <Text style={styles.error}>{errorText}</Text>
@@ -127,6 +152,9 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.foreground,
     ...(Platform.OS === "ios" ? { lineHeight: lineHeight.md } : {}),
+    ...(Platform.OS === "web"
+      ? ({ outlineStyle: "none", outlineWidth: 0 } as const)
+      : {}),
   },
   inputMultiline: {
     minHeight: 72,

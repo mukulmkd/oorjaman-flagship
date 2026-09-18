@@ -9,6 +9,8 @@ import {
   userApi,
   validateEmailFormat,
   validateLoginNationalPhone,
+  vendorApi,
+  vendorProfileIsComplete,
 } from "@oorjaman/api";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Button, Card, Input, PhoneCountryLogin, PortalLoginBrand } from "@oorjaman/web-ui";
@@ -30,6 +32,19 @@ async function routeAfterVendorLogin(
     return;
   }
   if (row.role === "vendor") {
+    try {
+      const vendor = await vendorApi.getMyVendor(supabase);
+      if (vendor && !vendorProfileIsComplete(vendor)) {
+        navigate("/complete-profile", { replace: true });
+        return;
+      }
+      if (!vendor) {
+        navigate("/signup", { replace: true });
+        return;
+      }
+    } catch {
+      // Fall through to portal; gate will re-check.
+    }
     navigate("/", { replace: true });
     return;
   }
@@ -78,6 +93,19 @@ export default function VendorLoginPage() {
       if (!data.session) return;
       const row = await userApi.getMyUserRecord(supabase);
       if (row?.role === "vendor") {
+        try {
+          const vendor = await vendorApi.getMyVendor(supabase);
+          if (vendor && !vendorProfileIsComplete(vendor)) {
+            navigate("/complete-profile", { replace: true });
+            return;
+          }
+          if (!vendor) {
+            navigate("/signup", { replace: true });
+            return;
+          }
+        } catch {
+          // ignore
+        }
         navigate("/", { replace: true });
         return;
       }

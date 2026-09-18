@@ -360,6 +360,9 @@ Set secrets in Expo dashboard or `eas env:create` ([DEPLOYMENT.md](DEPLOYMENT.md
 
 | App | Local dev | UAT build smoke | Production build |
 |-----|-----------|-----------------|------------------|
+| Customer Expo Web | `npm run customer:web` → :8081 | `npx expo export -p web` in `apps/customer-app` | Vercel (`app.oorjaman.com`) — [WEB-UNIVERSAL.md](WEB-UNIVERSAL.md) |
+| Partner Expo Web | `npm run technician:web` → :8082 | `npx expo export -p web` in `apps/technician-app` | Vercel (`partner.oorjaman.com`) — [WEB-UNIVERSAL.md](WEB-UNIVERSAL.md) |
+| Both Expo Web | `npm run apps:web` → :8081 + :8082 | — | — |
 | Admin | `npm run admin` → :5173 | `npm run build:uat -w admin-web` | `npm run build -w admin-web` |
 | Vendor | `npm run vendor` → :5174 | `npm run build:uat -w vendor-web` | `npm run build -w vendor-web` |
 | Support | `npm run support` → :5175 | `npm run build:uat -w support-web` | `npm run build -w support-web` |
@@ -375,8 +378,11 @@ Env: `.env.development.local` (local), `.env.uat.local` (local UAT build), `.env
 |--------|----------------|
 | `npm run customer` | Customer Metro |
 | `npm run customer:clear` | Customer Metro with cache cleared |
+| `npm run customer:web` | Customer Expo Web → :8081 |
 | `npm run technician` | Partner Metro |
 | `npm run technician:clear` | Partner Metro with cache cleared |
+| `npm run technician:web` | Partner Expo Web → :8082 |
+| `npm run apps:web` | Customer + Partner Expo Web → :8081 + :8082 |
 | `npm run ios` | Customer `expo run:ios` (no brand sync) |
 | `npm run ios:rebuild` | Customer full iOS rebuild (**brand:sync** → prebuild → run) |
 | `npm run android` | Customer `expo run:android` (no brand sync) |

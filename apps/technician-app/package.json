@@ -11,6 +11,7 @@
     "android:rebuild": "bash ../../packages/mobile-config/scripts/rebuild-android.sh technician-app",
     "android:apk:debug": "node ../../scripts/run-with-expo-env.mjs technician-app \"bash ../../packages/mobile-config/scripts/prebuild-android.sh technician-app\" && node ../../scripts/run-with-expo-env.mjs technician-app \"cd android && ./gradlew assembleDebug\"",
     "android:apk:uat": "node ../../scripts/run-with-expo-env.mjs technician-app \"bash ../../packages/mobile-config/scripts/prebuild-android.sh technician-app\" && node ../../scripts/run-with-expo-env.mjs technician-app \"cd android && ./gradlew assembleRelease\" && node ../../scripts/rename-uat-apk.mjs technician-app release",
+    "eas:android:production": "npm run brand:sync && npx expo-doctor && EAS_BUILD_NO_EXPO_GO_WARNING=true npx eas-cli build --profile production --platform android",
     "ios:uat": "npm run brand:sync && node ../../scripts/run-with-expo-env.mjs technician-app \"npx eas-cli build --profile uat --platform ios\"",
     "ios:uat:local": "npm run brand:sync && node ../../scripts/run-with-expo-env.mjs technician-app \"npx eas-cli build --profile uat --platform ios --local\"",
     "ios": "expo run:ios",
@@ -29,8 +30,9 @@
     "@react-native-community/datetimepicker": "9.1.0",
     "expo-document-picker": "~57.0.1",
     "react-native-webview": "13.16.1",
-    "expo": "~57.0.16",
+    "expo": "~57.0.21",
     "react": "19.2.3",
-    "react-native": "0.86.2"
+    "react-native": "0.86.3",
+    "react-native-keyboard-controller": "1.21.9"
   }
 }

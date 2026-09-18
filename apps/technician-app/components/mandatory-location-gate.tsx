@@ -3,18 +3,16 @@ import {
   ActivityIndicator,
   AppState,
   Linking,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import * as Location from "expo-location";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, spacing } from "@oorjaman/config";
 import { Button } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
-import { getPartnerLocationStatus } from "../lib/location-permission";
+import { ensureEnRouteLocationFix, getPartnerLocationStatus } from "../lib/location-permission";
 
 type Props = {
   children: React.ReactNode;
@@ -87,12 +85,6 @@ export function MandatoryLocationGate({ children }: Props) {
   const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (Platform.OS === "web") {
-      setPermissionGranted(true);
-      setServicesEnabled(true);
-      setChecking(false);
-      return;
-    }
     const status = await getPartnerLocationStatus();
     setPermissionGranted(status.permissionGranted);
     setServicesEnabled(status.servicesEnabled);
@@ -111,7 +103,8 @@ export function MandatoryLocationGate({ children }: Props) {
     setBusy(true);
     try {
       if (!permissionGranted) {
-        await Location.requestForegroundPermissionsAsync();
+        // Triggers browser / OS permission prompt via platform adapter.
+        await ensureEnRouteLocationFix();
       } else if (!servicesEnabled) {
         await Linking.openSettings();
       }

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Animated, StyleSheet, View } from "react-native";
 import { colors, spacing } from "@oorjaman/config";
+import { USE_NATIVE_DRIVER } from "./use-native-driver";
 
 type BarVariant = "full" | "short" | "title" | "dense";
 
@@ -42,7 +43,7 @@ export function SkeletonBar({ variant = "full" }: SkeletonBarProps) {
       Animated.timing(shimmer, {
         toValue: 1,
         duration: 1200,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
     );
     loop.start();

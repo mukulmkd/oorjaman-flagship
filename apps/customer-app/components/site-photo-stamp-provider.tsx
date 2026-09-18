@@ -436,7 +436,7 @@ export function SitePhotoStampProvider({ children }: { children: ReactNode }) {
           {job && meta ? (
             <>
               {!mapUri && !preferHttpMapFallback ? (
-                <View style={styles.mapSnapshotLayer} pointerEvents="none">
+                <View style={[styles.mapSnapshotLayer, styles.ignoreHits]}>
                   <SitePhotoMapSnapshot
                     lat={job.geo.lat}
                     lng={job.geo.lng}
@@ -446,7 +446,7 @@ export function SitePhotoStampProvider({ children }: { children: ReactNode }) {
                   />
                 </View>
               ) : null}
-              <View style={styles.captureLayer} pointerEvents="none" collapsable={false}>
+              <View style={[styles.captureLayer, styles.ignoreHits]} collapsable={false}>
                 <View ref={captureRefView} collapsable={false}>
                   <SitePhotoStampFrame
                     photoUri={job.photoUri}
@@ -459,7 +459,7 @@ export function SitePhotoStampProvider({ children }: { children: ReactNode }) {
               </View>
             </>
           ) : null}
-          <View style={styles.busyBackdrop} pointerEvents="none">
+          <View style={[styles.busyBackdrop, styles.ignoreHits]}>
             <ActivityIndicator size="large" color={colors.primaryForeground} />
             <Text style={styles.busyText}>Preparing your photo…</Text>
           </View>
@@ -590,5 +590,8 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontSize: fontSize.md,
     color: colors.primaryForeground,
+  },
+  ignoreHits: {
+    pointerEvents: "none",
   },
 });

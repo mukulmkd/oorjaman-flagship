@@ -15,6 +15,7 @@ Stills in this folder are **OorjaMan brand photography** (technicians, uniforms,
 | `safety-visit.jpg` | Harness, PPE, and branded cleaning unit |
 | `crew-cleaning.jpg` | Two technicians, safety harnesses |
 | `equipment-cleaning.jpg` | Technician with branded washer and brush |
+| `technician-selfie.jpg` | Technician selfie on a rooftop (PPE, yellow OorjaMan polo) |
 
 ## Videos
 

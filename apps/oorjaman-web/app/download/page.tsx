@@ -4,7 +4,7 @@ import { FeatureCardGrid, SectionHead } from "@/components/marketing-sections";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { getAppScreenshotSlots } from "@/lib/marketing-media";
 import { buildPageMetadata } from "@/lib/seo";
-import { APP_LINKS, SUPPORT_EMAIL, customerStoreListingsLive } from "@/lib/site";
+import { APP_LINKS, SUPPORT_EMAIL, customerStoreListingsLive, customerWebLoginUrl } from "@/lib/site";
 import Image from "next/image";
 import styles from "./download.module.css";
 
@@ -34,44 +34,60 @@ const featureLines = [
 
 export default function DownloadPage() {
   const storesLive = customerStoreListingsLive();
+  const webLogin = customerWebLoginUrl();
   const shots = getAppScreenshotSlots();
   const hasShots = Boolean(shots.booking || shots.tracking || shots.evidence);
 
   return (
     <MarketingPage
       title={storesLive ? "Download the OorjaMan app" : "Get the OorjaMan app"}
-      lead="Book cleaning visits, manage AMC plans, track technicians, and reach support — all from the customer app."
+      lead="Book cleaning visits, manage AMC plans, track technicians, and reach support — on the customer app or in your browser."
       eyebrow="Customer app"
       mediaSrc="/marketing/hero-rooftop.jpg"
       mediaPosition="center 30%"
       wide
       closingCta={false}
       cta={
-        storesLive ? (
-          <>
-            <a href={APP_LINKS.customerIos} className="om-btn om-btn--primary" rel="noopener noreferrer">
-              App Store
+        <>
+          {webLogin ? (
+            <a href={webLogin} className="om-btn om-btn--primary" rel="noopener noreferrer">
+              Open web app
             </a>
-            <a href={APP_LINKS.customerAndroid} className="om-btn om-btn--ghost-light" rel="noopener noreferrer">
-              Google Play
-            </a>
-          </>
-        ) : (
-          <>
-            <a
-              href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Notify me when the OorjaMan app launches")}`}
-              className="om-btn om-btn--primary"
-            >
-              Notify me
-            </a>
+          ) : null}
+          {storesLive ? (
+            <>
+              <a
+                href={APP_LINKS.customerIos}
+                className={webLogin ? "om-btn om-btn--ghost-light" : "om-btn om-btn--primary"}
+                rel="noopener noreferrer"
+              >
+                App Store
+              </a>
+              <a href={APP_LINKS.customerAndroid} className="om-btn om-btn--ghost-light" rel="noopener noreferrer">
+                Google Play
+              </a>
+            </>
+          ) : !webLogin ? (
+            <>
+              <a
+                href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Notify me when the OorjaMan app launches")}`}
+                className="om-btn om-btn--primary"
+              >
+                Notify me
+              </a>
+              <Link href="/pricing" className="om-btn om-btn--ghost-light">
+                View pricing
+              </Link>
+            </>
+          ) : (
             <Link href="/pricing" className="om-btn om-btn--ghost-light">
               View pricing
             </Link>
-          </>
-        )
+          )}
+        </>
       }
     >
-      {!storesLive ? (
+      {!storesLive && !webLogin ? (
         <ScrollReveal className={styles.waitlistNote}>
           <p>
             Store listings are preparing for launch. Email{" "}
@@ -79,10 +95,23 @@ export default function DownloadPage() {
             care — we will notify you when downloads are live.
           </p>
         </ScrollReveal>
+      ) : !storesLive && webLogin ? (
+        <ScrollReveal className={styles.waitlistNote}>
+          <p>
+            Prefer the native apps when they launch — until then, book and manage visits in the browser at{" "}
+            <a href={webLogin}>{webLogin.replace(/^https?:\/\//, "")}</a>.
+          </p>
+        </ScrollReveal>
       ) : (
         <ScrollReveal className={styles.waitlistNote}>
           <p>
             Already installed? Open <code>{APP_LINKS.customerScheme}</code>
+            {webLogin ? (
+              <>
+                {" "}
+                or continue in the browser via <a href={webLogin}>web app</a>.
+              </>
+            ) : null}
           </p>
         </ScrollReveal>
       )}

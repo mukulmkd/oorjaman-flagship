@@ -1,0 +1,69 @@
+---
+description: OorjaMan UI design tokens and brand colour enforcement
+globs:
+  - "**/*.{js,jsx,ts,tsx}"
+alwaysApply: true
+---
+
+# OorjaMan design tokens
+
+**Never hardcode brand colours.** Import from `@oorjaman/config`.
+
+```ts
+import { brandColors, colors } from "@oorjaman/config";
+```
+
+Canonical definitions: `packages/config/src/brand.ts` and `packages/config/src/colors.ts`.
+
+---
+
+# Brand wordmark colours (`brandColors`)
+
+Use for **OorjaMan text lockups**, splash/welcome/auth headers, and green→blue loading accents.
+
+| Token | Hex | Use |
+|-------|-----|-----|
+| `brandColors.oorja` | `#549048` | “Oorja” wordmark, green loading start |
+| `brandColors.man` | `#1C4276` | “Man” wordmark, blue loading end |
+| `brandColors.tagline` | `#9B9B9B` | `WE CLEAN. YOU GENERATE.` + gray loading label |
+| `brandColors.gradientGreen` | `#549048` | Bar / gradient green endpoint |
+| `brandColors.gradientBlue` | `#1C4276` | Bar / gradient blue endpoint |
+
+**Wordmark rules**
+
+- Split colours: `Oorja` → `oorja`, `Man` → `man` (never one flat colour).
+- Tagline always `brandColors.tagline`, not oorja/man.
+- Prefer `BrandWordmark` / `BrandLockup` components — not `logo-lockup-tagline.png` on white screens (JPEG white box).
+
+**Man blue** — keep `#1C4276` range (readable navy). Do not revert to near-black (`#0B1C3A`, `#082B5B`).
+
+---
+
+# App semantic colours (`colors`)
+
+Use for **buttons, surfaces, forms, navigation** — not split wordmark text.
+
+| Token | Hex | Use |
+|-------|-----|-----|
+| `colors.primary` | `#1f8660` | Primary CTAs |
+| `colors.foreground` | `#0f2938` | Body headings / structure |
+| `colors.mutedForeground` | `#516a7b` | Secondary copy |
+| `colors.background` | `#f6faf9` | Screen canvas |
+| `colors.accent` | `#9fc93c` | Lime highlight (sparingly) |
+
+---
+
+# Forbidden
+
+- Stale palette values (`#6FB53E`, `#0F4D92`, `#0B1C3A`, `#8BC53F`) in new UI
+- Random hex / Tailwind colours outside tokens
+- Neon, loud gradients, saturated reds/yellows unless explicitly requested
+
+---
+
+# UI quality
+
+- Premium, spacious, clean hierarchy
+- Spacing scale: 4, 8, 12, 16, 24, 32, 48, 64
+- Primary buttons: `colors.primary` bg, `colors.primaryForeground` text
+- Typography: **Plus Jakarta Sans** in mobile apps (see `constants/fonts.ts`)

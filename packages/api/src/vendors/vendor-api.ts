@@ -473,6 +473,37 @@ export async function updateMyVendorProfile(
 }
 
 /**
+ * Logged-in partner: save company profile details regardless of approval status.
+ * Clears `metadata.registration_draft` and stamps `metadata.profile_completed_at` when `markComplete`.
+ */
+export async function completeMyVendorProfile(
+  client: SupabaseClient<Database>,
+  input: VendorRegistrationPayload & { markComplete?: boolean },
+): Promise<VendorRow> {
+  const existing = await getMyVendor(client);
+  if (!existing) {
+    throw new SupabaseApiError("No vendor profile for current user.");
+  }
+
+  const now = new Date().toISOString();
+  const baseMeta = mergeVendorMetadata(existing.metadata, input.metadata ?? {});
+  const metaObj =
+    typeof baseMeta === "object" && baseMeta !== null && !Array.isArray(baseMeta)
+      ? { ...(baseMeta as Record<string, Json>) }
+      : {};
+  delete metaObj.registration_draft;
+  if (input.markComplete) {
+    metaObj.profile_completed_at = now as unknown as Json;
+  }
+
+  const patch = payloadToUpdate({ ...input, metadata: metaObj as Json });
+  // Do not flip submitted_at / approval via this path for already-approved partners.
+  delete (patch as { submitted_at?: string }).submitted_at;
+
+  return updateMyVendorProfile(client, patch);
+}
+
+/**
  * Technicians employed by vendor: list (RLS allows vendor to read).
  */
 export async function listTechniciansForMyVendor(

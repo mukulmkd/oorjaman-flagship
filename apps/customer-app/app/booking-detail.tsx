@@ -1174,7 +1174,7 @@ export default function BookingDetailScreen() {
             disabled={cancelMut.isPending}
             onPress={() => setCancelModalOpen(false)}
           />
-          <View style={styles.cancelModalCard} pointerEvents="box-none">
+          <View style={[styles.cancelModalCard, styles.cancelModalPassThrough]}>
             <ModalSheetHeader
               title="Cancel this booking?"
               subtitle="Tell us why you are cancelling. This is shared with your partner and OorjaMan operations."
@@ -1371,6 +1371,9 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+  },
+  cancelModalPassThrough: {
+    pointerEvents: "box-none",
   },
   cancelModalHeader: {
     flexDirection: "row",

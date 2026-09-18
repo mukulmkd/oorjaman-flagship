@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, spacing } from "@oorjaman/config";
+import { WebContentColumn } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { STORAGE_KEY_LOCATION_PROMPT_DONE } from "../constants/storage";
 import { ensureForegroundLocationAccess, isExpoGoHost } from "../lib/location-access";
@@ -32,15 +33,16 @@ export default function PermissionsScreen() {
   }, [continueToLogin]);
 
   return (
-    <View
-      style={[
-        styles.root,
-        {
-          paddingTop: insets.top + spacing.xl,
-          paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.md,
-        },
-      ]}
-    >
+    <WebContentColumn variant="auth" centerVertically>
+      <View
+        style={[
+          styles.root,
+          {
+            paddingTop: insets.top + spacing.xl,
+            paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.md,
+          },
+        ]}
+      >
       <Text style={styles.kicker}>Almost there</Text>
       <Text style={styles.title}>Enable location</Text>
       <Text style={styles.body}>
@@ -94,7 +96,8 @@ export default function PermissionsScreen() {
       >
         <Text style={styles.secondaryLabel}>Not now</Text>
       </Pressable>
-    </View>
+      </View>
+    </WebContentColumn>
   );
 }
 

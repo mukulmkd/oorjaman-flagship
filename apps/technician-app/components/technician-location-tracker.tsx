@@ -10,7 +10,7 @@ const LOCATION_TICK_MS = 12_000;
 
 /**
  * Foreground-only GPS samples while the technician is en route (before on-site start).
- * Pauses in background (battery + no background location mode in app config).
+ * Native: expo-location interval. Web (approved degrade): browser geolocation while tab visible.
  */
 export function TechnicianLocationTracker() {
   const [appActive, setAppActive] = useState(() => AppState.currentState === "active");
@@ -36,13 +36,13 @@ export function TechnicianLocationTracker() {
   const shouldTrack = Boolean(supabase) && hasActiveJob;
 
   useEffect(() => {
-    if (!supabase || Platform.OS === "web" || !shouldTrack) return;
+    if (!supabase || !shouldTrack) return;
     const client = supabase;
 
     let cancelled = false;
     let intervalId: ReturnType<typeof setInterval> | undefined;
 
-    const sample = async () => {
+    const sampleNative = async () => {
       if (cancelled || appStateRef.current !== "active") return;
       try {
         const perm = await Location.getForegroundPermissionsAsync();
@@ -67,6 +67,31 @@ export function TechnicianLocationTracker() {
         // Avoid tight loops on transient GPS/network errors
       }
     };
+
+    const sampleWeb = async () => {
+      if (cancelled || appStateRef.current !== "active") return;
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      if (typeof navigator === "undefined" || !navigator.geolocation) return;
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: false,
+            timeout: 15_000,
+            maximumAge: LOCATION_TICK_MS,
+          });
+        });
+        if (cancelled) return;
+        await technicianApi.recordTechnicianLocation(client, {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          recordedAt: new Date(pos.timestamp).toISOString(),
+        });
+      } catch {
+        // Denied / unavailable — En Route gate is the hard block; tracker stays best-effort.
+      }
+    };
+
+    const sample = Platform.OS === "web" ? sampleWeb : sampleNative;
 
     void sample();
     intervalId = setInterval(sample, LOCATION_TICK_MS);

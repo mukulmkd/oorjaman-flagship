@@ -29,16 +29,19 @@ export function JobListCard({
   item,
   onPress,
   cta = "View job",
+  paymentDue = false,
 }: {
   item: BookingRow;
   onPress: () => void;
   cta?: string;
+  /** Completed postpaid visit with no successful payment yet. */
+  paymentDue?: boolean;
 }) {
   const opsWatch = opsWatchLabel(item);
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityHint="Opens job details"
+      accessibilityHint={paymentDue ? "Opens payment collection" : "Opens job details"}
       onPress={onPress}
       style={({ pressed }) => [styles.rowPress, pressed && styles.rowPressed]}
     >
@@ -55,6 +58,7 @@ export function JobListCard({
           <Text style={styles.serviceFor} numberOfLines={1}>
             For: {serviceForLabel(item)}
           </Text>
+          {paymentDue ? <Text style={styles.paymentDue}>Payment due</Text> : null}
           {opsWatch ? <Text style={styles.opsWatch}>{opsWatch}</Text> : null}
           <Text style={styles.cta}>{cta}</Text>
         </View>
@@ -109,6 +113,13 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semiBold,
     fontSize: fontSize.xs,
     color: colors.destructive,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  paymentDue: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: fontSize.xs,
+    color: colors.primary,
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },

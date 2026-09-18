@@ -3,6 +3,7 @@ import {
   Alert,
   Image,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   Share,
@@ -29,6 +30,7 @@ import {
   useModalStackHeader,
 } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../../../../constants/fonts";
+import { TECHNICIAN_POSTPAID_UNPAID_QUERY_KEY } from "../../../../lib/postpaid-collect";
 import { supabase } from "../../../../lib/supabase";
 
 function qrImageUrl(data: string): string {
@@ -40,6 +42,7 @@ export default function PostpaidCollectScreen() {
   const bookingId = Array.isArray(rawId) ? rawId[0] : rawId;
   const qc = useQueryClient();
   const [linkUrl, setLinkUrl] = useState<string | null>(null);
+  const [collectError, setCollectError] = useState<string | null>(null);
 
   const modalHeader = useModalStackHeader({
     title: "Collect payment",
@@ -76,16 +79,20 @@ export default function PostpaidCollectScreen() {
       });
     },
     onSuccess: (session) => {
+      setCollectError(null);
       setLinkUrl(session.paymentLinkUrl);
       if (!session.paymentLinkUrl) {
-        Alert.alert(
-          "Link unavailable",
-          "Order was created but Razorpay Payment Link failed. Ask the customer to pay from their app, or mark partner collected if they paid you directly.",
-        );
+        const msg =
+          "Order was created but Razorpay Payment Link failed. Ask the customer to pay from their app, or mark partner collected if they paid you directly.";
+        setCollectError(msg);
+        if (Platform.OS !== "web") Alert.alert("Link unavailable", msg);
       }
       void qc.invalidateQueries({ queryKey: queryKeys.payments.forBooking(bookingId!) });
     },
-    onError: (e: Error) => Alert.alert("Could not start collection", e.message),
+    onError: (e: Error) => {
+      setCollectError(e.message);
+      if (Platform.OS !== "web") Alert.alert("Could not start collection", e.message);
+    },
   });
 
   const partnerMut = useMutation({
@@ -98,20 +105,51 @@ export default function PostpaidCollectScreen() {
         note: "Recorded by technician after visit",
       });
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: queryKeys.payments.forBooking(bookingId!) });
-      Alert.alert(
-        "Marked as partner collected",
-        "Customer will not be charged again. OorjaMan platform fee will be settled with the vendor.",
-        [{ text: "OK", onPress: () => router.replace("/(main)/jobs") }],
+    onSuccess: async () => {
+      // Drop "Payment due" immediately on Jobs Done / detail before navigation.
+      qc.setQueriesData<Record<string, boolean>>(
+        { queryKey: [...TECHNICIAN_POSTPAID_UNPAID_QUERY_KEY] },
+        (prev) => (prev && bookingId ? { ...prev, [bookingId]: false } : prev),
       );
+
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: queryKeys.payments.forBooking(bookingId!) }),
+        qc.invalidateQueries({ queryKey: queryKeys.bookings.detail(bookingId!) }),
+        qc.invalidateQueries({ queryKey: queryKeys.bookings.list({ scope: "technician-assigned" }) }),
+        qc.invalidateQueries({ queryKey: [...TECHNICIAN_POSTPAID_UNPAID_QUERY_KEY] }),
+        qc.invalidateQueries({ queryKey: queryKeys.payments.all() }),
+      ]);
+
+      router.replace("/(main)/jobs");
+      if (Platform.OS !== "web") {
+        Alert.alert(
+          "Marked as partner collected",
+          "Customer will not be charged again. OorjaMan platform fee will be settled with the vendor.",
+        );
+      }
     },
-    onError: (e: Error) => Alert.alert("Could not record", e.message),
+    onError: (e: Error) => {
+      setCollectError(e.message);
+      if (Platform.OS !== "web") Alert.alert("Could not record", e.message);
+    },
   });
 
   const shareLink = useCallback(async () => {
     if (!linkUrl) return;
-    await Share.share({ message: `Pay OorjaMan for your visit: ${linkUrl}`, url: linkUrl });
+    try {
+      await Share.share({ message: `Pay OorjaMan for your visit: ${linkUrl}`, url: linkUrl });
+    } catch {
+      try {
+        if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(linkUrl);
+          Alert.alert("Link copied", "Payment link copied to the clipboard.");
+          return;
+        }
+      } catch {
+        // fall through
+      }
+      await Linking.openURL(linkUrl);
+    }
   }, [linkUrl]);
 
   if (bookingQuery.isLoading) {
@@ -180,10 +218,14 @@ export default function PostpaidCollectScreen() {
             <Button
               variant="primary"
               loading={createLinkMut.isPending}
-              onPress={() => void createLinkMut.mutateAsync()}
+              onPress={() => {
+                setCollectError(null);
+                createLinkMut.mutate();
+              }}
             >
               {linkUrl ? "Refresh payment QR / link" : "Generate Razorpay QR / link"}
             </Button>
+            {collectError ? <Text style={styles.errorText}>{collectError}</Text> : null}
 
             {linkUrl ? (
               <View style={styles.qrBlock}>
@@ -210,14 +252,16 @@ export default function PostpaidCollectScreen() {
               variant="outline"
               loading={partnerMut.isPending}
               onPress={() => {
-                Alert.alert(
-                  "Confirm partner collection",
-                  `Mark ${formatInrFromCents(amountPaise)} as collected by partner?`,
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Confirm", onPress: () => void partnerMut.mutateAsync() },
-                  ],
-                );
+                const confirmMsg = `Mark ${formatInrFromCents(amountPaise)} as collected by partner?`;
+                if (Platform.OS === "web") {
+                  if (typeof window !== "undefined" && !window.confirm(confirmMsg)) return;
+                  partnerMut.mutate();
+                  return;
+                }
+                Alert.alert("Confirm partner collection", confirmMsg, [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Confirm", onPress: () => partnerMut.mutate() },
+                ]);
               }}
             >
               Mark partner collected
@@ -261,5 +305,11 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.primary,
     textAlign: "center",
+  },
+  errorText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.destructive,
+    lineHeight: 20,
   },
 });

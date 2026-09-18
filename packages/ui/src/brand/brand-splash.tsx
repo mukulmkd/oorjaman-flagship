@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Animated, Easing, Image, StyleSheet, View } from "react-native";
 import { hideNativeSplashScreenOnce } from "../safe-splash-screen";
+import { USE_NATIVE_DRIVER } from "../use-native-driver";
 import { BRAND_TAGLINE, brandAssets } from "./brand-assets";
 import {
   BrandLoadingIndicator,
@@ -40,13 +41,13 @@ export function BrandSplash({
         toValue: 1,
         duration: 500,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
       Animated.timing(logoScale, {
         toValue: 1,
         duration: 650,
         easing: Easing.out(Easing.back(1.05)),
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
     ]).start();
   }, [logoOpacity, logoScale, releaseNativeSplash]);

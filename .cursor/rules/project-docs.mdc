@@ -1,0 +1,14 @@
+---
+description: Where to put project-level documentation and README files
+alwaysApply: true
+---
+
+# Project documentation location
+
+- Put **new monorepo-wide docs** (markdown guides, checklists, Word specs) in **`project-docs/`** unless the user specifies another path.
+- Keep the **root `README.md`** as the repo entry point only; link into `project-docs/README.md` for the full index.
+- **App-specific READMEs** stay under `apps/*`, `packages/*`, or `brand/` — do not move those into `project-docs/`.
+- **Topic how-tos** (push setup, local APK, realtime) stay in **`docs/`** unless consolidating into `project-docs/` is requested.
+- Doc generators (`scripts/generate-*-test-doc.py`) write `.docx` files to **`project-docs/`**.
+
+When adding a new project doc, update **`project-docs/README.md`** and link from root **`README.md`** if it is essential onboarding material.

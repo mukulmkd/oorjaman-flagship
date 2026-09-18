@@ -1,11 +1,11 @@
 import { useCallback, useRef, useState } from "react";
 import {
-  Dimensions,
   FlatList,
   type ListRenderItem,
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
   type ViewToken,
 } from "react-native";
@@ -16,7 +16,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, spacing } from "@oorjaman/config";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { STORAGE_KEY_ONBOARDING } from "../constants/storage";
-import { BrandLockup, BrandNameInline } from "@oorjaman/ui";
+import {
+  BrandLockup,
+  BrandNameInline,
+  USE_WEB_LAYOUT,
+  WEB_FORM_MAX_WIDTH,
+  WebContentColumn,
+} from "@oorjaman/ui";
 
 type TrustRow = { title: string; subtitle: string };
 
@@ -68,8 +74,6 @@ const SLIDES: Slide[] = [
   },
 ];
 
-const { width: SCREEN_W } = Dimensions.get("window");
-
 const ICON_LARGE = 48;
 const ICON_TRUST = 22;
 
@@ -78,6 +82,8 @@ const iconWrapBg = `${colors.primary}22`;
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
+  const { width: windowW } = useWindowDimensions();
+  const slideW = USE_WEB_LAYOUT ? Math.min(windowW, WEB_FORM_MAX_WIDTH) : windowW;
   const listRef = useRef<FlatList<Slide>>(null);
   const [index, setIndex] = useState(0);
 
@@ -103,7 +109,7 @@ export default function OnboardingScreen() {
 
   const renderItem: ListRenderItem<Slide> = useCallback(
     ({ item }) => (
-      <View style={[styles.slide, { width: SCREEN_W }]}>
+      <View style={[styles.slide, { width: slideW }]}>
         {item.id === "1" ? (
           <View style={styles.welcomeBrand}>
             <BrandLockup iconSize={108} />
@@ -140,7 +146,7 @@ export default function OnboardingScreen() {
         )}
       </View>
     ),
-    [],
+    [slideW],
   );
 
   const isLast = index === SLIDES.length - 1;
@@ -152,7 +158,8 @@ export default function OnboardingScreen() {
       : "Next";
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+    <WebContentColumn variant="form">
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <View style={styles.topBar}>
         <Pressable
           accessibilityRole="button"
@@ -179,8 +186,8 @@ export default function OnboardingScreen() {
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         getItemLayout={(_, i) => ({
-          length: SCREEN_W,
-          offset: SCREEN_W * i,
+          length: slideW,
+          offset: slideW * i,
           index: i,
         })}
       />
@@ -210,7 +217,8 @@ export default function OnboardingScreen() {
           <Text style={styles.ctaLabel}>{ctaLabel}</Text>
         </Pressable>
       </View>
-    </View>
+      </View>
+    </WebContentColumn>
   );
 }
 

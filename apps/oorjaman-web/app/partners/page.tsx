@@ -3,7 +3,7 @@ import { MarketingPage } from "@/components/MarketingPage";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { FeatureCardGrid } from "@/components/marketing-sections";
 import { buildPageMetadata } from "@/lib/seo";
-import { SUPPORT_EMAIL, vendorPortalPublicUrl } from "@/lib/site";
+import { SUPPORT_EMAIL, partnerWebLoginUrl, vendorPortalPublicUrl } from "@/lib/site";
 import styles from "./partners.module.css";
 
 export const metadata = buildPageMetadata({
@@ -32,6 +32,7 @@ const benefits = [
 
 export default function PartnersPage() {
   const portal = vendorPortalPublicUrl();
+  const partnerWebLogin = partnerWebLoginUrl();
 
   function applyCta(className: string) {
     return portal ? (
@@ -58,9 +59,15 @@ export default function PartnersPage() {
       cta={
         <>
           {applyCta("om-btn om-btn--primary")}
-          <Link href="/legal/vendor-partner-agreement" className="om-btn om-btn--ghost-light">
-            Partner agreement
-          </Link>
+          {partnerWebLogin ? (
+            <a href={partnerWebLogin} className="om-btn om-btn--ghost-light" rel="noopener noreferrer">
+              Partner app (web)
+            </a>
+          ) : (
+            <Link href="/legal/vendor-partner-agreement" className="om-btn om-btn--ghost-light">
+              Partner agreement
+            </Link>
+          )}
         </>
       }
     >
@@ -70,8 +77,24 @@ export default function PartnersPage() {
         <p>
           OorjaMan is a technology marketplace. Partners remain independent businesses; only approved vendors are
           visible for customer booking.
+          {partnerWebLogin ? (
+            <>
+              {" "}
+              Field technicians can open the Partner web app at{" "}
+              <a href={partnerWebLogin}>{partnerWebLogin.replace(/^https?:\/\//, "")}</a>.
+            </>
+          ) : null}
         </p>
       </ScrollReveal>
+
+      {partnerWebLogin ? (
+        <ScrollReveal>
+          <p className={styles.portalNote}>
+            Looking for the partner agreement?{" "}
+            <Link href="/legal/vendor-partner-agreement">Read the vendor partner agreement</Link>.
+          </p>
+        </ScrollReveal>
+      ) : null}
 
       {!portal ? (
         <ScrollReveal>

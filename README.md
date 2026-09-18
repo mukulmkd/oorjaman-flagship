@@ -46,6 +46,7 @@ oorjaman-flagship/
 ├── .env.example           # Env templates (copy per app)
 ├── .env.deployment.example # PROD vs UAT URL + Supabase matrix (no secrets)
 ├── project-docs/          # Deployment, env, billing, run guides, test Word docs (see project-docs/README.md)
+├── design-system/         # Extracted brand & presentation system (audit + tokens; product UI unchanged)
 │   ├── README.md          # Index of all project-level docs
 │   ├── RUNNING-APPS.md    # All run modes: local, debug, UAT, prod, Expo Go
 │   ├── DEPLOYMENT.md      # PROD vs UAT matrix
@@ -144,6 +145,9 @@ git add supabase/schema.sql supabase/policies.sql
 
 | Command              | App               | URL / target                         |
 | -------------------- | ----------------- | ------------------------------------ |
+| `npm run apps:web`   | Customer + Partner Expo Web | http://localhost:8081 · http://localhost:8082 |
+| `npm run customer:web` | Customer Expo Web | http://localhost:8081              |
+| `npm run technician:web` | Partner Expo Web | http://localhost:8082              |
 | `npm run admin`      | Admin web         | http://localhost:5173              |
 | `npm run vendor`     | Vendor web        | http://localhost:5174                |
 | `npm run support`    | Support web       | http://localhost:5175                |
@@ -213,7 +217,8 @@ Project-level guides live in [**project-docs/**](project-docs/README.md). The ro
 
 | Doc | Purpose |
 | --- | ------- |
-| [OorjaMan-Architecture.docx](project-docs/OorjaMan-Architecture.docx) | **Complete architecture** (apps, DB, diagrams) — `npm run docs:architecture` |
+| [PROD_MOBILE_ANDROID_LAUNCH.md](PROD_MOBILE_ANDROID_LAUNCH.md) | **PROD Android launch** — EAS, Maps, FCM, Play Store (customer + technician replicate) |
+| [PROD_CHECKLIST.md](PROD_CHECKLIST.md) | Full platform production checklist |
 | [DEPLOYMENT.md](project-docs/DEPLOYMENT.md) | PROD vs UAT matrix: **Vercel UAT portals (live)**, GoDaddy target, mobile EAS |
 | [VERCEL.md](project-docs/VERCEL.md) | Three Vercel projects, env vars, Supabase auth URLs |
 | [SUPABASE-UAT-PROD.md](project-docs/SUPABASE-UAT-PROD.md) | Dual Supabase projects, `db:push`, migration workflow |

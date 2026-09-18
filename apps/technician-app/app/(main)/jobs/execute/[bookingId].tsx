@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import {
   Alert,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,7 +14,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { useFocusEffect, useNavigation } from "expo-router";
-import { bookingApi, normalizeServiceOtpCode, queryKeys, technicianApi } from "@oorjaman/api";
+import { bookingApi, normalizeServiceOtpCode, paymentApi, queryKeys, technicianApi } from "@oorjaman/api";
 import type { BookingRow, Json } from "@oorjaman/api";
 import {
   createSignedJobEvidenceUrl,
@@ -54,6 +55,7 @@ import {
 } from "../../../../lib/safety-checklist";
 import { uploadJobPhotoFromUri } from "../../../../lib/job-photos";
 import { jobStatusLabel } from "../../../../lib/job-status";
+import { bookingNeedsPostpaidCollect, isPostpaidCompleted } from "../../../../lib/postpaid-collect";
 import { formatElapsed, formatJobTimestamp, useJobElapsedMs } from "../../../../lib/job-timer";
 
 const STEPS = ["verify", "safety", "selfie", "start", "before", "after", "issues", "submit"] as const;
@@ -151,6 +153,14 @@ export default function JobExecutionWizardScreen() {
 
   const canExecute = useBookingGuard(b);
 
+  const paymentsQuery = useQuery({
+    queryKey: queryKeys.payments.forBooking(bookingId ?? ""),
+    queryFn: () => paymentApi.listPaymentsForBooking(supabase!, bookingId!),
+    enabled: Boolean(supabase && bookingId && b && isPostpaidCompleted(b)),
+  });
+  const hasSuccessfulPayment = (paymentsQuery.data ?? []).some((p) => p.status === "success");
+  const needsPostpaidCollect = Boolean(b && bookingNeedsPostpaidCollect(b, hasSuccessfulPayment));
+
   const jobReportQuery = useQuery({
     queryKey: bookingId ? queryKeys.jobReports.byBooking(bookingId) : [],
     queryFn: () => technicianApi.getJobReportByBookingId(supabase!, bookingId!),
@@ -202,6 +212,8 @@ export default function JobExecutionWizardScreen() {
   const [afterUrls, setAfterUrls] = useState<string[]>([]);
   const [photoSignedUrls, setPhotoSignedUrls] = useState<Record<string, string>>({});
   const [selfieSignedUrl, setSelfieSignedUrl] = useState<string | null>(null);
+  /** Local file URI for instant preview while signed URL resolves (and if signing fails). */
+  const [selfieLocalPreviewUri, setSelfieLocalPreviewUri] = useState<string | null>(null);
   const [issueNotes, setIssueNotes] = useState("");
   const [uploading, setUploading] = useState<"before" | "after" | "selfie" | null>(null);
   const [pickingSelfie, setPickingSelfie] = useState(false);
@@ -228,7 +240,10 @@ export default function JobExecutionWizardScreen() {
     }
     let cancelled = false;
     void createSignedJobEvidenceUrl(supabase, startSelfieUrl).then((url) => {
-      if (!cancelled) setSelfieSignedUrl(url);
+      if (cancelled || !url) return;
+      setSelfieSignedUrl(url);
+      // Drop local URI once signed URL works — picker temp files often go black/stale.
+      setSelfieLocalPreviewUri(null);
     });
     return () => {
       cancelled = true;
@@ -238,9 +253,12 @@ export default function JobExecutionWizardScreen() {
   const stepKey = STEPS[step] ?? "safety";
   const modalHeader = useModalStackHeader({
     title: b?.reference_code ?? "Field visit",
-    subtitle: b
-      ? `Step ${step + 1} of ${STEPS.length} · ${STEP_HEADING[stepKey]}`
-      : undefined,
+    subtitle:
+      b?.status === "completed"
+        ? "Visit completed"
+        : b
+          ? `Step ${step + 1} of ${STEPS.length} · ${STEP_HEADING[stepKey]}`
+          : undefined,
     onClose: () => router.back(),
     closeAccessibilityLabel: "Close field visit",
     showClose: false,
@@ -346,47 +364,56 @@ export default function JobExecutionWizardScreen() {
 
       const needsCollect =
         result.booking.payment_timing === "postpaid" && result.booking.status === "completed";
+
+      // Navigate immediately — especially on web, where Alert.alert is unreliable and the
+      // booking refetch would otherwise flash the "can't execute" empty state.
       if (needsCollect) {
-        Alert.alert(
-          "Job completed",
-          "Collect payment from the customer (QR / link) or mark partner collected if they already paid you.",
-          [
-            {
-              text: "Collect payment",
-              onPress: () => router.replace(`/(main)/jobs/collect/${bookingId}`),
-            },
-          ],
-        );
+        router.replace(`/(main)/jobs/collect/${bookingId}`);
+        if (Platform.OS !== "web") {
+          Alert.alert(
+            "Job completed",
+            "Collect payment from the customer (QR / link) or mark partner collected if they already paid you.",
+          );
+        }
         return;
       }
 
-      Alert.alert(
-        "Job completed",
-        "Timer stopped, completion report saved, and booking marked completed.",
-        [{ text: "OK", onPress: () => router.replace("/(main)/jobs") }],
-      );
+      router.replace("/(main)/jobs");
+      if (Platform.OS !== "web") {
+        Alert.alert("Job completed", "Timer stopped, completion report saved, and booking marked completed.");
+      }
     },
     onError: (err: Error) => Alert.alert("Submit failed", err.message),
   });
 
-  async function captureAndUpload(phase: "before" | "after") {
+  async function captureAndUpload(phase: "before" | "after", source?: "library" | "camera") {
     if (!supabase || !bookingId) return;
 
-    const choice = await new Promise<"library" | "camera" | null>((resolve) => {
-      Alert.alert("Add photo", "Choose a source", [
-        { text: "Photo library", onPress: () => resolve("library") },
-        { text: "Camera", onPress: () => resolve("camera") },
-        { text: "Cancel", style: "cancel", onPress: () => resolve(null) },
-      ]);
-    });
+    // RN Web does not implement multi-button Alert; awaiting it never opens the file picker
+    // and any await before input.click() also drops the user-activation gesture.
+    let choice: "library" | "camera" | null = source ?? null;
+    if (!choice) {
+      if (Platform.OS === "web") {
+        choice = "library";
+      } else {
+        choice = await new Promise<"library" | "camera" | null>((resolve) => {
+          Alert.alert("Add photo", "Choose a source", [
+            { text: "Photo library", onPress: () => resolve("library") },
+            { text: "Camera", onPress: () => resolve("camera") },
+            { text: "Cancel", style: "cancel", onPress: () => resolve(null) },
+          ]);
+        });
+      }
+    }
+    if (!choice) return;
 
-    const uri =
-      choice === "library"
-        ? await pickJobEvidenceImageUri({ source: "library" })
-        : choice === "camera"
-          ? await pickJobEvidenceImageUri({ source: "camera" })
-          : null;
-
+    let uri: string | null;
+    try {
+      uri = await pickJobEvidenceImageUri({ source: choice });
+    } catch (e) {
+      Alert.alert("Camera error", e instanceof Error ? e.message : "Could not open the camera.");
+      return;
+    }
     if (!uri) return;
 
     try {
@@ -416,10 +443,12 @@ export default function JobExecutionWizardScreen() {
   async function saveSelfieFromUri(uri: string) {
     if (!supabase || !bookingId) return;
     setUploading("selfie");
+    setSelfieLocalPreviewUri(uri);
     try {
       const storagePath = await uploadJobPhotoFromUri(supabase, bookingId, "start_selfie", uri);
       setStartSelfieUrl(storagePath);
     } catch (e) {
+      setSelfieLocalPreviewUri(null);
       Alert.alert("Selfie upload failed", e instanceof Error ? e.message : "Unknown error");
     } finally {
       setUploading(null);
@@ -495,12 +524,48 @@ export default function JobExecutionWizardScreen() {
     );
   }
 
+  if (b?.status === "completed") {
+    return (
+      <Screen padded edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+        {modalHeader}
+        <EmptyStateCard
+          title="Visit completed"
+          description={
+            needsPostpaidCollect
+              ? "Report saved and this job is marked complete. Collect payment from the customer if it is still outstanding."
+              : hasSuccessfulPayment && b.payment_timing === "postpaid"
+                ? "Report saved and payment is recorded. You can leave the site."
+                : "Report saved and this job is marked complete. You can leave the site."
+          }
+          action={
+            <View style={styles.emptyAction}>
+              {needsPostpaidCollect ? (
+                <Button
+                  variant="primary"
+                  size="md"
+                  onPress={() => router.replace(`/(main)/jobs/collect/${bookingId}`)}
+                >
+                  Collect payment
+                </Button>
+              ) : null}
+              <Button
+                variant={needsPostpaidCollect ? "outline" : "primary"}
+                size="md"
+                onPress={() => router.replace("/(main)/jobs")}
+              >
+                Back to jobs
+              </Button>
+            </View>
+          }
+        />
+      </Screen>
+    );
+  }
+
   if (!b || !canExecute) {
     const description = !b
       ? "Booking not found."
-      : b.status === "completed"
-        ? "This visit is already completed."
-        : `Status is ${jobStatusLabel(b.status)} - execution is only available for accepted or in-progress jobs.`;
+      : `Status is ${jobStatusLabel(b.status)} — execution is only available for accepted or in-progress jobs.`;
 
     return (
       <Screen padded edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
@@ -684,8 +749,13 @@ export default function JobExecutionWizardScreen() {
               Take a clear front-camera selfie on site before starting the job timer. This is required once per
               visit.
             </Text>
-            {selfieSignedUrl ? (
-              <Image source={{ uri: selfieSignedUrl }} style={styles.selfiePreview} accessibilityLabel="Start selfie" />
+            {(selfieSignedUrl || selfieLocalPreviewUri) ? (
+              <Image
+                source={{ uri: (selfieSignedUrl || selfieLocalPreviewUri)! }}
+                style={styles.selfiePreview}
+                resizeMode="cover"
+                accessibilityLabel="Start selfie"
+              />
             ) : null}
             <View style={styles.photoActions}>
               <Button
@@ -731,19 +801,41 @@ export default function JobExecutionWizardScreen() {
               Upload site photo(s) before cleaning. Stored in Supabase Storage and linked to this job report.
             </Text>
             <View style={styles.photoActions}>
-              <Button
-                loading={uploading === "before"}
-                size="md"
-                variant="primary"
-                onPress={() => void captureAndUpload("before")}
-              >
-                Upload before cleaning photo
-              </Button>
+              {Platform.OS === "web" ? (
+                <>
+                  <Button
+                    loading={uploading === "before"}
+                    disabled={uploading === "before"}
+                    size="md"
+                    variant="primary"
+                    onPress={() => void captureAndUpload("before", "library")}
+                  >
+                    Choose before photo
+                  </Button>
+                  <Button
+                    disabled={uploading === "before"}
+                    size="md"
+                    variant="outline"
+                    onPress={() => void captureAndUpload("before", "camera")}
+                  >
+                    Take before photo
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  loading={uploading === "before"}
+                  size="md"
+                  variant="primary"
+                  onPress={() => void captureAndUpload("before")}
+                >
+                  Upload before cleaning photo
+                </Button>
+              )}
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.thumbRow}>
               {beforeUrls.map((path) =>
                 photoSignedUrls[path] ? (
-                  <Image key={path} source={{ uri: photoSignedUrls[path] }} style={styles.thumb} />
+                  <Image key={path} source={{ uri: photoSignedUrls[path] }} style={styles.thumb} resizeMode="cover" />
                 ) : null,
               )}
             </ScrollView>
@@ -757,19 +849,41 @@ export default function JobExecutionWizardScreen() {
               Upload result photo(s) after cleaning. Stored in Supabase Storage and linked to this job report.
             </Text>
             <View style={styles.photoActions}>
-              <Button
-                loading={uploading === "after"}
-                size="md"
-                variant="primary"
-                onPress={() => void captureAndUpload("after")}
-              >
-                Upload after cleaning photo
-              </Button>
+              {Platform.OS === "web" ? (
+                <>
+                  <Button
+                    loading={uploading === "after"}
+                    disabled={uploading === "after"}
+                    size="md"
+                    variant="primary"
+                    onPress={() => void captureAndUpload("after", "library")}
+                  >
+                    Choose after photo
+                  </Button>
+                  <Button
+                    disabled={uploading === "after"}
+                    size="md"
+                    variant="outline"
+                    onPress={() => void captureAndUpload("after", "camera")}
+                  >
+                    Take after photo
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  loading={uploading === "after"}
+                  size="md"
+                  variant="primary"
+                  onPress={() => void captureAndUpload("after")}
+                >
+                  Upload after cleaning photo
+                </Button>
+              )}
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.thumbRow}>
               {afterUrls.map((path) =>
                 photoSignedUrls[path] ? (
-                  <Image key={path} source={{ uri: photoSignedUrls[path] }} style={styles.thumb} />
+                  <Image key={path} source={{ uri: photoSignedUrls[path] }} style={styles.thumb} resizeMode="cover" />
                 ) : null,
               )}
             </ScrollView>
@@ -1006,10 +1120,12 @@ const styles = StyleSheet.create({
   },
   selfiePreview: {
     width: "100%",
-    height: 280,
+    aspectRatio: 3 / 4,
+    maxHeight: 360,
     borderRadius: 12,
     marginBottom: spacing.md,
     backgroundColor: colors.muted,
+    overflow: "hidden",
   },
   thumb: {
     width: 96,
@@ -1034,7 +1150,8 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   emptyAction: {
-    alignSelf: "flex-start",
+    alignSelf: "stretch",
+    gap: spacing.sm,
   },
   muted: {
     fontFamily: fontFamily.regular,

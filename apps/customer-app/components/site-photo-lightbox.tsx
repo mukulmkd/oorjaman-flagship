@@ -110,7 +110,7 @@ export function SitePhotoLightbox({ photos, visible, initialIndex, onClose }: Pr
                   setLoadError(true);
                 }}
               />
-              <View style={styles.stampOverlay} pointerEvents="none">
+              <View style={[styles.stampOverlay, styles.ignoreHits]}>
                 <SitePhotoStampFooter
                   data={{
                     geo: {
@@ -202,6 +202,9 @@ const styles = StyleSheet.create({
   },
   stampOverlay: {
     width: "100%",
+  },
+  ignoreHits: {
+    pointerEvents: "none",
   },
   errorText: {
     fontFamily: fontFamily.regular,

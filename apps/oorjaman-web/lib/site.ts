@@ -94,6 +94,35 @@ export function customerStoreListingsLive(): boolean {
   return isPublicHttpsUrl(APP_LINKS.customerIos) && isPublicHttpsUrl(APP_LINKS.customerAndroid);
 }
 
+/**
+ * Customer Expo Web app (CSR) — Universal Web host `app.oorjaman.com`.
+ * When set, marketing CTAs can open the web product; SEO stays on this Next site.
+ */
+export function customerWebAppPublicUrl(): string | null {
+  const raw = (process.env.NEXT_PUBLIC_CUSTOMER_WEB_URL ?? "").trim();
+  return isPublicHttpsUrl(raw) ? raw.replace(/\/$/, "") : null;
+}
+
+/** Login entry for the customer web app (Expo Router `/login`). */
+export function customerWebLoginUrl(): string | null {
+  const base = customerWebAppPublicUrl();
+  return base ? `${base}/login` : null;
+}
+
+/**
+ * Technician / Partner Expo Web app — Universal Web host `partner.oorjaman.com`.
+ * Distinct from the vendor Vite portal (`NEXT_PUBLIC_VENDOR_PORTAL_URL`).
+ */
+export function partnerWebAppPublicUrl(): string | null {
+  const raw = (process.env.NEXT_PUBLIC_PARTNER_WEB_URL ?? "").trim();
+  return isPublicHttpsUrl(raw) ? raw.replace(/\/$/, "") : null;
+}
+
+export function partnerWebLoginUrl(): string | null {
+  const base = partnerWebAppPublicUrl();
+  return base ? `${base}/login` : null;
+}
+
 /** Partner portal origin for signup CTA, or null when not safe to expose publicly. */
 export function vendorPortalPublicUrl(): string | null {
   const raw = (process.env.NEXT_PUBLIC_VENDOR_PORTAL_URL ?? "").trim();

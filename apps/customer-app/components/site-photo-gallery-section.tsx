@@ -147,15 +147,22 @@ export function SitePhotoGallerySection({
       return;
     }
 
-    const locationAccess = await ensureForegroundLocationAccess({
-      settingsTitle: "Location required for site photos",
-      settingsMessage:
-        "Site photos need GPS for the map stamp. Allow location access when prompted, or enable it for OorjaMan in Settings.",
-    });
-    if (!locationAccess.ok) return;
+    // Web: open the file picker first (user activation). Location is checked after pick.
+    // Native: confirm location + source chooser before opening ImagePicker.
+    let source: "camera" | "library" | null;
+    if (Platform.OS === "web") {
+      source = "library";
+    } else {
+      const locationAccess = await ensureForegroundLocationAccess({
+        settingsTitle: "Location required for site photos",
+        settingsMessage:
+          "Site photos need GPS for the map stamp. Allow location access when prompted, or enable it for OorjaMan in Settings.",
+      });
+      if (!locationAccess.ok) return;
 
-    const source = await promptSitePhotoSource();
-    if (!source) return;
+      source = await promptSitePhotoSource();
+      if (!source) return;
+    }
 
     setFlowBusy(true);
     try {
@@ -327,7 +334,7 @@ export function SitePhotoGallerySection({
                   {thumbUri ? (
                     <View style={styles.thumbFrame}>
                       <Image source={{ uri: thumbUri }} style={styles.thumb} />
-                      <View style={styles.thumbStamp} pointerEvents="none">
+                      <View style={[styles.thumbStamp, styles.ignoreHits]}>
                         <SitePhotoStampFooter
                           compact
                           data={{
@@ -491,6 +498,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  ignoreHits: {
+    pointerEvents: "none",
   },
   thumbPressed: {
     opacity: 0.92,

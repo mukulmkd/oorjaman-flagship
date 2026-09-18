@@ -5,6 +5,7 @@ import * as Location from "expo-location";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, spacing } from "@oorjaman/config";
+import { WebContentColumn } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { STORAGE_KEY_LOCATION_PROMPT_DONE } from "../constants/storage";
 
@@ -32,15 +33,16 @@ export default function PermissionsScreen() {
   }, [continueToLogin]);
 
   return (
-    <View
-      style={[
-        styles.root,
-        {
-          paddingTop: insets.top + spacing.xl,
-          paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.md,
-        },
-      ]}
-    >
+    <WebContentColumn variant="auth" centerVertically>
+      <View
+        style={[
+          styles.root,
+          {
+            paddingTop: insets.top + spacing.xl,
+            paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.md,
+          },
+        ]}
+      >
       <Text style={styles.kicker}>Field-ready</Text>
       <Text style={styles.title}>Location for job routing</Text>
       <Text style={styles.body}>
@@ -85,7 +87,8 @@ export default function PermissionsScreen() {
       >
         <Text style={styles.secondaryLabel}>Not now</Text>
       </Pressable>
-    </View>
+      </View>
+    </WebContentColumn>
   );
 }
 

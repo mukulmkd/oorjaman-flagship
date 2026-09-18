@@ -2,8 +2,17 @@ import { ActionSheetIOS, Alert, Platform } from "react-native";
 
 export type SitePhotoSource = "camera" | "library";
 
-/** One-shot camera vs gallery choice - must finish before opening the system picker. */
+/**
+ * One-shot camera vs gallery choice — must finish before opening the system picker on native.
+ * On web, RN Alert/ActionSheet have no working multi-button UI, and awaiting a dialog before
+ * `<input type="file">.click()` drops user activation. Default to library (desktop file chooser;
+ * mobile browsers still offer camera via the OS picker).
+ */
 export function promptSitePhotoSource(): Promise<SitePhotoSource | null> {
+  if (Platform.OS === "web") {
+    return Promise.resolve("library");
+  }
+
   if (Platform.OS === "ios") {
     return new Promise((resolve) => {
       ActionSheetIOS.showActionSheetWithOptions(

@@ -211,7 +211,7 @@ Runbook: `project-docs/DEPLOYMENT.md` §Mobile + §Google Maps, `docs/customer-p
 - [ ] **EAS production secrets:** `EXPO_PUBLIC_SUPABASE_URL` (prod), `EXPO_PUBLIC_SUPABASE_ANON_KEY` (prod), `EXPO_PUBLIC_SITE_URL=https://oorjaman.com`, `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` (and/or `_IOS` / `_ANDROID`), `EXPO_PUBLIC_GOOGLE_MAPS_DIRECTIONS_API_KEY`, `EXPO_PUBLIC_EAS_PROJECT_ID`, **`EXPO_PUBLIC_RAZORPAY_KEY_ID=rzp_live_…`** (public key id only). **No** dummy-auth vars; **never** Razorpay key secret in the app.
 - [ ] **Google Maps (tiles):** GCP → billing on → enable Maps SDK iOS/Android + Static API → **app-restricted** key for prod bundle IDs (+ Android release **SHA-1**) → EAS secret → **native rebuild** (not OTA).
 - [ ] **Google Directions (live tracking road route):** enable **Directions API** → create a **separate Directions-only** key (**no** iOS/Android app restriction; API restriction = Directions only) → set `EXPO_PUBLIC_GOOGLE_MAPS_DIRECTIONS_API_KEY` on **prod** EAS env (UAT alone is not enough) → rebuild customer app. Without this key, tracking falls back to OSRM / straight line. Details: `project-docs/DEPLOYMENT.md` §Google Maps.
-- [ ] **Push per Supabase project:** deploy push functions (see §4) **and** set Postgres `app.*_push_function_url` settings + `PUSH_DISPATCH_SECRET` on the **prod** project; register FCM/APNs creds for prod bundle IDs.
+- [ ] **Push per Supabase project:** deploy push functions (see §4) + `PUSH_DISPATCH_SECRET` + cron jobs on PROD (see [PROD_MOBILE_ANDROID_LAUNCH.md](PROD_MOBILE_ANDROID_LAUNCH.md)); register FCM/APNs creds for prod bundle IDs.
 - [ ] Prod builds: `eas build --profile production --platform all` (both apps) → `eas submit`.
 
 ---

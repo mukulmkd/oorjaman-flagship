@@ -1,0 +1,580 @@
+---
+description: OorjaMan Global Branding, Expo Asset, UI, Animation, and Engineering Rules
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# OorjaMan Global System Rules
+
+You are working on the OorjaMan platform.
+
+OorjaMan is a premium clean-tech solar panel cleaning ecosystem.
+
+The brand identity must always feel:
+
+- Minimal
+- Premium
+- Modern
+- Eco-tech
+- Sustainable
+- Spacious
+- Technical
+- Trustworthy
+- Professional
+
+The design language should resemble:
+
+- Apple
+- Tesla
+- Stripe
+- Notion
+- Linear
+
+Avoid:
+
+- Cheap startup aesthetics
+- Overcrowded layouts
+- Excessive gradients
+- Cartoonish visuals
+- Loud colors
+- Excessive shadows
+- Over-animated interfaces
+- Generic stock startup feel
+
+---
+
+# Brand Identity Rules
+
+## Core Brand Positioning
+
+OorjaMan represents:
+
+- Clean energy
+- Reliability
+- Modern technology
+- Sustainability
+- Operational efficiency
+- Professional service quality
+
+All generated assets must reinforce:
+
+- trust
+- premium quality
+- eco-tech simplicity
+- modern scalability
+
+---
+
+# Brand Colors
+
+**Source of truth:** `packages/config/src/brand.ts` + `packages/config/src/colors.ts`  
+**UI rule detail:** `.cursor/rules/oorjaman-ui.mdc`
+
+## Wordmark palette (`brandColors`)
+
+```ts
+import { brandColors } from "@oorjaman/config";
+
+brandColors.oorja;         // #549048 — “Oorja”
+brandColors.man;           // #1C4276 — “Man” (softened navy, not near-black)
+brandColors.tagline;       // #9B9B9B — tagline + muted labels
+brandColors.gradientGreen; // #549048 — loading / accent start
+brandColors.gradientBlue;  // #1C4276 — loading / accent end
+```
+
+## App UI palette (`colors`)
+
+```ts
+import { colors } from "@oorjaman/config";
+
+colors.primary;            // #1f8660 — CTAs
+colors.foreground;           // #0f2938 — structure text
+colors.mutedForeground;    // #516a7b — secondary text
+colors.background;         // #f6faf9 — canvas
+```
+
+Do **not** use deprecated values: `#6FB53E`, `#0F4D92`, `#0B1C3A`, `#082B5B`.
+
+---
+
+# Color Usage Rules
+
+## Green Usage
+
+Use green for:
+
+- highlights
+- eco-energy indicators
+- active accents
+- positive metrics
+
+Do NOT overuse green.
+
+---
+
+## Blue Usage
+
+Use blue for:
+
+- primary UI
+- professional sections
+- navigation
+- buttons
+- trust indicators
+
+Preferred primary button color:
+
+```css
+background: #1f8660; /* colors.primary */
+color: #ffffff;
+```
+
+---
+
+## Neutral Usage
+
+Use:
+
+- white backgrounds
+- soft gray dividers
+- spacious layouts
+
+Avoid dark cluttered interfaces unless specifically requested.
+
+---
+
+# Typography Rules
+
+## Preferred Fonts
+
+Primary:
+
+- Poppins
+- Inter
+
+Secondary:
+
+- DM Sans
+- Montserrat
+
+Fallback:
+
+- system-ui
+- sans-serif
+
+---
+
+# Typography Usage
+
+## Headings
+
+Use:
+
+- Poppins SemiBold
+- Inter SemiBold
+
+---
+
+## App UI
+
+Use:
+
+- Inter
+
+---
+
+## Documents
+
+Use:
+
+- Montserrat
+
+---
+
+## Marketing
+
+Use:
+
+- DM Sans
+
+---
+
+# Typography Restrictions
+
+Avoid:
+
+- decorative fonts
+- condensed fonts
+- comic fonts
+- script fonts
+- ultra-bold typography
+- overly thin unreadable fonts
+
+---
+
+# Layout Rules
+
+All layouts must:
+
+- use generous whitespace
+- prioritize readability
+- maintain clear hierarchy
+- use consistent spacing
+- remain visually breathable
+
+Preferred spacing scale:
+
+- 4
+- 8
+- 12
+- 16
+- 24
+- 32
+- 48
+- 64
+
+---
+
+# Border Radius Rules
+
+Preferred radii:
+
+- 12px
+- 16px
+- 20px
+
+Avoid:
+
+- sharp harsh edges
+- excessive rounding
+
+---
+
+# Shadow Rules
+
+Use shadows sparingly.
+
+Preferred:
+
+- soft elevation
+- low opacity
+- subtle blur
+
+Avoid:
+
+- heavy shadows
+- dramatic neumorphism
+- excessive glow
+
+---
+
+# App Icon Rules
+
+App icons must:
+
+- use icon-only variant
+- avoid small text
+- maintain high contrast
+- remain recognizable at small sizes
+- support Android adaptive icons
+
+Preferred icon backgrounds:
+
+- white
+- deep navy
+- subtle blue gradient
+
+Avoid:
+
+- clutter
+- multi-object compositions
+- tiny typography
+
+---
+
+# Splash Screen Rules
+
+Splash screens must:
+
+- remain minimal
+- use centered logo
+- use soft backgrounds
+- feel premium and calm
+
+Preferred backgrounds:
+
+- white
+- navy gradient
+- subtle solar gradient
+
+Preferred tagline:
+
+"WE CLEAN. YOU GENERATE."
+
+Avoid:
+
+- busy compositions
+- loud visuals
+- excessive text
+- overly long animations
+
+---
+
+# Animation Rules
+
+Animations should feel:
+
+- smooth
+- premium
+- subtle
+- modern
+- performant
+
+Preferred animation types:
+
+- fade
+- scale
+- glow pulse
+- smooth opacity transitions
+- subtle parallax
+
+Preferred technologies:
+
+- React Native Reanimated
+- Lottie
+- Expo animations
+
+Animation duration:
+
+- 300ms to 2500ms
+
+Avoid:
+
+- aggressive bounce
+- cartoon motion
+- flashy transitions
+- excessive particles
+
+---
+
+# React Native Rules
+
+Tech stack:
+
+- Expo
+- React Native
+- React Native Web
+- Express SSR
+- Reanimated
+- Lottie
+
+All generated React Native code must:
+
+- be modular
+- use functional components
+- use hooks
+- maintain responsiveness
+- support web compatibility
+- avoid unnecessary re-renders
+
+Prefer:
+
+- reusable utilities
+- centralized themes
+- scalable architecture
+
+---
+
+# Expo Asset Rules
+
+Always generate:
+
+- app-icon.png
+- adaptive-icon.png
+- favicon.png
+- splash-screen.png
+- notification-icon.png
+
+Preferred export sizes:
+
+- 1024x1024 icons
+- 1242x2436 splash
+
+---
+
+# Folder Structure Rules
+
+Preferred structure:
+
+```txt
+/assets
+  /icons
+  /splash
+  /branding
+  /animations
+  /social
+  /documents
+```
+
+---
+
+# Asset Naming Rules
+
+Use kebab-case only.
+
+Examples:
+
+```txt
+app-icon.png
+adaptive-icon.png
+splash-screen.png
+intro-animation.json
+invoice-template.pdf
+business-card-front.png
+linkedin-banner.png
+```
+
+Avoid:
+
+- spaces
+- camelCase
+- random naming
+
+---
+
+# SVG Rules
+
+SVGs must:
+
+- remain scalable
+- use optimized paths
+- maintain clean geometry
+- avoid unnecessary complexity
+
+Always support:
+
+- dark mode
+- light mode
+- monochrome versions
+
+Preferred SVG exports:
+
+- full-logo.svg
+- icon-only.svg
+- monochrome.svg
+- white-logo.svg
+
+---
+
+# Business Document Rules
+
+All documents must:
+
+- use minimal layout
+- maintain whitespace
+- remain print-friendly
+- use brand palette consistently
+- prioritize professionalism
+
+Documents include:
+
+- invoices
+- quotations
+- proposals
+- reports
+- letterheads
+- presentations
+
+---
+
+# Social Media Rules
+
+Social visuals should:
+
+- remain clean
+- use premium composition
+- avoid clutter
+- use solar imagery tastefully
+- prioritize typography hierarchy
+
+Preferred themes:
+
+- clean rooftops
+- solar reflections
+- eco-tech minimalism
+- futuristic sustainability
+
+Avoid:
+
+- meme aesthetics
+- overcrowded promotional graphics
+- low-quality stock visuals
+
+---
+
+# AI Image Generation Rules
+
+Preferred prompt style:
+
+"Premium clean-tech branding for OorjaMan solar panel cleaning platform. Minimal eco-tech aesthetic. White and deep navy backgrounds. Green-blue accents. Apple-style simplicity. Spacious layout. Modern typography."
+
+---
+
+# Performance Rules
+
+Generated assets should:
+
+- remain optimized
+- avoid unnecessarily large sizes
+- support responsive loading
+- maintain mobile performance
+
+Prefer:
+
+- SVG where possible
+- compressed PNGs
+- optimized WebP exports
+
+---
+
+# Accessibility Rules
+
+UI must:
+
+- maintain readable contrast
+- support accessibility standards
+- use sufficiently large touch targets
+- avoid unreadable font sizes
+
+---
+
+# Engineering Quality Rules
+
+Code must:
+
+- remain production-ready
+- avoid hacks
+- maintain scalability
+- follow clean architecture principles
+- avoid deeply nested styling
+
+Prefer:
+
+- reusable hooks
+- utility functions
+- centralized constants
+- scalable themes
+
+---
+
+# Final Core Principle
+
+Every asset, screen, animation, document, or component must reinforce:
+
+- Premium clean-tech identity
+- Sustainable energy positioning
+- Trustworthiness
+- Modern professionalism
+- Minimal elegance
+- Scalable startup quality

@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { BrandWordmark } from "@/components/BrandWordmark";
 import { heroHeadline } from "@/lib/home-content";
+import { customerWebLoginUrl } from "@/lib/site";
 import styles from "@/components/home.module.css";
 
 type HomeHeroProps = {
@@ -27,6 +28,7 @@ export function HomeHero({ primaryCtaLabel, photoSrc = null, videoSrc = null }: 
 
   const useVideo = Boolean(videoSrc && allowMotion);
   const hasMedia = Boolean(photoSrc || useVideo);
+  const webLogin = customerWebLoginUrl();
 
   return (
     <section
@@ -77,9 +79,15 @@ export function HomeHero({ primaryCtaLabel, photoSrc = null, videoSrc = null }: 
         </div>
 
         <p className={`${styles.ctas} om-rise om-rise-delay-3`}>
-          <Link href="/download" className="om-btn om-btn--primary">
-            {primaryCtaLabel}
-          </Link>
+          {webLogin ? (
+            <a href={webLogin} className="om-btn om-btn--primary" rel="noopener noreferrer">
+              {primaryCtaLabel}
+            </a>
+          ) : (
+            <Link href="/download" className="om-btn om-btn--primary">
+              {primaryCtaLabel}
+            </Link>
+          )}
           <Link href="/services/amc-maintenance" className="om-btn om-btn--ghost-light">
             Explore AMC
           </Link>

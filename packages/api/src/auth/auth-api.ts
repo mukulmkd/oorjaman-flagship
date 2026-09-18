@@ -4,6 +4,11 @@ import { resolveDummyAuthSettings } from "../env";
 import { SupabaseApiError } from "../result";
 import { syncMyUserFromAuth } from "../users/user-api";
 import { dummyAuthEmailCandidatesForPhone } from "./auth-identity";
+import {
+  normalizeAuthEmail,
+  PLAY_REVIEW_CUSTOMER_EMAIL,
+  PLAY_REVIEW_TECHNICIAN_EMAIL,
+} from "./play-review-auth";
 
 export {
   dummyAuthEmailCandidatesForPhone,
@@ -12,6 +17,16 @@ export {
   isDummyAuthEmail,
   normalizePhoneE164,
 } from "./auth-identity";
+
+export {
+  isPlayReviewEmailForApp,
+  normalizeAuthEmail,
+  playReviewEmailForApp,
+  PLAY_REVIEW_CUSTOMER_EMAIL,
+  PLAY_REVIEW_PASSWORD,
+  PLAY_REVIEW_TECHNICIAN_EMAIL,
+  type PlayReviewApp,
+} from "./play-review-auth";
 
 async function syncPublicUserAfterAuth(client: SupabaseClient<Database>): Promise<void> {
   try {
@@ -173,12 +188,21 @@ export async function requestEmailOtp(
     frameworkEnv?: Record<string, string | boolean | undefined>;
   },
 ) {
+  const trimmed = normalizeAuthEmail(email);
+  if (
+    trimmed === PLAY_REVIEW_CUSTOMER_EMAIL ||
+    trimmed === PLAY_REVIEW_TECHNICIAN_EMAIL
+  ) {
+    throw new SupabaseApiError(
+      "This account uses a password. Enter the Play review password instead of requesting an OTP.",
+    );
+  }
   const dummy = resolveDummyAuthSettings(options?.frameworkEnv);
   if (dummy.enabled) {
     return { user: null, session: null };
   }
   const { data, error } = await client.auth.signInWithOtp({
-    email: email.trim().toLowerCase(),
+    email: trimmed,
     options: {
       shouldCreateUser: options?.shouldCreateUser ?? true,
       data: options?.data,

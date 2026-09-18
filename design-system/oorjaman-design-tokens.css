@@ -1,0 +1,119 @@
+/**
+ * OorjaMan CSS tokens
+ * Extracted from packages/config + observed product usage.
+ * origin comments: extracted | recommended | new-standard
+ *
+ * Product UI is unchanged. These variables are for decks, marketing, and future alignment.
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap");
+
+:root {
+  /* Brand — identity (logo / wordmark) — extracted */
+  --om-oorja: #549048;
+  --om-man: #1c4276;
+  --om-tagline: #9b9b9b;
+  --om-gradient-green: #549048;
+  --om-gradient-blue: #1c4276;
+
+  /* Brand — product UI — extracted */
+  --om-primary: #1f8660;
+  --om-primary-dark: #1a734f;
+  --om-primary-light: #d8eee4;
+  --om-primary-fg: #ffffff;
+  --om-accent: #9fc93c;
+  --om-ring: #5cbd8c;
+
+  /* Neutrals — extracted */
+  --om-bg: #f6faf9;
+  --om-bg-alt: #edf2f2;
+  --om-surface: #ffffff;
+  --om-surface-elevated: #f0f7f5;
+  --om-muted: #e9f1ef;
+  --om-border: #c5d9d4;
+  --om-divider: #c5d9d4;
+  --om-track: #e4e4e4;
+  --om-overlay: rgb(0 0 0 / 0.4);
+
+  /* Text — extracted */
+  --om-text: #0f2938;
+  --om-text-secondary: #516a7b;
+  --om-text-muted: #516a7b;
+  --om-text-disabled: #9b9b9b;
+  --om-text-inverse: #ffffff;
+
+  /* Semantic — extracted unless noted */
+  --om-success: #1a7d52;
+  --om-warning: #92400e;
+  --om-warning-surface: #fef3c7;
+  --om-error: #dc2626;
+  --om-error-fg: #fafafa;
+  --om-info: #1c4276; /* new-standard: not #2563eb */
+
+  /* Charts */
+  --om-chart-1: #1f8660; /* extracted */
+  --om-chart-2: #246488; /* extracted from admin analytics */
+  --om-chart-3: #1c4276; /* new-standard */
+  --om-chart-4: #549048; /* new-standard */
+  --om-chart-5: #9fc93c; /* new-standard */
+  --om-chart-positive: #1a7d52;
+  --om-chart-negative: #dc2626;
+  --om-chart-neutral: #516a7b;
+  --om-chart-grid: #c5d9d4; /* recommended vs slate fallbacks */
+
+  /* Typography — extracted */
+  --om-font: "Plus Jakarta Sans", Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --om-font-office: "Plus Jakarta Sans", Calibri, Arial, Helvetica, sans-serif;
+  --om-weight-regular: 400;
+  --om-weight-medium: 500;
+  --om-weight-semibold: 600;
+  --om-weight-bold: 700;
+  --om-type-xs: 0.75rem;
+  --om-type-sm: 0.875rem;
+  --om-type-md: 1rem;
+  --om-type-lg: 1.125rem;
+  --om-type-xl: 1.375rem;
+  --om-type-xxl: 1.75rem;
+  --om-type-display: 2.25rem;
+
+  /* Spacing — extracted 4px base */
+  --om-space-xs: 4px;
+  --om-space-sm: 8px;
+  --om-space-md: 12px;
+  --om-space-lg: 16px;
+  --om-space-xl: 24px;
+  --om-space-xxl: 32px;
+  --om-space-xxxl: 48px;
+
+  /* Radius — new-standard names, extracted values */
+  --om-radius-sm: 10px;
+  --om-radius-md: 12px;
+  --om-radius-lg: 14px;
+  --om-radius-xl: 16px;
+  --om-radius-pill: 999px;
+
+  /* Elevation — extracted */
+  --om-shadow-card: 0 1px 2px rgb(15 41 56 / 0.06);
+  --om-shadow-float: 0 4px 20px rgb(15 41 56 / 0.08);
+  --om-shadow-modal: 0 12px 40px rgb(15 41 56 / 0.12);
+
+  /* Motion — extracted */
+  --om-ease: cubic-bezier(0.33, 1, 0.68, 1);
+  --om-duration-fast: 90ms;
+  --om-duration-medium: 140ms;
+  --om-duration-slow: 320ms;
+
+  /* Persona accents — extracted from portal-dashboard.css */
+  --om-persona-operations: #1f8660;
+  --om-persona-support: #1c4276;
+  --om-persona-partner: #549048;
+}
+
+/* Ban list (do not use as OorjaMan UI) */
+.om-do-not-use {
+  --not-slate-ink: #0f172a;
+  --not-slate-muted: #64748b;
+  --not-stone-border: #e7e5e4;
+  --not-link-blue: #2563eb;
+  --not-wrong-primary: #0f766e;
+}

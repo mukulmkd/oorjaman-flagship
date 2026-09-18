@@ -1,4 +1,11 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Keyboard,
   Platform,
@@ -15,12 +22,17 @@ export type OtpCodeInputProps = {
   value: string;
   onChangeText: (value: string) => void;
   editable?: boolean;
-} & Pick<TextInputProps, "accessibilityLabel" | "accessibilityHint">;
+} & Pick<
+  TextInputProps,
+  "accessibilityLabel" | "accessibilityHint" | "onFocus" | "onBlur"
+>;
 
 const DEFAULT_LENGTH = 6;
 
 /** Dismiss OTP keyboard before leaving the login screen (avoids Android IME crashes). */
-export async function dismissOtpKeyboard(input?: TextInput | null): Promise<void> {
+export async function dismissOtpKeyboard(
+  input?: TextInput | null,
+): Promise<void> {
   input?.blur();
   Keyboard.dismiss();
   if (Platform.OS === "android") {
@@ -30,83 +42,99 @@ export async function dismissOtpKeyboard(input?: TextInput | null): Promise<void
   }
 }
 
-export const OtpCodeInput = forwardRef<TextInput, OtpCodeInputProps>(function OtpCodeInput(
-  {
-    length = DEFAULT_LENGTH,
-    value,
-    onChangeText,
-    editable = true,
-    accessibilityLabel = "One-time code",
-    accessibilityHint = "Six digit SMS verification code",
-  },
-  ref,
-) {
-  const inputRef = useRef<TextInput>(null);
-  const [focused, setFocused] = useState(false);
+export const OtpCodeInput = forwardRef<TextInput, OtpCodeInputProps>(
+  function OtpCodeInput(
+    {
+      length = DEFAULT_LENGTH,
+      value,
+      onChangeText,
+      editable = true,
+      accessibilityLabel = "One-time code",
+      accessibilityHint = "Six digit SMS verification code",
+      onFocus,
+      onBlur,
+    },
+    ref,
+  ) {
+    const inputRef = useRef<TextInput>(null);
+    const [focused, setFocused] = useState(false);
 
-  useImperativeHandle(ref, () => inputRef.current as TextInput);
+    useImperativeHandle(ref, () => inputRef.current as TextInput);
 
-  useEffect(() => {
-    if (!editable) inputRef.current?.blur();
-  }, [editable]);
+    useEffect(() => {
+      if (!editable) inputRef.current?.blur();
+    }, [editable]);
 
-  const chars = useMemo(() => {
-    const split = value.replace(/\D/g, "").slice(0, length).split("");
-    return Array.from({ length }, (_, i) => split[i] ?? "");
-  }, [value, length]);
+    const chars = useMemo(() => {
+      const split = value.replace(/\D/g, "").slice(0, length).split("");
+      return Array.from({ length }, (_, i) => split[i] ?? "");
+    }, [value, length]);
 
-  const activeIndex = Math.min(value.replace(/\D/g, "").length, length - 1);
+    const activeIndex = Math.min(value.replace(/\D/g, "").length, length - 1);
 
-  const handleChange = (text: string) => {
-    onChangeText(text.replace(/\D/g, "").slice(0, length));
-  };
+    const handleChange = (text: string) => {
+      onChangeText(text.replace(/\D/g, "").slice(0, length));
+    };
 
-  return (
-    <View style={[styles.wrap, !editable && styles.wrapDisabled]}>
-      <View style={styles.row} pointerEvents="none">
-        {chars.map((ch, i) => (
-          <View
-            key={i}
-            style={[
-              styles.cell,
-              ch ? styles.cellFilled : null,
-              editable && focused && i === activeIndex ? styles.cellActive : null,
-            ]}
-          >
-            <Text style={styles.digit}>{ch}</Text>
-          </View>
-        ))}
-      </View>
-      {/*
+    return (
+      <View style={[styles.wrap, !editable && styles.wrapDisabled]}>
+        <View style={[styles.row, styles.rowPointerNone]}>
+          {chars.map((ch, i) => (
+            <View
+              key={i}
+              style={[
+                styles.cell,
+                ch ? styles.cellFilled : null,
+                editable && focused && i === activeIndex
+                  ? styles.cellActive
+                  : null,
+              ]}
+            >
+              <Text style={styles.digit}>{ch}</Text>
+            </View>
+          ))}
+        </View>
+        {/*
         Full-area transparent input (on-screen so focus/keyboard work). Off-screen + opacity:0
         broke taps on Android. Digits render in the cells above; IME crash on logout is handled
         by dismissOtpKeyboard() before navigation and unmounting while verifying.
       */}
-      <TextInput
-        ref={inputRef}
-        value={value}
-        editable={editable}
-        pointerEvents={editable ? "auto" : "none"}
-        onChangeText={handleChange}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        keyboardType="number-pad"
-        textContentType="oneTimeCode"
-        autoComplete={Platform.OS === "android" ? "sms-otp" : undefined}
-        {...(Platform.OS === "android" ? { importantForAutofill: "yes" as const } : {})}
-        maxLength={length}
-        caretHidden
-        autoCorrect={false}
-        spellCheck={false}
-        selectTextOnFocus={false}
-        contextMenuHidden
-        style={styles.hiddenInput}
-        accessibilityLabel={accessibilityLabel}
-        accessibilityHint={accessibilityHint}
-      />
-    </View>
-  );
-});
+        <TextInput
+          ref={inputRef}
+          value={value}
+          editable={editable}
+          onChangeText={handleChange}
+          onFocus={(event) => {
+            setFocused(true);
+            onFocus?.(event);
+          }}
+          onBlur={(event) => {
+            setFocused(false);
+            onBlur?.(event);
+          }}
+          keyboardType="number-pad"
+          textContentType="oneTimeCode"
+          autoComplete={Platform.OS === "android" ? "sms-otp" : undefined}
+          {...(Platform.OS === "android"
+            ? { importantForAutofill: "yes" as const }
+            : {})}
+          maxLength={length}
+          caretHidden
+          autoCorrect={false}
+          spellCheck={false}
+          selectTextOnFocus={false}
+          contextMenuHidden
+          style={[
+            styles.hiddenInput,
+            { pointerEvents: editable ? "auto" : "none" },
+          ]}
+          accessibilityLabel={accessibilityLabel}
+          accessibilityHint={accessibilityHint}
+        />
+      </View>
+    );
+  },
+);
 
 const styles = StyleSheet.create({
   wrap: {
@@ -122,6 +150,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 8,
     minHeight: 52,
+  },
+  rowPointerNone: {
+    pointerEvents: "none",
   },
   cell: {
     flex: 1,
@@ -148,6 +179,8 @@ const styles = StyleSheet.create({
     color: colors.foreground,
   },
   hiddenInput: {
+    // Full-row hit target + layout bounds for KeyboardAwareScrollView.
+    // Keep glyphs tiny/transparent — large fontSize painted a ghost "123" over the cells.
     ...StyleSheet.absoluteFill,
     color: "transparent",
     backgroundColor: "transparent",
@@ -155,6 +188,13 @@ const styles = StyleSheet.create({
     padding: 0,
     margin: 0,
     borderWidth: 0,
-    ...(Platform.OS === "android" ? { underlineColorAndroid: "transparent" as const } : {}),
+    // RN Web: browser focus ring would wrap the whole OTP row.
+    ...(Platform.OS === "web"
+      ? ({ outlineStyle: "none", outlineWidth: 0 } as const)
+      : {}),
+    ...(Platform.OS === "android"
+      ? { underlineColorAndroid: "transparent" as const }
+      : {}),
   },
 });
+

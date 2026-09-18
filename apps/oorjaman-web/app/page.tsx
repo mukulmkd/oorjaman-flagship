@@ -26,14 +26,15 @@ import {
   OORJAMAN_ONE_TIME_VISIT_PRICES_INR,
 } from "@/lib/pricing-catalog";
 import { homeMetadata } from "@/lib/seo";
-import { customerStoreListingsLive } from "@/lib/site";
+import { customerStoreListingsLive, customerWebLoginUrl } from "@/lib/site";
 import styles from "@/components/home.module.css";
 
 export const metadata = homeMetadata;
 
 export default function HomePage() {
   const storesLive = customerStoreListingsLive();
-  const primaryCta = storesLive ? "Book now" : "Get notified";
+  const webLogin = customerWebLoginUrl();
+  const primaryCta = webLogin || storesLive ? "Book now" : "Get notified";
   const media = getMarketingMedia();
   const cleaningFrom = OORJAMAN_ONE_TIME_VISIT_PRICES_INR[0]?.priceInr ?? 619;
   const amcFrom = Math.min(...OORJAMAN_AMC_PLANS_INR.map((p) => p.specialPriceInr));

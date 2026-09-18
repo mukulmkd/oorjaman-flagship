@@ -4,7 +4,8 @@
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM"],
     "rootDir": "src",
-    "noEmit": true
+    "noEmit": true,
+    "moduleSuffixes": [".native", ""]
   },
   "include": ["src/**/*"]
 }

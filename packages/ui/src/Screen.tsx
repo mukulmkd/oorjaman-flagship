@@ -2,6 +2,11 @@ import type { ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView, type Edge } from "react-native-safe-area-context";
 import { colors, spacing } from "@oorjaman/config";
+import {
+  USE_WEB_LAYOUT,
+  webContentColumnStyle,
+  type WebContentVariant,
+} from "./web-layout";
 
 /** Tabs / nested stacks above a bottom tab bar - avoids double-padding with the tab bar safe area. */
 export const SCREEN_EDGES_ABOVE_TAB_BAR = ["top", "left", "right"] as const satisfies readonly Edge[];
@@ -23,14 +28,28 @@ type Props = {
    * Use `SCREEN_EDGES_FULL_SCREEN` when there is no bottom tab navigator.
    */
   edges?: readonly Edge[];
+  /** Web-only: constrain inner content width. Ignored on native. */
+  webVariant?: WebContentVariant;
+  webMaxWidth?: number;
 };
 
-export function Screen({ children, padded = true, edges }: Props) {
+export function Screen({
+  children,
+  padded = true,
+  edges,
+  webVariant = "page",
+  webMaxWidth,
+}: Props) {
   const insetEdges = edges ?? SCREEN_EDGES_ABOVE_TAB_BAR;
+  const webColumn = USE_WEB_LAYOUT
+    ? webContentColumnStyle(webVariant, { maxWidth: webMaxWidth })
+    : undefined;
 
   return (
     <SafeAreaView style={styles.safe} edges={insetEdges}>
-      <View style={[styles.inner, padded && styles.padded]}>{children}</View>
+      <View style={[styles.inner, padded && styles.padded, webColumn]}>
+        {children}
+      </View>
     </SafeAreaView>
   );
 }

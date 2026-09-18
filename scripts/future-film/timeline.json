@@ -1,0 +1,137 @@
+{
+  "title": "THE FUTURE OF OORJAMAN",
+  "subtitle": "THE FUTURE OF ENERGY",
+  "tagline": "CONNECTING THE ENERGY ECOSYSTEM",
+  "fps": 30,
+  "width": 3840,
+  "height": 2160,
+  "vision_super": "FUTURE VISION — NOT CURRENTLY OPERATIONAL",
+  "scenes": [
+    {
+      "id": "00_opening",
+      "start": 0.0,
+      "duration": 10.0,
+      "vo": "Energy is changing. [[slnc 280]] And the opportunity ahead is much bigger than solar.",
+      "music": "minimal"
+    },
+    {
+      "id": "01_evolution",
+      "start": 10.0,
+      "duration": 16.0,
+      "vo": "The journey can evolve from a solar marketplace... [[slnc 280]] to an ecosystem. [[slnc 240]] From an ecosystem... [[slnc 240]] to an energy platform. [[slnc 280]] Then to energy intelligence. [[slnc 280]] And ultimately — national clean-energy infrastructure.",
+      "music": "pulse"
+    },
+    {
+      "id": "02_passport",
+      "start": 26.0,
+      "duration": 11.0,
+      "vo": "Imagine every participating energy asset having its own digital identity. [[slnc 280]] An OorjaMan Energy Passport — transferable with the property.",
+      "music": "pulse"
+    },
+    {
+      "id": "03_score",
+      "start": 37.0,
+      "duration": 10.5,
+      "vo": "Now imagine energy performance becoming measurable. [[slnc 280]] An OorjaMan Energy Score — for homes, hotels, hospitals, industry.",
+      "music": "pulse"
+    },
+    {
+      "id": "04_independence",
+      "start": 47.5,
+      "duration": 9.5,
+      "vo": "The proposition can move beyond selling solar. [[slnc 280]] Toward something much bigger. [[slnc 280]] Energy independence.",
+      "music": "pulse"
+    },
+    {
+      "id": "05_trust",
+      "start": 57.0,
+      "duration": 10.5,
+      "vo": "Trust can become the difference. [[slnc 280]] OorjaMan Verified vendors. [[slnc 240]] And a Vendor Rating that can make quality visible.",
+      "music": "pulse"
+    },
+    {
+      "id": "06_finance",
+      "start": 67.5,
+      "duration": 12.0,
+      "vo": "Finance can sit inside the journey. [[slnc 240]] Loans. EMI. Lease. Pay-as-you-save. [[slnc 280]] Or solar as a service — clean electricity by the month.",
+      "music": "complex"
+    },
+    {
+      "id": "07_advisor",
+      "start": 79.5,
+      "duration": 9.0,
+      "vo": "Artificial intelligence can turn a simple electricity bill into an intelligent energy plan.",
+      "music": "complex"
+    },
+    {
+      "id": "08_health",
+      "start": 88.5,
+      "duration": 11.0,
+      "vo": "When performance drops, intelligence can find the gap. [[slnc 260]] And every plant can carry an Energy Health Score — green, yellow or red.",
+      "music": "complex"
+    },
+    {
+      "id": "09_care",
+      "start": 99.5,
+      "duration": 14.5,
+      "vo": "Behind the platform is care. [[slnc 200]] AMC, cleaning, inspection, emergency service. [[slnc 220]] Technicians who can take the next job. [[slnc 200]] And an academy that can certify the people who keep it running.",
+      "music": "complex"
+    },
+    {
+      "id": "10_marketplace",
+      "start": 114.0,
+      "duration": 10.0,
+      "vo": "And the ecosystem can extend far beyond solar — generation, storage, mobility, efficiency, finance and care.",
+      "music": "expand"
+    },
+    {
+      "id": "11_segments",
+      "start": 124.0,
+      "duration": 10.5,
+      "vo": "The same operating system can serve apartments. [[slnc 280]] And millions of MSMEs — from the electricity bill to the saving.",
+      "music": "expand"
+    },
+    {
+      "id": "12_carbon",
+      "start": 134.5,
+      "duration": 11.5,
+      "vo": "Energy data can become intelligence for businesses. [[slnc 220]] A carbon wallet of green points. [[slnc 220]] And, over time, a green-property layer for India.",
+      "music": "expand"
+    },
+    {
+      "id": "13_india",
+      "start": 146.0,
+      "duration": 10.5,
+      "vo": "At scale, this network could become something even bigger. [[slnc 280]] An energy intelligence layer for India.",
+      "music": "expand"
+    },
+    {
+      "id": "14_platform",
+      "start": 156.5,
+      "duration": 13.5,
+      "vo": "OorjaMan doesn't need to manufacture every component. [[slnc 280]] The opportunity is to become the layer that connects everyone. [[slnc 280]] And, eventually, the APIs other institutions can build on.",
+      "music": "resolve"
+    },
+    {
+      "id": "15_journey",
+      "start": 170.0,
+      "duration": 11.0,
+      "vo": "The ultimate opportunity is to own the customer journey. [[slnc 280]] Every step can create value. [[slnc 280]] And every step can generate intelligence.",
+      "music": "resolve"
+    },
+    {
+      "id": "16_economy",
+      "start": 181.0,
+      "duration": 9.0,
+      "vo": "As the platform grows, new layers of recurring value can emerge — without introducing all of them at once.",
+      "music": "resolve"
+    },
+    {
+      "id": "17_final",
+      "start": 190.0,
+      "duration": 12.0,
+      "vo": "The future of energy will not be built by one company. [[slnc 280]] It will be built by an ecosystem. [[slnc 280]] And OorjaMan can be the layer that connects it.",
+      "music": "resolve"
+    }
+  ]
+}

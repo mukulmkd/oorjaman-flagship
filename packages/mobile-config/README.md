@@ -12,6 +12,7 @@ import {
   withNativeDisplayName,
   withAndroidWhiteAdaptiveIcon,
   withAndroidNotificationBranding,
+  withAndroidPhoneOnlyScreens,
 } from "@oorjaman/mobile-config";
 import {
   expoBuildPropertiesFromSource,

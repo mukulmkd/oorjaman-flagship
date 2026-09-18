@@ -9,6 +9,7 @@ import {
   SPLASH_LOADING_DELAY_MS,
   SPLASH_LOADING_FILL_MS,
   SPLASH_LOADING_FADE_MS,
+  USE_NATIVE_DRIVER,
 } from "@oorjaman/ui";
 import {
   STORAGE_KEY_LOCATION_PROMPT_DONE,
@@ -83,7 +84,7 @@ export default function SplashRoute() {
       Animated.timing(fadeOut, {
         toValue: 0,
         duration: 360,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }).start(({ finished }) => {
         if (finished && !cancelled && !navigatedRef.current) {
           navigatedRef.current = true;

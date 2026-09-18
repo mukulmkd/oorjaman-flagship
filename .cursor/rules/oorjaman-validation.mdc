@@ -1,0 +1,74 @@
+---
+description: OorjaMan Brand Validation Rules
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# OorjaMan Validation Rules
+
+Before generating or modifying any asset, UI, animation, branding material, or component:
+
+ALWAYS validate alignment with:
+
+- OorjaMan palette
+- premium clean-tech identity
+- eco-tech minimalism
+- modern startup aesthetic
+
+---
+
+# Validation Checklist
+
+Ensure:
+
+1. Colors match approved palette
+2. Typography is modern and minimal
+3. Layout is spacious
+4. UI avoids clutter
+5. Branding feels premium
+6. Animations remain subtle
+7. Components remain reusable
+8. Asset naming follows conventions
+9. SVGs remain clean and scalable
+10. Mobile responsiveness is preserved
+
+---
+
+# Forbidden Design Patterns
+
+Do NOT generate:
+
+- childish UI
+- flashy gradients
+- gaming aesthetics
+- overly vibrant palettes
+- cluttered dashboards
+- excessive shadows
+- meme-like visuals
+- random design experiments
+
+---
+
+# Required Design Feel
+
+Everything must feel:
+
+- Apple-like
+- Tesla-inspired
+- modern SaaS
+- premium clean-tech
+- trustworthy
+- scalable
+
+---
+
+# Final Validation Rule
+
+If generated output does NOT align with:
+
+- premium eco-tech identity
+- OorjaMan palette
+- minimal clean branding
+
+Then revise the output automatically before finalizing.

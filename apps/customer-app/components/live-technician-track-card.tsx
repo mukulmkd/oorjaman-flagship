@@ -9,7 +9,13 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE, type Region } from "react-native-maps";
+import {
+  MapView,
+  Marker,
+  Polyline,
+  PROVIDER_GOOGLE,
+  type Region,
+} from "../lib/platform/maps-live";
 import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { bookingApi, getCustomerBookingTechnicianProfile, queryKeys } from "@oorjaman/api";

@@ -20,8 +20,11 @@
   "scripts": {
     "customer": "npm run start -w customer-app",
     "customer:clear": "npm run start:clear -w customer-app",
+    "customer:web": "npm run web -w customer-app -- --port 8081",
     "technician": "npm run start -w technician-app",
     "technician:clear": "npm run start:clear -w technician-app",
+    "technician:web": "npm run web -w technician-app -- --port 8082",
+    "apps:web": "node scripts/start-expo-web-apps.mjs",
     "admin": "npm run dev -w admin-web",
     "vendor": "npm run dev -w vendor-web",
     "support": "npm run dev -w support-web",
@@ -33,6 +36,8 @@
     "expo:types": "npm run expo:types -w customer-app && npm run expo:types -w technician-app",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "seed:dummy-users": "node scripts/seed-dummy-test-users.mjs",
+    "seed:play-review-users": "node scripts/seed-play-review-users.mjs",
+    "seed:gamusa-pilot-vendor": "node scripts/seed-gamusa-pilot-vendor.mjs",
     "purge:test-data": "node scripts/purge-test-user-data.mjs",
     "cleanup:orphan-checkouts": "node scripts/cleanup-orphan-checkout-bookings.mjs",
     "repair:public-users": "node scripts/repair-public-users.mjs",
@@ -44,7 +49,7 @@
     "db:policy-diff": "node scripts/compare-policy-dumps.mjs",
     "db:push:include-all": "node scripts/supabase-db-push.mjs --include-all --yes",
     "db:status": "npx supabase status",
-    "supabase": "npx supabase",
+    "db:cli": "npx supabase",
     "functions:deploy": "node scripts/supabase-function-deploy.mjs",
     "typecheck:edge-functions": "tsc -p supabase/functions/tsconfig.json --pretty false",
     "brand:sync": "node scripts/sync-brand-assets.mjs",
@@ -55,9 +60,9 @@
     "docs:architecture": ".venv-docgen/bin/python scripts/generate-architecture-doc.py",
     "docs:costing": ".venv-docgen/bin/python scripts/generate-costing-doc.py",
     "docs:onboarding-prerequisites": ".venv-docgen/bin/python scripts/generate-onboarding-prerequisites-doc.py",
-    "knip": "knip --no-config-hints",
+    "analyze:knip": "knip --no-config-hints",
     "knip:fix": "knip --fix",
-    "validate": "npm run typecheck && npm run knip",
+    "validate": "npm run typecheck && npm run analyze:knip",
     "android:local-props": "node scripts/android-local-properties.mjs",
     "android:clear-autolinking": "node scripts/android-clear-autolinking-cache.mjs",
     "android": "npm run android -w customer-app",
@@ -75,6 +80,8 @@
     "android:apk:uat:technician": "npm run android:apk:uat -w technician-app",
     "eas:android:uat:customer": "npm run brand:sync -w customer-app && node scripts/run-with-expo-env.mjs customer-app \"npx eas-cli build --profile uat --platform android\"",
     "eas:android:uat:technician": "npm run brand:sync -w technician-app && node scripts/run-with-expo-env.mjs technician-app \"npx eas-cli build --profile uat --platform android\"",
+    "eas:android:production:customer": "npm run eas:android:production -w customer-app",
+    "eas:android:production:technician": "npm run eas:android:production -w technician-app",
     "eas:android:uat:local:customer": "npm run brand:sync -w customer-app && node scripts/run-with-expo-env.mjs customer-app \"npx eas-cli build --profile uat --platform android --local\"",
     "eas:android:uat:local:technician": "npm run brand:sync -w technician-app && node scripts/run-with-expo-env.mjs technician-app \"npx eas-cli build --profile uat --platform android --local\"",
     "eas:android:uat": "npm run eas:android:uat:customer && npm run eas:android:uat:technician",
@@ -97,8 +104,5 @@
     "supabase": "^2.106.0",
     "typescript": "~6.0.3"
   },
-  "version": "1.0.0",
-  "dependencies": {
-    "react-native-webview": "13.16.1"
-  }
+  "version": "1.0.0"
 }

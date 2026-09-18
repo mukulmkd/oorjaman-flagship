@@ -190,22 +190,22 @@ password_requirements = ""
 # rp_origins = ["http://127.0.0.1:3000"]
 
 [auth.rate_limit]
-# Hosted projects: also review Dashboard → Authentication → Attack Protection
-# (see project-docs/RATE-LIMITING.md). These values apply primarily to local `supabase start`.
+# Hosted projects: Dashboard → Authentication → Rate Limits (see project-docs/RATE-LIMITING.md).
+# Mirrored for local `supabase start` to match PROD/UAT Management API values (2026-09-09).
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
-email_sent = 2
+email_sent = 30
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
-sms_sent = 30
+sms_sent = 20
 # Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.
-anonymous_users = 30
+anonymous_users = 1
 # Number of sessions that can be refreshed in a 5 minute interval per IP address.
 token_refresh = 150
 # Number of sign up and sign-in requests that can be made in a 5 minute interval per IP address (excludes anonymous users).
-sign_in_sign_ups = 30
+sign_in_sign_ups = 20
 # Number of OTP / Magic link verifications that can be made in a 5 minute interval per IP address.
-token_verifications = 30
+token_verifications = 15
 # Number of Web3 logins that can be made in a 5 minute interval per IP address.
-web3 = 30
+web3 = 5
 
 # Configure one of the supported captcha providers: `hcaptcha`, `turnstile`.
 # [auth.captcha]
@@ -224,7 +224,7 @@ enable_confirmations = false
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
-max_frequency = "1s"
+max_frequency = "60s"
 # Number of characters used in the email OTP.
 otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).

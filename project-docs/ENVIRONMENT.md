@@ -4,6 +4,8 @@ Guide for **local development**, **UAT** (Vercel portals + UAT mobile), and **pr
 
 **Do not commit real `.env` files.** Templates: per-app `*.example` → gitignored `*.local`. **Deployment matrix:** [**DEPLOYMENT.md**](DEPLOYMENT.md), [`.env.deployment.example`](../.env.deployment.example). **Vercel UAT portals:** [**VERCEL.md**](VERCEL.md). Paid services: [**BILLING.md**](BILLING.md).
 
+**Universal Web (locked hosts / Expo Web CSR):** see [**WEB-UNIVERSAL.md**](WEB-UNIVERSAL.md) — `oorjaman.com` (Next SEO), `app.oorjaman.com` (customer Expo Web), `partner.oorjaman.com` (technician Expo Web). Never put `SUPABASE_SERVICE_ROLE_KEY` in Expo Web / those Vercel projects. Env placeholders such as `EXPO_PUBLIC_WEB_ORIGIN` and `EXPO_PUBLIC_WEB_PAYMENTS` are documented there (added to app `.env.example` in Phase 0 P0-T2).
+
 ---
 
 ## Deployment tiers (quick map)

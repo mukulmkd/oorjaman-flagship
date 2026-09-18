@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -14,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   authApi,
+  isPlayReviewEmailForApp,
   queryKeys,
   resolveCustomerAppPostAuthPath,
   validateEmailFormat,
@@ -26,45 +33,51 @@ import {
   OtpCodeInput,
   dismissOtpKeyboard,
   KeyboardFormScreen,
-  type KeyboardFormScreenRef,
 } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { supabase } from "../lib/supabase";
 
 const OTP_LEN = 6;
 const RESEND_SEC = 48;
+const PLAY_REVIEW_APP = "customer" as const;
 
 export type LoginEmailOtpScreenProps = {
-  /** Local/UAT method switcher (Email | Mobile OTP). */
+  /** Email | Mobile OTP switcher. */
   methodTabs?: ReactNode;
   /** Prod: show disabled SMS OTP “Coming soon”. Default true when no tabs. */
   showSmsComingSoon?: boolean;
+  /** Use copy that identifies this as a local/UAT test account. */
+  useTestAccountCopy?: boolean;
 };
 
 /** Email OTP sign-in (code from inbox). */
 export function LoginEmailOtpScreen({
   methodTabs,
   showSmsComingSoon = !methodTabs,
+  useTestAccountCopy = false,
 }: LoginEmailOtpScreenProps) {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const otpRef = useRef<TextInput>(null);
-  const formRef = useRef<KeyboardFormScreenRef>(null);
   const autoVerifyOtpRef = useRef<string | null>(null);
   const sendInFlightRef = useRef(false);
 
   const [email, setEmail] = useState("");
   const [emailForVerify, setEmailForVerify] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
+  const [password, setPassword] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
+  const playReviewMode = isPlayReviewEmailForApp(email, PLAY_REVIEW_APP);
+
   useEffect(() => {
     setOtpSent(false);
     setOtp("");
+    setPassword("");
     setEmailForVerify(null);
     setError(null);
     autoVerifyOtpRef.current = null;
@@ -97,6 +110,10 @@ export function LoginEmailOtpScreen({
       return;
     }
     const trimmed = email.trim().toLowerCase();
+    if (isPlayReviewEmailForApp(trimmed, PLAY_REVIEW_APP)) {
+      setError("This account uses a password. Enter it below to continue.");
+      return;
+    }
     sendInFlightRef.current = true;
     setSending(true);
     Keyboard.dismiss();
@@ -108,14 +125,50 @@ export function LoginEmailOtpScreen({
       setOtpSent(true);
       setCooldown(RESEND_SEC);
       otpRef.current?.focus();
-      requestAnimationFrame(() => formRef.current?.scrollToEnd(true));
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Could not send code. Try again.");
+      setError(
+        e instanceof Error ? e.message : "Could not send code. Try again.",
+      );
     } finally {
       sendInFlightRef.current = false;
       setSending(false);
     }
   }, [email, verifying, cooldown]);
+
+  const signInWithPlayReviewPassword = useCallback(async () => {
+    setError(null);
+    if (!supabase) return;
+    const emailErr = validateEmailFormat(email);
+    if (emailErr) {
+      setError(emailErr);
+      return;
+    }
+    const trimmed = email.trim().toLowerCase();
+    if (!isPlayReviewEmailForApp(trimmed, PLAY_REVIEW_APP)) {
+      setError("Password sign-in is only for the Play review account.");
+      return;
+    }
+    if (!password.trim()) {
+      setError("Enter the Play review password.");
+      return;
+    }
+    setVerifying(true);
+    let navigated = false;
+    try {
+      await authApi.signInWithEmailPassword(supabase, trimmed, password);
+      Keyboard.dismiss();
+      const path = await resolveCustomerAppPostAuthPath(supabase);
+      navigated = true;
+      router.replace(path as Href);
+      void qc.invalidateQueries({ queryKey: queryKeys.users.me() });
+      void qc.invalidateQueries({ queryKey: queryKeys.auth.user() });
+      void qc.invalidateQueries({ queryKey: queryKeys.customers.mine() });
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not sign in.");
+    } finally {
+      if (!navigated) setVerifying(false);
+    }
+  }, [email, password, qc]);
 
   const verify = useCallback(async () => {
     setError(null);
@@ -147,26 +200,41 @@ export function LoginEmailOtpScreen({
   }, [emailForVerify, otp, qc]);
 
   useEffect(() => {
-    if (!otpSent || otp.length !== OTP_LEN || verifying || sending || !emailForVerify || !supabase) {
+    if (playReviewMode) return;
+    if (
+      !otpSent ||
+      otp.length !== OTP_LEN ||
+      verifying ||
+      sending ||
+      !emailForVerify ||
+      !supabase
+    ) {
       return;
     }
     if (autoVerifyOtpRef.current === otp) return;
     autoVerifyOtpRef.current = otp;
     const id = setTimeout(() => void verify(), 380);
     return () => clearTimeout(id);
-  }, [otp, otpSent, verifying, sending, emailForVerify, verify]);
+  }, [otp, otpSent, verifying, sending, emailForVerify, verify, playReviewMode]);
 
   const resendLabel =
-    cooldown > 0 ? `Resend code (${cooldown}s)` : otpSent ? "Resend code" : "Send code";
+    cooldown > 0
+      ? `Resend code (${cooldown}s)`
+      : otpSent
+        ? "Resend code"
+        : "Send code";
 
   return (
     <KeyboardFormScreen
-      ref={formRef}
-      scrollToEndOnKeyboard
       keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      webVariant="auth"
+      centerVertically
       contentContainerStyle={[
         styles.root,
-        { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.md },
+        {
+          paddingTop: insets.top + spacing.md,
+          paddingBottom: insets.bottom + spacing.md,
+        },
       ]}
     >
       <View style={styles.brandHeader}>
@@ -175,9 +243,11 @@ export function LoginEmailOtpScreen({
       {methodTabs}
       <Text style={styles.title}>Sign in with email</Text>
       <Text style={styles.lede}>
-        {methodTabs
-          ? "Send code, then enter the one-time code for your test account."
-          : "We'll email you a one-time code. New accounts are created when you verify."}
+        {playReviewMode
+          ? "Play review account detected. Enter the fixed password to continue (no email code)."
+          : useTestAccountCopy
+            ? "Send code, then enter the one-time code for your test account."
+            : "We'll email you a one-time code. New accounts are created when you verify."}
       </Text>
 
       {error ? (
@@ -199,70 +269,117 @@ export function LoginEmailOtpScreen({
         placeholder="you@example.com"
       />
 
-      <View style={styles.otpHeader}>
-        <Text style={styles.label}>One-time code</Text>
-        <Button
-          variant="secondary"
-          size="sm"
-          accessibilityLabel={resendLabel}
-          loading={sending}
-          disabled={sending || verifying || cooldown > 0}
-          onPress={() => void sendOtp()}
-          style={styles.sendCodeBtn}
-        >
-          {resendLabel}
-        </Button>
-      </View>
+      {playReviewMode ? (
+        <>
+          <Input
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            autoCapitalize="none"
+            autoCorrect={false}
+            secureTextEntry
+            textContentType="password"
+            autoComplete="password"
+            editable={!verifying}
+            placeholder="Play review password"
+            onSubmitEditing={() => void signInWithPlayReviewPassword()}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Sign in"
+            disabled={verifying || !password.trim()}
+            onPress={() => void signInWithPlayReviewPassword()}
+            style={({ pressed }) => [
+              styles.primary,
+              (verifying || !password.trim()) && styles.primaryDisabled,
+              pressed && !(verifying || !password.trim()) && styles.primaryPressed,
+            ]}
+          >
+            {verifying ? (
+              <ActivityIndicator color={colors.primaryForeground} />
+            ) : (
+              <Text style={styles.primaryLabel}>Sign in</Text>
+            )}
+          </Pressable>
+        </>
+      ) : (
+        <>
+          <View style={styles.otpHeader}>
+            <Text style={styles.label}>One-time code</Text>
+            <Button
+              variant="secondary"
+              size="sm"
+              accessibilityLabel={resendLabel}
+              loading={sending}
+              disabled={sending || verifying || cooldown > 0}
+              onPress={() => void sendOtp()}
+              style={styles.sendCodeBtn}
+            >
+              {resendLabel}
+            </Button>
+          </View>
 
-      <Text style={styles.otpHint}>
-        {methodTabs
-          ? "After you send the code, enter the 6-digit one-time code."
-          : "After you send the code, check your inbox (and spam). Enter the 6-digit code here."}
-      </Text>
+          <Text style={styles.otpHint}>
+            {useTestAccountCopy
+              ? "Use the UAT one-time code 123456."
+              : "After you send the code, check your inbox (and spam). Enter the 6-digit code here."}
+          </Text>
 
-      {!verifying ? (
-        <OtpCodeInput
-          ref={otpRef}
-          value={otp}
-          onChangeText={setOtp}
-          length={OTP_LEN}
-          editable={otpSent && !verifying}
-        />
-      ) : null}
+          {!verifying ? (
+            <OtpCodeInput
+              ref={otpRef}
+              value={otp}
+              onChangeText={setOtp}
+              length={OTP_LEN}
+              editable={otpSent && !verifying}
+            />
+          ) : null}
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Verify and continue"
-        disabled={verifying || otp.length !== OTP_LEN || !otpSent}
-        onPress={() => void verify()}
-        style={({ pressed }) => [
-          styles.primary,
-          (verifying || otp.length !== OTP_LEN || !otpSent) && styles.primaryDisabled,
-          pressed && !(verifying || otp.length !== OTP_LEN || !otpSent) && styles.primaryPressed,
-        ]}
-      >
-        {verifying ? (
-          <ActivityIndicator color={colors.primaryForeground} />
-        ) : (
-          <Text style={styles.primaryLabel}>Verify & continue</Text>
-        )}
-      </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Verify and continue"
+            disabled={verifying || otp.length !== OTP_LEN || !otpSent}
+            onPress={() => void verify()}
+            style={({ pressed }) => [
+              styles.primary,
+              (verifying || otp.length !== OTP_LEN || !otpSent) &&
+                styles.primaryDisabled,
+              pressed &&
+                !(verifying || otp.length !== OTP_LEN || !otpSent) &&
+                styles.primaryPressed,
+            ]}
+          >
+            {verifying ? (
+              <ActivityIndicator color={colors.primaryForeground} />
+            ) : (
+              <Text style={styles.primaryLabel}>Verify & continue</Text>
+            )}
+          </Pressable>
+        </>
+      )}
 
       {showSmsComingSoon ? (
         <View style={styles.comingSoon}>
           <Text style={styles.comingSoonBadge}>Coming soon</Text>
           <Text style={styles.comingSoonTitle}>Sign in with mobile OTP</Text>
           <Text style={styles.comingSoonBody}>
-            SMS one-time codes will return once our India SMS provider is live. Until then, use email
-            OTP.
+            SMS one-time codes will return once our India SMS provider is live.
+            Until then, use email OTP.
           </Text>
-          <Button variant="secondary" size="sm" disabled accessibilityLabel="Mobile OTP coming soon">
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled
+            accessibilityLabel="Mobile OTP coming soon"
+          >
             Mobile OTP
           </Button>
         </View>
       ) : null}
 
-      <Text style={styles.hint}>Signed-in sessions persist across app restarts on this device.</Text>
+      <Text style={styles.hint}>
+        Signed-in sessions persist across app restarts on this device.
+      </Text>
     </KeyboardFormScreen>
   );
 }

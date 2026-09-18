@@ -7,7 +7,13 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE, type Region } from "react-native-maps";
+import {
+  MapView,
+  Marker,
+  Polyline,
+  PROVIDER_GOOGLE,
+  type Region,
+} from "../lib/platform/maps-live";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { CustomerBookingTechnicianProfile } from "@oorjaman/api";
 import { brandColors, colors, spacing } from "@oorjaman/config";
@@ -360,6 +366,26 @@ export function BookingLiveTrackView({
   );
 }
 
+function softShadow(
+  offsetY: number,
+  blur: number,
+  opacity: number,
+  elevation: number,
+): object {
+  if (Platform.OS === "web") {
+    return {
+      boxShadow: `0px ${offsetY}px ${blur}px rgba(15, 41, 56, ${opacity})`,
+    };
+  }
+  return {
+    shadowColor: colors.foreground,
+    shadowOpacity: opacity,
+    shadowRadius: blur,
+    shadowOffset: { width: 0, height: offsetY },
+    elevation,
+  };
+}
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -374,11 +400,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.94)",
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
-    shadowColor: colors.foreground,
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    ...softShadow(4, 12, 0.08, 4),
   },
   mapHelpBanner: {
     position: "absolute",
@@ -391,11 +413,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    shadowColor: colors.foreground,
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    ...softShadow(2, 8, 0.06, 2),
   },
   mapHelpTitle: {
     fontFamily: fontFamily.semiBold,
@@ -420,11 +438,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
-    shadowColor: colors.foreground,
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: -6 },
-    elevation: 12,
+    ...softShadow(-6, 20, 0.12, 12),
   },
   sheetHandle: {
     alignSelf: "center",
@@ -577,11 +591,7 @@ const styles = StyleSheet.create({
     borderColor: colors.card,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: colors.foreground,
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    ...softShadow(2, 4, 0.18, 3),
   },
   pinHeadInner: {
     width: 8,

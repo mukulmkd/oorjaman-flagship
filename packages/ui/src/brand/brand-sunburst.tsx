@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
 import { brandAssets } from "./brand-assets";
+import { USE_NATIVE_DRIVER } from "../use-native-driver";
 
 type Props = {
   size: number;
@@ -19,13 +20,13 @@ export function BrandSunburst({ size }: Props) {
             toValue: 1.04,
             duration: 2600,
             easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
+            useNativeDriver: USE_NATIVE_DRIVER,
           }),
           Animated.timing(pulseScale, {
             toValue: 0.96,
             duration: 2600,
             easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
+            useNativeDriver: USE_NATIVE_DRIVER,
           }),
         ]),
         Animated.sequence([
@@ -33,13 +34,13 @@ export function BrandSunburst({ size }: Props) {
             toValue: 0.96,
             duration: 2600,
             easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
+            useNativeDriver: USE_NATIVE_DRIVER,
           }),
           Animated.timing(pulseOpacity, {
             toValue: 0.82,
             duration: 2600,
             easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
+            useNativeDriver: USE_NATIVE_DRIVER,
           }),
         ]),
       ]),
@@ -49,7 +50,7 @@ export function BrandSunburst({ size }: Props) {
   }, [pulseOpacity, pulseScale]);
 
   return (
-    <View pointerEvents="none" style={[styles.wrap, { width: size, height: size }]}>
+    <View style={[styles.wrap, { width: size, height: size, pointerEvents: "none" }]}>
       <Animated.Image
         source={brandAssets.sunburst}
         style={[

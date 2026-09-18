@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OorjaMan visual reference</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --primary: #1f8660;
+        --primary-dark: #1a734f;
+        --primary-light: #d8eee4;
+        --oorja: #549048;
+        --man: #1c4276;
+        --tagline: #9b9b9b;
+        --accent: #9fc93c;
+        --bg: #f6faf9;
+        --surface: #ffffff;
+        --elevated: #f0f7f5;
+        --muted: #e9f1ef;
+        --ink: #0f2938;
+        --muted-fg: #516a7b;
+        --border: #c5d9d4;
+        --error: #dc2626;
+        --success: #1a7d52;
+        --warning: #92400e;
+        --warning-bg: #fef3c7;
+        --chart-2: #246488;
+        --radius-sm: 10px;
+        --radius-md: 12px;
+        --radius-lg: 14px;
+        --shadow: 0 1px 2px rgb(15 41 56 / 0.06);
+        --font: "Plus Jakarta Sans", Inter, system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: var(--font);
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.45;
+      }
+      main {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 32px 24px 64px;
+      }
+      h1 { font-size: 28px; line-height: 34px; letter-spacing: -0.4px; margin: 0 0 8px; }
+      h2 { font-size: 14px; font-weight: 500; letter-spacing: 0.6px; text-transform: uppercase; color: var(--primary); margin: 40px 0 12px; }
+      p.lead { color: var(--muted-fg); margin: 0 0 24px; max-width: 42rem; }
+      .note { font-size: 12px; color: var(--muted-fg); }
+      .wordmark { font-size: 28px; font-weight: 700; letter-spacing: -0.4px; line-height: 34px; }
+      .wordmark span:first-child { color: var(--oorja); }
+      .wordmark span:last-child { color: var(--man); }
+      .tag { margin: 8px 0 0; font-size: 11px; font-weight: 600; letter-spacing: 2.2px; text-transform: uppercase; color: var(--tagline); }
+      .lockup { display: flex; align-items: center; gap: 16px; margin: 16px 0 8px; }
+      .lockup img { width: 96px; height: 96px; object-fit: contain; }
+      .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+      .swatch { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+      .swatch i { display: block; height: 56px; }
+      .swatch b, .swatch small { display: block; padding: 0 10px; }
+      .swatch b { padding-top: 8px; font-size: 12px; }
+      .swatch small { padding-bottom: 10px; color: var(--muted-fg); font-size: 11px; }
+      .type-row { display: grid; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+      .type-row div { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+      .type-row div:last-child { border: 0; padding-bottom: 0; }
+      .type-row span { color: var(--muted-fg); font-size: 12px; white-space: nowrap; }
+      .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+      .btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-height: 48px; padding: 12px 16px; border-radius: var(--radius-md);
+        font: 500 16px/24px var(--font); border: 1.5px solid transparent; cursor: default;
+      }
+      .btn-primary { background: var(--primary); color: #fff; }
+      .btn-outline { background: #fff; color: var(--primary); border-color: var(--primary); }
+      .btn-ghost { background: var(--muted); color: var(--ink); border-color: var(--border); }
+      .btn-danger { background: var(--error); color: #fafafa; }
+      .card {
+        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+        padding: 16px; min-width: 240px; flex: 1;
+      }
+      .card h3 { margin: 0 0 4px; font-size: 18px; }
+      .card p { margin: 0; color: var(--muted-fg); font-size: 14px; }
+      .field {
+        display: flex; flex-direction: column; gap: 4px; min-width: 240px; flex: 1;
+      }
+      .field label { font-size: 14px; font-weight: 500; }
+      .field input {
+        height: 48px; border-radius: var(--radius-md); border: 1px solid var(--border);
+        padding: 0 12px; font: 400 16px var(--font); color: var(--ink); background: #fff;
+      }
+      .field input:focus { outline: none; border-color: var(--primary); }
+      .chip {
+        display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 999px;
+        border: 1px solid var(--primary-dark); background: var(--primary-light);
+        font-size: 12px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;
+      }
+      .chip-done { background: var(--elevated); border-color: var(--primary); }
+      .chip-warn { background: var(--warning-bg); border-color: var(--warning); color: var(--warning); }
+      .chip-err { background: #fee2e2; border-color: var(--error); color: #991b1b; }
+      .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; min-width: 180px; box-shadow: var(--shadow); }
+      .kpi label { display: block; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted-fg); }
+      .kpi strong { display: block; font-size: 28px; letter-spacing: -0.03em; line-height: 1.15; }
+      .kpi small { color: var(--muted-fg); font-size: 14px; }
+      .chart { height: 88px; display: flex; align-items: flex-end; gap: 8px; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+      .chart b { flex: 1; border-radius: 6px 6px 0 0; }
+      .icons { display: flex; gap: 16px; color: var(--primary); }
+      .icons .off { color: var(--muted-fg); }
+      .space, .rads, .shads { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+      .space i { background: var(--primary-light); border-radius: 4px; }
+      .rad { background: var(--surface); border: 1px solid var(--border); width: 72px; height: 48px; }
+      .shad { width: 88px; height: 56px; background: #fff; border: 1px solid var(--border); border-radius: 14px; }
+      .shad.e { box-shadow: var(--shadow); }
+      .shad.f { box-shadow: 0 4px 20px rgb(15 41 56 / 0.08); }
+      @page { size: A4; margin: 12mm; }
+      @media print {
+        html, body { background: var(--bg); }
+        * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        main { max-width: none; padding: 0; }
+        h2 { break-after: avoid; page-break-after: avoid; }
+        .swatches, .row, .type-row, .card, .kpi, .chart, .lockup {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="note">Open in a browser · extracted from the OorjaMan product · 14 Sep 2026</p>
+      <div class="lockup">
+        <img src="assets/logo/logo-icon-1024.png" alt="OorjaMan symbol" />
+        <div>
+          <div class="wordmark"><span>Oorja</span><span>Man</span></div>
+          <p class="tag">WE CLEAN. YOU GENERATE.</p>
+        </div>
+      </div>
+      <h1>Visual reference</h1>
+      <p class="lead">
+        Mint canvas, teal-green CTAs, split wordmark. Identity green/navy are for the name — not the buttons.
+      </p>
+
+      <h2>Primary colours</h2>
+      <div class="swatches">
+        <div class="swatch"><i style="background:#1f8660"></i><b>Primary</b><small>#1f8660</small></div>
+        <div class="swatch"><i style="background:#1a734f"></i><b>Primary dark</b><small>#1a734f</small></div>
+        <div class="swatch"><i style="background:#d8eee4"></i><b>Primary light</b><small>#d8eee4</small></div>
+        <div class="swatch"><i style="background:#0f2938"></i><b>Ink</b><small>#0f2938</small></div>
+        <div class="swatch"><i style="background:#f6faf9;border-bottom:1px solid #c5d9d4"></i><b>Canvas</b><small>#f6faf9</small></div>
+      </div>
+
+      <h2>Identity / secondary</h2>
+      <div class="swatches">
+        <div class="swatch"><i style="background:#549048"></i><b>Oorja</b><small>#549048</small></div>
+        <div class="swatch"><i style="background:#1C4276"></i><b>Man</b><small>#1C4276</small></div>
+        <div class="swatch"><i style="background:#9fc93c"></i><b>Accent lime</b><small>#9fc93c</small></div>
+        <div class="swatch"><i style="background:#9B9B9B"></i><b>Tagline</b><small>#9B9B9B</small></div>
+        <div class="swatch"><i style="background:#516a7b"></i><b>Muted text</b><small>#516a7b</small></div>
+      </div>
+
+      <h2>Status</h2>
+      <div class="swatches">
+        <div class="swatch"><i style="background:#1a7d52"></i><b>Success</b><small>#1a7d52</small></div>
+        <div class="swatch"><i style="background:#92400e"></i><b>Warning</b><small>#92400e</small></div>
+        <div class="swatch"><i style="background:#dc2626"></i><b>Error</b><small>#dc2626</small></div>
+        <div class="swatch"><i style="background:#246488"></i><b>Chart 2</b><small>#246488</small></div>
+        <div class="swatch"><i style="background:#c5d9d4"></i><b>Border</b><small>#c5d9d4</small></div>
+      </div>
+
+      <h2>Typography</h2>
+      <div class="type-row">
+        <div><strong style="font-size:36px;letter-spacing:-0.03em">Display 36</strong><span>Bold</span></div>
+        <div><strong style="font-size:28px">H1 28 Plan your next clean</strong><span>Bold</span></div>
+        <div><strong style="font-size:22px">H2 22</strong><span>SemiBold</span></div>
+        <div><strong style="font-size:18px">H3 18 Card title</strong><span>SemiBold</span></div>
+        <div><span style="font-size:16px;color:#0f2938">Body 16 — Plus Jakarta Regular</span><span>Regular</span></div>
+        <div><span style="font-size:14px;color:#516a7b">Body small 14 muted</span><span>Regular</span></div>
+        <div><span style="font-size:12px;font-weight:500;letter-spacing:0.6px;text-transform:uppercase;color:#1f8660">Kicker 12 Bookings</span><span>Medium caps</span></div>
+        <div><span style="font-size:28px;font-weight:700;letter-spacing:-0.03em">₹2,359</span><span>KPI Bold en-IN</span></div>
+      </div>
+
+      <h2>Icons</h2>
+      <p class="note">Ionicons outline in the apps. Active #1f8660 · inactive #516a7b · 24 default.</p>
+      <div class="icons" aria-hidden="true">
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 11h16"/></svg>
+        <svg class="off" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.2 3.8-5 7-5s5.8 1.8 7 5"/></svg>
+      </div>
+
+      <h2>Buttons</h2>
+      <div class="row">
+        <span class="btn btn-primary">Book a visit</span>
+        <span class="btn btn-outline">Solar AMC plans</span>
+        <span class="btn btn-ghost">Ghost</span>
+        <span class="btn btn-danger">Destructive</span>
+      </div>
+
+      <h2>Cards</h2>
+      <div class="row">
+        <div class="card">
+          <span class="chip chip-done">Completed</span>
+          <h3 style="margin-top:10px">OM-697CD889</h3>
+          <p>Tue, 25 Aug 2026, 10:00 am</p>
+        </div>
+        <div class="card" style="background:#e9f1ef">
+          <h3>Empty / muted</h3>
+          <p>Geometric glyph, not an illustration.</p>
+        </div>
+      </div>
+
+      <h2>Input</h2>
+      <div class="row">
+        <div class="field">
+          <label>Full name</label>
+          <input value="Raju Mahalingam" readonly />
+        </div>
+      </div>
+
+      <h2>Status chips</h2>
+      <div class="row">
+        <span class="chip">Pending</span>
+        <span class="chip chip-done">Completed</span>
+        <span class="chip chip-warn">Warning</span>
+        <span class="chip chip-err">Error</span>
+      </div>
+
+      <h2>KPI</h2>
+      <div class="row">
+        <div class="kpi"><label>Bookings</label><strong>128</strong><small>This month</small></div>
+        <div class="kpi"><label>Revenue</label><strong>₹4.2L</strong><small>Recognised</small></div>
+      </div>
+
+      <h2>Chart style</h2>
+      <p class="note">Admin: series 1 #1f8660 · series 2 #246488 · bar radius 6 · grid hairline.</p>
+      <div class="chart" aria-hidden="true">
+        <b style="height:40%;background:#1f8660"></b>
+        <b style="height:70%;background:#1f8660"></b>
+        <b style="height:55%;background:#246488"></b>
+        <b style="height:90%;background:#1f8660"></b>
+        <b style="height:35%;background:#246488"></b>
+        <b style="height:62%;background:#1f8660"></b>
+      </div>
+
+      <h2>Spacing (4px base)</h2>
+      <div class="space">
+        <i style="width:4px;height:24px" title="4"></i>
+        <i style="width:8px;height:24px"></i>
+        <i style="width:12px;height:24px"></i>
+        <i style="width:16px;height:24px"></i>
+        <i style="width:24px;height:24px"></i>
+        <i style="width:32px;height:24px"></i>
+        <i style="width:48px;height:24px"></i>
+      </div>
+      <p class="note">4 · 8 · 12 · 16 · 24 · 32 · 48</p>
+
+      <h2>Radius</h2>
+      <div class="rads">
+        <div class="rad" style="border-radius:10px"></div>
+        <div class="rad" style="border-radius:12px"></div>
+        <div class="rad" style="border-radius:14px"></div>
+        <div class="rad" style="border-radius:999px;width:96px"></div>
+      </div>
+      <p class="note">10 small · 12 medium · 14 cards · 999 pill</p>
+
+      <h2>Shadows</h2>
+      <div class="shads">
+        <div class="shad"></div>
+        <div class="shad e"></div>
+        <div class="shad f"></div>
+      </div>
+      <p class="note">Default = hairline only · web card 1px · float 4×20.</p>
+    </main>
+  </body>
+</html>

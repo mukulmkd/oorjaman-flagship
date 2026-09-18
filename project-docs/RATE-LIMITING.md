@@ -68,6 +68,21 @@ Supabase splits these — they are **different** menu items under **Authenticati
 
 `supabase/config.toml` `[auth.rate_limit]` mainly affects local `supabase start`; hosted projects use the **Rate Limits** UI above.
 
+**Applied via Management API (2026-09-09) on PROD + UAT:**
+
+| Key | Value |
+|---|---|
+| `rate_limit_email_sent` | 30 / hour |
+| `rate_limit_otp` | 20 / hour |
+| `rate_limit_verify` | 15 / 5 min (IP) |
+| `rate_limit_token_refresh` | 150 / 5 min |
+| `rate_limit_sms_sent` | 20 / hour |
+| `rate_limit_anonymous_users` | 1 / hour |
+| `rate_limit_web3` | 5 / 5 min |
+| Anonymous sign-ins | OFF |
+| CAPTCHA | OFF (until apps send `captchaToken`) |
+| `security_sb_forwarded_for_enabled` | ON (already) |
+
 ### C. Vercel Firewall (recommended, portals + marketing)
 
 On Pro+: Team → Firewall — rate-limit anonymous traffic to login/OTP-ish paths and block obvious scanners. See [SECURITY-VERCEL.md](SECURITY-VERCEL.md).

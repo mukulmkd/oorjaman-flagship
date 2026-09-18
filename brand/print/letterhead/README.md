@@ -20,4 +20,14 @@ npm run brand:print
 
 Writes `oorjaman-letterhead-a4-v1.pdf` here (gitignored).
 
+### Airtel DLT — Letter of Authority
+
+Official Airtel `AUTHORITY_LETTER` wording on OorjaMan letterhead:
+
+```bash
+node scripts/generate-airtel-dlt-authorization-letter.mjs
+```
+
+Writes `oorjaman-airtel-dlt-authority-letter-YYYY-MM-DD.pdf` here. Print on A4, wet-ink signatures in the blanks, company stamp if required.
+
 To print: open PDF → Print → 100% scale, no margins adjustment unless your printer requires it.
