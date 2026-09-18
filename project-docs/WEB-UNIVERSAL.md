@@ -14,8 +14,8 @@ Operational documentation for the **locked** Universal Web program: Expo React N
 | Field | Value |
 | ----- | ----- |
 | **Architecture** | **LOCKED** |
-| **Implementation** | **NOT STARTED** |
-| **Current task** | Phase 0 — **P0-T1** (this document) |
+| **Implementation** | **UAT + PROD Vercel projects live** (`*-web-uat` / `*-web-prod`) |
+| **Current task** | GoDaddy CNAMEs + Supabase Auth redirects + Maps/Razorpay env cutover |
 
 Later phases (web boot, adapters, parity, Vercel deploy) are described in the implementation plan. **Do not implement them from this doc alone.**
 
@@ -69,12 +69,81 @@ Backend remains Supabase: browser/Expo clients use **anon key + RLS**; privilege
 
 Suggested Vercel project names for the static Expo Web exports:
 
-| Vercel project | App | Production domain |
-| -------------- | --- | ----------------- |
-| `oorjaman-customer-web` | `apps/customer-app` | `app.oorjaman.com` |
-| `oorjaman-technician-web` | `apps/technician-app` | `partner.oorjaman.com` |
+| Vercel project | App | Domain intent | Default URL |
+| -------------- | --- | ------------- | ----------- |
+| `oorjaman-customer-web-uat` | `apps/customer-app` | UAT → later `app.oorjaman.com` | `https://oorjaman-customer-web-uat.vercel.app` |
+| `oorjaman-technician-web-uat` | `apps/technician-app` | UAT → later `partner.oorjaman.com` | `https://oorjaman-technician-web-uat.vercel.app` |
+| `oorjaman-customer-web-prod` | `apps/customer-app` | Prod (`app.oorjaman.com`) | `https://oorjaman-customer-web-prod.vercel.app` + custom domain |
+| `oorjaman-technician-web-prod` | `apps/technician-app` | Prod (`partner.oorjaman.com`) | `https://oorjaman-technician-web-prod.vercel.app` + custom domain |
 
-**Not configured in P0-T1.** Build command, output directory, and SPA rewrite details will be verified in Phase 9 after `expo export -p web` path discovery. Do not assume the export directory yet.
+Same suffix pattern as live portals: `oorjaman-admin-uat` / `oorjaman-vendor-uat` / `oorjaman-support-uat` (and `*-prod`).
+
+### GoDaddy DNS (PROD custom domains)
+
+Nameservers stay on GoDaddy (`ns21` / `ns22.domaincontrol.com`). Add **CNAME** records (same pattern as `admin.oorjaman.com` → Vercel):
+
+| Type | Name | Value (prefer project-specific) | Fallback |
+|------|------|----------------------------------|----------|
+| CNAME | `app` | `75af7f8dfbda515b.vercel-dns-017.com` | `cname.vercel-dns.com` |
+| CNAME | `partner` | `052774ec0e7ee15f.vercel-dns-017.com` | `cname.vercel-dns.com` |
+
+After DNS propagates, Vercel issues SSL automatically. Until then use the `*.vercel.app` URLs.
+
+### PROD Supabase Auth redirect URLs
+
+On **OorjaMan PROD** → Authentication → URL Configuration, add:
+
+```
+https://app.oorjaman.com/**
+https://partner.oorjaman.com/**
+https://oorjaman-customer-web-prod.vercel.app/**
+https://oorjaman-technician-web-prod.vercel.app/**
+```
+
+### UAT project settings (create in Dashboard)
+
+Import the same GitHub repo **twice**. For each project:
+
+| Setting | Customer | Technician |
+|---------|----------|------------|
+| **Root Directory** | `apps/customer-app` | `apps/technician-app` |
+| **Framework Preset** | Other | Other |
+| **Install Command** | from `vercel.json` (`cd ../.. && npm install`) | same |
+| **Build Command** | from `vercel.json` (`npx expo export -p web`) | same |
+| **Output Directory** | `dist` | `dist` |
+| **Node.js** | 22.x | 22.x |
+| **Production Branch** | `develop` | `develop` |
+| **Ignored Build Step** | `node ../../scripts/vercel-should-build.mjs customer-app --branch develop` | `… technician-app --branch develop` |
+
+> Ignored Build Step runs with Root Directory = the app folder, so the script path is `../../scripts/…` (repo root).
+
+### UAT environment variables (Production + Preview)
+
+```env
+EXPO_PUBLIC_DEPLOY_ENV=uat
+EXPO_PUBLIC_SUPABASE_URL=https://caearbriteguqjvnbrcg.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<UAT anon key>
+EXPO_PUBLIC_SITE_URL=https://oorjaman.com
+EXPO_PUBLIC_WEB_ORIGIN=https://oorjaman-customer-web-uat.vercel.app
+EXPO_PUBLIC_WEB_PAYMENTS=0
+EXPO_PUBLIC_USE_DUMMY_AUTH=true
+EXPO_PUBLIC_DUMMY_OTP_CODE=123456
+EXPO_PUBLIC_DUMMY_AUTH_PASSWORD=TestOtp123!
+# Customer only (optional for UAT map):
+# EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=
+# EXPO_PUBLIC_RAZORPAY_KEY_ID=rzp_test_…
+```
+
+Technician: same, but `EXPO_PUBLIC_WEB_ORIGIN=https://oorjaman-technician-web-uat.vercel.app`.
+
+**Never** set `SUPABASE_SERVICE_ROLE_KEY` on these projects.
+
+Local smoke export (embeds `.env.uat.local`):
+
+```bash
+npm run build:uat:web -w customer-app
+npm run build:uat:web -w technician-app
+```
 
 Marketing (`oorjaman.com`) and ops portals continue on their existing deploy paths ([SEO.md](SEO.md), [VERCEL.md](VERCEL.md), [DEPLOYMENT.md](DEPLOYMENT.md)).
 
@@ -92,9 +161,13 @@ In **Supabase Dashboard → Authentication → URL configuration** (exact UI lab
 2. **Redirect URLs / Additional Redirect URLs** — add (or ensure present):
    - `https://app.oorjaman.com/**`
    - `https://partner.oorjaman.com/**`
+   - **UAT Vercel (add when projects exist):**
+     - `https://oorjaman-customer-web-uat.vercel.app/**`
+     - `https://oorjaman-technician-web-uat.vercel.app/**`
+     - `https://*.vercel.app/**` (optional catch-all for previews)
 3. **Vercel Preview URLs** — when preview deployments are enabled, add the project preview patterns, for example:
-   - `https://oorjaman-customer-web-*.vercel.app/**` (adjust to actual Vercel project slug)
-   - `https://oorjaman-technician-web-*.vercel.app/**`
+   - `https://oorjaman-customer-web-uat-*.vercel.app/**`
+   - `https://oorjaman-technician-web-uat-*.vercel.app/**`
    - Or add specific preview URLs as they appear in Vercel until a wildcard policy is confirmed for your Supabase plan/UI.
 4. Save and smoke-test OTP / session flows on a preview host before production cutover.
 5. Repeat for **UAT and Prod** Supabase projects if you maintain dual projects ([SUPABASE-UAT-PROD.md](SUPABASE-UAT-PROD.md)).
@@ -112,7 +185,7 @@ In **Supabase Dashboard → Authentication → URL configuration** (exact UI lab
 
 Additional rules:
 
-- Never put service-role in Vercel env for `oorjaman-customer-web` / `oorjaman-technician-web`.
+- Never put service-role in Vercel env for `oorjaman-customer-web-uat` / `oorjaman-technician-web-uat` (or `*-prod`).
 - Payment secrets and webhook secrets remain Edge-only ([RAZORPAY.md](RAZORPAY.md)).
 - Authenticated app hosts must not become crawlable SEO landing pages (see §9).
 
@@ -180,8 +253,8 @@ Expo Web deployment must not rewrite these values.
 
 | App | Vercel project (suggested) | Domain | Config |
 | --- | -------------------------- | ------ | ------ |
-| `apps/customer-app` | `oorjaman-customer-web` | `app.oorjaman.com` | `apps/customer-app/vercel.json` |
-| `apps/technician-app` | `oorjaman-technician-web` | `partner.oorjaman.com` | `apps/technician-app/vercel.json` |
+| `apps/customer-app` | `oorjaman-customer-web-uat` (→ `-prod` later) | `app.oorjaman.com` | `apps/customer-app/vercel.json` |
+| `apps/technician-app` | `oorjaman-technician-web-uat` (→ `-prod` later) | `partner.oorjaman.com` | `apps/technician-app/vercel.json` |
 
 1. Root Directory = the app folder (`apps/customer-app` or `apps/technician-app`).  
 2. Build: `npx expo export -p web` (see each app’s `vercel.json` `buildCommand`).  

@@ -17,6 +17,8 @@ This runbook covers:
 | ---------------------------- | ---------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------- |
 | Marketing web                | `oorjaman.com`                     | Local / not on Vercel yet                                                   | `dev-oorjaman.oorjaman.com` (noindex)          |
 | Admin / vendor / support web | `admin.*`, `vendor.*`, `support.*` | **Vercel:** `oorjaman-admin/vendor/support.vercel.app` ([VERCEL.md](VERCEL.md)) | `dev-admin.*`, `dev-vendor.*`, `dev-support.*` |
+| Customer Expo Web            | **Vercel + GoDaddy DNS:** `app.oorjaman.com` (`oorjaman-customer-web-prod`) | **Vercel:** `oorjaman-customer-web-uat` ([WEB-UNIVERSAL.md](WEB-UNIVERSAL.md)) | Same host later                                |
+| Partner Expo Web             | **Vercel + GoDaddy DNS:** `partner.oorjaman.com` (`oorjaman-technician-web-prod`) | **Vercel:** `oorjaman-technician-web-uat` ([WEB-UNIVERSAL.md](WEB-UNIVERSAL.md)) | Same host later                                |
 | Customer app (iOS/Android)   | App Store / Play — **OorjaMan**    | Internal / TestFlight / APK — **OorjaMan (UAT)**                            | Same                                           |
 | Partner app (iOS/Android)    | Store — **OorjaMan Partner**       | Internal — **OorjaMan Partner (UAT)**                                       | Same                                           |
 | Supabase                     | `OorjaMan Prod` project            | **`OorjaMan UAT`** project (all dev + Vercel + UAT mobile)                  | Same UAT project                               |

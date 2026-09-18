@@ -17,6 +17,8 @@
     "ios": "expo run:ios",
     "ios:rebuild": "bash ../../packages/mobile-config/scripts/rebuild-ios.sh customer-app",
     "web": "expo start --web",
+    "export:web": "npx expo export -p web",
+    "build:uat:web": "node ../../scripts/run-with-expo-env.mjs customer-app \"npx expo export -p web\"",
     "expo:types": "expo customize tsconfig.json",
     "typecheck": "npm run expo:types && tsc --noEmit",
     "lint": "npm run typecheck",

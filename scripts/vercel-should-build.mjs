@@ -9,6 +9,8 @@
  *   node scripts/vercel-should-build.mjs admin-web --branch develop
  *   node scripts/vercel-should-build.mjs vendor-web --branch develop
  *   node scripts/vercel-should-build.mjs support-web --branch develop
+ *   node scripts/vercel-should-build.mjs customer-app --branch develop
+ *   node scripts/vercel-should-build.mjs technician-app --branch develop
  *   node scripts/vercel-should-build.mjs oorjaman-web --branch main
  *
  * Also set each project's Git → Production Branch to the same branch in the Dashboard
@@ -61,6 +63,9 @@ const watchPaths = [`apps/${app}`, "package.json", "package-lock.json", ".npmrc"
 
 if (app === "oorjaman-web") {
   watchPaths.push("scripts/sync-brand-assets.mjs", "brand");
+} else if (app === "customer-app" || app === "technician-app") {
+  // Expo Web CSR — shared packages + app vercel.json
+  watchPaths.push("packages", `apps/${app}/vercel.json`);
 } else {
   // Vite portals consume shared packages + root SPA vercel.json
   watchPaths.push("packages", "scripts/sync-brand-assets.mjs", "vercel.json");
