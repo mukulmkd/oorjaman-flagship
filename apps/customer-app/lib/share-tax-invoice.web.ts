@@ -12,7 +12,10 @@ import {
   type TaxInvoiceInput,
 } from "@oorjaman/utils";
 import { INVOICE_MARK_DATA_URI } from "./invoice-mark-data-uri";
-import { buildTaxInvoicePdfBytes } from "./tax-invoice-pdf.web";
+
+// NOTE: do NOT statically import `./tax-invoice-pdf.web` / `pdf-lib` here.
+// pdf-lib's tslib interop crashes Expo web's main bundle (__extends of undefined).
+// Load it only inside downloadBookingTaxInvoice via dynamic import.
 
 function invoiceLogoDataUri(): string {
   return INVOICE_MARK_DATA_URI;
@@ -200,9 +203,17 @@ export async function shareBookingTaxInvoice(params: BookingTaxInvoiceParams): P
   printHtmlDocument(html);
 }
 
-/** Web: generate and download a real tax invoice PDF. */
+/** Web: generate and download a real tax invoice PDF (pdf-lib loaded on demand). */
 export async function downloadBookingTaxInvoice(params: BookingTaxInvoiceParams): Promise<void> {
   const input = await buildBookingTaxInvoiceInput(params);
-  const pdfBytes = await buildTaxInvoicePdfBytes(input);
-  downloadPdfBytes(pdfBytes, invoiceFileName(input.invoiceNo));
+  try {
+    const { buildTaxInvoicePdfBytes } = await import("./tax-invoice-pdf.web");
+    const pdfBytes = await buildTaxInvoicePdfBytes(input);
+    downloadPdfBytes(pdfBytes, invoiceFileName(input.invoiceNo));
+  } catch (err) {
+    // If pdf-lib fails to initialize on this browser/bundle, fall back to print → Save as PDF.
+    console.warn("Tax invoice PDF engine unavailable; falling back to print", err);
+    const html = buildTaxInvoiceHtml(input, { layout: "print" });
+    printHtmlDocument(html);
+  }
 }

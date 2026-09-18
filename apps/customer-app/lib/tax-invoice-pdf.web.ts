@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import {
   DEFAULT_BRAND_PRINT_CONTACT,
   amountInInrWords,
@@ -44,7 +44,12 @@ function dataUriToBytes(dataUri: string): Uint8Array | null {
   return bytes;
 }
 
-function wrapText(text: string, font: { widthOfTextAtSize: (t: string, s: number) => number }, size: number, maxWidth: number): string[] {
+function wrapText(
+  text: string,
+  font: PDFFont,
+  size: number,
+  maxWidth: number,
+): string[] {
   const words = text.trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return [""];
   const lines: string[] = [];
@@ -292,7 +297,6 @@ export async function buildTaxInvoicePdfBytes(input: TaxInvoiceInput): Promise<U
     y -= 11;
   }
 
-  // Footer band
   const footerH = 28;
   page.drawRectangle({
     x: 0,
