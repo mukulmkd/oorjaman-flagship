@@ -61,6 +61,7 @@
     "docs:costing": ".venv-docgen/bin/python scripts/generate-costing-doc.py",
     "docs:onboarding-prerequisites": ".venv-docgen/bin/python scripts/generate-onboarding-prerequisites-doc.py",
     "analyze:knip": "knip --no-config-hints",
+    "knip": "knip --no-config-hints",
     "knip:fix": "knip --fix",
     "validate": "npm run typecheck && npm run analyze:knip",
     "android:local-props": "node scripts/android-local-properties.mjs",

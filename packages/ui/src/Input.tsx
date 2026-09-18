@@ -152,9 +152,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.foreground,
     ...(Platform.OS === "ios" ? { lineHeight: lineHeight.md } : {}),
-    ...(Platform.OS === "web"
-      ? ({ outlineStyle: "none", outlineWidth: 0 } as const)
-      : {}),
   },
   inputMultiline: {
     minHeight: 72,

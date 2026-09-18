@@ -3,10 +3,32 @@
   "expo": false,
   "vite": true,
   "ignoreExportsUsedInFile": true,
-  "ignore": ["**/*.d.ts"],
+  "ignore": [
+    "**/*.d.ts",
+    "**/*.{web,native}.{ts,tsx}",
+    "**/*.{ios,android}.{ts,tsx}"
+  ],
   "ignoreIssues": {
-    "apps/customer-app/**": ["unlisted"],
-    "apps/technician-app/**": ["unlisted"],
+    "apps/customer-app/**": [
+      "unlisted",
+      "unresolved",
+      "exports",
+      "types",
+      "files",
+      "dependencies",
+      "devDependencies",
+      "binaries"
+    ],
+    "apps/technician-app/**": [
+      "unlisted",
+      "unresolved",
+      "exports",
+      "types",
+      "files",
+      "dependencies",
+      "devDependencies",
+      "binaries"
+    ],
     "apps/admin-web/**": ["unlisted"],
     "apps/support-web/**": ["unlisted"],
     "apps/vendor-web/**": ["unlisted"],
@@ -14,10 +36,24 @@
     "packages/portal-deps/**": ["dependencies"],
     "packages/vite-portal-config/**": ["dependencies", "devDependencies"],
     "packages/mobile-config/**": ["unlisted"],
-    "packages/ui/**": ["unlisted"]
+    "packages/ui/**": [
+      "unlisted",
+      "unresolved",
+      "exports",
+      "types",
+      "files",
+      "dependencies",
+      "devDependencies"
+    ]
   },
-  "ignoreBinaries": ["python3", "vite", "eslint", "expo"],
-  "ignoreDependencies": ["eslint", "eslint-config-next"],
+  "ignoreBinaries": ["python3", "vite", "eslint", "expo", "expo-doctor", "eas-cli", "eas"],
+  "ignoreDependencies": [
+    "eslint",
+    "eslint-config-next",
+    "expo-updates",
+    "expo-document-picker",
+    "react-native-keyboard-controller"
+  ],
   "workspaces": {
     ".": {
       "entry": ["scripts/**/*.{mjs,js}"],
@@ -31,7 +67,7 @@
         "lib/**/*.{ts,tsx}",
         "constants/**/*.{ts,tsx}"
       ],
-      "ignoreDependencies": ["@oorjaman/mobile-deps"]
+      "ignoreDependencies": ["@oorjaman/mobile-deps", "expo-updates"]
     },
     "apps/technician-app": {
       "entry": ["app/**/*.{ts,tsx}", "app.config.ts"],
@@ -41,7 +77,11 @@
         "lib/**/*.{ts,tsx}",
         "constants/**/*.{ts,tsx}"
       ],
-      "ignoreDependencies": ["@oorjaman/mobile-deps"]
+      "ignoreDependencies": [
+        "@oorjaman/mobile-deps",
+        "expo-document-picker",
+        "react-native-keyboard-controller"
+      ]
     },
     "apps/admin-web": {
       "entry": ["index.html"],
@@ -66,7 +106,9 @@
       "project": ["src/**/*.ts"]
     },
     "packages/ui": {
-      "project": ["src/**/*.{ts,tsx}"]
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignoreDependencies": ["react-native-keyboard-controller"]
     },
     "packages/web-ui": {
       "project": ["src/**/*.{ts,tsx}"]

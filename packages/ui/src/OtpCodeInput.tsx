@@ -188,10 +188,6 @@ const styles = StyleSheet.create({
     padding: 0,
     margin: 0,
     borderWidth: 0,
-    // RN Web: browser focus ring would wrap the whole OTP row.
-    ...(Platform.OS === "web"
-      ? ({ outlineStyle: "none", outlineWidth: 0 } as const)
-      : {}),
     ...(Platform.OS === "android"
       ? { underlineColorAndroid: "transparent" as const }
       : {}),
