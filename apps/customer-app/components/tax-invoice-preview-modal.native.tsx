@@ -89,7 +89,7 @@ function TaxInvoicePreviewModalBody({
           style={styles.footerBtn}
           accessibilityLabel="Download tax invoice PDF"
         >
-          Download
+          Download PDF
         </Button>
         <Button
           variant="primary"

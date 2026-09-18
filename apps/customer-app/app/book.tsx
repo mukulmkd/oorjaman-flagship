@@ -111,6 +111,7 @@ import {
   navigateToAmcRenewal,
 } from "../lib/book-visit-navigation";
 import { isRazorpayCheckoutEnabled, openRazorpayCheckout } from "../lib/razorpay-checkout";
+import { razorpayPrefillFromCustomer } from "../lib/razorpay-prefill";
 import { supabase } from "../lib/supabase";
 
 type BookingVendorPick = { mode: "preferred"; vendorId: string } | { mode: "any" };
@@ -1273,6 +1274,7 @@ export default function BookVisitModal() {
             orderId: session.orderId,
             amountPaise: session.amountPaise,
             description: "One-time solar panel cleaning",
+            prefill: razorpayPrefillFromCustomer({ customer: customerQuery.data }),
           });
         } catch (e: unknown) {
           await paymentApi.abandonPendingCheckout(supabase, session.paymentId).catch(() => undefined);

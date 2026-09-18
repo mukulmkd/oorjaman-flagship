@@ -17,10 +17,12 @@ const ALLOW_HEADERS =
 const ALLOW_METHODS = "POST, OPTIONS";
 
 function allowlist(): string[] {
+  // Accept comma- and newline-separated entries. A multiline secret must never become a single
+  // Access-Control-Allow-Origin value (newlines are illegal in HTTP headers → OPTIONS 500).
   return (Deno.env.get("CORS_ALLOWED_ORIGINS") ?? "")
-    .split(",")
+    .split(/[\s,]+/)
     .map((s) => s.trim())
-    .filter(Boolean);
+    .filter((s) => Boolean(s) && !/[\r\n]/.test(s));
 }
 
 export function corsHeaders(req: Request): Record<string, string> {

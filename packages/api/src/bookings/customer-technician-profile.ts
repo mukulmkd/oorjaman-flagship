@@ -53,6 +53,11 @@ export async function getCustomerBookingTechnicianProfile(
   const profile = parseProfileRow(data);
   if (!profile?.avatarStoragePath) return profile;
 
+  // Play-review seed paths are not real Storage objects — skip sign to avoid console 400s.
+  if (/placeholder/i.test(profile.avatarStoragePath) || profile.avatarStoragePath.startsWith("play-review/")) {
+    return { ...profile, avatarStoragePath: null };
+  }
+
   try {
     const avatarSignedUrl = await createTechnicianDocumentSignedUrl(
       client,
@@ -61,7 +66,7 @@ export async function getCustomerBookingTechnicianProfile(
     );
     return { ...profile, avatarSignedUrl };
   } catch {
-    return profile;
+    return { ...profile, avatarStoragePath: null };
   }
 }
 

@@ -71,6 +71,7 @@ import { AssignedTechnicianCard } from "../components/assigned-technician-card";
 import { LiveTechnicianTrackCard } from "../components/live-technician-track-card";
 import { supabase } from "../lib/supabase";
 import { isRazorpayCheckoutEnabled, openRazorpayCheckout } from "../lib/razorpay-checkout";
+import { razorpayPrefillFromCustomer } from "../lib/razorpay-prefill";
 import { resolveServiceDestinationCoords } from "../lib/service-address-book";
 import { shareBookingTaxInvoice, downloadBookingTaxInvoice, prepareBookingTaxInvoiceHtml } from "../lib/share-tax-invoice";
 import { TaxInvoicePreviewModal } from "../components/tax-invoice-preview-modal";
@@ -444,6 +445,10 @@ export default function BookingDetailScreen() {
         orderId: session.orderId,
         amountPaise: session.amountPaise,
         description: "OorjaMan visit payment",
+        prefill: razorpayPrefillFromCustomer({
+          customer: customerQuery.data,
+          user: userQuery.data,
+        }),
       });
       try {
         await paymentApi.verifyRazorpayCheckoutCallback(supabase, {

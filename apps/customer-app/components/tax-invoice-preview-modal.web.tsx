@@ -86,9 +86,9 @@ function TaxInvoicePreviewModalBody({
           disabled={busy && !downloadLoading}
           onPress={onDownload}
           style={styles.footerBtn}
-          accessibilityLabel="Download tax invoice"
+          accessibilityLabel="Download tax invoice PDF"
         >
-          Download
+          Download PDF
         </Button>
         <Button
           variant="primary"
@@ -97,9 +97,9 @@ function TaxInvoicePreviewModalBody({
           disabled={busy && !shareLoading}
           onPress={onShare}
           style={styles.footerBtn}
-          accessibilityLabel="Print tax invoice"
+          accessibilityLabel="Print tax invoice or save as PDF"
         >
-          Print / PDF
+          Print / Save PDF
         </Button>
       </View>
     </View>

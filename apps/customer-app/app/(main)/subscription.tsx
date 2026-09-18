@@ -42,6 +42,7 @@ import {
 import { formatDisplayDate, formatDisplayDateTime } from "@oorjaman/utils";
 import { bookingStatusLabel } from "../../lib/booking-status";
 import { isRazorpayCheckoutEnabled, openRazorpayCheckout } from "../../lib/razorpay-checkout";
+import { razorpayPrefillFromCustomer } from "../../lib/razorpay-prefill";
 import type {
   BookingRow,
   PricingAmcPlanRow,
@@ -443,6 +444,7 @@ export default function SubscriptionAmcScreen() {
             orderId: session.orderId,
             amountPaise: session.amountPaise,
             description: `AMC · ${activeForSelected.plan_name}`,
+            prefill: razorpayPrefillFromCustomer({ customer: customerQuery.data }),
           });
         } catch (e: unknown) {
           await paymentApi.markDummyPaymentFailed(supabase, session.paymentId).catch(() => undefined);

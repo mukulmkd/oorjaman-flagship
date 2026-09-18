@@ -12,6 +12,7 @@ import {
   type TaxInvoiceInput,
 } from "@oorjaman/utils";
 import { INVOICE_MARK_DATA_URI } from "./invoice-mark-data-uri";
+import { buildTaxInvoicePdfBytes } from "./tax-invoice-pdf.web";
 
 function invoiceLogoDataUri(): string {
   return INVOICE_MARK_DATA_URI;
@@ -64,7 +65,7 @@ function serviceDescription(booking: BookingRow): string {
 }
 
 function invoiceFileName(invoiceNo: string): string {
-  return `${invoiceNo.replace(/[^A-Za-z0-9_-]+/g, "-")}.html`;
+  return `${invoiceNo.replace(/[^A-Za-z0-9_-]+/g, "-")}.pdf`;
 }
 
 export type BookingTaxInvoiceParams = {
@@ -127,28 +128,60 @@ export async function prepareBookingTaxInvoiceHtml(params: BookingTaxInvoicePara
   return buildBookingTaxInvoiceHtml(params, "screen");
 }
 
-function openHtmlInPrintWindow(html: string, title: string): void {
-  const win = window.open("", "_blank", "noopener,noreferrer");
-  if (!win) {
-    throw new Error("Pop-up blocked. Allow pop-ups to print or share the invoice.");
+function printHtmlDocument(html: string): void {
+  // Same-document iframe avoids about:blank popups and Chrome's `noopener` null-window trap.
+  const iframe = document.createElement("iframe");
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  iframe.style.opacity = "0";
+  iframe.style.pointerEvents = "none";
+  document.body.appendChild(iframe);
+
+  const frameWindow = iframe.contentWindow;
+  const doc = iframe.contentDocument ?? frameWindow?.document;
+  if (!frameWindow || !doc) {
+    iframe.remove();
+    throw new Error("Could not prepare the print view. Try Download PDF instead.");
   }
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
-  win.document.title = title;
-  // Give the browser a beat to paint before the print dialog.
-  window.setTimeout(() => {
+
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  const cleanup = () => {
+    window.setTimeout(() => {
+      try {
+        iframe.remove();
+      } catch {
+        /* already removed */
+      }
+    }, 1_500);
+  };
+
+  const triggerPrint = () => {
     try {
-      win.focus();
-      win.print();
+      frameWindow.focus();
+      frameWindow.print();
     } catch {
-      // User can still use the opened tab.
+      cleanup();
+      throw new Error("Could not open the print dialog. Try Download PDF instead.");
     }
-  }, 350);
+    cleanup();
+  };
+
+  // Logo is a data URI — short delay is enough for layout paint before print.
+  window.setTimeout(triggerPrint, 400);
 }
 
-function downloadHtmlFile(html: string, filename: string): void {
-  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+function downloadPdfBytes(bytes: Uint8Array, filename: string): void {
+  // Fresh copy so Blob always gets an ArrayBuffer-backed view (not SharedArrayBuffer).
+  const copy = Uint8Array.from(bytes);
+  const blob = new Blob([copy], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -160,16 +193,16 @@ function downloadHtmlFile(html: string, filename: string): void {
   window.setTimeout(() => URL.revokeObjectURL(url), 2_000);
 }
 
-/** Web: open branded invoice HTML and trigger the browser print / share sheet. */
+/** Web: open the system print dialog (Save as PDF from there). */
 export async function shareBookingTaxInvoice(params: BookingTaxInvoiceParams): Promise<void> {
   const input = await buildBookingTaxInvoiceInput(params);
   const html = buildTaxInvoiceHtml(input, { layout: "print" });
-  openHtmlInPrintWindow(html, `Tax invoice ${input.invoiceNo}`);
+  printHtmlDocument(html);
 }
 
-/** Web: download invoice HTML (print to PDF from the browser for a PDF copy). */
+/** Web: generate and download a real tax invoice PDF. */
 export async function downloadBookingTaxInvoice(params: BookingTaxInvoiceParams): Promise<void> {
   const input = await buildBookingTaxInvoiceInput(params);
-  const html = buildTaxInvoiceHtml(input, { layout: "print" });
-  downloadHtmlFile(html, invoiceFileName(input.invoiceNo));
+  const pdfBytes = await buildTaxInvoicePdfBytes(input);
+  downloadPdfBytes(pdfBytes, invoiceFileName(input.invoiceNo));
 }
