@@ -576,13 +576,14 @@ Shared (already done once on PROD Supabase):
 
 Technician checklist:
 
-- [ ] Fix `apps/technician-app/.env.production.local` (PROD Supabase, no dummy auth)
-- [ ] Add `expo-updates` + `updates` / `runtimeVersion` in `app.config.ts`
+- [x] Fix `apps/technician-app/.env.production.local` (PROD Supabase, no dummy auth)
+- [x] Add `expo-updates` + `updates` / `runtimeVersion` in `app.config.ts`
+- [x] EAS production env vars (Supabase URL/anon, SITE_URL, EAS_PROJECT_ID)
+- [x] Phone-only targeting (`supportsTablet: false` + `withAndroidPhoneOnlyScreens`)
 - [ ] `npx eas-cli credentials --platform android` → production keystore → note SHA-1
 - [ ] Firebase: add `com.oorjaman.technician` + SHA-1
 - [ ] EAS FCM V1 for technician
-- [ ] EAS production env vars
-- [ ] `npx eas-cli build --profile production --platform android`
+- [ ] `npm run eas:android:production:technician`
 - [ ] Smoke test: login, job list, safety checklist, support push (kill app)
 - [ ] Play Console second app + listing + submit
 
@@ -647,4 +648,4 @@ npx supabase secrets set PUSH_DISPATCH_SECRET="..."
 
 ---
 
-*Last updated: 2026-08-26 — reflects customer Android PROD path through first EAS production build.*
+*Last updated: 2026-09-21 — technician `expo-updates` + production env parity with customer Android path.*

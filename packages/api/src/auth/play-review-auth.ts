@@ -1,15 +1,13 @@
 /**
  * Google Play review accounts: email + password (no OTP) in the matching mobile app only.
- * Password lives in Supabase Auth; apps only switch UI when the allowlisted email is typed.
+ * Password lives only in Supabase Auth (seed via env `PLAY_REVIEW_PASSWORD` — never ship in app code).
+ * Apps only switch UI when the allowlisted email is typed.
  */
 
 export type PlayReviewApp = "customer" | "technician";
 
 export const PLAY_REVIEW_CUSTOMER_EMAIL = "appreview.customer@oorjaman.com";
 export const PLAY_REVIEW_TECHNICIAN_EMAIL = "appreview.technician@oorjaman.com";
-
-/** Shared fixed password for both Play review Auth users (also used by seed script). */
-export const PLAY_REVIEW_PASSWORD = "OorjaManPlayReview2026!";
 
 const BY_APP: Record<PlayReviewApp, string> = {
   customer: PLAY_REVIEW_CUSTOMER_EMAIL,

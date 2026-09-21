@@ -40,6 +40,7 @@
     "seed:dummy-users": "node scripts/seed-dummy-test-users.mjs",
     "seed:play-review-users": "node scripts/seed-play-review-users.mjs",
     "seed:gamusa-pilot-vendor": "node scripts/seed-gamusa-pilot-vendor.mjs",
+    "seed:gamusa-prod-onboarding": "SEED_ENV=production node scripts/seed-gamusa-prod-onboarding.mjs",
     "purge:test-data": "node scripts/purge-test-user-data.mjs",
     "cleanup:orphan-checkouts": "node scripts/cleanup-orphan-checkout-bookings.mjs",
     "repair:public-users": "node scripts/repair-public-users.mjs",

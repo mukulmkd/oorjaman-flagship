@@ -16,6 +16,9 @@ const deployEnv = (process.env.EXPO_PUBLIC_DEPLOY_ENV ?? "").trim().toLowerCase(
 const isUat = deployEnv === "uat" || deployEnv === "staging";
 const displayName = isUat ? "OorjaMan Partner (UAT)" : "OorjaMan Partner";
 
+const easProjectId =
+  process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim() || "a89deab7-9f4e-4411-a533-061002c8b049";
+
 const config: ExpoConfig = {
   // Home-screen label on iOS (CFBundleDisplayName) and Android (app_name).
   name: displayName,
@@ -82,11 +85,16 @@ const config: ExpoConfig = {
   experiments: {
     typedRoutes: true,
   },
+  updates: {
+    url: `https://u.expo.dev/${easProjectId}`,
+  },
+  runtimeVersion: {
+    policy: "appVersion",
+  },
   extra: {
     eas: {
-      projectId:
-        process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim() ||
-        "a89deab7-9f4e-4411-a533-061002c8b049",
+      // Fallback lets EAS CLI link without writing app.config.ts (env not loaded for credentials).
+      projectId: easProjectId,
     },
   },
 };

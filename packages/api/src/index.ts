@@ -12,7 +12,6 @@ export {
   normalizeAuthEmail,
   playReviewEmailForApp,
   PLAY_REVIEW_CUSTOMER_EMAIL,
-  PLAY_REVIEW_PASSWORD,
   PLAY_REVIEW_TECHNICIAN_EMAIL,
   type PlayReviewApp,
 } from "./auth/play-review-auth";

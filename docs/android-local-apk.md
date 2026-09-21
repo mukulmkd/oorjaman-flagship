@@ -68,11 +68,11 @@ EXPO_PUBLIC_DUMMY_AUTH_PASSWORD=TestOtp123!
 |------|---------|
 | `apps/<app>/.env.development.local` | **Local Metro** (`npm run customer`, iOS Simulator) |
 | `apps/<app>/.env.uat.local` | **UAT APK / EAS** (via `run-with-expo-env.mjs`) |
-| `apps/<app>/.env.production.local` | **Production** native builds (or auto-synced from `.env.uat.local` for UAT APK scripts) |
+| `apps/<app>/.env.production.local` | **Production** native builds (never leave pointing at UAT) |
 
 **Repo root** `.env.uat.local` is only for scripts (`npm run seed:dummy-users`) — not for mobile builds.
 
-**Important:** UAT APK scripts sync `apps/<app>/.env.uat.local` → `.env.production.local` before Gradle runs. Release bundles read `.env.production.local` (because `NODE_ENV=production`). If you only edited `.env.uat.local` but had placeholder values in `.env.production.local`, login will fail until you rebuild with the sync in place.
+**Important:** UAT APK scripts **temporarily** bake `apps/<app>/.env.uat.local` into `.env.production.local` while Gradle runs (release bundles read that file because `NODE_ENV=production`), then **restore** the previous production file afterward so PROD credentials are not permanently overwritten.
 
 **Metro / localhost dev** uses `apps/<app>/.env.development.local` only.
 

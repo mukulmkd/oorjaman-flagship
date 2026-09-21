@@ -30,11 +30,12 @@
     "@oorjaman/mobile-config": "*",
     "@oorjaman/mobile-deps": "*",
     "@react-native-community/datetimepicker": "9.1.0",
-    "expo-document-picker": "~57.0.1",
-    "react-native-webview": "13.16.1",
-    "expo": "~57.0.21",
+    "expo": "~57.0.24",
+    "expo-document-picker": "~57.0.2",
+    "expo-updates": "~57.0.23",
     "react": "19.2.3",
     "react-native": "0.86.3",
-    "react-native-keyboard-controller": "1.21.9"
+    "react-native-keyboard-controller": "1.21.9",
+    "react-native-webview": "13.16.1"
   }
 }

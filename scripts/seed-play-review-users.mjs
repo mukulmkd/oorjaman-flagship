@@ -5,8 +5,8 @@
  *   SUPABASE_URL
  *   SUPABASE_SERVICE_ROLE_KEY
  *
- * Optional:
- *   PLAY_REVIEW_PASSWORD (default OorjaManPlayReview2026!)
+ * Required for create/update password:
+ *   PLAY_REVIEW_PASSWORD  (never commit; set in local env / CI secrets only)
  *
  * Run:
  *   SEED_ENV=production node scripts/seed-play-review-users.mjs
@@ -24,12 +24,17 @@ if (envPath) console.log(`Using script env (${tier}): ${envPath}`);
 
 const url = process.env.SUPABASE_URL?.trim();
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-const password =
-  process.env.PLAY_REVIEW_PASSWORD?.trim() || "OorjaManPlayReview2026!";
+const password = process.env.PLAY_REVIEW_PASSWORD?.trim();
 
 if (!url || !serviceKey) {
   console.error(
     "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY (see scripts/seed-play-review-users.mjs header).",
+  );
+  process.exit(1);
+}
+if (!password) {
+  console.error(
+    "Missing PLAY_REVIEW_PASSWORD. Set it in the script env file (never commit the value).",
   );
   process.exit(1);
 }
