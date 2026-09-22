@@ -10,7 +10,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import * as ImagePicker from "expo-image-picker";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { useFocusEffect, useNavigation } from "expo-router";
@@ -461,15 +460,9 @@ export default function JobExecutionWizardScreen() {
     try {
       const uri = await pickJobEvidenceImageUri({
         source: "camera",
-        cameraType: ImagePicker.CameraType.front,
+        cameraType: "front",
       });
-      if (!uri) {
-        Alert.alert(
-          "No photo captured",
-          "Allow camera access in Settings, or tap Choose photo to pick from your gallery.",
-        );
-        return;
-      }
+      if (!uri) return;
       await saveSelfieFromUri(uri);
     } catch (e) {
       Alert.alert("Camera error", e instanceof Error ? e.message : "Could not open the camera.");
@@ -554,6 +547,29 @@ export default function JobExecutionWizardScreen() {
                 onPress={() => router.replace("/(main)/jobs")}
               >
                 Back to jobs
+              </Button>
+            </View>
+          }
+        />
+      </Screen>
+    );
+  }
+
+  if (b && b.status === "accepted" && !b.technician_en_route_at) {
+    return (
+      <Screen padded edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+        {modalHeader}
+        <EmptyStateCard
+          title="Mark en route first"
+          description="Tell the customer you are on the way before starting the visit. That turns on live tracking in their app."
+          action={
+            <View style={styles.emptyAction}>
+              <Button
+                variant="primary"
+                size="md"
+                onPress={() => router.replace(`/(main)/jobs/${bookingId}`)}
+              >
+                Go to job
               </Button>
             </View>
           }

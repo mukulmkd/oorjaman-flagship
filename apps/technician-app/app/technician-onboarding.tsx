@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import * as ImagePicker from "expo-image-picker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -460,7 +459,7 @@ export default function TechnicianOnboardingScreen() {
     try {
       const uri = await pickJobEvidenceImageUri({
         source: "camera",
-        cameraType: ImagePicker.CameraType.front,
+        cameraType: "front",
       });
       if (!uri) return;
       setDocs((d) => ({

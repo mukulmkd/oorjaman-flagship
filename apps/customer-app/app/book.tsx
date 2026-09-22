@@ -116,9 +116,20 @@ import { supabase } from "../lib/supabase";
 
 type BookingVendorPick = { mode: "preferred"; vendorId: string } | { mode: "any" };
 
-function pickDefaultVendorFromPrefs(vendors: VendorRow[], preferredVendorIds: string[]): BookingVendorPick {
+function vendorBookingLabel(v: Pick<VendorRow, "trade_name" | "business_name">): string {
+  return v.trade_name?.trim() || v.business_name?.trim() || "Partner";
+}
+
+function pickDefaultVendorFromPrefs(
+  vendors: VendorRow[],
+  preferredVendorIds: string[],
+  platformDefaultVendorId?: string | null,
+): BookingVendorPick {
   for (const id of preferredVendorIds) {
     if (vendors.some((v) => v.id === id)) return { mode: "preferred", vendorId: id };
+  }
+  if (platformDefaultVendorId && vendors.some((v) => v.id === platformDefaultVendorId)) {
+    return { mode: "preferred", vendorId: platformDefaultVendorId };
   }
   return { mode: "any" };
 }
@@ -412,6 +423,7 @@ export default function BookVisitModal() {
     (Array.isArray(paidVisitParam) ? paidVisitParam[0] : paidVisitParam) === "1";
 
   const [step, setStep] = useState<Step>(0);
+  const vendorAutoPickedRef = useRef(false);
   const [vendorPick, setVendorPick] = useState<BookingVendorPick>(() =>
     vendorParamId ? { mode: "preferred", vendorId: vendorParamId } : { mode: "any" },
   );
@@ -604,10 +616,14 @@ export default function BookVisitModal() {
         signals,
         approvedVendors: vendorsQuery.data,
       });
-      const resolvedName =
-        vendorsQuery.data.find((v) => v.id === routing.resolvedVendorId)?.business_name ?? "Partner";
-      const requestedName =
-        vendorsQuery.data.find((v) => v.id === routing.requestedVendorId)?.business_name ?? "Partner";
+      const resolvedName = (() => {
+        const row = vendorsQuery.data.find((v) => v.id === routing.resolvedVendorId);
+        return row ? vendorBookingLabel(row) : "Partner";
+      })();
+      const requestedName = (() => {
+        const row = vendorsQuery.data.find((v) => v.id === routing.requestedVendorId);
+        return row ? vendorBookingLabel(row) : "Partner";
+      })();
       return { ok: true, routing, resolvedName, requestedName };
     } catch {
       return { ok: false };
@@ -631,14 +647,25 @@ export default function BookVisitModal() {
 
   useEffect(() => {
     if (vendorParamId) return;
+    if (vendorAutoPickedRef.current) return;
     const vendors = vendorsQuery.data;
-    const prefs = serverVendorPrefs;
-    if (!vendors?.length || customerQuery.isPending) return;
-    setVendorPick((cur) => {
-      if (cur.mode === "preferred" && vendors.some((v) => v.id === cur.vendorId)) return cur;
-      return pickDefaultVendorFromPrefs(vendors, prefs.preferredVendorIds);
-    });
-  }, [vendorParamId, vendorsQuery.data, serverVendorPrefs.preferredVendorIds, customerQuery.isPending]);
+    if (!vendors?.length || customerQuery.isPending || routingDefaultsQuery.isPending) return;
+    vendorAutoPickedRef.current = true;
+    setVendorPick(
+      pickDefaultVendorFromPrefs(
+        vendors,
+        serverVendorPrefs.preferredVendorIds,
+        routingDefaultsQuery.data?.defaultVendorId,
+      ),
+    );
+  }, [
+    vendorParamId,
+    vendorsQuery.data,
+    serverVendorPrefs.preferredVendorIds,
+    customerQuery.isPending,
+    routingDefaultsQuery.isPending,
+    routingDefaultsQuery.data?.defaultVendorId,
+  ]);
 
   useEffect(() => {
     if (addressPrefilledRef.current) return;
@@ -809,11 +836,30 @@ export default function BookVisitModal() {
     const gaps = spacing.sm * 2;
     return Math.max(96, (windowWidth - pad - gaps) / 3);
   }, [windowWidth]);
+  const [calendarWidth, setCalendarWidth] = useState(0);
+  const calCellSize = useMemo(() => {
+    if (calendarWidth <= 0) return 44;
+    return Math.max(32, Math.floor(calendarWidth / 7));
+  }, [calendarWidth]);
+  const calCellStyle = useMemo(
+    () => [styles.calDayCell, { width: calCellSize, height: 44 }],
+    [calCellSize],
+  );
+  const calWeekdayStyle = useMemo(
+    () => [styles.calWeekdayLabel, { width: calCellSize }],
+    [calCellSize],
+  );
 
   const selectedVendor = useMemo(
     () => vendorsQuery.data?.find((v) => v.id === vendorId) ?? null,
     [vendorsQuery.data, vendorId],
   );
+  const platformDefaultVendor = useMemo(() => {
+    const id = routingDefaultsQuery.data?.defaultVendorId;
+    if (!id) return null;
+    return vendorsQuery.data?.find((v) => v.id === id) ?? null;
+  }, [routingDefaultsQuery.data?.defaultVendorId, vendorsQuery.data]);
+  const platformDefaultVendorName = platformDefaultVendor ? vendorBookingLabel(platformDefaultVendor) : null;
 
   const locationSignals = useMemo(
     () => customerLocationSignalsFromCustomer(customerQuery.data ?? null),
@@ -834,13 +880,19 @@ export default function BookVisitModal() {
     }
     return rows;
   }, [vendorsQuery.data, serverVendorPrefs.preferredVendorIds]);
+  const extraDefaultVendorCards = useMemo((): VendorRow[] => {
+    if (!platformDefaultVendor) return [];
+    if (preferredVendorCards.some((v) => v.id === platformDefaultVendor.id)) return [];
+    return [platformDefaultVendor];
+  }, [platformDefaultVendor, preferredVendorCards]);
 
   const vendorStatsIds = useMemo(() => {
     const s = new Set<string>();
     for (const v of preferredVendorCards) s.add(v.id);
     for (const v of preferredInAreaVendors) s.add(v.id);
+    if (platformDefaultVendor) s.add(platformDefaultVendor.id);
     return [...s].sort();
-  }, [preferredVendorCards, preferredInAreaVendors]);
+  }, [preferredVendorCards, preferredInAreaVendors, platformDefaultVendor]);
 
   const preferredCoverageHint = useMemo(() => {
     const count = preferredInAreaVendors.length;
@@ -1674,13 +1726,56 @@ export default function BookVisitModal() {
                   keyboardShouldPersistTaps="always"
                   contentContainerStyle={styles.vendorScrollContent}
                 >
-                  {preferredVendorCards.length === 0 ? (
+                  {preferredVendorCards.length === 0 && !platformDefaultVendor ? (
                     <EmptyStateCard
                       title="No preferred partners yet"
                       description="After you complete a visit, you can save partners under Profile → Preferred partners, or ask OorjaMan to assign a partner below for this booking."
                     />
                   ) : (
-                    preferredVendorCards.map((v) => {
+                    <>
+                    {preferredVendorCards.map((v) => {
+                      const selected = vendorPick.mode === "preferred" && vendorPick.vendorId === v.id;
+                      const inArea = vendorCoversCustomerSignals(v, locationSignals);
+                      const stats = vendorStatsById.get(v.id);
+                      const isPlatformDefault = platformDefaultVendor?.id === v.id;
+                      return (
+                        <Pressable
+                          key={v.id}
+                          accessibilityRole="radio"
+                          accessibilityState={{ checked: selected }}
+                          onPress={() => setVendorPick({ mode: "preferred", vendorId: v.id })}
+                          style={[styles.vendorOptionCard, selected && styles.vendorOptionCardSelected]}
+                        >
+                          <View style={[styles.vendorRadio, selected && styles.vendorRadioOn]}>
+                            {selected ? <View style={styles.vendorRadioDot} /> : null}
+                          </View>
+                          <View style={styles.vendorOptionBody}>
+                            <View style={styles.vendorOptionTitleRow}>
+                              <Text style={styles.vendorName}>{vendorBookingLabel(v)}</Text>
+                              <Text style={styles.preferredBadgeTiny}>PREFERRED</Text>
+                              {isPlatformDefault ? (
+                                <Text style={styles.preferredBadgeTiny}>DEFAULT</Text>
+                              ) : null}
+                            </View>
+                            {!inArea ? (
+                              <Text style={styles.warnMuted}>
+                                May not cover your saved PIN - OorjaMan may assign another partner if needed.
+                              </Text>
+                            ) : null}
+                            {v.trade_name && v.business_name?.trim() && v.trade_name.trim() !== v.business_name.trim() ? (
+                              <Text style={styles.vendorTradeSmall}>{v.business_name}</Text>
+                            ) : null}
+                            <Text style={styles.vendorMetaSmall}>{vendorStatsCaption(stats)}</Text>
+                            {vendorDistanceById.has(v.id) ? (
+                              <Text style={styles.mutedSmall}>
+                                ~{vendorDistanceById.get(v.id)!.toFixed(1)} km from your saved site
+                              </Text>
+                            ) : null}
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                    {extraDefaultVendorCards.map((v) => {
                       const selected = vendorPick.mode === "preferred" && vendorPick.vendorId === v.id;
                       const inArea = vendorCoversCustomerSignals(v, locationSignals);
                       const stats = vendorStatsById.get(v.id);
@@ -1697,25 +1792,23 @@ export default function BookVisitModal() {
                           </View>
                           <View style={styles.vendorOptionBody}>
                             <View style={styles.vendorOptionTitleRow}>
-                              <Text style={styles.vendorName}>{v.business_name}</Text>
-                              <Text style={styles.preferredBadgeTiny}>PREFERRED</Text>
+                              <Text style={styles.vendorName}>{vendorBookingLabel(v)}</Text>
+                              <Text style={styles.preferredBadgeTiny}>DEFAULT</Text>
                             </View>
+                            <Text style={styles.mutedSmall}>
+                              OorjaMan default partner for this booking if you do not pick someone else.
+                            </Text>
                             {!inArea ? (
                               <Text style={styles.warnMuted}>
                                 May not cover your saved PIN - OorjaMan may assign another partner if needed.
                               </Text>
                             ) : null}
-                            {v.trade_name ? <Text style={styles.vendorTradeSmall}>{v.trade_name}</Text> : null}
                             <Text style={styles.vendorMetaSmall}>{vendorStatsCaption(stats)}</Text>
-                            {vendorDistanceById.has(v.id) ? (
-                              <Text style={styles.mutedSmall}>
-                                ~{vendorDistanceById.get(v.id)!.toFixed(1)} km from your saved site
-                              </Text>
-                            ) : null}
                           </View>
                         </Pressable>
                       );
-                    })
+                    })}
+                    </>
                   )}
                   <Pressable
                     accessibilityRole="radio"
@@ -1729,7 +1822,9 @@ export default function BookVisitModal() {
                     <View style={styles.vendorOptionBody}>
                       <Text style={styles.vendorName}>Assign a partner for me</Text>
                       <Text style={styles.mutedSmall}>
-                        OorjaMan operations will match you with a service partner for your saved location.
+                        {platformDefaultVendorName
+                          ? `OorjaMan will assign a partner for your saved location. The current default partner is ${platformDefaultVendorName}.`
+                          : "OorjaMan operations will match you with a service partner for your saved location."}
                       </Text>
                     </View>
                   </Pressable>
@@ -1740,8 +1835,9 @@ export default function BookVisitModal() {
               <View style={styles.slaNote}>
                 <Card variant="muted" padded>
                   <Text style={styles.slaNoteText}>
-                    OorjaMan operations will assign a service partner for your saved location. You will see the partner name in
-                    My bookings once assigned.
+                    {platformDefaultVendorName
+                      ? `OorjaMan will assign a service partner for your saved location. The default partner is ${platformDefaultVendorName}. You will see the confirmed name in My bookings once assigned.`
+                      : "OorjaMan operations will assign a service partner for your saved location. You will see the partner name in My bookings once assigned."}
                   </Text>
                 </Card>
               </View>
@@ -1794,9 +1890,16 @@ export default function BookVisitModal() {
               </Pressable>
             </View>
 
+            <View
+              style={styles.calGrid}
+              onLayout={(e) => {
+                const w = Math.round(e.nativeEvent.layout.width);
+                if (w > 0) setCalendarWidth((prev) => (prev === w ? prev : w));
+              }}
+            >
             <View style={styles.calWeekdayRow}>
               {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((w) => (
-                <Text key={w} style={styles.calWeekdayLabel}>
+                <Text key={w} style={calWeekdayStyle}>
                   {w}
                 </Text>
               ))}
@@ -1806,7 +1909,7 @@ export default function BookVisitModal() {
               <View key={`cal-r-${ri}`} style={styles.calWeekRow}>
                 {row.map((cell, ci) => {
                   if (!cell.dayKey) {
-                    return <View key={`cal-e-${ri}-${ci}`} style={styles.calDayCell} />;
+                    return <View key={`cal-e-${ri}-${ci}`} style={calCellStyle} />;
                   }
                   const dk = cell.dayKey;
                   const selectable = selectableDayKeySet.has(dk);
@@ -1822,7 +1925,7 @@ export default function BookVisitModal() {
                         setDayKey(dk);
                       }}
                       style={[
-                        styles.calDayCell,
+                        calCellStyle,
                         selected && styles.calDayCellSelected,
                         isToday && !selected && styles.calDayCellToday,
                         !selectable && styles.calDayCellDisabled,
@@ -1842,6 +1945,7 @@ export default function BookVisitModal() {
                 })}
               </View>
             ))}
+            </View>
 
             <Text style={styles.slotsSectionTitle}>Available slots</Text>
             <Text style={styles.slotsSectionHint}>
@@ -2044,10 +2148,14 @@ export default function BookVisitModal() {
                 <Text style={styles.summaryLine}>
                   <Text style={styles.summaryEm}>Partner: </Text>
                   {vendorPick.mode === "any"
-                    ? "OorjaMan will assign a partner"
+                    ? platformDefaultVendorName
+                      ? `${platformDefaultVendorName} (assigned by OorjaMan)`
+                      : "OorjaMan will assign a partner"
                     : routingPreview?.ok
                       ? routingPreview.resolvedName
-                      : (selectedVendor?.business_name ?? "-")}
+                      : selectedVendor
+                        ? vendorBookingLabel(selectedVendor)
+                        : "-"}
                 </Text>
                 <Text style={styles.summaryLine}>
                   <Text style={styles.summaryEm}>When: </Text>
@@ -2609,6 +2717,8 @@ const styles = StyleSheet.create({
   },
   scheduleScrollContent: {
     paddingBottom: spacing.xl,
+    alignSelf: "stretch",
+    width: "100%",
   },
   calNavRow: {
     flexDirection: "row",
@@ -2640,12 +2750,18 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.foreground,
   },
+  calGrid: {
+    alignSelf: "stretch",
+    width: "100%",
+    maxWidth: "100%",
+  },
   calWeekdayRow: {
     flexDirection: "row",
+    flexWrap: "nowrap",
+    width: "100%",
     marginBottom: spacing.xs,
   },
   calWeekdayLabel: {
-    flex: 1,
     textAlign: "center",
     fontFamily: fontFamily.medium,
     fontSize: fontSize.xs,
@@ -2655,15 +2771,13 @@ const styles = StyleSheet.create({
   },
   calWeekRow: {
     flexDirection: "row",
+    flexWrap: "nowrap",
+    width: "100%",
     marginBottom: 4,
   },
   calDayCell: {
-    flex: 1,
-    aspectRatio: 1,
-    maxHeight: 44,
     alignItems: "center",
     justifyContent: "center",
-    margin: 2,
     borderRadius: 10,
   },
   calDayCellSelected: {

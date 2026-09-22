@@ -1,9 +1,10 @@
-import { useCallback, useMemo, type ReactNode } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { Alert, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   bookingApi,
+  buildOsmEmbedTrackUrl,
   customerLocationSignalsFromServiceSiteAddress,
   formatInrFromCents,
   paymentApi,
@@ -35,7 +36,8 @@ import { fontFamily, fontSize } from "../../../constants/fonts";
 import { BookingSitePhotos } from "../../../components/booking-site-photos";
 import { ensureEnRouteLocationFix } from "../../../lib/location-permission";
 import { useForegroundLocationGranted } from "../../../lib/use-foreground-location-granted";
-import { openGoogleMapsForCoordinates } from "../../../lib/open-google-maps";
+import { JobDirectionsPreview } from "../../../components/job-directions-preview";
+import { openGoogleMapsDirections } from "../../../lib/open-google-maps";
 import { supabase } from "../../../lib/supabase";
 import { formatDisplayDateTimeRange } from "@oorjaman/utils";
 
@@ -124,6 +126,43 @@ export default function JobDetailScreen() {
     if (signals.lat == null || signals.lng == null) return null;
     return { lat: signals.lat, lng: signals.lng };
   }, [b]);
+  const siteAddressLine = useMemo(() => {
+    if (!b) return null;
+    const formatted = stringifyAddress(b.service_site_address).replace(/\n/g, ", ");
+    const line = formatted.replace(/\s+/g, " ").trim();
+    return !line || line === "-" ? null : line;
+  }, [b]);
+
+  const [tripOrigin, setTripOrigin] = useState<{ lat: number; lng: number } | null>(null);
+  const lastLocQuery = useQuery({
+    queryKey: queryKeys.bookings.technicianLastLocation(bookingId ?? ""),
+    queryFn: () => bookingApi.getLastTechnicianLocationForBooking(supabase!, bookingId!),
+    enabled: Boolean(supabase && bookingId && b?.technician_en_route_at),
+    refetchInterval: b?.status === "accepted" && b.technician_en_route_at ? 15_000 : false,
+  });
+  const originCoords = useMemo(() => {
+    if (tripOrigin) return tripOrigin;
+    const loc = lastLocQuery.data;
+    if (!loc || !Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return null;
+    return { lat: loc.lat, lng: loc.lng };
+  }, [lastLocQuery.data, tripOrigin]);
+  const directionsEmbedUrl = useMemo(
+    () => (b?.technician_en_route_at ? buildOsmEmbedTrackUrl(siteCoords, originCoords) : null),
+    [b?.technician_en_route_at, originCoords, siteCoords],
+  );
+  const canNavigate = Boolean(siteCoords || siteAddressLine);
+
+  const openSiteDirections = useCallback(
+    (origin?: { lat: number; lng: number } | null, silent = false) => {
+      void openGoogleMapsDirections({
+        origin: origin ?? originCoords,
+        destination: siteCoords,
+        destinationQuery: siteAddressLine,
+        silent,
+      });
+    },
+    [originCoords, siteAddressLine, siteCoords],
+  );
 
   const paymentsQuery = useQuery({
     queryKey: queryKeys.payments.forBooking(bookingId ?? ""),
@@ -144,16 +183,15 @@ export default function JobDetailScreen() {
       });
       return row;
     },
-    onSuccess: () => {
+    onSuccess: (_row, fix) => {
+      setTripOrigin({ lat: fix.lat, lng: fix.lng });
       void qc.invalidateQueries({ queryKey: queryKeys.bookings.detail(bookingId!) });
       void qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
       void qc.invalidateQueries({ queryKey: queryKeys.bookings.technicianGpsTrackable() });
-      Alert.alert(
-        "En route",
-        siteCoords
-          ? "The customer can track your trip. Open Google Maps below to navigate to their saved site location."
-          : "The customer can now see your live location in their app.",
-      );
+      void qc.invalidateQueries({ queryKey: queryKeys.bookings.technicianLastLocation(bookingId!) });
+      if (Platform.OS !== "web") {
+        openSiteDirections(fix, true);
+      }
     },
     onError: (err: Error) => Alert.alert("Could not update", err.message),
   });
@@ -179,7 +217,7 @@ export default function JobDetailScreen() {
   const statusNote = useMemo(() => {
     if (!b) return undefined;
     if (b.status === "accepted" && b.technician_en_route_at) {
-      return "You are en route - the customer can track your location.";
+      return "You are en route — follow the map below to the customer site.";
     }
     if (b.status === "accepted") return "You are assigned - mark en route when you leave for the site.";
     if (b.status === "in_progress") return "Job marked in progress.";
@@ -288,20 +326,40 @@ export default function JobDetailScreen() {
           <DetailSection title="Site">
             <Text style={styles.body}>{stringifyAddress(b.service_site_address)}</Text>
             <Text style={styles.meta}>Service: {b.service_type.replace(/_/g, " ")}</Text>
-            {siteCoords ? (
+            {canNavigate ? (
               <Button
                 size="sm"
                 variant="outline"
                 style={styles.mapsBtn}
-                onPress={() => void openGoogleMapsForCoordinates(siteCoords.lat, siteCoords.lng)}
+                onPress={() => openSiteDirections()}
               >
-                Open in Google Maps
+                Directions in Google Maps
               </Button>
             ) : (
               <Text style={styles.meta}>GPS pin not saved for this site — use the address above.</Text>
             )}
             <BookingSitePhotos booking={b} />
           </DetailSection>
+          {b.status === "accepted" && b.technician_en_route_at ? (
+            <DetailSection title="Directions">
+              <View style={styles.directionsBlock}>
+                {directionsEmbedUrl ? (
+                  <JobDirectionsPreview embedUrl={directionsEmbedUrl} />
+                ) : (
+                  <Text style={styles.bodyMuted}>
+                    {siteAddressLine
+                      ? "Site GPS is not saved. Open Google Maps with the customer address."
+                      : "This site has no saved map pin or address."}
+                  </Text>
+                )}
+                {canNavigate ? (
+                  <Button size="lg" variant="outline" onPress={() => openSiteDirections()}>
+                    Navigate in Google Maps
+                  </Button>
+                ) : null}
+              </View>
+            </DetailSection>
+          ) : null}
           <DetailSection title="Service for">
             <Text style={styles.body}>{rec?.headline ?? "Customer"}</Text>
             {rec?.detail ? (
@@ -365,19 +423,19 @@ export default function JobDetailScreen() {
                       Location must be on before you can mark en route. Use the location prompt on the home
                       screen or enable it in Settings.
                     </Text>
-                  ) : null}
+                  ) : (
+                    <Text style={styles.locationHint}>
+                      Mark en route first so the customer can track your trip. Start visit unlocks after that.
+                    </Text>
+                  )}
                 </>
               ) : null}
-              {b.status === "accepted" && b.technician_en_route_at && siteCoords ? (
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onPress={() => void openGoogleMapsForCoordinates(siteCoords.lat, siteCoords.lng)}
-                >
-                  Open in Google Maps
-                </Button>
-              ) : null}
-              <Button size="lg" variant="primary" onPress={() => router.push(`/(main)/jobs/execute/${b.id}`)}>
+              <Button
+                size="lg"
+                variant="primary"
+                disabled={b.status === "accepted" && !b.technician_en_route_at}
+                onPress={() => router.push(`/(main)/jobs/execute/${b.id}`)}
+              >
                 {b.status === "in_progress" ? "Continue visit" : "Start visit on site"}
               </Button>
             </View>
@@ -502,6 +560,9 @@ const styles = StyleSheet.create({
   mapsBtn: {
     marginTop: spacing.sm,
     alignSelf: "flex-start",
+  },
+  directionsBlock: {
+    gap: spacing.sm,
   },
   locationHint: {
     fontFamily: fontFamily.regular,

@@ -2,6 +2,8 @@ import * as Device from "expo-device";
 import * as ImagePicker from "expo-image-picker";
 import { Alert, Linking, Platform } from "react-native";
 
+export type JobEvidenceCameraFacing = "front" | "back";
+
 /** iOS returns HEIC by default; Storage buckets allow JPEG/PNG/WebP only. */
 const IOS_JPEG_PICK_OPTIONS: Pick<
   ImagePicker.ImagePickerOptions,
@@ -33,7 +35,7 @@ async function pickFromLibrary(): Promise<string | null> {
   return picked.canceled ? null : (picked.assets[0]?.uri ?? null);
 }
 
-async function pickFromCamera(cameraType?: ImagePicker.CameraType): Promise<string | null> {
+async function pickFromCamera(): Promise<string | null> {
   const camPerm = await ImagePicker.requestCameraPermissionsAsync();
   if (!camPerm.granted) {
     Alert.alert(
@@ -50,24 +52,10 @@ async function pickFromCamera(cameraType?: ImagePicker.CameraType): Promise<stri
     const shot = await ImagePicker.launchCameraAsync({
       mediaTypes: ["images"],
       quality: 0.85,
-      cameraType,
       ...IOS_JPEG_PICK_OPTIONS,
     });
     return shot.canceled ? null : (shot.assets[0]?.uri ?? null);
   } catch (e: unknown) {
-    if (cameraType === ImagePicker.CameraType.front) {
-      try {
-        const shot = await ImagePicker.launchCameraAsync({
-          mediaTypes: ["images"],
-          quality: 0.85,
-          cameraType: ImagePicker.CameraType.back,
-          ...IOS_JPEG_PICK_OPTIONS,
-        });
-        return shot.canceled ? null : (shot.assets[0]?.uri ?? null);
-      } catch {
-        /* fall through to library / alert */
-      }
-    }
     if (isCameraUnavailableError(e)) {
       Alert.alert(
         "Camera unavailable",
@@ -82,10 +70,12 @@ async function pickFromCamera(cameraType?: ImagePicker.CameraType): Promise<stri
 
 /**
  * Picks a job evidence image. On the iOS/Android simulator (no camera), uses the photo library automatically.
+ * `cameraType` is used on web (front selfie). Native expo-image-picker 57 no longer exposes CameraType —
+ * the system camera UI lets the technician flip to the front camera.
  */
 export async function pickJobEvidenceImageUri(options?: {
   source?: "camera" | "library";
-  cameraType?: ImagePicker.CameraType;
+  cameraType?: JobEvidenceCameraFacing;
 }): Promise<string | null> {
   const source = options?.source ?? "camera";
 
@@ -93,11 +83,11 @@ export async function pickJobEvidenceImageUri(options?: {
     if (!Device.isDevice && source === "camera") {
       Alert.alert(
         "Simulator demo",
-        "The simulator has no camera. Pick a photo from the library to continue the demo.",
+        "The simulator has no camera. Pick a photo from your library to continue the demo.",
       );
     }
     return pickFromLibrary();
   }
 
-  return pickFromCamera(options?.cameraType);
+  return pickFromCamera();
 }

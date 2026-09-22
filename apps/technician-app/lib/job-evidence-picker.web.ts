@@ -6,9 +6,11 @@
  * Call from a click/tap handler without awaiting dialogs first so user activation is preserved.
  */
 
+export type JobEvidenceCameraFacing = "front" | "back";
+
 export async function pickJobEvidenceImageUri(options?: {
   source?: "camera" | "library";
-  cameraType?: unknown;
+  cameraType?: JobEvidenceCameraFacing;
 }): Promise<string | null> {
   if (typeof document === "undefined") {
     throw new Error("Photo capture requires a browser.");
