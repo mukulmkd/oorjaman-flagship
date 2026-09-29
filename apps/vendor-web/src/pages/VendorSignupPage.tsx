@@ -554,7 +554,7 @@ export default function VendorSignupPage() {
       <div className="vs-inner">
         <h1 className="vs-title">Partner registration</h1>
         <p className="vs-lede">
-          Register your organisation for the Oorjaman partner network. No account is created until an administrator
+          Register your organisation for the OorjaMan partner network. No account is created until an administrator
           approves your application - then use partner sign-in with the email and phone you provide below.
         </p>
 

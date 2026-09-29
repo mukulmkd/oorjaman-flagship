@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import type { PressableProps } from "react-native";
+import type { PressableProps, StyleProp, ViewStyle } from "react-native";
 import { colors, spacing } from "@oorjaman/config";
 import {
   getAnimatedPressable,
@@ -16,6 +16,7 @@ type Base = {
   children: ReactNode;
   padded?: boolean;
   variant?: Variant;
+  style?: StyleProp<ViewStyle>;
 };
 
 export type CardProps = Base & {
@@ -27,6 +28,7 @@ export function Card({
   children,
   padded = true,
   variant = "elevated",
+  style,
   onPress,
   accessibilityLabel,
 }: CardProps) {
@@ -42,6 +44,7 @@ export function Card({
         children={children}
         padded={padded}
         variant={variant}
+        style={style}
         onPress={onPress}
         accessibilityLabel={accessibilityLabel}
       />
@@ -53,6 +56,7 @@ export function Card({
       children={children}
       padded={padded}
       variant={variant}
+      style={style}
       onPress={onPress}
       accessibilityLabel={accessibilityLabel}
     />
@@ -63,6 +67,7 @@ function FallbackCard({
   children,
   padded = true,
   variant = "elevated",
+  style,
   onPress,
   accessibilityLabel,
 }: CardProps) {
@@ -72,6 +77,7 @@ function FallbackCard({
     variant === "elevated" && styles.elevated,
     variant === "outline" && styles.outline,
     variant === "muted" && styles.muted,
+    style,
   ];
 
   if (onPress != null) {
@@ -94,6 +100,7 @@ function AnimatedCard({
   children,
   padded = true,
   variant = "elevated",
+  style,
   onPress,
   accessibilityLabel,
 }: CardProps) {
@@ -107,6 +114,7 @@ function AnimatedCard({
     variant === "elevated" && styles.elevated,
     variant === "outline" && styles.outline,
     variant === "muted" && styles.muted,
+    style,
   ];
   const pressedScale = useSharedValueSafe!(1);
   const animatedStyle = useAnimatedStyleSafe!(() => ({

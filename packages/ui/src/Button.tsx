@@ -1,13 +1,14 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
+  View,
   type GestureResponderEvent,
   type PressableProps,
 } from "react-native";
 import { colors, fontFamily, fontSize, lineHeight, spacing } from "@oorjaman/config";
+import { LoadingSpinner } from "./LoadingSpinner";
 import {
   getAnimatedPressable,
   getHasReanimated,
@@ -25,6 +26,25 @@ type Props = PressableProps & {
   size?: Size;
   loading?: boolean;
 };
+
+function useSinglePress(onPress: Props["onPress"], blocked: boolean) {
+  const lockRef = useRef(false);
+  const blockedRef = useRef(blocked);
+  blockedRef.current = blocked;
+
+  useEffect(() => {
+    if (!blocked) lockRef.current = false;
+  }, [blocked]);
+
+  return (event: GestureResponderEvent) => {
+    if (blockedRef.current || lockRef.current) return;
+    lockRef.current = true;
+    onPress?.(event);
+    requestAnimationFrame(() => {
+      if (!blockedRef.current) lockRef.current = false;
+    });
+  };
+}
 
 export function Button({
   children,
@@ -72,57 +92,35 @@ function FallbackButton({
   loading,
   disabled,
   style,
+  onPress,
   ...rest
 }: Props) {
   const isDisabled = Boolean(disabled || loading);
   const normalizedVariant: Variant = variant === "danger" ? "destructive" : variant;
+  const handlePress = useSinglePress(onPress, isDisabled);
 
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ disabled: isDisabled, busy: Boolean(loading) }}
       disabled={isDisabled}
+      onPress={handlePress}
       style={(state) => [
         styles.base,
         sizeStyles[size],
         variantStyles[normalizedVariant],
         state.pressed && !isDisabled && styles.pressed,
-        isDisabled && styles.disabled,
         typeof style === "function" ? style(state) : style,
       ]}
       {...rest}
     >
-      {loading ? (
-        <ActivityIndicator
-          color={
-            normalizedVariant === "destructive"
-              ? colors.destructiveForeground
-              : normalizedVariant === "primary"
-                ? colors.primaryForeground
-                : colors.primary
-          }
-        />
-      ) : typeof children === "string" || typeof children === "number" ? (
-        <Text
-          style={[
-            styles.label,
-            labelSizes[size],
-            normalizedVariant === "primary"
-              ? styles.labelOnAccent
-              : normalizedVariant === "destructive"
-                ? styles.labelOnDestructive
-                : normalizedVariant === "outline" || normalizedVariant === "secondary"
-                ? styles.labelOutline
-                : styles.labelGhost,
-          ]}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.85}
-        >
-          {children}
-        </Text>
-      ) : (
-        children
-      )}
+      <ButtonContent
+        loading={Boolean(loading)}
+        size={size}
+        variant={normalizedVariant}
+      >
+        {children}
+      </ButtonContent>
     </Pressable>
   );
 }
@@ -135,6 +133,7 @@ function AnimatedButton({
   disabled,
   onPressIn,
   onPressOut,
+  onPress,
   style,
   ...rest
 }: Props) {
@@ -144,15 +143,22 @@ function AnimatedButton({
   const withTimingSafe = getWithTiming();
   const isDisabled = Boolean(disabled || loading);
   const normalizedVariant: Variant = variant === "danger" ? "destructive" : variant;
+  const handlePress = useSinglePress(onPress, isDisabled);
   const pressedOpacity = useSharedValueSafe!(1);
   const animatedStyle = useAnimatedStyleSafe!(() => ({
     opacity: pressedOpacity.value,
   }));
 
+  useEffect(() => {
+    if (loading) pressedOpacity.value = 1;
+  }, [loading, pressedOpacity]);
+
   return (
     <AnimatedPressableImpl
       accessibilityRole="button"
+      accessibilityState={{ disabled: isDisabled, busy: Boolean(loading) }}
       disabled={isDisabled}
+      onPress={handlePress}
       onPressIn={(event: GestureResponderEvent) => {
         pressedOpacity.value = withTimingSafe!(0.88, { duration: 90 });
         onPressIn?.(event);
@@ -166,43 +172,13 @@ function AnimatedButton({
         styles.base,
         sizeStyles[size],
         variantStyles[normalizedVariant],
-        isDisabled && styles.disabled,
         style,
       ]}
       {...rest}
     >
-      {loading ? (
-        <ActivityIndicator
-          color={
-            normalizedVariant === "destructive"
-              ? colors.destructiveForeground
-              : normalizedVariant === "primary"
-                ? colors.primaryForeground
-                : colors.primary
-          }
-        />
-      ) : typeof children === "string" || typeof children === "number" ? (
-        <Text
-          style={[
-            styles.label,
-            labelSizes[size],
-            normalizedVariant === "primary"
-              ? styles.labelOnAccent
-              : normalizedVariant === "destructive"
-                ? styles.labelOnDestructive
-                : normalizedVariant === "outline" || normalizedVariant === "secondary"
-                ? styles.labelOutline
-                : styles.labelGhost,
-          ]}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.85}
-        >
-          {children}
-        </Text>
-      ) : (
-        children
-      )}
+      <ButtonContent loading={Boolean(loading)} size={size} variant={normalizedVariant}>
+        {children}
+      </ButtonContent>
     </AnimatedPressableImpl>
   );
 }
@@ -269,6 +245,57 @@ const labelSizes = StyleSheet.create({
   },
 });
 
+function ButtonContent({
+  loading,
+  size,
+  variant,
+  children,
+}: {
+  loading: boolean;
+  size: Size;
+  variant: Variant;
+  children: ReactNode;
+}) {
+  const label =
+    typeof children === "string" || typeof children === "number" ? (
+      <Text
+        style={[
+          styles.label,
+          labelSizes[size],
+          variant === "primary"
+            ? styles.labelOnAccent
+            : variant === "destructive"
+              ? styles.labelOnDestructive
+              : variant === "outline" || variant === "secondary"
+                ? styles.labelOutline
+                : styles.labelGhost,
+        ]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+      >
+        {children}
+      </Text>
+    ) : (
+      children
+    );
+
+  if (!loading) return label;
+
+  return (
+    <View style={styles.loadingStack}>
+      {label}
+      <LoadingSpinner color={spinnerColor(variant)} width={size === "sm" ? 56 : 72} />
+    </View>
+  );
+}
+
+function spinnerColor(variant: Variant): string {
+  if (variant === "destructive") return colors.destructiveForeground;
+  if (variant === "primary") return colors.primaryForeground;
+  return colors.primary;
+}
+
 const styles = StyleSheet.create({
   base: {
     alignItems: "center",
@@ -276,8 +303,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     maxWidth: "100%",
   },
-  disabled: {
-    opacity: 0.45,
+  loadingStack: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+    maxWidth: "100%",
   },
   pressed: {
     opacity: 0.88,

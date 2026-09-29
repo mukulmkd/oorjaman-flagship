@@ -1,5 +1,5 @@
 import * as Location from "expo-location";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -104,15 +104,20 @@ function Field({
   multiline,
   keyboardType,
   autoCapitalize,
+  autoCorrect,
+  onEndEditing,
 }: {
   label: string;
   value: string;
   onChangeText?: (t: string) => void;
+  onEndEditing?: (t: string) => void;
   placeholder?: string;
   multiline?: boolean;
   keyboardType?: "default" | "email-address" | "number-pad" | "decimal-pad";
   autoCapitalize?: "none" | "sentences";
+  autoCorrect?: boolean;
 }) {
+  const numeric = keyboardType === "number-pad" || keyboardType === "decimal-pad";
   return (
     <View style={styles.fieldWrap}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -121,9 +126,13 @@ function Field({
         placeholder={placeholder}
         placeholderTextColor={colors.mutedForeground}
         onChangeText={onChangeText}
+        onEndEditing={onEndEditing ? (e) => onEndEditing(e.nativeEvent.text) : undefined}
         multiline={multiline}
         keyboardType={keyboardType ?? "default"}
-        autoCapitalize={autoCapitalize ?? "sentences"}
+        autoCapitalize={autoCapitalize ?? (numeric ? "none" : "sentences")}
+        autoCorrect={autoCorrect ?? (numeric ? false : undefined)}
+        autoComplete={numeric ? "off" : undefined}
+        importantForAutofill={numeric ? "no" : "auto"}
         style={[styles.simpleInput, multiline && styles.simpleInputMultiline]}
         {...(Platform.OS === "android"
           ? {
@@ -150,6 +159,8 @@ export default function ProfileTab() {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const [hydrated, setHydrated] = useState(false);
+  const pinValueRef = useRef("");
+  const pinDirtyRef = useRef(false);
   const [displayName, setDisplayName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [alternatePhone, setAlternatePhone] = useState("");
@@ -280,7 +291,12 @@ export default function ProfileTab() {
     setDisplayName(f.display_name);
     setContactEmail(f.contact_email);
     setAlternatePhone(f.alternate_phone);
-    setAddr(f.addr);
+    if (!pinDirtyRef.current) {
+      pinValueRef.current = f.addr.pincode;
+      setAddr(f.addr);
+    } else {
+      setAddr((current) => ({ ...f.addr, pincode: current.pincode }));
+    }
     setCapacity(f.capacity);
     setPanels(f.panels);
     setInstallationCategory(f.installationCategory || "");
@@ -322,6 +338,9 @@ export default function ProfileTab() {
     if (!water) throw new Error("Select water availability.");
     if (!addr.label.trim()) throw new Error("Enter a short site label (e.g. Home, Office plant).");
     if (!addr.line1.trim()) throw new Error("Enter address line 1.");
+    const pincode = pinValueRef.current.replace(/\D/g, "").slice(0, 6);
+    if (pincode.length !== 6) throw new Error("Enter a 6-digit PIN code.");
+    const siteAddress = addrToJson({ ...addr, pincode });
     if (alternatePhone.replace(/\D/g, "").length < 10) {
       throw new Error("Enter a 10-digit mobile number so crews can reach you.");
     }
@@ -341,8 +360,8 @@ export default function ProfileTab() {
       display_name: displayName.trim(),
       contact_email: contactEmail.trim() || null,
       alternate_phone: alternatePhone.trim() || null,
-      billing_address: addrToJson(addr),
-      service_default_address: addrToJson(addr),
+      billing_address: siteAddress,
+      service_default_address: siteAddress,
       service_lat: lat,
       service_lng: lng,
       location_accuracy_m: accuracyM,
@@ -390,8 +409,14 @@ export default function ProfileTab() {
       return customerApi.updateCustomerProfileAfterOnboarding(supabase, payload);
     },
     onSuccess: async (result) => {
+      pinDirtyRef.current = false;
+      qc.setQueryData(queryKeys.customers.mine(), result.customer);
+      const saved = customerRowToProfileForm(result.customer);
+      pinValueRef.current = saved.addr.pincode;
+      setAddr(saved.addr);
       await qc.invalidateQueries({ queryKey: queryKeys.customers.mine() });
       await qc.invalidateQueries({ queryKey: queryKeys.subscriptions.all() });
+      qc.setQueryData(queryKeys.customers.mine(), result.customer);
       const realign = result.amc_realignments;
       if (realign.length > 0) {
         Alert.alert(
@@ -708,10 +733,14 @@ export default function ProfileTab() {
                 </Text>
               </Pressable>
             ) : null}
-            {selectedAddress ? (
+            {addr.line1.trim() || selectedAddress ? (
               <View style={styles.addressBookCard}>
-                <Text style={styles.addressBookLabel}>Current booking address ({selectedAddress.label})</Text>
-                <Text style={styles.addressBookValue}>{serviceAddressFormatted(selectedAddress.address)}</Text>
+                <Text style={styles.addressBookLabel}>
+                  Current booking address ({addr.label.trim() || selectedAddress?.label || "Site"})
+                </Text>
+                <Text style={styles.addressBookValue}>
+                  {serviceAddressFormatted(addr.line1.trim() ? addrToJson(addr) : selectedAddress?.address)}
+                </Text>
               </View>
             ) : null}
             <View style={styles.addressManageBtn}>
@@ -753,8 +782,23 @@ export default function ProfileTab() {
             <Field
               label="PIN code *"
               value={addr.pincode}
-              onChangeText={(t) => setAddr((a) => ({ ...a, pincode: t.replace(/\D/g, "").slice(0, 6) }))}
               keyboardType="number-pad"
+              autoCapitalize="none"
+              autoCorrect={false}
+              onChangeText={(t) => {
+                const next = t.replace(/\D/g, "").slice(0, 6);
+                pinDirtyRef.current = true;
+                pinValueRef.current = next;
+                setAddr((a) => ({ ...a, pincode: next }));
+              }}
+              onEndEditing={(t) => {
+                const next = t.replace(/\D/g, "").slice(0, 6);
+                pinValueRef.current = next;
+                setAddr((a) => {
+                  if (a.pincode !== next) pinDirtyRef.current = true;
+                  return a.pincode === next ? a : { ...a, pincode: next };
+                });
+              }}
             />
           </View>
 
@@ -1026,7 +1070,10 @@ export default function ProfileTab() {
           const selected = defaultId ? entries.find((e) => e.id === defaultId) ?? null : entries[0] ?? null;
           if (selected) {
             const parsed = parseAddr(selected.address);
-            setAddr({ ...parsed, label: selected.label.trim() || parsed.label });
+            const nextAddr = { ...parsed, label: selected.label.trim() || parsed.label };
+            pinDirtyRef.current = false;
+            pinValueRef.current = nextAddr.pincode;
+            setAddr(nextAddr);
             const gps = extras ?? extrasFromAddressEntry(selected);
             if (gps?.service_lat != null && gps?.service_lng != null) {
               setLat(gps.service_lat);

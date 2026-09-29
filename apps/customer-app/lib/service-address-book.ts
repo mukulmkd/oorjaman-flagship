@@ -103,22 +103,39 @@ export function labelFromSavedServiceAddress(address: Json | null | undefined): 
 export function serviceAddressFormatted(address: Json | null | undefined): string {
   if (!address || typeof address !== "object" || Array.isArray(address)) return "";
   const o = address as Record<string, unknown>;
-  const formatted = typeof o.formatted === "string" ? o.formatted.trim() : "";
-  if (formatted) return formatted;
   const line1 = typeof o.line1 === "string" ? o.line1.trim() : "";
   const line2 = typeof o.line2 === "string" ? o.line2.trim() : "";
   const city = typeof o.city === "string" ? o.city.trim() : "";
   const state = typeof o.state === "string" ? o.state.trim() : "";
-  const pincode = typeof o.pincode === "string" ? o.pincode.trim() : "";
-  return [line1, line2, [city, state].filter(Boolean).join(", "), pincode].filter(Boolean).join(", ");
+  const pincode =
+    typeof o.pincode === "string"
+      ? o.pincode.trim()
+      : typeof o.pincode === "number" && Number.isFinite(o.pincode)
+        ? String(o.pincode)
+        : "";
+  const fromParts = [line1, line2, [city, state].filter(Boolean).join(", "), pincode].filter(Boolean).join(", ");
+  const formatted = typeof o.formatted === "string" ? o.formatted.trim() : "";
+  // A stored formatted line can keep a previous PIN after the pincode field changes.
+  if (formatted && (!pincode || formatted.includes(pincode))) return formatted;
+  return fromParts || formatted;
 }
 
+const SERVICE_ADDRESS_FIELDS = [
+  "line1",
+  "line2",
+  "city",
+  "district",
+  "state",
+  "pincode",
+  "country",
+  "formatted",
+] as const;
+
 /**
- * Profile edits update `customers.service_default_address` only; the address book lives in
- * `metadata.service_addresses`. Overlay the canonical label from `service_default_address` onto the
- * default book entry so pickers and headers stay in sync until the book is saved again.
+ * Profile saves `service_default_address`. Overlay that address, including PIN, onto the default
+ * book entry so headers and the profile card match the saved site.
  */
-function syncDefaultEntryLabelFromServiceDefaultAddress(
+function syncDefaultEntryFromServiceDefaultAddress(
   customer: CustomerRow,
   entries: ServiceAddressEntry[],
   defaultId: string | null,
@@ -126,19 +143,29 @@ function syncDefaultEntryLabelFromServiceDefaultAddress(
   if (!defaultId || entries.length === 0) return entries;
   const sdp = customer.service_default_address;
   if (!sdp || typeof sdp !== "object" || Array.isArray(sdp)) return entries;
-  const raw = (sdp as Record<string, unknown>).label;
-  if (typeof raw !== "string" || !raw.trim()) return entries;
-  const siteLabel = raw.trim();
+  const sd = sdp as Record<string, unknown>;
+  const siteLabel = typeof sd.label === "string" && sd.label.trim() ? sd.label.trim() : null;
+  const addressPatch: Record<string, unknown> = {};
+  for (const key of SERVICE_ADDRESS_FIELDS) {
+    if (key in sd) addressPatch[key] = sd[key];
+  }
+  if (siteLabel) addressPatch.label = siteLabel;
+  if (Object.keys(addressPatch).length === 0 && !siteLabel) return entries;
+
   return entries.map((e) => {
     if (e.id !== defaultId) return e;
     if (e.address && typeof e.address === "object" && !Array.isArray(e.address)) {
       return {
         ...e,
-        label: siteLabel,
-        address: { ...(e.address as Record<string, unknown>), label: siteLabel } as Json,
+        ...(siteLabel ? { label: siteLabel } : {}),
+        address: { ...(e.address as Record<string, unknown>), ...addressPatch } as Json,
       };
     }
-    return { ...e, label: siteLabel };
+    return {
+      ...e,
+      ...(siteLabel ? { label: siteLabel } : {}),
+      address: addressPatch as Json,
+    };
   });
 }
 
@@ -215,7 +242,7 @@ export function readServiceAddressBook(customer: CustomerRow | null): {
   }
   const defaultIdRaw = typeof m.default_service_address_id === "string" ? m.default_service_address_id : null;
   const defaultId = defaultIdRaw && entries.some((e) => e.id === defaultIdRaw) ? defaultIdRaw : entries[0]?.id ?? null;
-  const synced = syncDefaultEntryLabelFromServiceDefaultAddress(customer, entries, defaultId);
+  const synced = syncDefaultEntryFromServiceDefaultAddress(customer, entries, defaultId);
   return { entries: synced, defaultId };
 }
 

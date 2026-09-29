@@ -1,0 +1,93 @@
+---
+description: OorjaMan semantic versioning, EAS build numbers, and OTA runtime rules
+alwaysApply: true
+---
+
+# OorjaMan Release Versioning
+
+## Applies to
+
+- `apps/customer-app` (OorjaMan)
+- `apps/technician-app` (OorjaMan Partner)
+- Android and iOS via Expo / EAS
+
+## Source of truth (this monorepo)
+
+| Field | Where it lives | Who bumps it |
+|-------|----------------|--------------|
+| User-facing version (`1.0.0`) | `version` in `apps/<app>/app.config.ts` | Human / agent — intentionally |
+| Android `versionCode` | **EAS remote** (`eas.json` → `cli.appVersionSource: "remote"`) | EAS on each **production** build (`autoIncrement: true`) |
+| iOS `buildNumber` | **EAS remote** (same) | EAS on each **production** build (`autoIncrement: true`) |
+| OTA `runtimeVersion` | Derived from `version` (`runtimeVersion.policy: "appVersion"`) | Follows `version` at **native build** time |
+
+Do **not** hardcode `android.versionCode` or `ios.buildNumber` in `app.config.ts` unless EAS remote strategy is deliberately changed.
+
+Config files to inspect: `apps/<app>/app.config.ts`, `apps/<app>/eas.json` (not `app.json` / `app.config.js` — those are not the primary sources here).
+
+---
+
+## 1. Semantic version (`MAJOR.MINOR.PATCH`)
+
+User-facing store version. Examples: `1.0.0`, `1.0.1`, `1.1.0`, `2.0.0`.
+
+### PATCH — `1.0.0` → `1.0.1`
+
+Bug fixes, crashes, UI polish, performance, small non-breaking security fixes.
+
+### MINOR — `1.0.1` → `1.1.0`
+
+New backward-compatible features, screens, workflows, significant enhancements. Reset PATCH to `0`.
+
+### MAJOR — `1.x.x` → `2.0.0`
+
+Breaking product/API/compatibility changes. Reset MINOR and PATCH to `0`.
+
+If the bump type is unclear, **ask before changing `version`**.
+
+Customer and Partner versions are **independent** — bump only the app being released.
+
+---
+
+## 2. Android `versionCode` / iOS `buildNumber`
+
+- Must **increase** for every new binary uploaded to Play / App Store.
+- With current EAS setup, **do not manually invent** these in config for production builds.
+- Before a production build, check remote values:
+  - `cd apps/<app> && npx eas-cli build:version:get --platform android`
+  - `cd apps/<app> && npx eas-cli build:version:get --platform ios`
+- Production profile already auto-increments on build. Do not also hand-edit remote numbers unless recovering from a conflict.
+
+UAT / internal profiles may use different package IDs (`.uat`) and their own counters — never mix UAT and production version streams.
+
+---
+
+## 3. OTA (EAS Update) vs store version
+
+Both apps use `expo-updates` with:
+
+- `channel`: `production` (production profile) or `uat` (uat profile)
+- `runtimeVersion.policy`: `"appVersion"` → runtime equals the `version` string baked into that **native** build
+
+| Change type | Bump `version` in `app.config.ts`? | Ship how |
+|-------------|--------------------------------------|----------|
+| JS/TS/UI-only hotfix for users already on `1.0.0` | **No** | `eas update --channel production` (same runtime) |
+| Store release (new binary) with user-visible version bump | **Yes** (semver) | EAS production build + store submit |
+| Native change (new native module, permission, plugin, SDK bump, Maps key in native config) | Usually **Yes** (at least PATCH) | **New native build** — OTA cannot ship this |
+
+Never bump `version` only to “force” OTA — that orphans updates for older binaries still on the previous runtime.
+
+---
+
+## 4. Forbidden
+
+- Skipping `versionCode` / `buildNumber` increases for a new store binary
+- Reusing an already-shipped Play `versionCode` or App Store `buildNumber`
+- Shipping production with UAT env / `.uat` package or bundle ID
+- Treating OTA as a substitute for a required native rebuild
+- Syncing Customer and Partner to the same version number “for neatness” unless explicitly requested
+
+## 5. After changing `version`
+
+1. Commit the `app.config.ts` change with the release.
+2. Run production EAS build(s) so the new runtime is baked in.
+3. Publish OTA only for the runtime(s) that should receive it (existing channel + matching runtime).

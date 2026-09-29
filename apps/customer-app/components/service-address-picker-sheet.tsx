@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
@@ -17,7 +16,7 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { colors, spacing } from "@oorjaman/config";
-import { Button, Card, Input, KEYBOARD_AVOIDING_BEHAVIOR, ModalSheetHeader } from "@oorjaman/ui";
+import { Button, Card, Input, KEYBOARD_AVOIDING_BEHAVIOR, LoadingSpinner, ModalSheetHeader } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { fillAddressFromCurrentLocation, type GpsAddressFill } from "../lib/fill-address-from-gps";
 import {
@@ -57,6 +56,7 @@ function ServiceAddressPickerSheetBody({
   const [draftEntries, setDraftEntries] = useState<ServiceAddressEntry[]>(entries);
   const [adding, setAdding] = useState(false);
   const [savingEntryId, setSavingEntryId] = useState<string | null>(null);
+  const savingLockRef = useRef(false);
   const saving = savingEntryId !== null;
   const [gpsBusy, setGpsBusy] = useState(false);
   const [gpsExtras, setGpsExtras] = useState<ServiceAddressSaveExtras | null>(null);
@@ -83,20 +83,20 @@ function ServiceAddressPickerSheetBody({
     extras?: ServiceAddressSaveExtras,
   ) => {
     if (!nextDefaultId || !nextEntries.some((e) => e.id === nextDefaultId)) return;
+    if (savingLockRef.current) return;
+    savingLockRef.current = true;
     setSavingEntryId(nextDefaultId);
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-    });
     try {
       await Promise.resolve(onSave(nextEntries, nextDefaultId, extras));
       setGpsExtras(null);
     } finally {
+      savingLockRef.current = false;
       setSavingEntryId(null);
     }
   };
 
   const onEntryPress = async (entryId: string) => {
-    if (saving) return;
+    if (savingLockRef.current) return;
     setAdding(false);
     const entry = draftEntries.find((e) => e.id === entryId);
     await commit(draftEntries, entryId, extrasFromAddressEntry(entry));
@@ -198,20 +198,25 @@ function ServiceAddressPickerSheetBody({
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           >
           {draftEntries.map((e) => {
-            const rowBusy = savingEntryId === e.id;
+            const selected = e.id === defaultId;
             return (
-              <Card key={e.id} variant="elevated" padded>
+              <Card key={e.id} variant="elevated" padded style={selected ? styles.selectedEntry : undefined}>
                 <Pressable
                   onPress={() => void onEntryPress(e.id)}
                   style={styles.entryPress}
                   disabled={saving}
                   accessibilityRole="button"
-                  accessibilityLabel={`${e.label}. ${serviceAddressFormatted(e.address)}`}
+                  accessibilityState={{
+                    selected,
+                    disabled: saving,
+                    busy: saving && savingEntryId === e.id,
+                  }}
+                  accessibilityLabel={`${selected ? "Current address. " : ""}${e.label}. ${serviceAddressFormatted(e.address)}`}
                 >
                   <Text style={styles.entryLabel}>{e.label}</Text>
                   <Text style={styles.entryAddress}>{serviceAddressFormatted(e.address)}</Text>
-                  {rowBusy ? (
-                    <ActivityIndicator style={styles.rowSpinner} color={colors.primary} />
+                  {saving && savingEntryId === e.id ? (
+                    <LoadingSpinner color={colors.primary} width={72} />
                   ) : null}
                 </Pressable>
               </Card>
@@ -321,7 +326,7 @@ function ServiceAddressPickerSheetBody({
               </View>
             </Card>
           ) : (
-            <Button variant="outline" size="md" onPress={beginAdding}>
+            <Button variant="primary" size="lg" onPress={beginAdding}>
               {draftEntries.length === 0 ? "Add address" : "Add another address"}
             </Button>
           )}
@@ -376,6 +381,10 @@ const styles = StyleSheet.create({
   },
   list: { maxHeight: 420 },
   listContent: { gap: spacing.sm, paddingBottom: spacing.sm },
+  selectedEntry: {
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+  },
   entryPress: {
     gap: spacing.xs,
     borderRadius: 10,
@@ -386,5 +395,4 @@ const styles = StyleSheet.create({
   entryAddress: { fontFamily: fontFamily.regular, fontSize: fontSize.sm, color: colors.mutedForeground },
   entryActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm },
   gap: { height: spacing.xs },
-  rowSpinner: { marginTop: spacing.sm },
 });

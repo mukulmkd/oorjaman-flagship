@@ -38,6 +38,9 @@ import {
   isCustomerScheduledAmcMetadata,
   paymentApi,
   subscriptionApi,
+  indianPincodeFromAddressJson,
+  isActiveLaunchPincode,
+  listActiveLaunchPincodes,
 } from "@oorjaman/api";
 import { formatDisplayDate, formatDisplayDateTime } from "@oorjaman/utils";
 import { bookingStatusLabel } from "../../lib/booking-status";
@@ -70,6 +73,7 @@ import {
 } from "../../components/checkout-outcome-panel";
 import { RazorpayPayLabel, RazorpayPoweredByCaption } from "../../components/razorpay-pay-label";
 import { ServiceAddressPickerSheet } from "../../components/service-address-picker-sheet";
+import { LaunchAreaComingSoon } from "../../components/launch-area-coming-soon";
 import { fontFamily, fontSize } from "../../constants/fonts";
 import {
   buildAddressBookPatch,
@@ -137,6 +141,12 @@ export default function SubscriptionAmcScreen() {
   } | null>(null);
   const [amcCheckoutBusy, setAmcCheckoutBusy] = useState(false);
 
+  const launchPinsQuery = useQuery({
+    queryKey: queryKeys.launch.activePincodes(),
+    queryFn: () => listActiveLaunchPincodes(supabase!),
+    enabled: Boolean(supabase),
+    staleTime: 60 * 60 * 1000,
+  });
   const customerQuery = useQuery({
     queryKey: queryKeys.customers.mine(),
     queryFn: () => customerApi.getMyCustomer(supabase!),
@@ -193,6 +203,10 @@ export default function SubscriptionAmcScreen() {
     () => addressBook.entries.find((e) => e.id === selectedAddressId) ?? null,
     [addressBook.entries, selectedAddressId],
   );
+  const selectedOutsideLaunch =
+    Boolean(selectedEntry) &&
+    launchPinsQuery.isSuccess &&
+    !isActiveLaunchPincode(launchPinsQuery.data, indianPincodeFromAddressJson(selectedEntry?.address));
 
   const activeForSelected = selectedAddressId
     ? (activeByAddressId.get(selectedAddressId) ?? null)
@@ -967,6 +981,22 @@ export default function SubscriptionAmcScreen() {
                     </View>
                   ) : null}
                 </Card>
+              </View>
+            ) : selectedAddressId && (launchPinsQuery.isPending || launchPinsQuery.isError || selectedOutsideLaunch) ? (
+              <View style={styles.pad}>
+                {launchPinsQuery.isPending ? (
+                  <Card variant="muted" padded>
+                    <Text style={styles.metaLine}>Checking service availability for this address.</Text>
+                  </Card>
+                ) : launchPinsQuery.isError ? (
+                  <ErrorStateCard
+                    title="Couldn't check service availability"
+                    message={(launchPinsQuery.error as Error).message}
+                    onRetry={() => void launchPinsQuery.refetch()}
+                  />
+                ) : (
+                  <LaunchAreaComingSoon onChangeAddress={() => setAddressPickerOpen(true)} />
+                )}
               </View>
             ) : selectedAddressId ? (
               <View style={styles.pad}>

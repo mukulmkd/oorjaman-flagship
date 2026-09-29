@@ -154,21 +154,51 @@ function mergeInstallationEnrichment(
   return { ...o, installation_enrichment: ie as unknown as Json } as Json;
 }
 
+const SERVICE_ADDRESS_FIELDS = [
+  "line1",
+  "line2",
+  "city",
+  "district",
+  "state",
+  "pincode",
+  "country",
+  "formatted",
+] as const;
+
+/** Keep the display line in step with the structured PIN. An old `formatted` string otherwise hides the new PIN. */
+function addressWithMatchingFormatted(address: Json): Json {
+  if (!address || typeof address !== "object" || Array.isArray(address)) return address;
+  const o = { ...(address as Record<string, unknown>) };
+  const text = (key: string) => {
+    const value = o[key];
+    if (typeof value === "string") return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+    return "";
+  };
+  const line1 = text("line1");
+  const line2 = text("line2");
+  const city = text("city");
+  const state = text("state");
+  const pincode = text("pincode").replace(/\D/g, "").slice(0, 6);
+  if (pincode) o.pincode = pincode;
+  const formatted = [line1, line2, [city, state].filter(Boolean).join(", "), pincode].filter(Boolean).join(", ");
+  if (formatted) o.formatted = formatted;
+  return o as Json;
+}
+
 /**
- * When the customer edits `service_default_address` from Profile, keep `metadata.service_addresses`
- * default entry label (and nested `address.label`) aligned so address pickers read one source.
+ * Profile edits write `service_default_address`. Copy that address, including PIN, onto the
+ * default `metadata.service_addresses` entry so Home and booking use the same site.
  */
-function mergeServiceDefaultLabelIntoAddressBookMetadata(
+function mergeServiceDefaultIntoAddressBookMetadata(
   metadata: Json,
   serviceDefaultAddress: Json | null | undefined,
 ): Json {
-  const sd = serviceDefaultAddress;
-  let siteLabel: string | null = null;
-  if (sd && typeof sd === "object" && !Array.isArray(sd)) {
-    const l = (sd as Record<string, unknown>).label;
-    if (typeof l === "string" && l.trim()) siteLabel = l.trim();
+  if (!serviceDefaultAddress || typeof serviceDefaultAddress !== "object" || Array.isArray(serviceDefaultAddress)) {
+    return metadata;
   }
-  if (!siteLabel) return metadata;
+  const sd = serviceDefaultAddress as Record<string, unknown>;
+  const siteLabel = typeof sd.label === "string" && sd.label.trim() ? sd.label.trim() : null;
 
   const m =
     metadata && typeof metadata === "object" && !Array.isArray(metadata)
@@ -179,6 +209,12 @@ function mergeServiceDefaultLabelIntoAddressBookMetadata(
   const raw = m.service_addresses;
   if (!defaultId || !Array.isArray(raw) || raw.length === 0) return metadata;
 
+  const addressPatch: Record<string, unknown> = {};
+  for (const key of SERVICE_ADDRESS_FIELDS) {
+    if (key in sd) addressPatch[key] = sd[key];
+  }
+  if (siteLabel) addressPatch.label = siteLabel;
+
   const nextAddresses = raw.map((r) => {
     if (!r || typeof r !== "object" || Array.isArray(r)) return r;
     const o = r as Record<string, unknown>;
@@ -186,9 +222,13 @@ function mergeServiceDefaultLabelIntoAddressBookMetadata(
     const prevAddr = o.address;
     const nextAddr =
       prevAddr && typeof prevAddr === "object" && !Array.isArray(prevAddr)
-        ? ({ ...(prevAddr as Record<string, unknown>), label: siteLabel } as Json)
-        : prevAddr;
-    return { ...o, label: siteLabel, address: nextAddr } as Json;
+        ? ({ ...(prevAddr as Record<string, unknown>), ...addressPatch } as Json)
+        : (addressPatch as Json);
+    return {
+      ...o,
+      ...(siteLabel ? { label: siteLabel } : {}),
+      address: nextAddr,
+    } as Json;
   });
   return { ...m, service_addresses: nextAddresses as unknown as Json } as Json;
 }
@@ -240,12 +280,15 @@ export async function updateCustomerProfileAfterOnboarding(
 
   const now = new Date().toISOString();
   const hasPin = input.service_lat != null && input.service_lng != null;
+  const serviceDefaultAddress = addressWithMatchingFormatted(input.service_default_address);
+  const billingAddress =
+    input.billing_address == null ? null : addressWithMatchingFormatted(input.billing_address);
   let metadata = replaceInstallationEnrichment(existing.metadata, {
     panel_brand: input.panel_brand,
     inverter_brand: input.inverter_brand,
     epc_vendor_name: input.epc_vendor_name,
   });
-  metadata = mergeServiceDefaultLabelIntoAddressBookMetadata(metadata, input.service_default_address);
+  metadata = mergeServiceDefaultIntoAddressBookMetadata(metadata, serviceDefaultAddress);
 
   const { data, error } = await client
     .from("customers")
@@ -253,8 +296,8 @@ export async function updateCustomerProfileAfterOnboarding(
       display_name: input.display_name.trim(),
       contact_email: input.contact_email?.trim() ?? null,
       alternate_phone: input.alternate_phone?.trim() || null,
-      billing_address: input.billing_address ?? null,
-      service_default_address: input.service_default_address,
+      billing_address: billingAddress,
+      service_default_address: serviceDefaultAddress,
       service_lat: input.service_lat ?? null,
       service_lng: input.service_lng ?? null,
       location_accuracy_m: hasPin ? input.location_accuracy_m ?? null : null,

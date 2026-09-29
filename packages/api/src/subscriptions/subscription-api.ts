@@ -20,6 +20,7 @@ import { ensureAmcWalletForSubscription } from "../finance/amc-wallet-api";
 import { syncAmcVisitSlotsForSubscription } from "./amc-visit-slots";
 import { serviceAddressCityKeyFromJson } from "../bookings/customer-booking-payload";
 import { getActiveSubscriptionForAddress } from "./subscription-address";
+import { assertServiceAddressInLaunchArea } from "../launch/launch-area";
 
 export {
   bookingMatchesSubscriptionAddress,
@@ -151,6 +152,8 @@ export async function createAmcSubscriptionAsCustomer(
       "That saved address was not found. Refresh Profile and try again.",
     );
   }
+
+  await assertServiceAddressInLaunchArea(client, addressEntry.address);
 
   const existing = await listVisibleSubscriptions(client, {
     status: ["active", "trialing"],

@@ -1345,7 +1345,7 @@ export default function VendorDashboardPage() {
                         setCancelAcceptedReason("");
                       }}
                     >
-                      Cancel & reassign to Oorjaman
+                      Cancel & reassign to OorjaMan
                     </Button>
                   ) : null}
                 </div>

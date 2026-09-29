@@ -38,6 +38,7 @@ import {
 } from "../notifications/booking-notifications";
 import { isVendorCancelInLastHourBeforeSlot } from "../finance/customer-credits-policy";
 import { ensureCancellationPenaltySettlement } from "../finance/vendor-settlement-api";
+import { assertServiceAddressInLaunchArea } from "../launch/launch-area";
 import {
   emitMarketplaceNotificationEvents,
   readMarketplaceBroadcastFilter,
@@ -208,6 +209,8 @@ export async function createBookingAsCustomer(
 ): Promise<BookingRow> {
   const { data: userData } = await client.auth.getUser();
   const uid = requireSessionUserId(userData.user?.id);
+
+  await assertServiceAddressInLaunchArea(client, input.service_site_address);
 
   if (!input.subscription_id) {
     const { assertCustomerMayBookOneTimeVisit, readServiceAddressIdFromBookingMetadata } =

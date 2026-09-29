@@ -556,6 +556,15 @@ export type PricingCityTierRow = {
   created_at: string;
 };
 
+export type LaunchServicePincodeRow = {
+  id: string;
+  city_key: string;
+  city_name: string;
+  pincode: string;
+  active: boolean;
+  created_at: string;
+};
+
 /** INR paise (÷100 for rupees). National default: city + tier_code null. Tier card: tier_code set, city null. Legacy: city set, tier_code null. */
 export type PricingRuleRow = {
   id: string;
@@ -1226,6 +1235,18 @@ export type Database = {
           tier_code: string;
         };
         Update: Partial<Omit<PricingCityTierRow, "id" | "created_at">>;
+        Relationships: [];
+      };
+      launch_service_pincodes: {
+        Row: LaunchServicePincodeRow;
+        Insert: {
+          id?: string;
+          city_key: string;
+          city_name: string;
+          pincode: string;
+          active?: boolean;
+        };
+        Update: Partial<Omit<LaunchServicePincodeRow, "id" | "created_at">>;
         Relationships: [];
       };
       pricing_rules: {

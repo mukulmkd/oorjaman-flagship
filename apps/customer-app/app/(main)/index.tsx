@@ -4,10 +4,18 @@ import { useLayoutEffect, useMemo, useState } from "react";
 import { useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { customerApi, queryKeys, subscriptionApi } from "@oorjaman/api";
+import {
+  customerApi,
+  indianPincodeFromAddressJson,
+  isActiveLaunchPincode,
+  listActiveLaunchPincodes,
+  queryKeys,
+  subscriptionApi,
+} from "@oorjaman/api";
 import { SupportChatHeaderButton } from "../../components/help-header-button";
 import { customerFirstName } from "../../lib/customer-first-name";
-import { Screen, Button } from "@oorjaman/ui";
+import { Screen, Button, ErrorStateCard } from "@oorjaman/ui";
+import { LaunchAreaComingSoon } from "../../components/launch-area-coming-soon";
 import { colors, spacing } from "@oorjaman/config";
 import { fontFamily, fontSize } from "../../constants/fonts";
 import { supabase } from "../../lib/supabase";
@@ -52,6 +60,12 @@ export default function HomeTab() {
         : renewalDueSubscriptionForCurrentServiceSite(customerQ.data ?? null, subsQ.data),
     [activeAmc, customerQ.data, subsQ.data],
   );
+  const launchPinsQuery = useQuery({
+    queryKey: queryKeys.launch.activePincodes(),
+    queryFn: () => listActiveLaunchPincodes(supabase!),
+    enabled: Boolean(supabase),
+    staleTime: 60 * 60 * 1000,
+  });
   const addressMut = useMutation({
     mutationFn: async (payload: {
       entries: ServiceAddressEntry[];
@@ -73,6 +87,12 @@ export default function HomeTab() {
     : "Add service address";
 
   const greetingName = customerFirstName(customerQ.data?.display_name);
+  const selectedPin = indianPincodeFromAddressJson(selected?.address ?? null);
+  const outsideLaunchArea =
+    Boolean(selected) &&
+    launchPinsQuery.isSuccess &&
+    !isActiveLaunchPincode(launchPinsQuery.data, selectedPin);
+  const checkingLaunchArea = Boolean(selected) && launchPinsQuery.isPending;
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -152,27 +172,43 @@ export default function HomeTab() {
           </Text>
         </Pressable>
       ) : null}
-      <Button
-        variant="primary"
-        size="lg"
-        onPress={() => {
-          if (!supabase) return;
-          void navigateToBookVisit(supabase, customerQ.data ?? null, subsQ.data);
-        }}
-      >
-        Book a visit
-      </Button>
-      <View style={{ height: spacing.sm }} />
-      <Button variant="outline" size="lg" onPress={() => router.push("/(main)/subscription")}>
-        Solar AMC plans
-      </Button>
-      <View style={[styles.card, styles.cardSpacing]}>
-        <Text style={styles.cardTitle}>Quick tips</Text>
-        <Text style={styles.cardBody}>
-          Pick a preferred partner in Profile if you like, or let OorjaMan assign one. Choose a slot that respects same-day
-          lead times, then confirm your site address.
-        </Text>
-      </View>
+      {checkingLaunchArea ? (
+        <View style={[styles.card, styles.cardSpacing]}>
+          <Text style={styles.cardBody}>Checking service availability for this address.</Text>
+        </View>
+      ) : launchPinsQuery.isError && selected ? (
+        <ErrorStateCard
+          title="Couldn't check service availability"
+          message={(launchPinsQuery.error as Error).message}
+          onRetry={() => void launchPinsQuery.refetch()}
+        />
+      ) : outsideLaunchArea ? (
+        <LaunchAreaComingSoon onChangeAddress={() => setPickerOpen(true)} />
+      ) : (
+        <>
+          <Button
+            variant="primary"
+            size="lg"
+            onPress={() => {
+              if (!supabase) return;
+              void navigateToBookVisit(supabase, customerQ.data ?? null, subsQ.data);
+            }}
+          >
+            Book a visit
+          </Button>
+          <View style={{ height: spacing.sm }} />
+          <Button variant="outline" size="lg" onPress={() => router.push("/(main)/subscription")}>
+            Solar AMC plans
+          </Button>
+          <View style={[styles.card, styles.cardSpacing]}>
+            <Text style={styles.cardTitle}>Quick tips</Text>
+            <Text style={styles.cardBody}>
+              Pick a preferred partner in Profile if you like, or let OorjaMan assign one. Choose a slot that respects same-day
+              lead times, then confirm your site address.
+            </Text>
+          </View>
+        </>
+      )}
       <ServiceAddressPickerSheet
         visible={pickerOpen}
         entries={entries}

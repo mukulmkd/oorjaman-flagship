@@ -47,6 +47,9 @@ import {
   subscriptionApi,
   vendorApi,
   vendorCoversCustomerSignals,
+  indianPincodeFromAddressJson,
+  isActiveLaunchPincode,
+  listActiveLaunchPincodes,
 } from "@oorjaman/api";
 import type { Json, VendorRow, VendorRoutingResolution } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
@@ -76,6 +79,7 @@ import {
   useModalStackHeader,
 } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
+import { LaunchAreaComingSoon } from "../components/launch-area-coming-soon";
 import {
   BookVisitAmcAwaitingPartnerGate,
   BookVisitAmcChoiceGate,
@@ -503,6 +507,17 @@ export default function BookVisitModal() {
 
   const gateAddressId =
     selectedServiceAddressId ?? addressBook.defaultId ?? addressBook.entries[0]?.id ?? null;
+  const gateEntry = addressBook.entries.find((entry) => entry.id === gateAddressId) ?? null;
+  const launchPinsQuery = useQuery({
+    queryKey: queryKeys.launch.activePincodes(),
+    queryFn: () => listActiveLaunchPincodes(supabase!),
+    enabled: Boolean(supabase),
+    staleTime: 60 * 60 * 1000,
+  });
+  const outsideLaunchArea =
+    Boolean(gateEntry) &&
+    launchPinsQuery.isSuccess &&
+    !isActiveLaunchPincode(launchPinsQuery.data, indianPincodeFromAddressJson(gateEntry?.address));
 
   const activeSubscription = useMemo(() => {
     const rows = subscriptionsQuery.data ?? [];
@@ -1573,6 +1588,46 @@ export default function BookVisitModal() {
 
   if (customerQuery.isSuccess && !customerQuery.data?.onboarding_completed_at) {
     return <Redirect href="/customer-registration" />;
+  }
+
+  if (customerQuery.isSuccess && gateEntry && launchPinsQuery.isPending) {
+    return (
+      <View style={[styles.flex, modalShellStyle]}>
+        {modalHeader}
+        <View style={styles.root}>
+          <Card variant="muted" padded>
+            <Text style={styles.sectionBody}>Checking service availability for this address.</Text>
+          </Card>
+        </View>
+      </View>
+    );
+  }
+
+  if (customerQuery.isSuccess && gateEntry && launchPinsQuery.isError) {
+    return (
+      <View style={[styles.flex, modalShellStyle]}>
+        {modalHeader}
+        <View style={styles.root}>
+          <ErrorStateCard
+            title="Couldn't check service availability"
+            message={(launchPinsQuery.error as Error).message}
+            onRetry={() => void launchPinsQuery.refetch()}
+            retryLabel="Retry"
+          />
+        </View>
+      </View>
+    );
+  }
+
+  if (outsideLaunchArea) {
+    return (
+      <View style={[styles.flex, modalShellStyle]}>
+        {modalHeader}
+        <View style={styles.root}>
+          <LaunchAreaComingSoon onChangeAddress={() => router.back()} />
+        </View>
+      </View>
+    );
   }
 
   if (showsAmcAwaitingPartnerGate && isAmcAwaitingPartnerAssignment(amcBookingGate)) {

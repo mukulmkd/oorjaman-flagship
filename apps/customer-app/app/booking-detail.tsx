@@ -572,7 +572,7 @@ export default function BookingDetailScreen() {
   const openSupport = () => {
     const url = bookingSupportMailto({
       referenceCode: b?.reference_code ?? undefined,
-      topic: "Help with my Oorjaman booking",
+      topic: "Help with my OorjaMan booking",
     });
     void Linking.openURL(url).catch(() =>
       Alert.alert("Email app", "No mail app available - reach us at the address shown on our website."),

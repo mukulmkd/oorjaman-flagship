@@ -243,7 +243,7 @@ export default function VendorPortalPage() {
       <div className="al-root">
         <Card padded className="al-card">
           <h1 className="al-title">Account suspended</h1>
-          <p className="al-lede">Your partner organisation access is suspended. Contact Oorjaman support.</p>
+          <p className="al-lede">Your partner organisation access is suspended. Contact OorjaMan support.</p>
           <Button variant="outline" type="button" onClick={() => void signOut()}>
             Sign out
           </Button>

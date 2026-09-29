@@ -284,4 +284,8 @@ export const queryKeys = {
   health: {
     ping: () => [...queryKeys.root, "health", "ping"] as const,
   },
+
+  launch: {
+    activePincodes: () => [...queryKeys.root, "launch", "active-pincodes"] as const,
+  },
 } as const;

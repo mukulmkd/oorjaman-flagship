@@ -572,7 +572,7 @@ export default function CustomerRegistrationScreen() {
                     size={24}
                     color={consentContact ? colors.primary : colors.mutedForeground}
                   />
-                  <Text style={styles.checkLabel}>Oorjaman may contact me to schedule or coordinate this service.</Text>
+                  <Text style={styles.checkLabel}>OorjaMan may contact me to schedule or coordinate this service.</Text>
                 </Pressable>
               </>
             ) : null}

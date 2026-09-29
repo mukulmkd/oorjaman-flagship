@@ -361,7 +361,7 @@ export default function MyBookingsScreen() {
                   accessibilityRole="link"
                   style={styles.emptySupport}
                   onPress={() => {
-                    const url = bookingSupportMailto({ topic: "Help with my Oorjaman bookings" });
+                    const url = bookingSupportMailto({ topic: "Help with my OorjaMan bookings" });
                     void Linking.openURL(url);
                   }}
                 >
@@ -389,7 +389,7 @@ export default function MyBookingsScreen() {
                     <Pressable
                       accessibilityRole="link"
                       onPress={() => {
-                        const url = bookingSupportMailto({ topic: "Help with my Oorjaman bookings" });
+                        const url = bookingSupportMailto({ topic: "Help with my OorjaMan bookings" });
                         void Linking.openURL(url);
                       }}
                     >

@@ -457,6 +457,13 @@ export {
 export { AMC_PLAN_UPGRADE_DISCLAIMER } from "./subscriptions/amc-plan-upgrade";
 export type { CustomerProfileUpdateResult } from "./customers/customer-api";
 export * as customerApi from "./customers/customer-api";
+export {
+  LAUNCH_AREA_UNAVAILABLE_MESSAGE,
+  assertServiceAddressInLaunchArea,
+  indianPincodeFromAddressJson,
+  isActiveLaunchPincode,
+  listActiveLaunchPincodes,
+} from "./launch/launch-area";
 export * as customerActivityApi from "./customers/customer-site-activity-api";
 export * as supportApi from "./support/support-api";
 export type {

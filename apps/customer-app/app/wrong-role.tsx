@@ -13,7 +13,7 @@ function hintForRole(role: UserRole): { title: string; body: string } {
     case "vendor":
       return {
         title: "Partner accounts use the web portal",
-        body: "Solar cleaning partners sign in through the Oorjaman partner web dashboard in a browser - not this customer mobile app. Sign out here and open the partner portal URL from your invitation or operations contact.",
+        body: "Solar cleaning partners sign in through the OorjaMan partner web dashboard in a browser - not this customer mobile app. Sign out here and open the partner portal URL from your invitation or operations contact.",
       };
     case "technician":
       return {

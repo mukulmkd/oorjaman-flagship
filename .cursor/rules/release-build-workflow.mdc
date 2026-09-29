@@ -1,0 +1,116 @@
+---
+description: Safe production EAS build/submit workflow for OorjaMan mobile apps
+alwaysApply: true
+---
+
+# OorjaMan Production Release & Build Workflow
+
+## Purpose
+
+Prevent wrong app, wrong env, wrong version, or wrong artifact when preparing store releases.
+
+Applies to Customer (`apps/customer-app`) and Partner (`apps/technician-app`), Android and iOS.
+
+Version number rules live in `release-versioning.mdc` — follow that for semver / OTA / build numbers. This file is the **process**.
+
+---
+
+## 1. Confirm intent before any production build
+
+Ask or confirm:
+
+1. Which app? **Customer** / **Partner** / both
+2. Which platform? **Android** / **iOS** / both
+3. Release type? **Store binary** vs **OTA-only** (JS hotfix)
+4. Semver bump? PATCH / MINOR / MAJOR / none (OTA-only)
+
+Do not start a production EAS build until those are clear.
+
+---
+
+## 2. Inspect before changing anything
+
+In the target app directory, check:
+
+| Check | Command / file |
+|-------|----------------|
+| Semantic `version` | `apps/<app>/app.config.ts` → `version` |
+| Package / bundle ID | `app.config.ts` (prod: `com.oorjaman.customer` / `com.oorjaman.technician`; never `.uat` for store) |
+| EAS profile | `apps/<app>/eas.json` → `build.production` |
+| Remote build numbers | `npx eas-cli build:version:get --platform android\|ios` |
+| Production env on EAS | Supabase PROD URL/keys, `EXPO_PUBLIC_DEPLOY_ENV=production`, Maps keys (customer) |
+| Doctor | `npx expo-doctor` (production scripts already run this) |
+
+Primary config is **`app.config.ts`**, not `app.json` / `app.config.js`.
+
+---
+
+## 3. OTA-only path (no store binary)
+
+Use when: JS/UI fix only, no native changes, users already on current `version` runtime.
+
+```bash
+# from apps/customer-app or apps/technician-app
+eas update --channel production --environment production --message "Short description"
+```
+
+- Do **not** bump `version` in `app.config.ts`
+- Do **not** run production EAS **build** unless native change is required
+- Confirm message and app before publishing
+
+---
+
+## 4. Store binary path (Play / App Store)
+
+### 4.1 Version
+
+1. Classify release (see `release-versioning.mdc`).
+2. If needed, update `version` in that app’s `app.config.ts` only.
+3. Leave `versionCode` / `buildNumber` to EAS remote auto-increment.
+
+### 4.2 Build commands (repo root preferred)
+
+```bash
+# Android
+npm run eas:android:production:customer
+npm run eas:android:production:technician
+
+# iOS (add scripts if missing; otherwise from app dir:)
+cd apps/customer-app && npm run brand:sync && npx expo-doctor \
+  && EAS_BUILD_NO_EXPO_GO_WARNING=true npx eas-cli build --profile production --platform ios
+# same for technician-app
+```
+
+Requirements:
+
+- Profile: **`production`** only for store
+- Env: EAS **production** environment (not UAT / local)
+- Run `brand:sync` + `expo-doctor` (wrapped in existing Android production scripts)
+
+### 4.3 After build succeeds
+
+1. Record build URL + artifact (AAB / IPA).
+2. Submit via Play Console / App Store Connect or `eas submit --profile production --platform <android|ios> --latest`.
+3. Release notes: user-facing changelog for that semver — not internal commit dumps.
+
+---
+
+## 5. Hard rules
+
+- Never use UAT profile, `.uat` package/bundle ID, or UAT Supabase for a public store release
+- Never submit an artifact from the wrong app (Customer vs Partner)
+- Never skip inspecting remote `versionCode` / `buildNumber` when diagnosing Play/Asc rejection for “version already used”
+- Never bump semver and ship OTA alone expecting old binaries to pick it up (`runtimeVersion` = `appVersion`)
+- Never run production build/submit unless the user asked for a release (or clearly confirmed)
+
+---
+
+## 6. Minimal pre-flight checklist
+
+- [ ] Correct app + platform
+- [ ] Store binary vs OTA decided
+- [ ] `version` updated only if store release needs a new user-facing version
+- [ ] Production EAS env vars verified
+- [ ] `expo-doctor` clean
+- [ ] Build profile `production`
+- [ ] Artifact identity matches listing (package / bundle ID)
