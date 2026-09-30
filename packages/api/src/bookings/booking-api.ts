@@ -200,6 +200,16 @@ export type CreateBookingInput = Pick<
   payment_timing?: "prepaid" | "postpaid";
 };
 
+/** First instant a new customer booking may start: 10 October 2026, 00:00 IST. */
+const NEW_BOOKING_OPENS_AT_MS = Date.parse("2026-10-10T00:00:00+05:30");
+
+function assertNewBookingOpensOnOrAfter(scheduledStart: string): void {
+  const startMs = new Date(scheduledStart).getTime();
+  if (!Number.isFinite(startMs) || startMs < NEW_BOOKING_OPENS_AT_MS) {
+    throw new Error("New bookings start on 10 October 2026. Choose a slot on or after that day.");
+  }
+}
+
 /**
  * Customer: create booking for own customer_id (RLS enforced).
  */
@@ -211,6 +221,7 @@ export async function createBookingAsCustomer(
   const uid = requireSessionUserId(userData.user?.id);
 
   await assertServiceAddressInLaunchArea(client, input.service_site_address);
+  assertNewBookingOpensOnOrAfter(input.scheduled_start);
 
   if (!input.subscription_id) {
     const { assertCustomerMayBookOneTimeVisit, readServiceAddressIdFromBookingMetadata } =

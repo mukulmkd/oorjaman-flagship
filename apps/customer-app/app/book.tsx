@@ -62,6 +62,9 @@ import {
   isSlotValidAt,
   listSelectableDayKeys,
   minSelectableDayKey,
+  minSelectableDayKeyForNewBooking,
+  NEW_BOOKING_EARLIEST_DAY_KEY,
+  NEW_BOOKING_EARLIEST_LABEL,
   slotsForDay,
   type BookingSlotOption,
 } from "@oorjaman/utils";
@@ -723,7 +726,7 @@ export default function BookVisitModal() {
   useEffect(() => {
     if (step === 1 && prevStepRefSync.current !== 1) {
       setSlotEvalNow(new Date());
-      const k = minSelectableDayKey(new Date());
+      const k = minSelectableDayKeyForNewBooking(new Date());
       const [yy, mo] = k.split("-").map(Number);
       setCalendarMonth({ y: yy, m: mo });
     }
@@ -735,14 +738,14 @@ export default function BookVisitModal() {
   }, [dayKey]);
 
   const selectableDayKeys = useMemo(
-    () => listSelectableDayKeys(scheduleAnchor, BOOKING_SCHEDULE_HORIZON_DAYS),
+    () => listSelectableDayKeys(scheduleAnchor, BOOKING_SCHEDULE_HORIZON_DAYS, NEW_BOOKING_EARLIEST_DAY_KEY),
     [scheduleAnchor],
   );
   const selectableDayKeySet = useMemo(() => new Set(selectableDayKeys), [selectableDayKeys]);
   const maxSelectableDayKey = selectableDayKeys[selectableDayKeys.length - 1] ?? null;
   const istTodayDayKey = useMemo(() => istDayKeyFromDate(scheduleAnchor), [scheduleAnchor]);
   const minSelectableMonth = useMemo(() => {
-    const k = minSelectableDayKey(scheduleAnchor);
+    const k = minSelectableDayKeyForNewBooking(scheduleAnchor);
     const [y, m] = k.split("-").map(Number);
     return { y, m };
   }, [scheduleAnchor]);
@@ -762,7 +765,7 @@ export default function BookVisitModal() {
 
   const baseSlotOptions = useMemo(() => {
     if (!dayKey) return [];
-    return slotsForDay(dayKey, slotEvalNow);
+    return slotsForDay(dayKey, slotEvalNow, NEW_BOOKING_EARLIEST_DAY_KEY);
   }, [dayKey, slotEvalNow]);
 
   const slotIdsQueryKey = useMemo(() => baseSlotOptions.map((s) => s.id).join(","), [baseSlotOptions]);
@@ -1082,7 +1085,7 @@ export default function BookVisitModal() {
     if (!address.trim()) {
       throw new Error("Enter the service site address on the previous step.");
     }
-    if (!isSlotValidAt(dayKey, slot, bookedAt)) {
+    if (!isSlotValidAt(dayKey, slot, bookedAt, NEW_BOOKING_EARLIEST_DAY_KEY)) {
       throw new Error("This slot is no longer available - go back and choose another time.");
     }
     const customer = await customerApi.ensureCustomerProfile(supabase);
@@ -1481,7 +1484,7 @@ export default function BookVisitModal() {
         throw new Error("Complete scheduling before confirmation.");
       }
       if (!address.trim()) throw new Error("Enter the site address.");
-      if (!isSlotValidAt(dayKey, slot, new Date())) {
+      if (!isSlotValidAt(dayKey, slot, new Date(), NEW_BOOKING_EARLIEST_DAY_KEY)) {
         throw new Error("This slot is no longer available - choose another time.");
       }
       const customer = await customerApi.ensureCustomerProfile(supabase);
@@ -1909,10 +1912,11 @@ export default function BookVisitModal() {
           >
             <Text style={styles.sectionTitle}>Pick date & time</Text>
             <Text style={styles.sectionBody}>
-              Calendar is in India (IST). Past dates cannot be selected. After 7:00 PM IST, same-day booking closes and the
-              first open slots start the next afternoon.
+              {minSelectableDayKey(scheduleAnchor) < NEW_BOOKING_EARLIEST_DAY_KEY
+                ? `Calendar is in India (IST). New bookings start on ${NEW_BOOKING_EARLIEST_LABEL}. Pick a date on or after that day.`
+                : "Calendar is in India (IST). Past dates cannot be selected. After 7:00 PM IST, same-day booking closes and the first open slots start the next afternoon."}
             </Text>
-            {isEveningBookingCutoff(scheduleAnchor) ? (
+            {minSelectableDayKey(scheduleAnchor) < NEW_BOOKING_EARLIEST_DAY_KEY ? null : isEveningBookingCutoff(scheduleAnchor) ? (
               <View style={styles.ruleBanner}>
                 <Card variant="muted" padded>
                   <Text style={styles.ruleBannerText}>

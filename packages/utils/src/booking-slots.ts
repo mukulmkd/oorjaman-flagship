@@ -15,6 +15,10 @@ export const LAST_SLOT_START_HOUR_IST = 16;
 export const SLOT_DURATION_MS = 2 * 60 * 60 * 1000;
 export const LEAD_TIME_MS = 2 * 60 * 60 * 1000;
 
+/** First IST day a customer may choose when creating a booking. Reschedules are not limited by this. */
+export const NEW_BOOKING_EARLIEST_DAY_KEY = "2026-10-10";
+export const NEW_BOOKING_EARLIEST_LABEL = "10 October 2026";
+
 export type BookingSlotOption = {
   id: string;
   label: string;
@@ -89,8 +93,15 @@ export function minSelectableDayKey(now: Date): string {
   return todayKey;
 }
 
-export function listSelectableDayKeys(now: Date, horizonDays = 14): string[] {
-  const min = minSelectableDayKey(now);
+/** Later of the lead-time day and the new-booking open day. */
+export function minSelectableDayKeyForNewBooking(now: Date): string {
+  const rulesMin = minSelectableDayKey(now);
+  return rulesMin > NEW_BOOKING_EARLIEST_DAY_KEY ? rulesMin : NEW_BOOKING_EARLIEST_DAY_KEY;
+}
+
+export function listSelectableDayKeys(now: Date, horizonDays = 14, earliestDayKey?: string): string[] {
+  const rulesMin = minSelectableDayKey(now);
+  const min = earliestDayKey && earliestDayKey > rulesMin ? earliestDayKey : rulesMin;
   const keys: string[] = [];
   let cur = min;
   for (let i = 0; i < horizonDays; i++) {
@@ -120,8 +131,9 @@ function formatHmLocal(slotStartUtc: Date): string {
 }
 
 /** Visit start hours available on `dayKey` when evaluated at `now`. */
-export function slotsForDay(dayKey: string, now: Date): BookingSlotOption[] {
-  const minDay = minSelectableDayKey(now);
+export function slotsForDay(dayKey: string, now: Date, earliestDayKey?: string): BookingSlotOption[] {
+  const rulesMin = minSelectableDayKey(now);
+  const minDay = earliestDayKey && earliestDayKey > rulesMin ? earliestDayKey : rulesMin;
   const evening = isEveningBookingCutoff(now);
 
   if (dayKey < minDay) return [];
@@ -131,7 +143,7 @@ export function slotsForDay(dayKey: string, now: Date): BookingSlotOption[] {
     startHours.push(h);
   }
 
-  if (dayKey === minDay && evening) {
+  if (dayKey === rulesMin && evening) {
     startHours = startHours.filter((h) => h >= AFTERNOON_FIRST_SLOT_HOUR_IST);
   }
 
@@ -140,7 +152,7 @@ export function slotsForDay(dayKey: string, now: Date): BookingSlotOption[] {
 
   for (const h of startHours) {
     const start = istInstantUtc(dayKey, h, 0);
-    if (dayKey === minDay && !evening && start.getTime() < earliestStartMs) {
+    if (dayKey === rulesMin && !evening && start.getTime() < earliestStartMs) {
       continue;
     }
     const end = new Date(start.getTime() + SLOT_DURATION_MS);
@@ -167,9 +179,22 @@ export function formatDayChip(dayKey: string): string {
 }
 
 /** Whether `slot` is still allowed if the booking is confirmed at `bookedAt`. */
-export function isSlotValidAt(dayKey: string, slot: BookingSlotOption, bookedAt: Date): boolean {
-  const allowed = slotsForDay(dayKey, bookedAt);
+export function isSlotValidAt(
+  dayKey: string,
+  slot: BookingSlotOption,
+  bookedAt: Date,
+  earliestDayKey?: string,
+): boolean {
+  const allowed = slotsForDay(dayKey, bookedAt, earliestDayKey);
   return allowed.some((s) => s.scheduledStart === slot.scheduledStart && s.scheduledEnd === slot.scheduledEnd);
+}
+
+/** True when a new booking's start instant is on or after {@link NEW_BOOKING_EARLIEST_DAY_KEY} in IST. */
+export function isOnOrAfterNewBookingOpen(scheduledStartIso: string): boolean {
+  const ms = new Date(scheduledStartIso).getTime();
+  if (!Number.isFinite(ms)) return false;
+  const openMs = istInstantUtc(NEW_BOOKING_EARLIEST_DAY_KEY, 0, 0).getTime();
+  return ms >= openMs;
 }
 
 export type CalendarCellIST = { dayKey: string | null; inMonth: boolean };
