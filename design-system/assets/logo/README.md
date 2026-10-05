@@ -9,6 +9,7 @@ OorjaMan’s mark is **not** recreated here. Use the masters in `brand/source/` 
 | Symbol (master) | `brand/source/logo-icon.png` | 1536×1024, alpha. Crop/sync to square. |
 | In-app symbol | `packages/ui/assets/brand/logo-icon.png` | 1024×1024, alpha. Splash / lockup. |
 | Local copy | `design-system/assets/logo/logo-icon-1024.png` | Same 1024 O, for opening this folder. |
+| BIMI mark | `design-system/assets/logo/oorjaman.svg` | Square SVG Tiny PS source. Live copy: `apps/oorjaman-web/public/bimi/oorjaman.svg` → `https://oorjaman.com/bimi/oorjaman.svg`. Not a general logo master. |
 | Lockup | `brand/source/logo-lockup-tagline.png` | 5632×3072, **opaque white**. Print / OG only. |
 | Notification | `brand/source/notification-icon.png` | 96×96 white O. |
 | Partner launcher | `apps/technician-app/assets/images/icon.png` | O + person badge, baked. |
@@ -23,4 +24,4 @@ OorjaMan’s mark is **not** recreated here. Use the masters in `brand/source/` 
 
 ## Missing (OBSERVED)
 
-SVG O, reverse lockup, transparent lockup, no-tagline horizontal lockup.
+Reverse lockup, transparent lockup, no-tagline horizontal lockup. The BIMI file above is a Tiny PS trace of the O, not a full SVG master.
