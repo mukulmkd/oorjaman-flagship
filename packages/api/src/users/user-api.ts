@@ -134,3 +134,53 @@ export async function requestDeleteMyCustomerAccount(
   }
   return { ok: false, message: "Unexpected response from delete-customer-account." };
 }
+
+/**
+ * Request permanent deletion of the signed-in partner (technician) account.
+ * On success the auth session is invalid — caller must sign out locally.
+ */
+export async function requestDeleteMyTechnicianAccount(
+  client: SupabaseClient<Database>,
+): Promise<{ ok: true } | { ok: false; message: string; code?: string }> {
+  const { data, error } = await client.functions.invoke<{
+    ok?: boolean;
+    error?: string;
+    code?: string;
+    already_deleted?: boolean;
+  }>("delete-technician-account", { body: {} });
+
+  if (error) {
+    const fromBody = await readFunctionErrorBody(error);
+    if (fromBody) return fromBody;
+    return { ok: false, message: error.message };
+  }
+  if (data && typeof data === "object" && data.ok === false) {
+    return {
+      ok: false,
+      message: typeof data.error === "string" ? data.error : "Account deletion failed.",
+      code: typeof data.code === "string" ? data.code : undefined,
+    };
+  }
+  if (data && typeof data === "object" && data.ok === true) {
+    return { ok: true };
+  }
+  return { ok: false, message: "Unexpected response from delete-technician-account." };
+}
+
+async function readFunctionErrorBody(
+  error: unknown,
+): Promise<{ ok: false; message: string; code?: string } | null> {
+  const context = (error as { context?: { json?: () => Promise<unknown> } }).context;
+  if (!context || typeof context.json !== "function") return null;
+  try {
+    const body = (await context.json()) as { error?: unknown; code?: unknown };
+    if (typeof body?.error !== "string" || !body.error.trim()) return null;
+    return {
+      ok: false,
+      message: body.error,
+      code: typeof body.code === "string" ? body.code : undefined,
+    };
+  } catch {
+    return null;
+  }
+}

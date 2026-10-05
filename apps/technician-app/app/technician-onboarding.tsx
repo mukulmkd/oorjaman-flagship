@@ -27,6 +27,7 @@ import type { Json, TechnicianDocKind, TechnicianRow, VendorRow } from "@oorjama
 import { colors, spacing } from "@oorjaman/config";
 import { Button, Input, KeyboardFormScreen, Screen, SCREEN_EDGES_FULL_SCREEN } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
+import { DeletePartnerAccountButton } from "../components/delete-partner-account";
 import {
   allOnboardingSafetyAcksChecked,
   emptyOnboardingSafetyAcks,
@@ -1102,6 +1103,7 @@ export default function TechnicianOnboardingScreen() {
           >
             Sign out
           </Button>
+          <DeletePartnerAccountButton size="md" />
         </View>
         </KeyboardFormScreen>
 

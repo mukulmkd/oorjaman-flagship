@@ -51,7 +51,7 @@ export const legalDocuments: LegalDocument[] = [
     title: "Privacy & Data Protection Policy",
     description:
       "How OorjaMan collects, uses, stores, shares, and protects personal data when you use the website, apps, partner portal, and related services.",
-    lastUpdated: LAST_UPDATED,
+    lastUpdated: "2026-10-05",
     sections: [
       {
         id: "introduction",
@@ -210,8 +210,9 @@ export const legalDocuments: LegalDocument[] = [
         id: "account-deletion",
         title: "15. Account deletion",
         paragraphs: [
-          "You may request deletion of your OorjaMan customer account. Deletion generally removes sign-in access and personal profile information associated with the account. We may retain limited information where necessary for tax and accounting; fraud prevention; security; dispute resolution; legal claims; regulatory compliance; or other lawful retention requirements.",
-          "In the customer app: Profile → Account → Delete Account, then type DELETE to confirm. Active or upcoming bookings may need to be cancelled or completed first. If you have an active AMC plan, the consequences of account deletion, including cancellation of the plan, will be communicated before deletion is completed. After confirmation, sign-in credentials are removed and you may be signed out.",
+          "You may request deletion of your OorjaMan customer account or your OorjaMan Partner account. Deletion generally removes sign-in access and personal profile information associated with the account. We may retain limited information where necessary for tax and accounting; fraud prevention; security; dispute resolution; legal claims; regulatory compliance; or other lawful retention requirements.",
+          "In the customer app: Profile → Account → Delete account, then type DELETE to confirm. Active or upcoming bookings may need to be cancelled or completed first. If you have an active AMC plan, the consequences of account deletion, including cancellation of the plan, will be communicated before deletion is completed. After confirmation, sign-in credentials are removed and you may be signed out.",
+          "In the OorjaMan Partner app: Profile → Account → Delete account, then type DELETE to confirm. The same action is available during partner onboarding and while an application is awaiting employer review. A visit that has already started must be finished first. If a visit is assigned and has not started, the employer moves it to another technician from the vendor portal (Change technician) before deletion can finish. Completed visits may be retained without your personal details.",
           `If you cannot use the app, email ${SUPPORT_EMAIL} with subject “Account Deletion Request” and the mobile number or email associated with the account. We may verify ownership first. We aim to respond within 7 business days and generally complete eligible deletion within 30 days, subject to verification, technical requirements, and lawful retention. Full steps: /legal/account-deletion.`,
         ],
       },
@@ -605,19 +606,19 @@ export const legalDocuments: LegalDocument[] = [
     slug: "account-deletion",
     title: "Account Deletion",
     description:
-      "How to delete your OorjaMan account (App Store / Play compliance) and what happens to your data.",
-    lastUpdated: LAST_UPDATED,
+      "How to delete an OorjaMan customer or Partner account (App Store / Play compliance) and what happens to your data.",
+    lastUpdated: "2026-10-05",
     sections: [
       {
         id: "overview",
         title: "Overview",
         paragraphs: [
-          "You can delete your OorjaMan customer account at any time. Deletion removes sign-in access and personal profile data. Booking and payment records needed for tax, fraud prevention, or dispute resolution may be retained as required by law.",
+          "You can delete your OorjaMan customer account or your OorjaMan Partner account at any time from the relevant app. Deletion removes sign-in access and personal profile data. Booking and payment records needed for tax, fraud prevention, or dispute resolution may be retained as required by law.",
         ],
       },
       {
         id: "in-app",
-        title: "Delete in the app",
+        title: "Delete a customer account",
         bullets: [
           "Open the OorjaMan customer app and sign in.",
           "Go to Profile → Account → Delete account.",
@@ -625,6 +626,18 @@ export const legalDocuments: LegalDocument[] = [
         ],
         paragraphs: [
           "After confirmation, your sign-in credentials are removed and you are signed out.",
+        ],
+      },
+      {
+        id: "partner",
+        title: "Delete a Partner account",
+        bullets: [
+          "Open the OorjaMan Partner app and sign in.",
+          "Go to Profile → Account → Delete account. During onboarding, or while your application is awaiting employer review, Delete account is on that screen.",
+          "Type DELETE to confirm. A visit that has already started must be finished first. If a visit is assigned and has not started, your employer moves it with Change technician in the vendor portal before you can delete the account.",
+        ],
+        paragraphs: [
+          "Deletion removes your sign-in, profile, identity documents, and location history. Completed visits stay on record without your personal details. Your employer will no longer be able to assign you new visits.",
         ],
       },
       {

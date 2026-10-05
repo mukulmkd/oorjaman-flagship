@@ -14,6 +14,7 @@ import { colors, spacing } from "@oorjaman/config";
 import { fontFamily, fontSize } from "../../constants/fonts";
 import { preferredWorkCity, stringifyAddress } from "../../lib/booking-display";
 import { clearPartnerSessionQueries } from "../../lib/partner-session-cache";
+import { DeletePartnerAccountButton } from "../../components/delete-partner-account";
 import { supabase } from "../../lib/supabase";
 
 function ProfileSection({ title, children }: { title: string; children: React.ReactNode }) {
@@ -190,6 +191,11 @@ export default function ProfileTab() {
           >
             Sign out
           </Button>
+          <Text style={styles.deleteHint}>
+            Deleting your account removes sign-in, profile, identity documents, and location history. Completed visits
+            stay on record without your personal details.
+          </Text>
+          <DeletePartnerAccountButton size="md" disabled={busy} />
         </ProfileSection>
       </ScrollView>
     </Screen>
@@ -252,5 +258,13 @@ const styles = StyleSheet.create({
   },
   signOut: {
     marginTop: spacing.sm,
+  },
+  deleteHint: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+    color: colors.mutedForeground,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
   },
 });

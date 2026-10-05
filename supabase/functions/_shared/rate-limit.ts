@@ -22,6 +22,8 @@ export type RateLimitProfile = {
 export const RATE_LIMIT_PROFILES = {
   /** Customer self-delete — very strict. */
   "delete-customer-account": { max: 5, windowSeconds: 3600 } satisfies RateLimitProfile,
+  /** Partner self-delete — very strict. */
+  "delete-technician-account": { max: 5, windowSeconds: 3600 } satisfies RateLimitProfile,
   /** Admin vendor intake approval. */
   "approve-vendor-intake": { max: 60, windowSeconds: 60 } satisfies RateLimitProfile,
   /** Cron / push dispatchers — higher, still capped if secret leaks. */

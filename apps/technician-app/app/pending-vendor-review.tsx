@@ -11,6 +11,7 @@ import {
 import { colors, spacing } from "@oorjaman/config";
 import { Button, Screen, SCREEN_EDGES_FULL_SCREEN } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
+import { DeletePartnerAccountButton } from "../components/delete-partner-account";
 import { supabase } from "../lib/supabase";
 import { navigateFromTechnicianPostAuthPath, navigateToTechnicianMainAfterApproval } from "../lib/technician-approval-toast";
 
@@ -99,6 +100,7 @@ export default function PendingVendorReviewScreen() {
           <Button variant="outline" size="lg" disabled={techQuery.isFetching} onPress={() => void onSignOut()}>
             Sign out
           </Button>
+          <DeletePartnerAccountButton size="lg" disabled={techQuery.isFetching} />
         </View>
       </View>
     </Screen>

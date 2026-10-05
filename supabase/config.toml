@@ -376,6 +376,10 @@ verify_jwt = false
 [functions.auth-send-email]
 verify_jwt = false
 
+# Partner self-delete. The caller JWT is required; the function also checks the technician role.
+[functions.delete-technician-account]
+verify_jwt = true
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
