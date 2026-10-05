@@ -1,23 +1,16 @@
 # OorjaMan Universal Web
 
-Operational documentation for the **locked** Universal Web program: Expo React Native Web (CSR/static) for Customer and Technician, with public SEO remaining on Next.js.
-
-**Authoritative plans (do not contradict):**
-
-- [`ORJ_WEB_UNIVERSAL_ARCHITECTURE_FINAL_REVIEW.md`](../ORJ_WEB_UNIVERSAL_ARCHITECTURE_FINAL_REVIEW.md)
-- [`ORJ_WEB_UNIVERSAL_IMPLEMENTATION_PLAN.md`](../ORJ_WEB_UNIVERSAL_IMPLEMENTATION_PLAN.md)
+Operational record for Customer and Technician web: Expo React Native Web (CSR/static), with public SEO remaining on Next.js. The rollout is live.
 
 ---
 
-## Phase status
+## Status
 
 | Field | Value |
 | ----- | ----- |
-| **Architecture** | **LOCKED** |
-| **Implementation** | **UAT + PROD Vercel projects live** (`*-web-uat` / `*-web-prod`) |
-| **Current task** | GoDaddy CNAMEs + Supabase Auth redirects + Maps/Razorpay env cutover |
-
-Later phases (web boot, adapters, parity, Vercel deploy) are described in the implementation plan. **Do not implement them from this doc alone.**
+| **Customer web** | Live at [https://app.oorjaman.com](https://app.oorjaman.com) |
+| **Technician web** | Live at [https://partner.oorjaman.com](https://partner.oorjaman.com) |
+| **Marketing** | [https://oorjaman.com](https://oorjaman.com) stays on Next.js |
 
 ---
 
@@ -298,11 +291,9 @@ Expo Web deployment must not rewrite these values.
 | Surface | SEO role |
 | ------- | -------- |
 | `apps/oorjaman-web` @ `oorjaman.com` | **Sole** public SEO / marketing authority (metadata, canonical, OG, sitemap, robots, structured data) |
-| `app.oorjaman.com` / `partner.oorjaman.com` | Authenticated product shells — **not** SEO landing pages; use `noindex` / robots Disallow (later phases) |
+| `app.oorjaman.com` / `partner.oorjaman.com` | Authenticated product shells — **not** SEO landing pages; keep `noindex` |
 
 Do **not** duplicate marketing/service/city/blog pages inside Expo Router.
-
-Parity contracts for authenticated product features are binding and live in the architecture final review / implementation plan — not in marketing SEO.
 
 ---
 

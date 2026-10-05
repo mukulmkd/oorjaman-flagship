@@ -2065,8 +2065,17 @@ async function enrichBookingsWithVendorTechnicianLabels(
   }));
 }
 
-/** Admin bookings screen: split one-off visits vs AMC (`subscription_id` set). */
-export type AdminBookingsSubscriptionBucket = "one_time" | "amc";
+/** Admin bookings screen: all visits, or one-off vs AMC (`subscription_id` set). */
+export type AdminBookingsSubscriptionBucket = "all" | "one_time" | "amc";
+
+function applySubscriptionBucket<T extends { is: (column: "subscription_id", value: null) => T; not: (column: "subscription_id", operator: "is", value: null) => T }>(
+  query: T,
+  bucket: AdminBookingsSubscriptionBucket,
+): T {
+  if (bucket === "one_time") return query.is("subscription_id", null);
+  if (bucket === "amc") return query.not("subscription_id", "is", null);
+  return query;
+}
 
 export async function adminListBookingsBySubscriptionBucket(
   client: SupabaseClient<Database>,
@@ -2077,11 +2086,7 @@ export async function adminListBookingsBySubscriptionBucket(
     .from("bookings")
     .select("*")
     .order("scheduled_start", { ascending: false });
-  if (bucket === "one_time") {
-    q = q.is("subscription_id", null);
-  } else {
-    q = q.not("subscription_id", "is", null);
-  }
+  q = applySubscriptionBucket(q, bucket);
   if (options?.limit != null) {
     q = q.limit(options.limit);
   }
@@ -2115,11 +2120,7 @@ export async function adminListBookingsBySubscriptionBucketPaged(
     .from("bookings")
     .select("*", { count: "exact" })
     .order("scheduled_start", { ascending: false });
-  if (bucket === "one_time") {
-    q = q.is("subscription_id", null);
-  } else {
-    q = q.not("subscription_id", "is", null);
-  }
+  q = applySubscriptionBucket(q, bucket);
   if (params.status && params.status !== "all") {
     q = q.eq("status", params.status);
   }

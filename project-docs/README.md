@@ -4,8 +4,6 @@ Monorepo-wide guides, checklists, and generated Word test specs. **Default locat
 
 Topic-specific how-tos (push setup, local APK, realtime) remain in [`docs/`](../docs/).
 
-> **Going live?** [`PROD_CHECKLIST.md`](../PROD_CHECKLIST.md) (repo root) is the **master launch checklist & status tracker**. The docs below are the runbook detail it links into — keep them; update launch status there.
-
 ## Run & deploy
 
 | Doc | Purpose |
@@ -22,8 +20,9 @@ Topic-specific how-tos (push setup, local APK, realtime) remain in [`docs/`](../
 | [SECURITY-VERCEL.md](SECURITY-VERCEL.md) | Portal + Supabase security on Vercel |
 | [RATE-LIMITING.md](RATE-LIMITING.md) | Edge Function rate limits + Auth Attack Protection / CAPTCHA checklist |
 | [SEO.md](SEO.md) | Marketing site SEO & GoDaddy deploy |
-| [WEB-UNIVERSAL.md](WEB-UNIVERSAL.md) | Locked Universal Web hosts, Expo Web (CSR) + Vercel intent, Auth allowlist checklist, native freeze |
-| [LAUNCH.md](LAUNCH.md) | Soft-launch checklist (marketing + stores + account deletion) |
+| [WEB-UNIVERSAL.md](WEB-UNIVERSAL.md) | Live Customer and Technician web hosts (`app` / `partner`), Vercel projects, Auth allowlist |
+| [ANDROID-PLAY.md](ANDROID-PLAY.md) | Google Play rebuild: EAS, FCM, Maps SHA-1, internal track |
+| [LAUNCH.md](LAUNCH.md) | Marketing site and store listing URLs |
 
 ## Ops & billing
 

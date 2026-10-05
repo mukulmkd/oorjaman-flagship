@@ -1,69 +1,293 @@
 .state-desks-layout {
   display: grid;
   gap: 1.5rem;
+  max-width: 1120px;
+}
+
+.state-desks-grid {
+  display: grid;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (min-width: 960px) {
+  .state-desks-grid {
+    grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.85fr);
+  }
+
+  .state-desks-grid > .state-desks-panel:last-child {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
+.state-desks-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.state-desks-panel-head h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--wb-fg);
+}
+
+.state-desks-panel-head p,
+.state-desks-note,
+.state-desks-error,
+.state-desks-success {
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--wb-muted-fg);
+}
+
+.state-desks-error {
+  margin-top: 0;
+  color: var(--wb-danger, #b42318);
+}
+
+.state-desks-success {
+  margin-top: 0;
+  color: var(--wb-primary);
 }
 
 .state-desks-form {
   display: grid;
-  gap: 1rem;
-  max-width: 40rem;
+  gap: 1.25rem;
 }
 
 .state-desks-access {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.state-desks-states {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-  gap: 0.5rem 1rem;
+  gap: 0.75rem;
   margin: 0;
   padding: 0;
   border: 0;
 }
 
-.state-desks-states legend {
-  font-size: 0.875rem;
-  margin-bottom: 0.5rem;
-  color: var(--wb-muted-fg, #516a7b);
+@media (min-width: 640px) {
+  .state-desks-access {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
-.state-desks-states label {
-  display: flex;
-  gap: 0.5rem;
-  align-items: flex-start;
-  font-size: 0.9375rem;
-}
-
-.state-desks-note,
-.state-desks-error {
+.state-desks-access label {
+  display: grid;
+  gap: 0.25rem;
   margin: 0;
-  font-size: 0.875rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--wb-border);
+  border-radius: 12px;
+  background: var(--wb-card);
+  cursor: pointer;
 }
 
-.state-desks-error {
-  color: var(--wb-danger, #b42318);
+.state-desks-access label.is-selected,
+.state-desks-access label:focus-within {
+  border-color: var(--wb-primary);
+  background: color-mix(in srgb, var(--wb-primary) 8%, white);
+}
+
+.state-desks-access-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--wb-fg);
+}
+
+.state-desks-access-copy {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--wb-muted-fg);
+}
+
+.state-desks-states {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.state-desks-states-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--wb-fg);
+}
+
+.state-desks-states-head span:last-child {
+  font-weight: 500;
+  color: var(--wb-muted-fg);
+}
+
+.state-desks-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.state-desks-selected button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--wb-primary) 12%, white);
+  color: var(--wb-primary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.state-desks-state-list {
+  display: grid;
+  gap: 0.35rem;
+  max-height: 22rem;
+  overflow: auto;
+  padding: 0.35rem;
+  border: 1px solid var(--wb-border);
+  border-radius: 12px;
+  background: var(--wb-bg);
+}
+
+.state-desks-state-list > button {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--wb-fg);
+  font-size: 0.9375rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.state-desks-state-list > button:hover,
+.state-desks-state-list > button:focus-visible {
+  background: var(--wb-card);
+  outline: none;
+}
+
+.state-desks-state-list > button.is-selected {
+  border-color: color-mix(in srgb, var(--wb-primary) 35%, white);
+  background: var(--wb-card);
+  font-weight: 600;
+}
+
+.state-desks-check {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  border: 1.5px solid var(--wb-border);
+  border-radius: 4px;
+  background: var(--wb-card);
+}
+
+.state-desks-state-list > button.is-selected .state-desks-check {
+  border-color: var(--wb-primary);
+  background: var(--wb-primary);
+  box-shadow: inset 0 0 0 2px var(--wb-card);
+}
+
+.state-desks-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .state-desks-list {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.5rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .state-desks-person {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: baseline;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.75rem 0.85rem;
+  width: 100%;
+  padding: 0.85rem;
+  border: 1px solid var(--wb-border);
+  border-radius: 12px;
+  background: var(--wb-card);
+  text-align: left;
+  cursor: pointer;
 }
 
-.state-desks-person p {
-  margin: 0.25rem 0 0;
-  color: var(--wb-muted-fg, #516a7b);
-  font-size: 0.875rem;
+.state-desks-person:hover,
+.state-desks-person:focus-visible,
+.state-desks-person.is-active {
+  border-color: var(--wb-primary);
+  outline: none;
+}
+
+.state-desks-person.is-active {
+  background: color-mix(in srgb, var(--wb-primary) 8%, white);
+}
+
+.state-desks-avatar {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--wb-primary) 14%, white);
+  color: var(--wb-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.state-desks-person-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.state-desks-person-copy strong {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--wb-fg);
+}
+
+.state-desks-person-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  color: var(--wb-muted-fg);
+}
+
+.state-desks-person-access {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.state-desks-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--wb-muted);
+  color: var(--wb-muted-fg);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.state-desks-pill--national {
+  background: color-mix(in srgb, var(--wb-primary) 14%, white);
+  color: var(--wb-primary);
 }

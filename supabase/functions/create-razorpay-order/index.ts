@@ -245,6 +245,8 @@ Deno.serve(async (req: Request) => {
           purpose: "postpaid_collect",
           booking_id: bookingId,
           customer_id: paymentCustomerId,
+          // Webhook matches the capture back to this order. The link payment
+          // itself is created under a different Razorpay order.
           razorpay_order_id: orderId,
         },
       }),

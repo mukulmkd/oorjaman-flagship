@@ -37,14 +37,19 @@ import { TablePaginationBar } from "@oorjaman/web-ui";
 
 const BUCKET_TABS: { id: AdminBookingsSubscriptionBucket; label: string; hint: string }[] = [
   {
+    id: "all",
+    label: "All bookings",
+    hint: "Every visit. AMC rows are marked in the Type column.",
+  },
+  {
     id: "one_time",
-    label: "One-time bookings",
-    hint: "Pay-per-visit rows (no subscription). The partner response timer starts when a partner is assigned.",
+    label: "One-time",
+    hint: "Pay-per-visit rows. The partner response timer starts when a partner is assigned.",
   },
   {
     id: "amc",
-    label: "AMC bookings",
-    hint: "Subscription / AMC visits. Same assignment rules as one-time bookings.",
+    label: "AMC",
+    hint: "Visits created from an AMC contract.",
   },
 ];
 
@@ -281,7 +286,7 @@ function hasAssignableAction(row: BookingMonitoringEnriched, risks: OpsRisk[]): 
 export function BookingMonitoringPage() {
   const supabase = useSupabase();
   const qc = useQueryClient();
-  const [bucketTab, setBucketTab] = useState<AdminBookingsSubscriptionBucket>("one_time");
+  const [bucketTab, setBucketTab] = useState<AdminBookingsSubscriptionBucket>("all");
   const [statusFilter, setStatusFilter] = useState<AdminBookingsStatusFilter>("all");
   const [page, setPage] = useState(1);
   const [bookingAction, setBookingAction] = useState<BookingActionState>(null);
@@ -527,6 +532,7 @@ export function BookingMonitoringPage() {
                     <thead>
                       <tr>
                         <th>Reference</th>
+                        <th>Type</th>
                         <th>Status</th>
                         <th>Partner</th>
                         <th>Scheduled</th>
@@ -558,16 +564,13 @@ export function BookingMonitoringPage() {
 
                         return (
                           <tr key={row.id}>
-                            <td className="bm-cell-mono">
-                              {row.reference_code}
-                              {bucketTab === "amc" ? (
-                                <Badge
-                                  tone="neutral"
-                                  style={{ marginLeft: "0.35rem", fontSize: webTypography.size.xs }}
-                                >
-                                  AMC
-                                </Badge>
-                              ) : null}
+                            <td className="bm-cell-mono">{row.reference_code}</td>
+                            <td>
+                              {row.subscription_id ? (
+                                <span className="bm-type-flag bm-type-flag--amc">AMC</span>
+                              ) : (
+                                <span className="bm-type-flag">One-time</span>
+                              )}
                             </td>
                             <td>
                               <Badge tone={bookingStatusTone(row.status)}>{adminBookingStatusLabel(row.status)}</Badge>
@@ -672,6 +675,14 @@ export function BookingMonitoringPage() {
                 fontSize: webTypography.size.sm,
               }}
             >
+              <dt style={{ color: "var(--wb-muted-fg)" }}>Type</dt>
+              <dd style={{ margin: 0 }}>
+                {actionRow.subscription_id ? (
+                  <span className="bm-type-flag bm-type-flag--amc">AMC</span>
+                ) : (
+                  <span className="bm-type-flag">One-time</span>
+                )}
+              </dd>
               <dt style={{ color: "var(--wb-muted-fg)" }}>Status</dt>
               <dd style={{ margin: 0 }}>
                 <Badge tone={bookingStatusTone(actionRow.status)}>{adminBookingStatusLabel(actionRow.status)}</Badge>
@@ -685,7 +696,7 @@ export function BookingMonitoringPage() {
               <dd style={{ margin: 0, lineHeight: 1.45 }}>
                 {formatSiteLine(actionRow.service_site_address)}
               </dd>
-              {bucketTab === "amc" && actionRow.subscription_id ? (
+              {actionRow.subscription_id ? (
                 <>
                   <dt style={{ color: "var(--wb-muted-fg)" }}>Subscription</dt>
                   <dd style={{ margin: 0, fontFamily: "ui-monospace, monospace", fontSize: webTypography.size.xs }}>

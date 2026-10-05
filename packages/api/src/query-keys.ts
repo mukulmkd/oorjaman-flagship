@@ -194,6 +194,7 @@ export const queryKeys = {
       [...queryKeys.subscriptions.all(), "renewal-candidates-lapsed", daysSinceEnded] as const,
     renewalQueueStats: () => [...queryKeys.subscriptions.all(), "renewal-queue-stats"] as const,
     renewalChannelSummary: () => [...queryKeys.subscriptions.all(), "renewal-channel-summary"] as const,
+    amcDesk: (scopeKey: string) => [...queryKeys.subscriptions.all(), "amc-desk", scopeKey] as const,
   },
 
   technicianActivity: {

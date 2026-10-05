@@ -262,14 +262,11 @@ using (
 
 alter table public.platform_settings enable row level security;
 
--- SECURITY_REVIEW M2 (20260808122000): direct reads are admin-only; non-admin clients use
--- public.get_booking_routing_defaults() (SECURITY DEFINER) for the booking-routing fields.
 drop policy if exists platform_settings_select_authenticated on public.platform_settings;
-drop policy if exists platform_settings_select_admin on public.platform_settings;
 
-create policy platform_settings_select_admin
+create policy platform_settings_select_authenticated
 on public.platform_settings for select to authenticated
-using (public.is_admin());
+using (true);
 
 drop policy if exists platform_settings_update_admin on public.platform_settings;
 
@@ -788,29 +785,11 @@ using (
   )
 );
 
--- SECURITY_REVIEW M1 (20260808123000): inserts scoped to the actor (admin / booking participant /
--- approved vendor emitting an admin-audience booking event / customer AMC ping) instead of open.
 drop policy if exists notification_events_insert_authenticated on public.notification_events;
-drop policy if exists notification_events_insert_scoped on public.notification_events;
 
-create policy notification_events_insert_scoped
+create policy notification_events_insert_authenticated
 on public.notification_events for insert to authenticated
-with check (
-  public.is_admin()
-  or (booking_id is not null and public.is_booking_participant(booking_id))
-  or (
-    booking_id is not null
-    and recipient_audience = 'admin'
-    and recipient_vendor_id is null
-    and public.is_approved_vendor_user()
-  )
-  or (
-    booking_id is null
-    and recipient_vendor_id is null
-    and recipient_audience = 'admin'
-    and event_type = 'admin_amc_awaiting_partner'
-  )
-);
+with check (true);
 
 drop policy if exists notification_events_update_admin on public.notification_events;
 
@@ -2251,10 +2230,134 @@ using (
   )
 );
 
--- End of policies (generated)
+drop policy if exists platform_settings_select_authenticated on public.platform_settings;
 
--- ----- 20260821200000_razorpay_payments_uat.sql -----
+drop policy if exists platform_settings_select_admin on public.platform_settings;
+
+create policy platform_settings_select_admin
+on public.platform_settings for select to authenticated
+using (public.is_admin());
+
+-- ----- 20260808123000_scope_notification_events_insert.sql -----
+create or replace function public.is_booking_participant(p_booking_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.bookings b
+    where b.id = p_booking_id
+      and (
+        b.customer_id = public.my_customer_id()
+        or b.vendor_id = public.my_vendor_id()
+        or b.technician_id = public.my_technician_id()
+      )
+  );
+
+drop policy if exists notification_events_insert_authenticated on public.notification_events;
+
+drop policy if exists notification_events_insert_scoped on public.notification_events;
+
+create policy notification_events_insert_scoped
+on public.notification_events for insert to authenticated
+with check (
+  public.is_admin()
+  or (booking_id is not null and public.is_booking_participant(booking_id))
+  or (
+    booking_id is not null
+    and recipient_audience = 'admin'
+    and recipient_vendor_id is null
+    and public.is_approved_vendor_user()
+  )
+  or (
+    booking_id is null
+    and recipient_vendor_id is null
+    and recipient_audience = 'admin'
+    and event_type = 'admin_amc_awaiting_partner'
+  )
+);
+
+-- ----- 20260808124000_reassert_rls_drift_reconcile.sql -----
+drop policy if exists customers_select_scope on public.customers;
+
+create policy customers_select_scope on public.customers as permissive for select to authenticated
+  using ((is_admin() OR is_support_desk_user() OR (user_id = auth.uid()) OR (is_approved_vendor_user() AND (EXISTS ( SELECT 1
+   FROM bookings b
+  WHERE ((b.customer_id = customers.id) AND (b.vendor_id IS NOT NULL) AND (b.vendor_id = my_vendor_id()))))) OR (EXISTS ( SELECT 1
+   FROM bookings b
+  WHERE ((b.customer_id = customers.id) AND (b.technician_id IS NOT NULL) AND (b.technician_id = my_technician_id()) AND (b.status = ANY (ARRAY['accepted'::booking_status, 'in_progress'::booking_status, 'completed'::booking_status])))))));
+
+drop policy if exists support_conversations_insert_customer on public.support_conversations;
+
+create policy support_conversations_insert_customer on public.support_conversations as permissive for insert to authenticated
+  with check (((participant_audience = 'customer'::support_participant_audience) AND (customer_id = my_customer_id())));
+
+drop policy if exists support_conversations_select on public.support_conversations;
+
+create policy support_conversations_select on public.support_conversations as permissive for select to authenticated
+  using ((is_admin() OR is_support_agent() OR ((participant_audience = 'customer'::support_participant_audience) AND (customer_id = my_customer_id())) OR ((participant_audience = 'technician'::support_participant_audience) AND (technician_id = my_technician_id()))));
+
+drop policy if exists support_conversations_update on public.support_conversations;
+
+create policy support_conversations_update on public.support_conversations as permissive for update to authenticated
+  using ((is_admin() OR is_support_agent() OR ((participant_audience = 'customer'::support_participant_audience) AND (customer_id = my_customer_id())) OR ((participant_audience = 'technician'::support_participant_audience) AND (technician_id = my_technician_id()))))
+  with check ((is_admin() OR is_support_agent() OR ((participant_audience = 'customer'::support_participant_audience) AND (customer_id = my_customer_id())) OR ((participant_audience = 'technician'::support_participant_audience) AND (technician_id = my_technician_id()))));
+
+drop policy if exists support_messages_insert on public.support_messages;
+
+create policy support_messages_insert on public.support_messages as permissive for insert to authenticated
+  with check ((((is_admin() OR is_support_agent()) AND (sender_role = 'admin'::text)) OR ((sender_role = 'customer'::text) AND (EXISTS ( SELECT 1
+   FROM support_conversations c
+  WHERE ((c.id = support_messages.conversation_id) AND (c.participant_audience = 'customer'::support_participant_audience) AND (c.customer_id = my_customer_id()) AND (c.status <> 'resolved'::support_conversation_status))))) OR ((sender_role = 'technician'::text) AND (EXISTS ( SELECT 1
+   FROM support_conversations c
+  WHERE ((c.id = support_messages.conversation_id) AND (c.participant_audience = 'technician'::support_participant_audience) AND (c.technician_id = my_technician_id()) AND (c.status <> 'resolved'::support_conversation_status)))))));
+
+drop policy if exists support_messages_select on public.support_messages;
+
+create policy support_messages_select on public.support_messages as permissive for select to authenticated
+  using ((is_admin() OR is_support_agent() OR (EXISTS ( SELECT 1
+   FROM support_conversations c
+  WHERE ((c.id = support_messages.conversation_id) AND (c.participant_audience = 'customer'::support_participant_audience) AND (c.customer_id = my_customer_id())))) OR (EXISTS ( SELECT 1
+   FROM support_conversations c
+  WHERE ((c.id = support_messages.conversation_id) AND (c.participant_audience = 'technician'::support_participant_audience) AND (c.technician_id = my_technician_id()))))));
+
+drop policy if exists technicians_select_scope on public.technicians;
+
+create policy technicians_select_scope on public.technicians as permissive for select to authenticated
+  using ((is_admin() OR is_support_desk_user() OR (user_id = auth.uid()) OR (is_approved_vendor_user() AND (vendor_id IS NOT NULL) AND (vendor_id = my_vendor_id()))));
+
+drop policy if exists vendors_select_scope on public.vendors;
+
+create policy vendors_select_scope on public.vendors as permissive for select to authenticated
+  using ((is_admin() OR is_support_desk_user() OR (user_id = auth.uid()) OR (EXISTS ( SELECT 1
+   FROM technicians t
+  WHERE ((t.vendor_id = vendors.id) AND (t.user_id = auth.uid())))) OR ((approval_status = 'approved'::vendor_approval_status) AND (EXISTS ( SELECT 1
+   FROM users u
+  WHERE ((u.id = auth.uid()) AND (u.role = 'customer'::user_role)))))));
+
+drop policy if exists support_macros_admin on public.support_macros;
+
+drop policy if exists notification_events_select_scope on public.notification_events;
+
+create policy notification_events_select_scope
+on public.notification_events for select to authenticated
+using (
+  public.is_admin()
+  or (
+    public.is_approved_vendor_user()
+    and recipient_audience = 'vendor'
+    and recipient_vendor_id is not null
+    and recipient_vendor_id = public.my_vendor_id()
+  )
+);
+
+alter table public.edge_rate_limit_buckets enable row level security;
+
 drop policy if exists payments_update_own on public.payments;
+
 create policy payments_update_own
 on public.payments for update to authenticated
 using (customer_id = public.my_customer_id() or public.is_admin())
@@ -2265,3 +2368,537 @@ with check (
     or (provider = 'razorpay' and status = 'failed'::public.payment_status)
   )
 );
+
+alter table public.payment_attempts enable row level security;
+
+drop policy if exists payment_attempts_select_own on public.payment_attempts;
+
+create policy payment_attempts_select_own on public.payment_attempts
+  for select to authenticated
+  using (
+    public.is_admin()
+    or exists (
+      select 1 from public.payments p
+      where p.id = payment_id and p.customer_id = public.my_customer_id()
+    )
+  );
+
+alter table public.payment_refunds enable row level security;
+
+drop policy if exists payment_refunds_select_own on public.payment_refunds;
+
+create policy payment_refunds_select_own on public.payment_refunds
+  for select to authenticated
+  using (
+    public.is_admin()
+    or exists (
+      select 1 from public.payments p
+      where p.id = payment_id and p.customer_id = public.my_customer_id()
+    )
+  );
+
+alter table public.razorpay_webhook_events enable row level security;
+
+drop policy if exists payments_update_own on public.payments;
+
+create policy payments_update_own
+on public.payments for update to authenticated
+using (customer_id = public.my_customer_id() or public.is_admin())
+with check (
+  public.is_admin()
+  or provider = 'dummy'
+  or (
+    provider = 'razorpay'
+    and status in (
+      'failed'::public.payment_status,
+      'cancelled'::public.payment_status,
+      'timeout'::public.payment_status
+    )
+  )
+);
+
+drop policy if exists payments_select_technician_assigned on public.payments;
+
+create policy payments_select_technician_assigned
+on public.payments for select to authenticated
+using (
+  exists (
+    select 1 from public.bookings b
+    where b.id = payments.booking_id
+      and b.technician_id = public.my_technician_id()
+  )
+);
+
+alter table public.launch_service_pincodes enable row level security;
+
+drop policy if exists launch_service_pincodes_select_authenticated on public.launch_service_pincodes;
+
+drop policy if exists launch_service_pincodes_insert_admin on public.launch_service_pincodes;
+
+drop policy if exists launch_service_pincodes_update_admin on public.launch_service_pincodes;
+
+drop policy if exists launch_service_pincodes_delete_admin on public.launch_service_pincodes;
+
+create policy launch_service_pincodes_select_authenticated
+on public.launch_service_pincodes for select to authenticated
+using (active or public.is_admin());
+
+create policy launch_service_pincodes_insert_admin
+on public.launch_service_pincodes for insert to authenticated
+with check (public.is_admin());
+
+create policy launch_service_pincodes_update_admin
+on public.launch_service_pincodes for update to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+create policy launch_service_pincodes_delete_admin
+on public.launch_service_pincodes for delete to authenticated
+using (public.is_admin());
+
+create or replace function public.is_state_ops()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.users u
+    where u.id = auth.uid()
+      and u.role = 'state_ops'::public.user_role
+  );
+
+alter table public.operation_states enable row level security;
+
+alter table public.user_operation_states enable row level security;
+
+drop policy if exists operation_states_select_staff on public.operation_states;
+
+create policy operation_states_select_staff
+on public.operation_states for select to authenticated
+using (public.is_admin() or public.is_state_ops());
+
+drop policy if exists operation_states_write_admin on public.operation_states;
+
+create policy operation_states_write_admin
+on public.operation_states for all to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists user_operation_states_select_scope on public.user_operation_states;
+
+create policy user_operation_states_select_scope
+on public.user_operation_states for select to authenticated
+using (public.is_admin() or user_id = auth.uid());
+
+drop policy if exists user_operation_states_write_admin on public.user_operation_states;
+
+create policy user_operation_states_write_admin
+on public.user_operation_states for all to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists bookings_select_state_ops on public.bookings;
+
+create policy bookings_select_state_ops
+on public.bookings for select to authenticated
+using (public.state_in_my_operation(service_site_address->>'state'));
+
+drop policy if exists bookings_update_state_ops on public.bookings;
+
+create policy bookings_update_state_ops
+on public.bookings for update to authenticated
+using (public.state_in_my_operation(service_site_address->>'state'))
+with check (public.state_in_my_operation(service_site_address->>'state'));
+
+drop policy if exists customers_select_state_ops on public.customers;
+
+create policy customers_select_state_ops
+on public.customers for select to authenticated
+using (
+  public.is_state_ops()
+  and (
+    public.state_in_my_operation(service_default_address->>'state')
+    or exists (
+      select 1
+      from public.bookings b
+      where b.customer_id = customers.id
+        and public.state_in_my_operation(b.service_site_address->>'state')
+    )
+  )
+);
+
+drop policy if exists vendors_select_state_ops on public.vendors;
+
+create policy vendors_select_state_ops
+on public.vendors for select to authenticated
+using (
+  public.is_state_ops()
+  and (
+    exists (
+      select 1
+      from unnest(coalesce(vendors.operating_regions, '{}'::text[])) as region
+      where public.state_in_my_operation(region)
+    )
+    or exists (
+      select 1
+      from public.bookings b
+      where b.vendor_id = vendors.id
+        and public.state_in_my_operation(b.service_site_address->>'state')
+    )
+  )
+);
+
+drop policy if exists technicians_select_state_ops on public.technicians;
+
+create policy technicians_select_state_ops
+on public.technicians for select to authenticated
+using (
+  public.is_state_ops()
+  and exists (
+    select 1
+    from public.vendors v
+    where v.id = technicians.vendor_id
+      and (
+        exists (
+          select 1
+          from unnest(coalesce(v.operating_regions, '{}'::text[])) as region
+          where public.state_in_my_operation(region)
+        )
+        or exists (
+          select 1
+          from public.bookings b
+          where b.vendor_id = v.id
+            and public.state_in_my_operation(b.service_site_address->>'state')
+        )
+      )
+  )
+);
+
+drop policy if exists users_select_state_ops on public.users;
+
+create policy users_select_state_ops
+on public.users for select to authenticated
+using (
+  public.is_state_ops()
+  and (
+    exists (select 1 from public.customers c where c.user_id = users.id)
+    or exists (select 1 from public.technicians t where t.user_id = users.id)
+    or exists (select 1 from public.vendors v where v.user_id = users.id)
+  )
+);
+
+drop policy if exists payments_select_state_ops on public.payments;
+
+create policy payments_select_state_ops
+on public.payments for select to authenticated
+using (
+  public.is_state_ops()
+  and exists (
+    select 1
+    from public.bookings b
+    where b.id = payments.booking_id
+      and public.state_in_my_operation(b.service_site_address->>'state')
+  )
+);
+
+drop policy if exists vendor_settlements_select_state_ops on public.vendor_settlements;
+
+create policy vendor_settlements_select_state_ops
+on public.vendor_settlements for select to authenticated
+using (
+  public.is_state_ops()
+  and exists (
+    select 1
+    from public.bookings b
+    where b.id = vendor_settlements.booking_id
+      and public.state_in_my_operation(b.service_site_address->>'state')
+  )
+);
+
+drop policy if exists subscriptions_select_state_ops on public.subscriptions;
+
+create policy subscriptions_select_state_ops
+on public.subscriptions for select to authenticated
+using (
+  public.is_state_ops()
+  and (
+    exists (
+      select 1
+      from public.customers c
+      where c.id = subscriptions.customer_id
+        and public.state_in_my_operation(c.service_default_address->>'state')
+    )
+    or exists (
+      select 1
+      from public.bookings b
+      where b.subscription_id = subscriptions.id
+        and public.state_in_my_operation(b.service_site_address->>'state')
+    )
+  )
+);
+
+drop policy if exists job_reports_select_state_ops on public.job_reports;
+
+create policy job_reports_select_state_ops
+on public.job_reports for select to authenticated
+using (
+  public.is_state_ops()
+  and exists (
+    select 1
+    from public.bookings b
+    where b.id = job_reports.booking_id
+      and public.state_in_my_operation(b.service_site_address->>'state')
+  )
+);
+
+drop policy if exists amc_wallets_select_state_ops on public.amc_wallets;
+
+create policy amc_wallets_select_state_ops
+on public.amc_wallets for select to authenticated
+using (
+  public.is_state_ops()
+  and exists (
+    select 1
+    from public.customers c
+    where c.id = amc_wallets.customer_id
+      and (
+        public.state_in_my_operation(c.service_default_address->>'state')
+        or exists (
+          select 1
+          from public.bookings b
+          where b.customer_id = c.id
+            and public.state_in_my_operation(b.service_site_address->>'state')
+        )
+      )
+  )
+);
+
+drop policy if exists notification_events_select_state_ops on public.notification_events;
+
+create policy notification_events_select_state_ops
+on public.notification_events for select to authenticated
+using (
+  public.is_state_ops()
+  and recipient_audience = 'admin'
+  and booking_id is not null
+  and exists (
+    select 1
+    from public.bookings b
+    where b.id = notification_events.booking_id
+      and public.state_in_my_operation(b.service_site_address->>'state')
+  )
+);
+
+-- ----- 20261003150632_close_vendor_marketplace_float_policies.sql -----
+drop policy if exists bookings_select_vendor on public.bookings;
+
+create policy bookings_select_vendor
+on public.bookings for select to authenticated
+using (
+  public.is_approved_vendor_user()
+  and (
+    (vendor_id is not null and vendor_id = public.my_vendor_id())
+    or (
+      vendor_id is null
+      and status = 'confirmed'::public.booking_status
+      and metadata @> '{"marketplace":{"vendor_cancelled_reassign":true}}'::jsonb
+      and coalesce(metadata->'vendor_reassignment'->>'previous_vendor_id', '') = public.my_vendor_id()::text
+    )
+  )
+);
+
+drop policy if exists bookings_update_vendor on public.bookings;
+
+create policy bookings_update_vendor
+on public.bookings for update to authenticated
+using (
+  public.is_approved_vendor_user()
+  and vendor_id is not null
+  and vendor_id = public.my_vendor_id()
+)
+with check (
+  public.is_approved_vendor_user()
+  and (
+    (vendor_id is not null and vendor_id = public.my_vendor_id())
+    or (
+      vendor_id is null
+      and status = 'confirmed'::public.booking_status
+      and metadata @> '{"marketplace":{"awaiting_admin_assignment":true}}'::jsonb
+      and metadata @> '{"vendor_reassignment":{"awaiting_admin_assignment":true}}'::jsonb
+    )
+  )
+);
+
+drop policy if exists technicians_select_state_ops on public.technicians;
+
+create policy technicians_select_state_ops
+on public.technicians for select to authenticated
+using (public.technician_vendor_in_my_operation(vendor_id));
+
+drop policy if exists users_select_state_ops on public.users;
+
+create policy users_select_state_ops
+on public.users for select to authenticated
+using (public.state_ops_can_read_user(id));
+
+alter table public.uat_dummy_auth_settings enable row level security;
+
+-- ----- 20261005180000_vendor_intake_storage_select_draft.sql -----
+drop policy if exists vendor_intake_select_draft on storage.objects;
+
+create policy vendor_intake_select_draft on storage.objects for
+select
+  to anon,
+  authenticated using (
+    bucket_id = 'vendor-intake'
+    and public.vendor_intake_allows_storage_upload (name)
+  );
+
+drop policy if exists vendor_registration_intake_select_state_ops on public.vendor_registration_intake;
+
+create policy vendor_registration_intake_select_state_ops
+on public.vendor_registration_intake for select to authenticated
+using (public.intake_in_my_operation(form_data));
+
+drop policy if exists vendor_registration_intake_update_state_ops on public.vendor_registration_intake;
+
+create policy vendor_registration_intake_update_state_ops
+on public.vendor_registration_intake for update to authenticated
+using (public.intake_in_my_operation(form_data))
+with check (public.intake_in_my_operation(form_data));
+
+drop policy if exists vendors_update_state_ops on public.vendors;
+
+create policy vendors_update_state_ops
+on public.vendors for update to authenticated
+using (public.vendor_in_my_operation(id))
+with check (public.vendor_in_my_operation(id));
+
+drop policy if exists users_update_vendor_state_ops on public.users;
+
+create policy users_update_vendor_state_ops
+on public.users for update to authenticated
+using (
+  exists (
+    select 1
+    from public.vendors v
+    where v.user_id = users.id
+      and public.vendor_in_my_operation(v.id)
+  )
+)
+with check (
+  role = 'vendor'::public.user_role
+  and exists (
+    select 1
+    from public.vendors v
+    where v.user_id = users.id
+      and public.vendor_in_my_operation(v.id)
+  )
+);
+
+drop policy if exists vendor_intake_select_state_ops on storage.objects;
+
+create policy vendor_intake_select_state_ops
+on storage.objects for select to authenticated
+using (
+  bucket_id = 'vendor-intake'
+  and exists (
+    select 1
+    from public.vendor_registration_intake i
+    where i.id::text = split_part(name, '/', 1)
+      and public.intake_in_my_operation(i.form_data)
+  )
+);
+
+drop policy if exists vendor_documents_select_state_ops on storage.objects;
+
+create policy vendor_documents_select_state_ops
+on storage.objects for select to authenticated
+using (
+  bucket_id = 'vendor-documents'
+  and exists (
+    select 1
+    from public.vendors v
+    where v.user_id::text = split_part(name, '/', 1)
+      and public.vendor_in_my_operation(v.id)
+  )
+);
+
+drop policy if exists subscriptions_select_state_ops on public.subscriptions;
+
+create policy subscriptions_select_state_ops
+on public.subscriptions for select to authenticated
+using (
+  public.is_state_ops()
+  and (
+    public.state_in_my_operation(metadata -> 'service_site_address' ->> 'state')
+    or exists (
+      select 1
+      from public.customers c
+      where c.id = subscriptions.customer_id
+        and public.state_in_my_operation(c.service_default_address ->> 'state')
+    )
+    or exists (
+      select 1
+      from public.bookings b
+      where b.subscription_id = subscriptions.id
+        and public.state_in_my_operation(b.service_site_address ->> 'state')
+    )
+  )
+);
+
+drop policy if exists customers_select_state_ops on public.customers;
+
+create policy customers_select_state_ops
+on public.customers for select to authenticated
+using (
+  public.is_state_ops()
+  and (
+    public.state_in_my_operation(service_default_address ->> 'state')
+    or public.customer_has_amc_in_my_operation(id)
+    or exists (
+      select 1
+      from public.bookings b
+      where b.customer_id = customers.id
+        and public.state_in_my_operation(b.service_site_address ->> 'state')
+    )
+  )
+);
+
+drop policy if exists subscription_visit_slots_select_state_ops on public.subscription_visit_slots;
+
+create policy subscription_visit_slots_select_state_ops
+on public.subscription_visit_slots for select to authenticated
+using (
+  public.state_in_my_operation(public.subscription_site_state(subscription_id))
+);
+
+drop policy if exists amc_wallets_select_state_ops on public.amc_wallets;
+
+create policy amc_wallets_select_state_ops
+on public.amc_wallets for select to authenticated
+using (
+  public.is_state_ops()
+  and (
+    public.state_in_my_operation(public.subscription_site_state(subscription_id))
+    or exists (
+      select 1
+      from public.customers c
+      where c.id = amc_wallets.customer_id
+        and (
+          public.state_in_my_operation(c.service_default_address ->> 'state')
+          or exists (
+            select 1
+            from public.bookings b
+            where b.customer_id = c.id
+              and public.state_in_my_operation(b.service_site_address ->> 'state')
+          )
+        )
+    )
+  )
+);
+
+-- End of policies (generated)

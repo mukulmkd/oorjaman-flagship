@@ -4,6 +4,18 @@ Pick up the **latest open date** section when you resume work. Check boxes as yo
 
 ---
 
+## 2026-08-22 — Production hardening (not launch-blocking)
+
+Carried over from the retired root production checklist. These do not gate the live apps.
+
+- [ ] Full base-table DDL via `npm run db:baseline` (needs Docker) for one-command disaster-recovery bootstrap
+- [ ] Re-scan `npm audit` after the next Expo SDK bump (remaining items were dev/build-time transitive)
+- [ ] Portal CSP: replace `'unsafe-inline'` with hashes or nonces
+- [ ] Error tracking, Supabase log alerts, and uptime checks
+- [ ] Confirm PROD Supabase point-in-time recovery / backup retention
+
+---
+
 ## 2026-05-19 (Tuesday) — Admin web: duplicate API calls
 
 **Symptom:** Supabase REST calls repeat on sidebar navigation — e.g.  

@@ -2809,31 +2809,19 @@ as $$
       from public.bookings b
       join public.customers c on c.id = b.customer_id
       where c.user_id::text = split_part(object_path, '/', 1)
+        and coalesce(nullif(trim(b.metadata->>'service_address_id'), ''), '') = split_part(object_path, '/', 2)
+        and b.technician_id is not null
         and b.status in (
           'accepted'::public.booking_status,
           'in_progress'::public.booking_status,
           'completed'::public.booking_status
         )
         and (
-          (b.technician_id is not null and b.technician_id = public.my_technician_id())
+          b.technician_id = public.my_technician_id()
           or (b.vendor_id is not null and b.vendor_id = public.my_vendor_id())
         )
-        and (
-          coalesce(nullif(trim(b.metadata->>'service_address_id'), ''), '') = split_part(object_path, '/', 2)
-          or (
-            b.subscription_id is not null
-            and exists (
-              select 1
-              from public.subscriptions s
-              where s.id = b.subscription_id
-                and (
-                  coalesce(nullif(trim(s.service_address_id), ''), '') = split_part(object_path, '/', 2)
-                  or coalesce(nullif(trim(s.metadata->>'service_address_id'), ''), '') = split_part(object_path, '/', 2)
-                )
-            )
-          )
-        )
     );
+
 $$;
 
 create or replace function public.customer_site_photo_can_write(object_path text)
@@ -2862,7 +2850,7 @@ grant execute on function public.customer_site_photo_can_read(text) to authentic
 grant execute on function public.customer_site_photo_can_write(text) to authenticated;
 
 comment on function public.customer_site_photo_can_read(text) is
-  'Storage read for customer-site-photos: owner, admin, or assigned vendor/tech on accepted+ booking matching path address via booking metadata or subscription.';
+  'Storage RLS: customer owns path; vendor/technician when booking accepted+ with technician assigned.';
 
 -- ----- 20260623120000_analytics_views_security_invoker.sql -----
 drop function if exists public.get_vendor_public_stats(uuid[]);
@@ -10607,7 +10595,396 @@ as $$
 
 $$;
 
--- End of schema (generated)
+-- ----- 20260808122000_restrict_platform_settings_read.sql -----
+create or replace function public.get_booking_routing_defaults()
+returns table (
+  default_vendor_id uuid,
+  customer_late_cancel_fee_paise integer,
+  vendor_platform_fee_percent numeric
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    ps.default_vendor_id,
+    ps.customer_late_cancel_fee_paise,
+    ps.vendor_platform_fee_percent
+  from public.platform_settings ps
+  where ps.id = 1;
+
+$$;
+
+revoke all on function public.get_booking_routing_defaults() from public;
+
+grant execute on function public.get_booking_routing_defaults() to authenticated;
+
+$$;
+
+revoke all on function public.is_booking_participant(uuid) from public;
+
+grant execute on function public.is_booking_participant(uuid) to authenticated;
+
+-- ----- 20260808130000_booking_technician_change_notifications.sql -----
+create or replace function public.enqueue_booking_technician_change_notifications()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_ref text;
+
+v_addr_id text;
+
+v_new_tech_user uuid;
+
+v_old_tech_user uuid;
+
+v_customer_user uuid;
+
+begin
+  if tg_op <> 'UPDATE' then
+    return new;
+
+end if;
+
+if new.technician_id is not distinct from old.technician_id then
+    return new;
+
+end if;
+
+v_ref := coalesce(nullif(trim(both from new.reference_code), ''), left(new.id::text, 8));
+
+if new.technician_id is not null then
+    select t.user_id into v_new_tech_user
+      from public.technicians t
+      where t.id = new.technician_id;
+
+if v_new_tech_user is not null then
+      insert into public.technician_push_outbox (user_id, technician_id, event_type, title, body, data)
+      values (
+        v_new_tech_user,
+        new.technician_id,
+        'booking_technician_assigned',
+        'New job assigned',
+        'You have been assigned booking ' || v_ref || '. Open the app for visit details.',
+        jsonb_build_object('kind', 'booking_technician_assigned', 'bookingId', new.id)
+      );
+
+end if;
+
+end if;
+
+if old.technician_id is not null then
+    select t.user_id into v_old_tech_user
+      from public.technicians t
+      where t.id = old.technician_id;
+
+if v_old_tech_user is not null then
+      insert into public.technician_push_outbox (user_id, technician_id, event_type, title, body, data)
+      values (
+        v_old_tech_user,
+        old.technician_id,
+        'booking_technician_unassigned',
+        'Job reassigned',
+        'Booking ' || v_ref || ' has been reassigned to another technician.',
+        jsonb_build_object('kind', 'booking_technician_unassigned', 'bookingId', new.id)
+      );
+
+end if;
+
+select c.user_id into v_customer_user
+      from public.customers c
+      where c.id = new.customer_id;
+
+if v_customer_user is not null then
+      insert into public.customer_push_outbox (user_id, customer_id, event_type, title, body, data)
+      values (
+        v_customer_user,
+        new.customer_id,
+        'booking_technician_changed',
+        'Your technician has changed',
+        'A new technician has been assigned to your booking ' || v_ref || '.',
+        jsonb_build_object('kind', 'booking_technician_changed', 'bookingId', new.id)
+      );
+
+end if;
+
+v_addr_id := public.booking_metadata_service_address_id(new.metadata);
+
+if v_addr_id is not null then
+      perform public.insert_customer_site_activity(
+        new.customer_id,
+        v_addr_id,
+        'booking_technician_assigned',
+        'Technician changed',
+        'Visit ' || v_ref,
+        coalesce(new.updated_at, now()),
+        new.id,
+        new.subscription_id,
+        'booking:' || new.id::text || ':technician_reassigned:' || new.technician_id::text,
+        jsonb_build_object(
+          'reference_code', v_ref,
+          'status', new.status,
+          'technician_id', new.technician_id,
+          'previous_technician_id', old.technician_id
+        )
+      );
+
+end if;
+
+end if;
+
+return new;
+
+end;
+
+$$;
+
+drop trigger if exists bookings_enqueue_technician_change_notifications on public.bookings;
+
+create trigger bookings_enqueue_technician_change_notifications
+after update of technician_id on public.bookings
+for each row
+when (new.technician_id is distinct from old.technician_id)
+execute function public.enqueue_booking_technician_change_notifications();
+
+comment on function public.enqueue_booking_technician_change_notifications() is
+  'Enqueues technician/customer push (+ customer activity on reassign) when bookings.technician_id changes. Admin/vendor in-app events come from the API layer.';
+
+-- ----- 20260813120000_edge_function_rate_limits.sql -----
+create table if not exists public.edge_rate_limit_buckets (
+  bucket_key text primary key,
+  window_started_at timestamptz not null,
+  request_count integer not null default 0
+    check (request_count >= 0),
+  updated_at timestamptz not null default now()
+);
+
+comment on table public.edge_rate_limit_buckets is
+  'Sliding fixed-window counters for Supabase Edge Function rate limiting. Written only via consume_edge_rate_limit().';
+
+revoke all on public.edge_rate_limit_buckets from anon, authenticated;
+
+grant all on public.edge_rate_limit_buckets to service_role;
+
+create or replace function public.consume_edge_rate_limit(
+  p_bucket_key text,
+  p_max_requests integer,
+  p_window_seconds integer
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_key text;
+
+v_max int;
+
+v_window int;
+
+v_now timestamptz := now();
+
+v_started timestamptz;
+
+v_count int;
+
+v_remaining int;
+
+v_retry int;
+
+begin
+  v_key := nullif(trim(p_bucket_key), '');
+
+if v_key is null then
+    raise exception 'bucket_key required';
+
+end if;
+
+v_max := greatest(1, coalesce(p_max_requests, 60));
+
+v_window := greatest(1, coalesce(p_window_seconds, 60));
+
+insert into public.edge_rate_limit_buckets (bucket_key, window_started_at, request_count, updated_at)
+  values (v_key, v_now, 1, v_now)
+  on conflict (bucket_key) do update
+  set
+    window_started_at = case
+      when public.edge_rate_limit_buckets.window_started_at <= v_now - make_interval(secs => v_window)
+        then v_now
+      else public.edge_rate_limit_buckets.window_started_at
+    end,
+    request_count = case
+      when public.edge_rate_limit_buckets.window_started_at <= v_now - make_interval(secs => v_window)
+        then 1
+      else public.edge_rate_limit_buckets.request_count + 1
+    end,
+    updated_at = v_now
+  returning window_started_at, request_count
+  into v_started, v_count;
+
+if v_count > v_max then
+    v_retry := greatest(
+      1,
+      ceil(extract(epoch from (v_started + make_interval(secs => v_window) - v_now)))::int
+    );
+
+return jsonb_build_object(
+      'allowed', false,
+      'limit', v_max,
+      'remaining', 0,
+      'retry_after_seconds', v_retry,
+      'window_seconds', v_window
+    );
+
+end if;
+
+v_remaining := greatest(0, v_max - v_count);
+
+return jsonb_build_object(
+    'allowed', true,
+    'limit', v_max,
+    'remaining', v_remaining,
+    'retry_after_seconds', 0,
+    'window_seconds', v_window
+  );
+
+end;
+
+$$;
+
+revoke all on function public.consume_edge_rate_limit(text, integer, integer) from public, anon, authenticated;
+
+grant execute on function public.consume_edge_rate_limit(text, integer, integer) to service_role;
+
+comment on function public.consume_edge_rate_limit(text, integer, integer) is
+  'Atomically consume one request from a fixed-window rate bucket. Service role only. Returns {allowed, limit, remaining, retry_after_seconds, window_seconds}.';
+
+create or replace function public.cleanup_edge_rate_limit_buckets(
+  p_older_than_hours integer default 24
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_deleted int;
+
+begin
+  delete from public.edge_rate_limit_buckets
+  where updated_at < now() - make_interval(hours => greatest(1, coalesce(p_older_than_hours, 24)));
+
+get diagnostics v_deleted = row_count;
+
+return v_deleted;
+
+end;
+
+$$;
+
+revoke all on function public.cleanup_edge_rate_limit_buckets(integer) from public, anon, authenticated;
+
+grant execute on function public.cleanup_edge_rate_limit_buckets(integer) to service_role;
+
+-- ----- 20260821193000_customer_site_photos_subscription_address.sql -----
+create or replace function public.customer_site_photo_can_read(object_path text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    public.is_admin()
+    or split_part(object_path, '/', 1) = auth.uid()::text
+    or exists (
+      select 1
+      from public.bookings b
+      join public.customers c on c.id = b.customer_id
+      where c.user_id::text = split_part(object_path, '/', 1)
+        and b.technician_id is not null
+        and b.status in (
+          'accepted'::public.booking_status,
+          'in_progress'::public.booking_status,
+          'completed'::public.booking_status
+        )
+        and (
+          b.technician_id = public.my_technician_id()
+          or (b.vendor_id is not null and b.vendor_id = public.my_vendor_id())
+        )
+        and (
+          coalesce(nullif(trim(b.metadata->>'service_address_id'), ''), '') = split_part(object_path, '/', 2)
+          or (
+            b.subscription_id is not null
+            and exists (
+              select 1
+              from public.subscriptions s
+              where s.id = b.subscription_id
+                and (
+                  coalesce(nullif(trim(s.service_address_id), ''), '') = split_part(object_path, '/', 2)
+                  or coalesce(nullif(trim(s.metadata->>'service_address_id'), ''), '') = split_part(object_path, '/', 2)
+                )
+            )
+          )
+        )
+    );
+
+$$;
+
+comment on function public.customer_site_photo_can_read(text) is
+  'Storage read for customer-site-photos: owner, admin, or assigned vendor/tech on accepted+ booking matching path address via booking metadata or subscription.';
+
+-- ----- 20260821194500_customer_site_photos_vendor_without_tech.sql -----
+create or replace function public.customer_site_photo_can_read(object_path text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    public.is_admin()
+    or split_part(object_path, '/', 1) = auth.uid()::text
+    or exists (
+      select 1
+      from public.bookings b
+      join public.customers c on c.id = b.customer_id
+      where c.user_id::text = split_part(object_path, '/', 1)
+        and b.status in (
+          'accepted'::public.booking_status,
+          'in_progress'::public.booking_status,
+          'completed'::public.booking_status
+        )
+        and (
+          (b.technician_id is not null and b.technician_id = public.my_technician_id())
+          or (b.vendor_id is not null and b.vendor_id = public.my_vendor_id())
+        )
+        and (
+          coalesce(nullif(trim(b.metadata->>'service_address_id'), ''), '') = split_part(object_path, '/', 2)
+          or (
+            b.subscription_id is not null
+            and exists (
+              select 1
+              from public.subscriptions s
+              where s.id = b.subscription_id
+                and (
+                  coalesce(nullif(trim(s.service_address_id), ''), '') = split_part(object_path, '/', 2)
+                  or coalesce(nullif(trim(s.metadata->>'service_address_id'), ''), '') = split_part(object_path, '/', 2)
+                )
+            )
+          )
+        )
+    );
+
+$$;
+
+comment on function public.customer_site_photo_can_read(text) is
+  'Storage read for customer-site-photos: owner, admin, or assigned vendor/tech on accepted+ booking matching path address via booking metadata or subscription.';
 
 -- ----- 20260821200000_razorpay_payments_uat.sql -----
 alter table public.payments
@@ -10615,26 +10992,29 @@ alter table public.payments
   add column if not exists razorpay_order_id text,
   add column if not exists razorpay_payment_id text;
 
-alter table public.payments drop constraint if exists payments_provider_check;
 alter table public.payments
-  add constraint payments_provider_check check (provider in ('dummy', 'razorpay'));
+  drop constraint if exists payments_provider_check;
+
+alter table public.payments
+  add constraint payments_provider_check
+  check (provider in ('dummy', 'razorpay'));
+
+comment on column public.payments.provider is
+  'Payment source: dummy (local simulate) or razorpay (Orders + webhook).';
+
+comment on column public.payments.razorpay_order_id is
+  'Razorpay order_id (order_…); unique when set.';
+
+comment on column public.payments.razorpay_payment_id is
+  'Razorpay payment_id (pay_…) after capture.';
 
 create unique index if not exists payments_razorpay_order_id_uidx
-  on public.payments (razorpay_order_id) where razorpay_order_id is not null;
-create unique index if not exists payments_razorpay_payment_id_uidx
-  on public.payments (razorpay_payment_id) where razorpay_payment_id is not null;
+  on public.payments (razorpay_order_id)
+  where razorpay_order_id is not null;
 
-drop policy if exists payments_update_own on public.payments;
-create policy payments_update_own
-on public.payments for update to authenticated
-using (customer_id = public.my_customer_id() or public.is_admin())
-with check (
-  (customer_id = public.my_customer_id() or public.is_admin())
-  and (
-    provider = 'dummy'
-    or (provider = 'razorpay' and status = 'failed'::public.payment_status)
-  )
-);
+create unique index if not exists payments_razorpay_payment_id_uidx
+  on public.payments (razorpay_payment_id)
+  where razorpay_payment_id is not null;
 
 create or replace function public.fulfill_razorpay_payment(
   p_razorpay_order_id text,
@@ -10648,51 +11028,2396 @@ set search_path = public
 as $$
 declare
   v_pay public.payments;
-  v_booking_id uuid;
-  v_subscription_id uuid;
-  v_method text;
-  v_already boolean := false;
+
+v_booking_id uuid;
+
+v_subscription_id uuid;
+
+v_method text;
+
+v_already boolean := false;
+
 begin
   if p_razorpay_order_id is null or nullif(trim(p_razorpay_order_id), '') is null then
     raise exception 'razorpay_order_id required';
-  end if;
 
-  select * into v_pay from public.payments where razorpay_order_id = trim(p_razorpay_order_id) for update;
-  if not found then raise exception 'payment not found for order %', p_razorpay_order_id; end if;
-  if v_pay.provider <> 'razorpay' then raise exception 'payment provider is not razorpay'; end if;
+end if;
 
-  if v_pay.status = 'success'::public.payment_status then
-    return jsonb_build_object('ok', true, 'already', true, 'payment_id', v_pay.id, 'booking_id', v_pay.booking_id, 'subscription_id', v_pay.subscription_id);
-  end if;
+select * into v_pay
+  from public.payments
+  where razorpay_order_id = trim(p_razorpay_order_id)
+  for update;
 
-  if v_pay.status <> 'pending'::public.payment_status then
-    raise exception 'payment is not pending (status=%)', v_pay.status;
-  end if;
+if not found then
+    raise exception 'payment not found for order %', p_razorpay_order_id;
 
-  v_method := coalesce(nullif(trim(p_payment_method), ''), 'Razorpay');
+end if;
 
-  update public.payments
-  set status = 'success'::public.payment_status, paid_at = now(), payment_method = v_method,
-      razorpay_payment_id = coalesce(nullif(trim(p_razorpay_payment_id), ''), razorpay_payment_id)
-  where id = v_pay.id returning * into v_pay;
+if v_pay.provider <> 'razorpay' then
+    raise exception 'payment provider is not razorpay';
 
-  v_booking_id := v_pay.booking_id;
-  v_subscription_id := v_pay.subscription_id;
+end if;
 
-  if v_booking_id is not null then
-    update public.bookings set status = 'confirmed'::public.booking_status
-    where id = v_booking_id and status = 'pending_payment'::public.booking_status;
-  end if;
+if v_pay.status = 'success'::public.payment_status then
+    v_already := true;
 
-  if v_subscription_id is not null then
-    perform public.fund_amc_wallet_from_payment(
-      p_subscription_id := v_subscription_id, p_payment_id := v_pay.id, p_amount_paise := v_pay.amount
+return jsonb_build_object(
+      'ok', true,
+      'already', true,
+      'payment_id', v_pay.id,
+      'booking_id', v_pay.booking_id,
+      'subscription_id', v_pay.subscription_id
     );
-  end if;
 
-  return jsonb_build_object('ok', true, 'already', v_already, 'payment_id', v_pay.id, 'booking_id', v_booking_id, 'subscription_id', v_subscription_id);
+end if;
+
+if v_pay.status <> 'pending'::public.payment_status then
+    raise exception 'payment is not pending (status=%)', v_pay.status;
+
+end if;
+
+v_method := coalesce(nullif(trim(p_payment_method), ''), 'Razorpay');
+
+update public.payments
+  set
+    status = 'success'::public.payment_status,
+    paid_at = now(),
+    payment_method = v_method,
+    razorpay_payment_id = coalesce(nullif(trim(p_razorpay_payment_id), ''), razorpay_payment_id)
+  where id = v_pay.id
+  returning * into v_pay;
+
+v_booking_id := v_pay.booking_id;
+
+v_subscription_id := v_pay.subscription_id;
+
+if v_booking_id is not null then
+    update public.bookings
+    set status = 'confirmed'::public.booking_status
+    where id = v_booking_id
+      and status = 'pending_payment'::public.booking_status;
+
+end if;
+
+if v_subscription_id is not null then
+    perform public.fund_amc_wallet_from_payment(
+      p_subscription_id := v_subscription_id,
+      p_payment_id := v_pay.id,
+      p_amount_paise := v_pay.amount
+    );
+
+end if;
+
+return jsonb_build_object(
+    'ok', true,
+    'already', v_already,
+    'payment_id', v_pay.id,
+    'booking_id', v_booking_id,
+    'subscription_id', v_subscription_id
+  );
+
 end;
+
 $$;
 
 revoke all on function public.fulfill_razorpay_payment(text, text, text) from public;
+
 grant execute on function public.fulfill_razorpay_payment(text, text, text) to service_role;
+
+comment on function public.fulfill_razorpay_payment(text, text, text) is
+  'Webhook-only: mark Razorpay payment success, confirm pending_payment booking or fund AMC wallet.';
+
+-- ----- 20260821210000_razorpay_payment_production.sql -----
+do $$ begin
+  alter type public.payment_status add value if not exists 'authorized';
+
+exception when duplicate_object then null;
+
+end $$;
+
+do $$ begin
+  alter type public.payment_status add value if not exists 'cancelled';
+
+exception when duplicate_object then null;
+
+end $$;
+
+do $$ begin
+  alter type public.payment_status add value if not exists 'timeout';
+
+exception when duplicate_object then null;
+
+end $$;
+
+do $$ begin
+  alter type public.payment_status add value if not exists 'partially_refunded';
+
+exception when duplicate_object then null;
+
+end $$;
+
+do $$ begin
+  alter type public.payment_status add value if not exists 'refund_pending';
+
+exception when duplicate_object then null;
+
+end $$;
+
+do $$ begin
+  alter type public.payment_status add value if not exists 'refunded';
+
+exception when duplicate_object then null;
+
+end $$;
+
+do $$ begin
+  alter type public.payment_status add value if not exists 'refund_failed';
+
+exception when duplicate_object then null;
+
+end $$;
+
+-- ----- 20260821211000_razorpay_payment_production_body.sql -----
+alter table public.payments
+  add column if not exists currency text not null default 'INR',
+  add column if not exists amount_refunded bigint not null default 0
+    check (amount_refunded >= 0),
+  add column if not exists attempt_number integer not null default 1
+    check (attempt_number >= 1),
+  add column if not exists method_type text,
+  add column if not exists razorpay_order_status text,
+  add column if not exists razorpay_payment_status text,
+  add column if not exists razorpay_refund_status text,
+  add column if not exists error_code text,
+  add column if not exists error_description text,
+  add column if not exists error_source text,
+  add column if not exists error_step text,
+  add column if not exists error_reason text,
+  add column if not exists error_field text,
+  add column if not exists error_metadata jsonb,
+  add column if not exists customer_error_category text,
+  add column if not exists customer_error_message text,
+  add column if not exists updated_at timestamptz not null default now();
+
+create or replace function public.payments_set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at := now();
+
+return new;
+
+end;
+
+$$;
+
+drop trigger if exists payments_set_updated_at on public.payments;
+
+create trigger payments_set_updated_at
+  before update on public.payments
+  for each row execute function public.payments_set_updated_at();
+
+create table if not exists public.payment_attempts (
+  id uuid primary key default gen_random_uuid(),
+  payment_id uuid not null references public.payments (id) on delete cascade,
+  attempt_number integer not null check (attempt_number >= 1),
+  razorpay_payment_id text,
+  razorpay_order_id text,
+  status text not null default 'created',
+  failure_reason text,
+  failure_category text,
+  error_payload jsonb,
+  created_at timestamptz not null default now(),
+  unique (payment_id, attempt_number)
+);
+
+create index if not exists payment_attempts_payment_id_idx
+  on public.payment_attempts (payment_id, created_at desc);
+
+create unique index if not exists payment_attempts_rzp_payment_uidx
+  on public.payment_attempts (razorpay_payment_id)
+  where razorpay_payment_id is not null;
+
+create table if not exists public.payment_refunds (
+  id uuid primary key default gen_random_uuid(),
+  payment_id uuid not null references public.payments (id) on delete cascade,
+  razorpay_refund_id text,
+  razorpay_payment_id text,
+  amount_paise bigint not null check (amount_paise > 0),
+  status text not null default 'pending'
+    check (status in ('pending', 'processed', 'failed')),
+  reason text,
+  initiated_by text,
+  failure_details jsonb,
+  created_at timestamptz not null default now(),
+  processed_at timestamptz
+);
+
+create unique index if not exists payment_refunds_rzp_refund_uidx
+  on public.payment_refunds (razorpay_refund_id)
+  where razorpay_refund_id is not null;
+
+create index if not exists payment_refunds_payment_id_idx
+  on public.payment_refunds (payment_id, created_at desc);
+
+create table if not exists public.razorpay_webhook_events (
+  id uuid primary key default gen_random_uuid(),
+  event_id text not null,
+  event_type text not null,
+  payload jsonb,
+  processed_at timestamptz not null default now(),
+  unique (event_id)
+);
+
+create or replace function public.fund_amc_wallet_from_payment(
+  p_subscription_id uuid,
+  p_payment_id uuid,
+  p_amount_paise bigint
+)
+returns public.amc_wallets
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_customer_id uuid;
+
+v_wallet public.amc_wallets;
+
+v_sub public.subscriptions;
+
+v_pay public.payments;
+
+v_amount bigint;
+
+v_per_visit bigint;
+
+v_is_service boolean;
+
+begin
+  v_amount := greatest(0, round(p_amount_paise));
+
+if v_amount <= 0 then
+    raise exception 'fund amount must be positive';
+
+end if;
+
+select * into v_sub from public.subscriptions where id = p_subscription_id for update;
+
+if not found then raise exception 'subscription not found'; end if;
+
+select * into v_pay from public.payments where id = p_payment_id for update;
+
+if not found then raise exception 'payment not found'; end if;
+
+if v_pay.status <> 'success'::public.payment_status then
+    raise exception 'payment must be successful before funding wallet';
+
+end if;
+
+if v_pay.subscription_id is distinct from p_subscription_id then
+    raise exception 'payment subscription mismatch';
+
+end if;
+
+if v_pay.customer_id <> v_sub.customer_id then
+    raise exception 'payment customer mismatch';
+
+end if;
+
+v_is_service := coalesce(auth.role(), '') = 'service_role';
+
+v_customer_id := public.my_customer_id();
+
+if not v_is_service and v_customer_id is null and not public.is_admin() then
+    raise exception 'not authorized';
+
+end if;
+
+if v_customer_id is not null and v_customer_id <> v_sub.customer_id then
+    raise exception 'not authorized';
+
+end if;
+
+select * into v_wallet from public.amc_wallets where subscription_id = p_subscription_id for update;
+
+if not found then raise exception 'amc wallet not found'; end if;
+
+if exists (
+    select 1 from public.amc_wallet_entries e
+    where e.wallet_id = v_wallet.id
+      and e.kind = 'customer_fund'::public.amc_wallet_entry_kind
+      and (e.metadata ->> 'payment_id') = p_payment_id::text
+  ) then
+    return v_wallet;
+
+end if;
+
+if v_wallet.status <> 'pending_funding'::public.amc_wallet_status then
+    if v_wallet.status = 'funded'::public.amc_wallet_status then
+      return v_wallet;
+
+end if;
+
+raise exception 'wallet is not awaiting funding';
+
+end if;
+
+v_per_visit := v_wallet.per_visit_alloc_paise;
+
+if v_per_visit <= 0 and coalesce(v_sub.visits_included, 0) > 0 then
+    v_per_visit := greatest(1, round(v_amount::numeric / v_sub.visits_included));
+
+end if;
+
+update public.amc_wallets
+  set
+    total_funded_paise = v_amount,
+    balance_paise = v_amount,
+    per_visit_alloc_paise = v_per_visit,
+    visits_allocated = coalesce(v_sub.visits_included, 0),
+    status = 'funded'::public.amc_wallet_status,
+    funded_at = coalesce(v_pay.paid_at, now()),
+    updated_at = now()
+  where id = v_wallet.id
+  returning * into v_wallet;
+
+insert into public.amc_wallet_entries (wallet_id, kind, amount_paise, balance_after_paise, note, metadata)
+  values (
+    v_wallet.id,
+    'customer_fund'::public.amc_wallet_entry_kind,
+    v_amount,
+    v_wallet.balance_paise,
+    'AMC contract payment',
+    jsonb_build_object('payment_id', p_payment_id)
+  );
+
+update public.subscriptions
+  set status = 'active'::public.subscription_status, updated_at = now()
+  where id = p_subscription_id
+    and status = 'trialing'::public.subscription_status;
+
+return v_wallet;
+
+end;
+
+$$;
+
+revoke all on function public.fund_amc_wallet_from_payment(uuid, uuid, bigint) from public;
+
+grant execute on function public.fund_amc_wallet_from_payment(uuid, uuid, bigint) to authenticated;
+
+grant execute on function public.fund_amc_wallet_from_payment(uuid, uuid, bigint) to service_role;
+
+create or replace function public.fulfill_razorpay_payment(
+  p_razorpay_order_id text,
+  p_razorpay_payment_id text,
+  p_payment_method text default null,
+  p_razorpay_payment_status text default 'captured',
+  p_amount_paise bigint default null,
+  p_method_type text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_pay public.payments;
+
+v_booking_id uuid;
+
+v_subscription_id uuid;
+
+v_method text;
+
+v_already boolean := false;
+
+v_rz_status text;
+
+begin
+  if p_razorpay_order_id is null or nullif(trim(p_razorpay_order_id), '') is null then
+    raise exception 'razorpay_order_id required';
+
+end if;
+
+v_rz_status := lower(coalesce(nullif(trim(p_razorpay_payment_status), ''), 'captured'));
+
+if v_rz_status = 'authorized' then
+    select * into v_pay
+    from public.payments
+    where razorpay_order_id = trim(p_razorpay_order_id)
+    for update;
+
+if not found then
+      raise exception 'payment not found for order %', p_razorpay_order_id;
+
+end if;
+
+if v_pay.status = 'success'::public.payment_status then
+      return jsonb_build_object('ok', true, 'already', true, 'payment_id', v_pay.id);
+
+end if;
+
+update public.payments
+    set
+      status = 'authorized'::public.payment_status,
+      razorpay_payment_id = coalesce(nullif(trim(p_razorpay_payment_id), ''), razorpay_payment_id),
+      razorpay_payment_status = 'authorized',
+      razorpay_order_status = coalesce(razorpay_order_status, 'attempted'),
+      payment_method = coalesce(nullif(trim(p_payment_method), ''), payment_method),
+      method_type = coalesce(nullif(trim(p_method_type), ''), method_type)
+    where id = v_pay.id
+    returning * into v_pay;
+
+return jsonb_build_object(
+      'ok', true,
+      'authorized_only', true,
+      'payment_id', v_pay.id,
+      'status', v_pay.status
+    );
+
+end if;
+
+if v_rz_status not in ('captured', 'paid') then
+    raise exception 'fulfill requires captured/paid payment status, got %', v_rz_status;
+
+end if;
+
+select * into v_pay
+  from public.payments
+  where razorpay_order_id = trim(p_razorpay_order_id)
+  for update;
+
+if not found then
+    raise exception 'payment not found for order %', p_razorpay_order_id;
+
+end if;
+
+if v_pay.provider <> 'razorpay' then
+    raise exception 'payment provider is not razorpay';
+
+end if;
+
+if p_amount_paise is not null and p_amount_paise > 0 and p_amount_paise <> v_pay.amount then
+    raise exception 'amount mismatch: order=% webhook=%', v_pay.amount, p_amount_paise;
+
+end if;
+
+if v_pay.status = 'success'::public.payment_status
+     or v_pay.status = 'partially_refunded'::public.payment_status
+     or v_pay.status = 'refunded'::public.payment_status
+     or v_pay.status = 'refund_pending'::public.payment_status then
+    v_already := true;
+
+return jsonb_build_object(
+      'ok', true,
+      'already', true,
+      'payment_id', v_pay.id,
+      'booking_id', v_pay.booking_id,
+      'subscription_id', v_pay.subscription_id
+    );
+
+end if;
+
+if v_pay.status not in (
+    'pending'::public.payment_status,
+    'authorized'::public.payment_status
+  ) then
+    raise exception 'payment is not pending/authorized (status=%)', v_pay.status;
+
+end if;
+
+v_method := coalesce(nullif(trim(p_payment_method), ''), 'Razorpay');
+
+update public.payments
+  set
+    status = 'success'::public.payment_status,
+    paid_at = coalesce(paid_at, now()),
+    payment_method = v_method,
+    method_type = coalesce(nullif(trim(p_method_type), ''), method_type),
+    razorpay_payment_id = coalesce(nullif(trim(p_razorpay_payment_id), ''), razorpay_payment_id),
+    razorpay_payment_status = 'captured',
+    razorpay_order_status = 'paid',
+    error_code = null,
+    error_description = null,
+    error_reason = null,
+    customer_error_category = null,
+    customer_error_message = null
+  where id = v_pay.id
+  returning * into v_pay;
+
+if nullif(trim(p_razorpay_payment_id), '') is not null then
+    insert into public.payment_attempts (
+      payment_id, attempt_number, razorpay_payment_id, razorpay_order_id, status
+    )
+    values (
+      v_pay.id,
+      v_pay.attempt_number,
+      trim(p_razorpay_payment_id),
+      trim(p_razorpay_order_id),
+      'captured'
+    )
+    on conflict (payment_id, attempt_number) do update
+      set status = excluded.status,
+          razorpay_payment_id = coalesce(excluded.razorpay_payment_id, public.payment_attempts.razorpay_payment_id);
+
+end if;
+
+v_booking_id := v_pay.booking_id;
+
+v_subscription_id := v_pay.subscription_id;
+
+if v_booking_id is not null then
+    update public.bookings
+    set status = 'confirmed'::public.booking_status
+    where id = v_booking_id
+      and status = 'pending_payment'::public.booking_status;
+
+end if;
+
+if v_subscription_id is not null then
+    perform public.fund_amc_wallet_from_payment(
+      p_subscription_id := v_subscription_id,
+      p_payment_id := v_pay.id,
+      p_amount_paise := v_pay.amount
+    );
+
+end if;
+
+return jsonb_build_object(
+    'ok', true,
+    'already', v_already,
+    'payment_id', v_pay.id,
+    'booking_id', v_booking_id,
+    'subscription_id', v_subscription_id
+  );
+
+end;
+
+$$;
+
+revoke all on function public.fulfill_razorpay_payment(text, text, text) from public;
+
+revoke all on function public.fulfill_razorpay_payment(text, text, text, text, bigint, text) from public;
+
+grant execute on function public.fulfill_razorpay_payment(text, text, text, text, bigint, text) to service_role;
+
+create or replace function public.fulfill_razorpay_payment(
+  p_razorpay_order_id text,
+  p_razorpay_payment_id text,
+  p_payment_method text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  return public.fulfill_razorpay_payment(
+    p_razorpay_order_id,
+    p_razorpay_payment_id,
+    p_payment_method,
+    'captured',
+    null,
+    null
+  );
+
+end;
+
+$$;
+
+grant execute on function public.fulfill_razorpay_payment(text, text, text) to service_role;
+
+create or replace function public.record_razorpay_payment_failure(
+  p_razorpay_order_id text,
+  p_razorpay_payment_id text default null,
+  p_status public.payment_status default 'failed',
+  p_error_code text default null,
+  p_error_description text default null,
+  p_error_source text default null,
+  p_error_step text default null,
+  p_error_reason text default null,
+  p_error_field text default null,
+  p_error_metadata jsonb default null,
+  p_customer_error_category text default null,
+  p_customer_error_message text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_pay public.payments;
+
+v_status public.payment_status;
+
+begin
+  if p_status not in (
+    'failed'::public.payment_status,
+    'cancelled'::public.payment_status,
+    'timeout'::public.payment_status
+  ) then
+    raise exception 'invalid failure status %', p_status;
+
+end if;
+
+v_status := p_status;
+
+select * into v_pay
+  from public.payments
+  where razorpay_order_id = trim(p_razorpay_order_id)
+  for update;
+
+if not found then
+    raise exception 'payment not found for order %', p_razorpay_order_id;
+
+end if;
+
+if v_pay.status in (
+    'success'::public.payment_status,
+    'partially_refunded'::public.payment_status,
+    'refunded'::public.payment_status,
+    'refund_pending'::public.payment_status
+  ) then
+    return jsonb_build_object('ok', true, 'ignored', true, 'payment_id', v_pay.id, 'status', v_pay.status);
+
+end if;
+
+update public.payments
+  set
+    status = v_status,
+    razorpay_payment_id = coalesce(nullif(trim(p_razorpay_payment_id), ''), razorpay_payment_id),
+    razorpay_payment_status = 'failed',
+    razorpay_order_status = coalesce(razorpay_order_status, 'attempted'),
+    error_code = p_error_code,
+    error_description = p_error_description,
+    error_source = p_error_source,
+    error_step = p_error_step,
+    error_reason = p_error_reason,
+    error_field = p_error_field,
+    error_metadata = p_error_metadata,
+    customer_error_category = p_customer_error_category,
+    customer_error_message = p_customer_error_message
+  where id = v_pay.id
+  returning * into v_pay;
+
+insert into public.payment_attempts (
+    payment_id, attempt_number, razorpay_payment_id, razorpay_order_id, status,
+    failure_reason, failure_category, error_payload
+  ) values (
+    v_pay.id,
+    v_pay.attempt_number,
+    nullif(trim(p_razorpay_payment_id), ''),
+    trim(p_razorpay_order_id),
+    'failed',
+    p_error_reason,
+    p_customer_error_category,
+    p_error_metadata
+  )
+  on conflict (payment_id, attempt_number) do update
+    set status = 'failed',
+        failure_reason = coalesce(excluded.failure_reason, public.payment_attempts.failure_reason),
+        failure_category = coalesce(excluded.failure_category, public.payment_attempts.failure_category),
+        error_payload = coalesce(excluded.error_payload, public.payment_attempts.error_payload);
+
+return jsonb_build_object('ok', true, 'payment_id', v_pay.id, 'status', v_pay.status);
+
+end;
+
+$$;
+
+revoke all on function public.record_razorpay_payment_failure from public;
+
+grant execute on function public.record_razorpay_payment_failure to service_role;
+
+create or replace function public.apply_razorpay_refund(
+  p_razorpay_payment_id text,
+  p_razorpay_refund_id text,
+  p_amount_paise bigint,
+  p_refund_status text,
+  p_reason text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_pay public.payments;
+
+v_ref public.payment_refunds;
+
+v_status text;
+
+v_total bigint;
+
+begin
+  v_status := lower(trim(p_refund_status));
+
+if v_status not in ('pending', 'processed', 'failed') then
+    if v_status in ('created', 'pending') then v_status := 'pending';
+
+elsif v_status in ('processed', 'completed') then v_status := 'processed';
+
+else v_status := 'failed';
+
+end if;
+
+end if;
+
+select * into v_pay
+  from public.payments
+  where razorpay_payment_id = trim(p_razorpay_payment_id)
+  for update;
+
+if not found then
+    raise exception 'payment not found for razorpay_payment_id %', p_razorpay_payment_id;
+
+end if;
+
+insert into public.payment_refunds (
+    payment_id, razorpay_refund_id, razorpay_payment_id, amount_paise, status, reason,
+    processed_at
+  ) values (
+    v_pay.id,
+    nullif(trim(p_razorpay_refund_id), ''),
+    trim(p_razorpay_payment_id),
+    greatest(1, p_amount_paise),
+    v_status,
+    p_reason,
+    case when v_status = 'processed' then now() else null end
+  )
+  on conflict (razorpay_refund_id) where razorpay_refund_id is not null
+  do update set
+    status = excluded.status,
+    processed_at = case
+      when excluded.status = 'processed' then coalesce(public.payment_refunds.processed_at, now())
+      else public.payment_refunds.processed_at
+    end,
+    failure_details = case
+      when excluded.status = 'failed' then jsonb_build_object('reason', excluded.reason)
+      else public.payment_refunds.failure_details
+    end
+  returning * into v_ref;
+
+if v_status = 'processed' then
+    select coalesce(sum(amount_paise), 0) into v_total
+    from public.payment_refunds
+    where payment_id = v_pay.id and status = 'processed';
+
+update public.payments
+    set
+      amount_refunded = v_total,
+      razorpay_refund_status = case
+        when v_total >= amount then 'full'
+        when v_total > 0 then 'partial'
+        else razorpay_refund_status
+      end,
+      status = case
+        when v_total >= amount then 'refunded'::public.payment_status
+        when v_total > 0 then 'partially_refunded'::public.payment_status
+        else status
+      end
+    where id = v_pay.id
+    returning * into v_pay;
+
+elsif v_status = 'pending' then
+    update public.payments
+    set status = 'refund_pending'::public.payment_status,
+        razorpay_refund_status = 'pending'
+    where id = v_pay.id
+      and status in (
+        'success'::public.payment_status,
+        'partially_refunded'::public.payment_status,
+        'refund_pending'::public.payment_status
+      )
+    returning * into v_pay;
+
+elsif v_status = 'failed' then
+    update public.payments
+    set status = 'refund_failed'::public.payment_status,
+        razorpay_refund_status = 'failed'
+    where id = v_pay.id
+      and status = 'refund_pending'::public.payment_status
+    returning * into v_pay;
+
+end if;
+
+return jsonb_build_object(
+    'ok', true,
+    'payment_id', v_pay.id,
+    'refund_id', v_ref.id,
+    'payment_status', v_pay.status,
+    'amount_refunded', v_pay.amount_refunded
+  );
+
+end;
+
+$$;
+
+revoke all on function public.apply_razorpay_refund from public;
+
+grant execute on function public.apply_razorpay_refund to service_role;
+
+create or replace function public.claim_razorpay_webhook_event(
+  p_event_id text,
+  p_event_type text,
+  p_payload jsonb default null
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_event_id is null or trim(p_event_id) = '' then
+    return true; -- no id: process without claim
+  end if;
+
+begin
+    insert into public.razorpay_webhook_events (event_id, event_type, payload)
+    values (trim(p_event_id), coalesce(p_event_type, ''), p_payload);
+
+return true;
+
+exception when unique_violation then
+    return false;
+
+end;
+
+end;
+
+$$;
+
+revoke all on function public.claim_razorpay_webhook_event from public;
+
+grant execute on function public.claim_razorpay_webhook_event to service_role;
+
+comment on table public.payment_attempts is 'Per-attempt Razorpay payment trail; failed attempts do not permanently block retry.';
+
+comment on table public.payment_refunds is 'Razorpay refund records; booking status is independent.';
+
+comment on table public.razorpay_webhook_events is 'Idempotency store for Razorpay webhook event ids.';
+
+-- ----- 20260821220000_postpaid_one_time.sql -----
+alter table public.bookings
+  add column if not exists payment_timing text not null default 'prepaid';
+
+alter table public.bookings
+  drop constraint if exists bookings_payment_timing_check;
+
+alter table public.bookings
+  add constraint bookings_payment_timing_check
+  check (payment_timing in ('prepaid', 'postpaid'));
+
+comment on column public.bookings.payment_timing is
+  'prepaid = pay before confirm; postpaid = confirm/assign first, collect after completed.';
+
+alter table public.payments
+  drop constraint if exists payments_provider_check;
+
+alter table public.payments
+  add constraint payments_provider_check
+  check (provider in ('dummy', 'razorpay', 'partner_collected'));
+
+alter table public.payments
+  add column if not exists collection_channel text not null default 'oorjaman';
+
+alter table public.payments
+  drop constraint if exists payments_collection_channel_check;
+
+alter table public.payments
+  add constraint payments_collection_channel_check
+  check (collection_channel in ('oorjaman', 'partner'));
+
+alter table public.payments
+  add column if not exists razorpay_payment_link_id text;
+
+alter table public.payments
+  add column if not exists razorpay_payment_link_url text;
+
+create unique index if not exists payments_rzp_payment_link_uidx
+  on public.payments (razorpay_payment_link_id)
+  where razorpay_payment_link_id is not null;
+
+alter table public.vendor_settlements
+  add column if not exists customer_paid_to text not null default 'oorjaman';
+
+alter table public.vendor_settlements
+  drop constraint if exists vendor_settlements_customer_paid_to_check;
+
+alter table public.vendor_settlements
+  add constraint vendor_settlements_customer_paid_to_check
+  check (customer_paid_to in ('oorjaman', 'partner'));
+
+comment on column public.vendor_settlements.customer_paid_to is
+  'oorjaman = platform collected (net payout owed to vendor). partner = vendor held gross (platform fee receivable; net_payout_paise=0).';
+
+create or replace function public.create_standard_visit_payout_settlement(p_booking_id uuid)
+returns public.vendor_settlements
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_booking public.bookings;
+
+v_existing public.vendor_settlements;
+
+v_fee_pct numeric;
+
+v_gross bigint;
+
+v_taxable bigint;
+
+v_platform_fee bigint;
+
+v_net bigint;
+
+v_partner_paid boolean := false;
+
+v_paid_to text := 'oorjaman';
+
+begin
+  select * into v_booking from public.bookings where id = p_booking_id for update;
+
+if not found then raise exception 'booking not found'; end if;
+
+if v_booking.status <> 'completed'::public.booking_status then
+    raise exception 'booking must be completed';
+
+end if;
+
+if v_booking.vendor_id is null then
+    raise exception 'booking has no vendor';
+
+end if;
+
+if v_booking.subscription_id is not null then
+    raise exception 'use release_amc_wallet_visit_payout for amc bookings';
+
+end if;
+
+if not public.is_admin() then
+    if v_booking.vendor_id is distinct from public.my_vendor_id()
+       and v_booking.technician_id is distinct from public.my_technician_id()
+       and not exists (
+         select 1
+         from public.job_reports jr
+         where jr.booking_id = p_booking_id
+           and jr.technician_id = public.my_technician_id()
+       ) then
+      raise exception 'not authorized';
+
+end if;
+
+end if;
+
+select * into v_existing from public.vendor_settlements
+  where booking_id = p_booking_id and kind = 'visit_payout';
+
+if found then return v_existing; end if;
+
+v_gross := greatest(
+    0,
+    coalesce(
+      nullif(v_booking.final_price_cents, 0),
+      nullif(v_booking.estimated_price_cents, 0),
+      0
+    )
+  );
+
+select coalesce(ps.vendor_platform_fee_percent, 10)::numeric into v_fee_pct
+  from public.platform_settings ps where ps.id = 1;
+
+v_taxable := public.visit_gross_taxable_value_paise(v_gross);
+
+v_platform_fee := round(v_taxable * v_fee_pct / 100.0);
+
+select exists (
+    select 1 from public.payments p
+    where p.booking_id = p_booking_id
+      and p.status = 'success'::public.payment_status
+      and (
+        p.provider = 'partner_collected'
+        or p.collection_channel = 'partner'
+      )
+  ) into v_partner_paid;
+
+if v_partner_paid then
+    v_paid_to := 'partner';
+
+v_net := 0; -- vendor already holds gross; settle = collect platform fee from vendor
+  else
+    v_paid_to := 'oorjaman';
+
+v_net := greatest(0, v_gross - v_platform_fee);
+
+end if;
+
+insert into public.vendor_settlements (
+    booking_id, vendor_id, kind, status, currency, reference_code,
+    visit_gross_paise, platform_fee_paise, net_payout_paise, customer_paid_to, metadata
+  ) values (
+    v_booking.id, v_booking.vendor_id, 'visit_payout', 'pending_review',
+    coalesce(v_booking.currency, 'INR'), v_booking.reference_code,
+    v_gross, v_platform_fee, v_net, v_paid_to,
+    jsonb_build_object(
+      'platform_fee_percent', v_fee_pct,
+      'taxable_value_paise', v_taxable,
+      'gst_rate_percent', 18,
+      'platform_fee_on', 'taxable_ex_gst',
+      'auto_created', true,
+      'source', 'visit_completed',
+      'payment_timing', coalesce(v_booking.payment_timing, 'prepaid'),
+      'settlement_mode', case
+        when v_paid_to = 'partner' then 'partner_collected_fee_receivable'
+        else 'platform_collected_net_payout'
+      end
+    )
+  ) returning * into v_existing;
+
+return v_existing;
+
+end;
+
+$$;
+
+create or replace function public.mark_partner_collected_payment(
+  p_booking_id uuid,
+  p_amount_paise bigint default null,
+  p_method text default 'Partner collected',
+  p_note text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_booking public.bookings;
+
+v_pay public.payments;
+
+v_amount bigint;
+
+v_settlement public.vendor_settlements;
+
+v_fee_pct numeric;
+
+v_taxable bigint;
+
+v_platform_fee bigint;
+
+begin
+  select * into v_booking from public.bookings where id = p_booking_id for update;
+
+if not found then raise exception 'booking not found'; end if;
+
+if coalesce(v_booking.payment_timing, 'prepaid') <> 'postpaid' then
+    raise exception 'partner collection only for postpaid bookings';
+
+end if;
+
+if v_booking.status <> 'completed'::public.booking_status then
+    raise exception 'booking must be completed before collection';
+
+end if;
+
+if v_booking.vendor_id is null then
+    raise exception 'booking has no vendor';
+
+end if;
+
+if not public.is_admin()
+     and v_booking.technician_id is distinct from public.my_technician_id()
+     and v_booking.vendor_id is distinct from public.my_vendor_id() then
+    raise exception 'not authorized';
+
+end if;
+
+select * into v_pay from public.payments
+  where booking_id = p_booking_id
+    and status = 'success'::public.payment_status
+  order by paid_at desc nulls last
+  limit 1;
+
+if found then
+    return jsonb_build_object(
+      'ok', true,
+      'already', true,
+      'payment_id', v_pay.id,
+      'provider', v_pay.provider
+    );
+
+end if;
+
+v_amount := greatest(
+    0,
+    coalesce(
+      nullif(p_amount_paise, 0),
+      nullif(v_booking.final_price_cents, 0),
+      nullif(v_booking.estimated_price_cents, 0),
+      0
+    )
+  );
+
+if v_amount <= 0 then
+    raise exception 'amount must be positive';
+
+end if;
+
+insert into public.payments (
+    customer_id, booking_id, amount, currency, status, provider,
+    collection_channel, payment_method, method_type, paid_at, attempt_number
+  ) values (
+    v_booking.customer_id,
+    v_booking.id,
+    v_amount,
+    coalesce(v_booking.currency, 'INR'),
+    'success'::public.payment_status,
+    'partner_collected',
+    'partner',
+    coalesce(nullif(trim(p_method), ''), 'Partner collected'),
+    'partner_collected',
+    now(),
+    1
+  ) returning * into v_pay;
+
+select * into v_settlement from public.vendor_settlements
+  where booking_id = p_booking_id and kind = 'visit_payout'
+  for update;
+
+select coalesce(ps.vendor_platform_fee_percent, 10)::numeric into v_fee_pct
+  from public.platform_settings ps where ps.id = 1;
+
+v_taxable := public.visit_gross_taxable_value_paise(v_amount);
+
+v_platform_fee := round(v_taxable * v_fee_pct / 100.0);
+
+if found then
+    update public.vendor_settlements
+    set
+      customer_paid_to = 'partner',
+      visit_gross_paise = v_amount,
+      platform_fee_paise = v_platform_fee,
+      net_payout_paise = 0,
+      metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
+        'settlement_mode', 'partner_collected_fee_receivable',
+        'partner_collected_payment_id', v_pay.id,
+        'partner_collect_note', p_note,
+        'partner_collected_at', now()
+      ),
+      updated_at = now()
+    where id = v_settlement.id
+    returning * into v_settlement;
+
+else
+    insert into public.vendor_settlements (
+      booking_id, vendor_id, kind, status, currency, reference_code,
+      visit_gross_paise, platform_fee_paise, net_payout_paise, customer_paid_to, metadata
+    ) values (
+      v_booking.id, v_booking.vendor_id, 'visit_payout', 'pending_review',
+      coalesce(v_booking.currency, 'INR'), v_booking.reference_code,
+      v_amount, v_platform_fee, 0, 'partner',
+      jsonb_build_object(
+        'platform_fee_percent', v_fee_pct,
+        'taxable_value_paise', v_taxable,
+        'gst_rate_percent', 18,
+        'platform_fee_on', 'taxable_ex_gst',
+        'auto_created', true,
+        'source', 'partner_collected',
+        'settlement_mode', 'partner_collected_fee_receivable',
+        'partner_collected_payment_id', v_pay.id,
+        'partner_collect_note', p_note
+      )
+    ) returning * into v_settlement;
+
+end if;
+
+return jsonb_build_object(
+    'ok', true,
+    'payment_id', v_pay.id,
+    'settlement_id', v_settlement.id,
+    'platform_fee_paise', v_platform_fee
+  );
+
+end;
+
+$$;
+
+revoke all on function public.mark_partner_collected_payment from public;
+
+grant execute on function public.mark_partner_collected_payment to authenticated;
+
+grant execute on function public.mark_partner_collected_payment to service_role;
+
+comment on function public.mark_partner_collected_payment is
+  'Records postpaid cash/UPI collected by partner; flips visit settlement to fee-receivable (net_payout=0).';
+
+-- ----- 20260823120000_normalize_vendor_technician_invite_phones.sql -----
+update public.vendor_technician_invites
+set invite_phone_e164 = '+91' || substring(invite_phone_e164 from 2)
+where invite_phone_e164 ~ '^\+[0-9]{10}$';
+
+update public.vendor_technician_invites
+set invite_phone_e164 = '+91' || regexp_replace(invite_phone_e164, '[^0-9]', '', 'g')
+where invite_phone_e164 !~ '^\+'
+  and length(regexp_replace(invite_phone_e164, '[^0-9]', '', 'g')) = 10;
+
+-- ----- 20260823130000_normalize_public_user_phones.sql -----
+update public.users
+set phone = '+' || regexp_replace(phone, '[^0-9]', '', 'g'),
+    updated_at = now()
+where phone is not null
+  and trim(phone) <> ''
+  and phone !~ '^\+'
+  and length(regexp_replace(phone, '[^0-9]', '', 'g')) >= 12;
+
+-- ----- 20260825120000_gross_up_catalogue_for_razorpay_fee.sql -----
+insert into public.pricing_one_time_rates (country_code, capacity_tier_code, amount_cents, per_panel_rate_cents)
+values
+  ('IN', 'kw_3', 61900, 10000),
+  ('IN', 'kw_4', 71900, 10000),
+  ('IN', 'kw_5', 81900, 10000),
+  ('IN', 'kw_6', 92900, 10000),
+  ('IN', 'kw_8', 112900, 10000),
+  ('IN', 'kw_9', 122900, 10000),
+  ('IN', 'kw_10', 133900, 10000)
+on conflict (country_code, capacity_tier_code) do update set
+  amount_cents = excluded.amount_cents,
+  per_panel_rate_cents = excluded.per_panel_rate_cents,
+  is_active = true;
+
+insert into public.pricing_amc_plans (
+  country_code, capacity_tier_code, plan_code, plan_name, contract_months, visits_included, visits_per_year, amount_cents, billing_period, sort_order, is_active
+) values
+  ('IN', 'kw_3', 'amc_kw3_y1_3', '3 kW · SP-1', 12, 3, 3, 163900, 'custom', 10, true),
+  ('IN', 'kw_3', 'amc_kw3_y2_6', '3 kW · SP-2', 24, 6, null, 327900, 'custom', 30, true),
+  ('IN', 'kw_4', 'amc_kw4_y1_3', '4 kW · SP-1', 12, 3, 3, 204900, 'custom', 10, true),
+  ('IN', 'kw_4', 'amc_kw4_y2_6', '4 kW · SP-2', 24, 6, null, 389900, 'custom', 30, true),
+  ('IN', 'kw_5', 'amc_kw5_y1_3', '5 kW · SP-1', 12, 3, 3, 235900, 'custom', 10, true),
+  ('IN', 'kw_5', 'amc_kw5_y2_6', '5 kW · SP-2', 24, 6, null, 440900, 'custom', 30, true),
+  ('IN', 'kw_6', 'amc_kw6_y1_3', '6 kW · SP-1', 12, 3, 3, 266900, 'custom', 10, true),
+  ('IN', 'kw_6', 'amc_kw6_y2_6', '6 kW · SP-2', 24, 6, null, 512900, 'custom', 30, true),
+  ('IN', 'kw_8', 'amc_kw8_y1_3', '8 kW · SP-1', 12, 3, 3, 307900, 'custom', 10, true),
+  ('IN', 'kw_8', 'amc_kw8_y2_6', '8 kW · SP-2', 24, 6, null, 614900, 'custom', 30, true),
+  ('IN', 'kw_10', 'amc_kw10_y1_3', '10 kW · SP-1', 12, 3, 3, 368900, 'custom', 10, true),
+  ('IN', 'kw_10', 'amc_kw10_y2_6', '10 kW · SP-2', 24, 6, null, 778900, 'custom', 30, true)
+on conflict (plan_code) do update set
+  plan_name = excluded.plan_name,
+  contract_months = excluded.contract_months,
+  visits_included = excluded.visits_included,
+  visits_per_year = excluded.visits_per_year,
+  amount_cents = excluded.amount_cents,
+  sort_order = excluded.sort_order,
+  is_active = excluded.is_active;
+
+-- ----- 20260929182030_launch_service_pincodes.sql -----
+create table if not exists public.launch_service_pincodes (
+  id uuid primary key default gen_random_uuid(),
+  city_key text not null
+    check (city_key = lower(trim(city_key)) and length(trim(city_key)) > 0),
+  city_name text not null
+    check (length(trim(city_name)) > 0),
+  pincode text not null
+    check (pincode ~ '^[0-9]{6}$'),
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  unique (pincode)
+);
+
+comment on table public.launch_service_pincodes is
+  'PINs where OorjaMan customers can book. Inactive rows stay in the table but do not open service.';
+
+create index if not exists launch_service_pincodes_active_city_idx
+  on public.launch_service_pincodes (city_key)
+  where active;
+
+insert into public.launch_service_pincodes (city_key, city_name, pincode, active)
+values
+  ('guwahati', 'Guwahati', '781001', true),
+  ('guwahati', 'Guwahati', '781002', true),
+  ('guwahati', 'Guwahati', '781003', true),
+  ('guwahati', 'Guwahati', '781004', true),
+  ('guwahati', 'Guwahati', '781005', true),
+  ('guwahati', 'Guwahati', '781006', true),
+  ('guwahati', 'Guwahati', '781007', true),
+  ('guwahati', 'Guwahati', '781008', true),
+  ('guwahati', 'Guwahati', '781009', true),
+  ('guwahati', 'Guwahati', '781010', true),
+  ('guwahati', 'Guwahati', '781011', true),
+  ('guwahati', 'Guwahati', '781012', true),
+  ('guwahati', 'Guwahati', '781013', true),
+  ('guwahati', 'Guwahati', '781014', true),
+  ('guwahati', 'Guwahati', '781015', true),
+  ('guwahati', 'Guwahati', '781016', true),
+  ('guwahati', 'Guwahati', '781017', true),
+  ('guwahati', 'Guwahati', '781018', true),
+  ('guwahati', 'Guwahati', '781019', true),
+  ('guwahati', 'Guwahati', '781020', true),
+  ('guwahati', 'Guwahati', '781021', true),
+  ('guwahati', 'Guwahati', '781022', true),
+  ('guwahati', 'Guwahati', '781023', true),
+  ('guwahati', 'Guwahati', '781024', true),
+  ('guwahati', 'Guwahati', '781025', true),
+  ('guwahati', 'Guwahati', '781026', true),
+  ('guwahati', 'Guwahati', '781027', true),
+  ('guwahati', 'Guwahati', '781028', true),
+  ('guwahati', 'Guwahati', '781029', true),
+  ('guwahati', 'Guwahati', '781030', true),
+  ('guwahati', 'Guwahati', '781031', true),
+  ('guwahati', 'Guwahati', '781032', true),
+  ('guwahati', 'Guwahati', '781034', true),
+  ('guwahati', 'Guwahati', '781035', true),
+  ('guwahati', 'Guwahati', '781036', true),
+  ('guwahati', 'Guwahati', '781037', true),
+  ('guwahati', 'Guwahati', '781038', true),
+  ('guwahati', 'Guwahati', '781039', true),
+  ('guwahati', 'Guwahati', '781040', true),
+  ('guwahati', 'Guwahati', '781101', true),
+  ('guwahati', 'Guwahati', '781102', true),
+  ('guwahati', 'Guwahati', '781103', true),
+  ('guwahati', 'Guwahati', '781104', true),
+  ('guwahati', 'Guwahati', '781120', true),
+  ('guwahati', 'Guwahati', '781121', true),
+  ('guwahati', 'Guwahati', '781122', true),
+  ('guwahati', 'Guwahati', '781123', true),
+  ('guwahati', 'Guwahati', '781124', true),
+  ('guwahati', 'Guwahati', '781125', true),
+  ('guwahati', 'Guwahati', '781127', true),
+  ('guwahati', 'Guwahati', '781128', true),
+  ('guwahati', 'Guwahati', '781129', true),
+  ('guwahati', 'Guwahati', '781131', true),
+  ('guwahati', 'Guwahati', '781132', true),
+  ('guwahati', 'Guwahati', '781133', true),
+  ('guwahati', 'Guwahati', '781134', true),
+  ('guwahati', 'Guwahati', '781135', true),
+  ('guwahati', 'Guwahati', '781136', true),
+  ('guwahati', 'Guwahati', '781137', true),
+  ('guwahati', 'Guwahati', '781141', true),
+  ('guwahati', 'Guwahati', '781150', true),
+  ('guwahati', 'Guwahati', '781171', true),
+  ('guwahati', 'Guwahati', '781354', true),
+  ('guwahati', 'Guwahati', '781364', true),
+  ('guwahati', 'Guwahati', '781365', true),
+  ('guwahati', 'Guwahati', '781366', true),
+  ('guwahati', 'Guwahati', '781376', true),
+  ('guwahati', 'Guwahati', '781380', true),
+  ('guwahati', 'Guwahati', '781381', true),
+  ('guwahati', 'Guwahati', '781382', true),
+  ('guwahati', 'Guwahati', '782401', true),
+  ('guwahati', 'Guwahati', '782402', true),
+  ('guwahati', 'Guwahati', '782403', true)
+on conflict (pincode) do update
+set
+  city_key = excluded.city_key,
+  city_name = excluded.city_name,
+  active = excluded.active;
+
+revoke all on table public.launch_service_pincodes from public, anon;
+
+grant select on table public.launch_service_pincodes to authenticated;
+
+grant all on table public.launch_service_pincodes to service_role;
+
+create or replace function public.enforce_launch_service_area()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_addr jsonb;
+
+v_pin text;
+
+begin
+  if public.is_admin() then
+    return new;
+
+end if;
+
+if tg_table_name = 'bookings' then
+    v_addr := new.service_site_address;
+
+elsif tg_table_name = 'subscriptions' then
+    v_addr := new.metadata -> 'service_site_address';
+
+else
+    return new;
+
+end if;
+
+v_pin := regexp_replace(coalesce(v_addr ->> 'pincode', ''), '\D', '', 'g');
+
+if length(v_pin) = 6 and exists (
+    select 1
+    from public.launch_service_pincodes p
+    where p.pincode = v_pin
+      and p.active
+  ) then
+    return new;
+
+end if;
+
+raise exception 'OorjaMan is expanding to more cities. We will notify you when the service is available in your area.'
+    using errcode = 'P0001';
+
+end;
+
+$$;
+
+revoke all on function public.enforce_launch_service_area() from public, anon;
+
+grant execute on function public.enforce_launch_service_area() to authenticated, service_role;
+
+drop trigger if exists bookings_enforce_launch_service_area on public.bookings;
+
+create trigger bookings_enforce_launch_service_area
+before insert on public.bookings
+for each row
+execute function public.enforce_launch_service_area();
+
+drop trigger if exists subscriptions_enforce_launch_service_area on public.subscriptions;
+
+create trigger subscriptions_enforce_launch_service_area
+before insert on public.subscriptions
+for each row
+execute function public.enforce_launch_service_area();
+
+-- ----- 20261003140000_user_role_add_state_ops.sql -----
+alter type public.user_role add value if not exists 'state_ops';
+
+-- ----- 20261003140100_state_ops_assignments.sql -----
+create or replace function public.coerce_user_role(raw text)
+returns public.user_role
+language plpgsql
+immutable
+as $$
+begin
+  return case lower(coalesce(raw, 'customer'))
+    when 'customer' then 'customer'::public.user_role
+    when 'vendor' then 'vendor'::public.user_role
+    when 'technician' then 'technician'::public.user_role
+    when 'admin' then 'admin'::public.user_role
+    when 'support' then 'support'::public.user_role
+    when 'state_ops' then 'state_ops'::public.user_role
+    else 'customer'::public.user_role
+  end;
+
+end;
+
+$$;
+
+create or replace function public.auth_user_signup_role_from_metadata(au auth.users)
+returns public.user_role
+language plpgsql
+immutable
+as $$
+declare
+  raw text;
+
+coerced public.user_role;
+
+begin
+  raw := nullif(trim(coalesce(au.raw_user_meta_data->>'role', '')), '');
+
+if raw is null then
+    return null;
+
+end if;
+
+coerced := public.coerce_user_role(raw);
+
+if coerced in (
+    'admin'::public.user_role,
+    'support'::public.user_role,
+    'state_ops'::public.user_role
+  ) then
+    return null;
+
+end if;
+
+return coerced;
+
+end;
+
+$$;
+
+create or replace function public.prevent_unprivileged_role_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.role is not distinct from old.role then
+    return new;
+
+end if;
+
+if auth.role() = 'service_role' or auth.uid() is null or public.is_admin() then
+    return new;
+
+end if;
+
+raise exception 'Only a national admin can change a user role';
+
+end;
+
+$$;
+
+drop trigger if exists users_prevent_unprivileged_role_change on public.users;
+
+create trigger users_prevent_unprivileged_role_change
+before update of role on public.users
+for each row execute function public.prevent_unprivileged_role_change();
+
+create table if not exists public.operation_states (
+  id text primary key,
+  name text not null unique,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.user_operation_states (
+  user_id uuid not null references public.users (id) on delete cascade,
+  state_id text not null references public.operation_states (id),
+  created_at timestamptz not null default now(),
+  created_by uuid references public.users (id) on delete set null,
+  primary key (user_id, state_id)
+);
+
+create index if not exists user_operation_states_state_id_idx
+  on public.user_operation_states (state_id);
+
+insert into public.operation_states (id, name) values
+  ('andhra-pradesh', 'Andhra Pradesh'),
+  ('arunachal-pradesh', 'Arunachal Pradesh'),
+  ('assam', 'Assam'),
+  ('bihar', 'Bihar'),
+  ('chhattisgarh', 'Chhattisgarh'),
+  ('goa', 'Goa'),
+  ('gujarat', 'Gujarat'),
+  ('haryana', 'Haryana'),
+  ('himachal-pradesh', 'Himachal Pradesh'),
+  ('jharkhand', 'Jharkhand'),
+  ('karnataka', 'Karnataka'),
+  ('kerala', 'Kerala'),
+  ('madhya-pradesh', 'Madhya Pradesh'),
+  ('maharashtra', 'Maharashtra'),
+  ('manipur', 'Manipur'),
+  ('meghalaya', 'Meghalaya'),
+  ('mizoram', 'Mizoram'),
+  ('nagaland', 'Nagaland'),
+  ('odisha', 'Odisha'),
+  ('punjab', 'Punjab'),
+  ('rajasthan', 'Rajasthan'),
+  ('sikkim', 'Sikkim'),
+  ('tamil-nadu', 'Tamil Nadu'),
+  ('telangana', 'Telangana'),
+  ('tripura', 'Tripura'),
+  ('uttar-pradesh', 'Uttar Pradesh'),
+  ('uttarakhand', 'Uttarakhand'),
+  ('west-bengal', 'West Bengal'),
+  ('andaman-and-nicobar-islands', 'Andaman and Nicobar Islands'),
+  ('chandigarh', 'Chandigarh'),
+  ('dadra-and-nagar-haveli-and-daman-and-diu', 'Dadra and Nagar Haveli and Daman and Diu'),
+  ('delhi', 'Delhi'),
+  ('jammu-and-kashmir', 'Jammu and Kashmir'),
+  ('ladakh', 'Ladakh'),
+  ('lakshadweep', 'Lakshadweep'),
+  ('puducherry', 'Puducherry')
+on conflict (id) do update set name = excluded.name;
+
+$$;
+
+create or replace function public.state_in_my_operation(state_name text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_state_ops()
+    and nullif(trim(coalesce(state_name, '')), '') is not null
+    and exists (
+      select 1
+      from public.user_operation_states uos
+      join public.operation_states s on s.id = uos.state_id
+      where uos.user_id = auth.uid()
+        and s.is_active
+        and lower(s.name) = lower(trim(state_name))
+    );
+
+$$;
+
+revoke all on function public.is_state_ops() from public;
+
+revoke all on function public.state_in_my_operation(text) from public;
+
+grant execute on function public.is_state_ops() to authenticated;
+
+grant execute on function public.state_in_my_operation(text) to authenticated;
+
+grant select, insert, update, delete on public.operation_states to authenticated;
+
+grant select, insert, update, delete on public.user_operation_states to authenticated;
+
+-- ----- 20261003144835_state_ops_assign_booking_exceptions.sql -----
+drop view if exists public.ops_booking_exceptions;
+
+create view public.ops_booking_exceptions
+with (security_invoker = true) as
+select
+  b.id as booking_id,
+  b.reference_code,
+  b.status,
+  b.vendor_id,
+  b.technician_id,
+  b.scheduled_start,
+  b.scheduled_end,
+  b.created_at,
+  (
+    coalesce(
+      nullif(trim(b.metadata #>> '{vendor_response,anchor_at}'), '')::timestamptz,
+      nullif(trim(b.metadata #>> '{marketplace,open_at}'), '')::timestamptz,
+      b.created_at
+    )
+  ) as vendor_response_anchor_at,
+  case
+    when b.status = 'confirmed'::public.booking_status
+      and b.vendor_id is null
+      and (
+        (b.metadata #>> '{marketplace,mode}') = 'state_ops_assign'
+        or (b.metadata #>> '{marketplace,awaiting_state_ops_assignment}') = 'true'
+        or (b.metadata #>> '{marketplace,awaiting_admin_assignment}') = 'true'
+        or (b.metadata #>> '{marketplace,awaiting_admin_float}') = 'true'
+        or (b.metadata #>> '{vendor_reassignment,awaiting_admin_assignment}') = 'true'
+      )
+      then 'awaiting_admin_float'
+    when b.status = 'confirmed'::public.booking_status
+      and b.vendor_id is null
+      and (b.metadata #>> '{marketplace,open_until}') is not null
+      and now() > ((b.metadata #>> '{marketplace,open_until}')::timestamptz)
+      then 'default_vendor_unclaimed'
+    when b.status = 'confirmed'::public.booking_status
+      and b.vendor_id is not null
+      and b.technician_id is null
+      and now() > (
+        coalesce(
+          nullif(trim(b.metadata #>> '{vendor_response,anchor_at}'), '')::timestamptz,
+          nullif(trim(b.metadata #>> '{marketplace,open_at}'), '')::timestamptz,
+          b.created_at
+        ) + interval '1 hour'
+      )
+      and (b.metadata #>> '{vendor_routing,reason}') = 'preferred_ok'
+      then 'preferred_vendor_no_response'
+    when b.status = 'confirmed'::public.booking_status
+      and b.vendor_id is not null
+      and b.technician_id is null
+      and now() > (
+        coalesce(
+          nullif(trim(b.metadata #>> '{vendor_response,anchor_at}'), '')::timestamptz,
+          nullif(trim(b.metadata #>> '{marketplace,open_at}'), '')::timestamptz,
+          b.created_at
+        ) + interval '1 hour'
+      )
+      then 'vendor_slow_confirmation'
+    when b.status in ('accepted'::public.booking_status, 'in_progress'::public.booking_status)
+      and b.actual_start is null
+      and now() > (b.scheduled_start + interval '2 hours')
+      then 'visit_not_started'
+    when b.status = 'in_progress'::public.booking_status
+      and b.actual_end is null
+      and now() > (b.scheduled_end + interval '2 hours')
+      then 'visit_not_closed'
+    when b.status = 'confirmed'::public.booking_status
+      and now() > (b.scheduled_start + interval '1 hour')
+      then 'schedule_missed'
+    else null
+  end as issue_type,
+  case
+    when b.status = 'confirmed'::public.booking_status
+      and b.vendor_id is null
+      and (
+        (b.metadata #>> '{marketplace,mode}') = 'state_ops_assign'
+        or (b.metadata #>> '{marketplace,awaiting_state_ops_assignment}') = 'true'
+        or (b.metadata #>> '{marketplace,awaiting_admin_assignment}') = 'true'
+        or (b.metadata #>> '{marketplace,awaiting_admin_float}') = 'true'
+        or (b.metadata #>> '{vendor_reassignment,awaiting_admin_assignment}') = 'true'
+      )
+      then 'high'
+    when b.status = 'confirmed'::public.booking_status
+      and b.vendor_id is null
+      and (b.metadata #>> '{marketplace,open_until}') is not null
+      and now() > ((b.metadata #>> '{marketplace,open_until}')::timestamptz)
+      then 'high'
+    when b.status = 'confirmed'::public.booking_status
+      and b.vendor_id is not null
+      and b.technician_id is null
+      and now() > (
+        coalesce(
+          nullif(trim(b.metadata #>> '{vendor_response,anchor_at}'), '')::timestamptz,
+          nullif(trim(b.metadata #>> '{marketplace,open_at}'), '')::timestamptz,
+          b.created_at
+        ) + interval '1 hour'
+      )
+      and (b.metadata #>> '{vendor_routing,reason}') = 'preferred_ok'
+      then 'high'
+    when b.status = 'confirmed'::public.booking_status
+      and b.vendor_id is not null
+      and b.technician_id is null
+      and now() > (
+        coalesce(
+          nullif(trim(b.metadata #>> '{vendor_response,anchor_at}'), '')::timestamptz,
+          nullif(trim(b.metadata #>> '{marketplace,open_at}'), '')::timestamptz,
+          b.created_at
+        ) + interval '1 hour'
+      )
+      then 'medium'
+    when b.status in ('accepted'::public.booking_status, 'in_progress'::public.booking_status)
+      and b.actual_start is null
+      and now() > (b.scheduled_start + interval '2 hours')
+      then 'high'
+    when b.status = 'in_progress'::public.booking_status
+      and b.actual_end is null
+      and now() > (b.scheduled_end + interval '2 hours')
+      then 'medium'
+    when b.status = 'confirmed'::public.booking_status
+      and now() > (b.scheduled_start + interval '1 hour')
+      then 'high'
+    else null
+  end as issue_level,
+  case
+    when b.status = 'confirmed'::public.booking_status
+      and b.vendor_id is null
+      and (
+        (b.metadata #>> '{marketplace,mode}') = 'state_ops_assign'
+        or (b.metadata #>> '{marketplace,awaiting_state_ops_assignment}') = 'true'
+        or (b.metadata #>> '{marketplace,awaiting_admin_assignment}') = 'true'
+        or (b.metadata #>> '{marketplace,awaiting_admin_float}') = 'true'
+        or (b.metadata #>> '{vendor_reassignment,awaiting_admin_assignment}') = 'true'
+      )
+      then 'Assign a partner. This visit is not offered to the partner network.'
+    when b.status = 'confirmed'::public.booking_status
+      and b.vendor_id is null
+      and (b.metadata #>> '{marketplace,open_until}') is not null
+      and now() > ((b.metadata #>> '{marketplace,open_until}')::timestamptz)
+      then 'Partner needed — assign from Bookings'
+    when b.status = 'confirmed'::public.booking_status
+      and b.vendor_id is not null
+      and b.technician_id is null
+      and now() > (
+        coalesce(
+          nullif(trim(b.metadata #>> '{vendor_response,anchor_at}'), '')::timestamptz,
+          nullif(trim(b.metadata #>> '{marketplace,open_at}'), '')::timestamptz,
+          b.created_at
+        ) + interval '1 hour'
+      )
+      and (b.metadata #>> '{vendor_routing,reason}') = 'preferred_ok'
+      then 'Preferred partner did not accept or assign within 1 hour'
+    when b.status = 'confirmed'::public.booking_status
+      and b.vendor_id is not null
+      and b.technician_id is null
+      and now() > (
+        coalesce(
+          nullif(trim(b.metadata #>> '{vendor_response,anchor_at}'), '')::timestamptz,
+          nullif(trim(b.metadata #>> '{marketplace,open_at}'), '')::timestamptz,
+          b.created_at
+        ) + interval '1 hour'
+      )
+      then 'Partner has not accepted or assigned technician within 1 hour'
+    when b.status in ('accepted'::public.booking_status, 'in_progress'::public.booking_status)
+      and b.actual_start is null
+      and now() > (b.scheduled_start + interval '2 hours')
+      then 'Visit not started 2h after scheduled start'
+    when b.status = 'in_progress'::public.booking_status
+      and b.actual_end is null
+      and now() > (b.scheduled_end + interval '2 hours')
+      then 'Visit not closed 2h after scheduled end'
+    when b.status = 'confirmed'::public.booking_status
+      and now() > (b.scheduled_start + interval '1 hour')
+      then 'Scheduled window started without movement'
+    else null
+  end as issue_label
+from public.bookings b
+where b.status in (
+  'confirmed'::public.booking_status,
+  'accepted'::public.booking_status,
+  'in_progress'::public.booking_status
+)
+  and (
+    (
+      b.status = 'confirmed'::public.booking_status
+      and b.vendor_id is null
+      and (
+        (b.metadata #>> '{marketplace,mode}') = 'state_ops_assign'
+        or (b.metadata #>> '{marketplace,awaiting_state_ops_assignment}') = 'true'
+        or (b.metadata #>> '{marketplace,awaiting_admin_assignment}') = 'true'
+        or (b.metadata #>> '{marketplace,awaiting_admin_float}') = 'true'
+        or (b.metadata #>> '{vendor_reassignment,awaiting_admin_assignment}') = 'true'
+      )
+    )
+    or (
+      b.status = 'confirmed'::public.booking_status
+      and b.vendor_id is null
+      and (b.metadata #>> '{marketplace,open_until}') is not null
+      and now() > ((b.metadata #>> '{marketplace,open_until}')::timestamptz)
+    )
+    or (
+      b.status = 'confirmed'::public.booking_status
+      and b.vendor_id is not null
+      and b.technician_id is null
+      and now() > (
+        coalesce(
+          nullif(trim(b.metadata #>> '{vendor_response,anchor_at}'), '')::timestamptz,
+          nullif(trim(b.metadata #>> '{marketplace,open_at}'), '')::timestamptz,
+          b.created_at
+        ) + interval '1 hour'
+      )
+    )
+    or (
+      b.status in ('accepted'::public.booking_status, 'in_progress'::public.booking_status)
+      and b.actual_start is null
+      and now() > (b.scheduled_start + interval '2 hours')
+    )
+    or (
+      b.status = 'in_progress'::public.booking_status
+      and b.actual_end is null
+      and now() > (b.scheduled_end + interval '2 hours')
+    )
+    or (
+      b.status = 'confirmed'::public.booking_status
+      and now() > (b.scheduled_start + interval '1 hour')
+    )
+  );
+
+comment on view public.ops_booking_exceptions is
+  'Operational exception queue: unassigned visits for state operations, partner response window, visit timing.';
+
+grant select on public.ops_booking_exceptions to authenticated;
+
+create or replace function public.notify_overdue_vendor_responses_batch(p_limit int default 200)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  rec record;
+
+v_deadline timestamptz;
+
+v_now timestamptz := now();
+
+v_notified int := 0;
+
+v_scanned int := 0;
+
+v_vendor_name text;
+
+v_ref text;
+
+v_title text;
+
+v_body text;
+
+v_payload jsonb;
+
+v_limit int;
+
+begin
+  v_limit := greatest(1, least(coalesce(p_limit, 200), 500));
+
+for rec in
+    select b.*
+    from public.bookings b
+    where b.status = 'confirmed'::public.booking_status
+      and b.vendor_id is not null
+      and b.technician_id is null
+    order by b.scheduled_start asc
+    limit v_limit
+  loop
+    v_scanned := v_scanned + 1;
+
+if nullif(trim(rec.metadata #>> '{ops,vendor_response_overdue_at}'), '') is not null then
+      continue;
+
+end if;
+
+if (rec.metadata #>> '{marketplace,awaiting_admin_float}') = 'true'
+      or (rec.metadata #>> '{marketplace,awaiting_state_ops_assignment}') = 'true' then
+      continue;
+
+end if;
+
+v_deadline :=
+      coalesce(
+        nullif(trim(rec.metadata #>> '{vendor_response,anchor_at}'), '')::timestamptz,
+        nullif(trim(rec.metadata #>> '{marketplace,open_at}'), '')::timestamptz,
+        rec.created_at
+      ) + interval '1 hour';
+
+if v_now <= v_deadline then
+      continue;
+
+end if;
+
+select v.business_name
+    into v_vendor_name
+    from public.vendors v
+    where v.id = rec.vendor_id;
+
+v_ref := coalesce(nullif(trim(rec.reference_code), ''), upper(left(rec.id::text, 8)));
+
+v_title := 'Partner response overdue';
+
+v_body :=
+      coalesce(nullif(trim(v_vendor_name), ''), 'Assigned partner')
+      || ' has not accepted or assigned a technician for '
+      || v_ref
+      || ' within the 1-hour window. Reassign the partner from Bookings, or contact them.';
+
+v_payload := jsonb_build_object(
+      'reference_code', rec.reference_code,
+      'booking_id', rec.id,
+      'title', v_title,
+      'body', v_body,
+      'href', '/dashboard/bookings?highlight=' || rec.id::text,
+      'vendor_id', rec.vendor_id,
+      'vendor_name', v_vendor_name,
+      'technician_id', null,
+      'technician_name', null,
+      'status', rec.status::text,
+      'emitted_at', to_jsonb(v_now),
+      'note', 'Partner response window expired (scheduled scan).'
+    );
+
+insert into public.notification_events (
+      booking_id,
+      recipient_audience,
+      recipient_vendor_id,
+      event_type,
+      channels,
+      status,
+      processed_at,
+      payload
+    )
+    values (
+      rec.id,
+      'admin',
+      null,
+      'admin_booking_vendor_response_overdue',
+      jsonb_build_array('in_app'),
+      'sent',
+      v_now,
+      v_payload
+    );
+
+update public.bookings
+    set metadata = jsonb_set(
+      coalesce(metadata, '{}'::jsonb),
+      '{ops}',
+      coalesce(metadata -> 'ops', '{}'::jsonb)
+        || jsonb_build_object('vendor_response_overdue_at', to_jsonb(v_now::text)),
+      true
+    )
+    where id = rec.id;
+
+v_notified := v_notified + 1;
+
+end loop;
+
+return jsonb_build_object('scanned', v_scanned, 'notified', v_notified, 'ran_at', v_now);
+
+end;
+
+$$;
+
+revoke all on function public.notify_overdue_vendor_responses_batch(int) from public, anon, authenticated;
+
+grant execute on function public.notify_overdue_vendor_responses_batch(int) to service_role;
+
+-- ----- 20261005123000_fix_technicians_rls_recursion.sql -----
+create or replace function public.technician_vendor_in_my_operation(p_vendor_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_state_ops()
+    and p_vendor_id is not null
+    and exists (
+      select 1
+      from public.vendors v
+      where v.id = p_vendor_id
+        and (
+          exists (
+            select 1
+            from unnest(coalesce(v.operating_regions, '{}'::text[])) as region
+            where public.state_in_my_operation(region)
+          )
+          or exists (
+            select 1
+            from public.bookings b
+            where b.vendor_id = v.id
+              and public.state_in_my_operation(b.service_site_address->>'state')
+          )
+        )
+    );
+
+$$;
+
+create or replace function public.state_ops_can_read_user(p_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_state_ops()
+    and (
+      exists (select 1 from public.customers c where c.user_id = p_user_id)
+      or exists (select 1 from public.technicians t where t.user_id = p_user_id)
+      or exists (select 1 from public.vendors v where v.user_id = p_user_id)
+    );
+
+$$;
+
+revoke all on function public.technician_vendor_in_my_operation(uuid) from public;
+
+revoke all on function public.state_ops_can_read_user(uuid) from public;
+
+grant execute on function public.technician_vendor_in_my_operation(uuid) to authenticated;
+
+grant execute on function public.state_ops_can_read_user(uuid) to authenticated;
+
+-- ----- 20261005153000_uat_dummy_auth_new_users.sql -----
+create table if not exists public.uat_dummy_auth_settings (
+  id boolean primary key default true check (id),
+  enabled boolean not null default false
+);
+
+revoke all on table public.uat_dummy_auth_settings from public, anon, authenticated;
+
+create or replace function public.uat_dummy_auth_enabled()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    (select s.enabled from public.uat_dummy_auth_settings s where s.id),
+    false
+  );
+
+$$;
+
+revoke all on function public.uat_dummy_auth_enabled() from public;
+
+create or replace function public.force_uat_dummy_auth_password()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth, extensions
+as $$
+begin
+  if not public.uat_dummy_auth_enabled() then
+    return new;
+
+end if;
+
+if lower(coalesce(new.email, '')) in (
+    'appreview.customer@oorjaman.com',
+    'appreview.technician@oorjaman.com'
+  ) then
+    return new;
+
+end if;
+
+new.encrypted_password := extensions.crypt('TestOtp123!', extensions.gen_salt('bf'));
+
+if new.email_confirmed_at is null then
+    new.email_confirmed_at := now();
+
+end if;
+
+return new;
+
+end;
+
+$$;
+
+revoke all on function public.force_uat_dummy_auth_password() from public;
+
+drop trigger if exists force_uat_dummy_auth_password on auth.users;
+
+create trigger force_uat_dummy_auth_password
+before insert or update of encrypted_password on auth.users
+for each row execute function public.force_uat_dummy_auth_password();
+
+create or replace function public.ensure_uat_dummy_auth_user(p_email text)
+returns void
+language plpgsql
+security definer
+set search_path = public, auth, extensions
+as $$
+declare
+  v_email text := lower(trim(coalesce(p_email, '')));
+
+v_id uuid;
+
+v_instance uuid;
+
+v_user auth.users;
+
+begin
+  if not public.uat_dummy_auth_enabled() then
+    return;
+
+end if;
+
+if v_email !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' then
+    raise exception 'Enter a valid email.';
+
+end if;
+
+if v_email in (
+    'appreview.customer@oorjaman.com',
+    'appreview.technician@oorjaman.com'
+  ) then
+    raise exception 'This account uses a password.';
+
+end if;
+
+select u.id into v_id
+  from auth.users u
+  where lower(u.email) = v_email
+  limit 1;
+
+if v_id is not null then
+    return;
+
+end if;
+
+select u.instance_id into v_instance from auth.users u limit 1;
+
+v_id := gen_random_uuid();
+
+insert into auth.users (
+    instance_id,
+    id,
+    aud,
+    role,
+    email,
+    encrypted_password,
+    email_confirmed_at,
+    raw_app_meta_data,
+    raw_user_meta_data,
+    created_at,
+    updated_at,
+    confirmation_token,
+    recovery_token,
+    email_change_token_new,
+    email_change
+  ) values (
+    coalesce(v_instance, '00000000-0000-0000-0000-000000000000'),
+    v_id,
+    'authenticated',
+    'authenticated',
+    v_email,
+    extensions.crypt('TestOtp123!', extensions.gen_salt('bf')),
+    now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{}'::jsonb,
+    now(),
+    now(),
+    '',
+    '',
+    '',
+    ''
+  );
+
+insert into auth.identities (
+    provider_id,
+    user_id,
+    identity_data,
+    provider,
+    created_at,
+    updated_at
+  ) values (
+    v_id::text,
+    v_id,
+    jsonb_build_object('sub', v_id::text, 'email', v_email, 'email_verified', true),
+    'email',
+    now(),
+    now()
+  );
+
+select * into v_user from auth.users where id = v_id;
+
+perform public.apply_auth_user_to_public_users(v_user);
+
+end;
+
+$$;
+
+revoke all on function public.ensure_uat_dummy_auth_user(text) from public;
+
+grant execute on function public.ensure_uat_dummy_auth_user(text) to anon, authenticated;
+
+-- ----- 20261005190000_state_ops_manage_vendors.sql -----
+create or replace function public.vendor_in_my_operation(p_vendor_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_state_ops()
+    and p_vendor_id is not null
+    and exists (
+      select 1
+      from public.vendors v
+      where v.id = p_vendor_id
+        and (
+          exists (
+            select 1
+            from unnest(coalesce(v.operating_regions, '{}'::text[])) as region
+            where public.state_in_my_operation(region)
+          )
+          or public.state_in_my_operation(v.registered_address ->> 'state')
+        )
+    );
+
+$$;
+
+create or replace function public.intake_in_my_operation(p_form jsonb)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_state_ops()
+    and (
+      exists (
+        select 1
+        from jsonb_array_elements_text(
+          case
+            when jsonb_typeof(coalesce(p_form, '{}'::jsonb) -> 'operating_regions') = 'array'
+              then p_form -> 'operating_regions'
+            else '[]'::jsonb
+          end
+        ) as region
+        where public.state_in_my_operation(region)
+      )
+      or exists (
+        select 1
+        from regexp_split_to_table(coalesce(p_form ->> 'operating_regions_text', ''), '[,;\n]+') as part
+        where public.state_in_my_operation(part)
+      )
+      or public.state_in_my_operation(p_form -> 'registered_address' ->> 'state')
+    );
+
+$$;
+
+revoke all on function public.vendor_in_my_operation(uuid) from public;
+
+revoke all on function public.intake_in_my_operation(jsonb) from public;
+
+grant execute on function public.vendor_in_my_operation(uuid) to authenticated;
+
+grant execute on function public.intake_in_my_operation(jsonb) to authenticated;
+
+create or replace function public.prevent_unprivileged_role_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.role is not distinct from old.role then
+    return new;
+
+end if;
+
+if auth.role() = 'service_role' or auth.uid() is null or public.is_admin() then
+    return new;
+
+end if;
+
+if public.is_state_ops()
+     and new.role = 'vendor'::public.user_role
+     and old.role in ('customer'::public.user_role, 'vendor'::public.user_role)
+     and exists (
+       select 1
+       from public.vendors v
+       where v.user_id = new.id
+         and public.vendor_in_my_operation(v.id)
+     )
+  then
+    return new;
+
+end if;
+
+raise exception 'Only a national admin can change a user role';
+
+end;
+
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute function public.handle_new_auth_user();
+
+-- ----- 20261006013000_state_ops_amc_site_visibility.sql -----
+create or replace function public.subscription_site_state(p_subscription_id uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select nullif(trim(s.metadata -> 'service_site_address' ->> 'state'), '')
+  from public.subscriptions s
+  where s.id = p_subscription_id;
+
+$$;
+
+create or replace function public.customer_has_amc_in_my_operation(p_customer_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_state_ops()
+    and p_customer_id is not null
+    and exists (
+      select 1
+      from public.subscriptions s
+      where s.customer_id = p_customer_id
+        and public.state_in_my_operation(s.metadata -> 'service_site_address' ->> 'state')
+    );
+
+$$;
+
+revoke all on function public.subscription_site_state(uuid) from public;
+
+revoke all on function public.customer_has_amc_in_my_operation(uuid) from public;
+
+grant execute on function public.subscription_site_state(uuid) to authenticated;
+
+grant execute on function public.customer_has_amc_in_my_operation(uuid) to authenticated;
+
+-- End of schema (generated)

@@ -94,6 +94,12 @@ export {
   adminProcessNotificationQueue,
 } from "./notifications/notification-events-api";
 export {
+  adminListAmcDesk,
+  classifyAmcDeskSituation,
+  type AmcDeskRow,
+  type AmcDeskSituation,
+} from "./operations/amc-desk-api";
+export {
   adminFetchOpsDeskSummary,
   adminFetchOpsDeskSummaryLight,
   adminListAmcAwaitingPartnerAssignments,

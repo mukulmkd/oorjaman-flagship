@@ -47,6 +47,7 @@ export function DashboardLayout() {
   const partnerQualityNavActive = location.pathname.startsWith("/dashboard/partners/quality");
   const trustSafetyNavActive = location.pathname.startsWith("/dashboard/trust-safety");
   const bookingsNavActive = location.pathname.startsWith("/dashboard/bookings");
+  const amcNavActive = location.pathname.startsWith("/dashboard/amc");
   const notificationsNavActive = location.pathname.startsWith("/dashboard/notifications");
   const renewalNavActive = location.pathname.startsWith("/dashboard/subscription-renewals");
   const pricingNavActive =
@@ -70,6 +71,9 @@ export function DashboardLayout() {
           </Link>
           <Link to="/dashboard/bookings" className={bookingsNavActive ? "dash-nav-active" : ""}>
             Bookings
+          </Link>
+          <Link to="/dashboard/amc" className={amcNavActive ? "dash-nav-active" : ""}>
+            AMC
           </Link>
           <Link
             to="/dashboard/booking-routing"

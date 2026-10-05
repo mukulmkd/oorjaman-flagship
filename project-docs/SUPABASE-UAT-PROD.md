@@ -284,7 +284,7 @@ All policies live in **migration SQL** (search `create policy` in `supabase/migr
 
 ## Checklist: new PROD project go-live
 
-> Track overall launch status in the master **[`PROD_CHECKLIST.md`](../PROD_CHECKLIST.md)**; the list below is the Supabase-specific slice.
+> PROD project `nppfpegqnmclbcmmogux` is already live. This list is the original bootstrap. Day-to-day schema changes use the migration workflow above.
 
 - [ ] Create **OorjaMan Prod** project
 - [ ] `db push` all migrations on PROD

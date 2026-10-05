@@ -24,6 +24,7 @@ import { FinanceSettlementsPage } from "./pages/FinanceSettlementsPage";
 import { PaymentsOpsPage } from "./pages/PaymentsOpsPage";
 import { BrandCollateralPage } from "./pages/BrandCollateralPage";
 import { StateDesksPage } from "./pages/StateDesksPage";
+import { AmcDeskPage } from "./pages/AmcDeskPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 
 export default function App() {
@@ -88,6 +89,7 @@ export default function App() {
         />
         <Route path="subscription-renewals" element={<SubscriptionRenewalsPage />} />
         <Route path="bookings" element={<BookingMonitoringPage />} />
+        <Route path="amc" element={<AmcDeskPage />} />
         <Route path="support" element={<Navigate to="/dashboard/operations" replace />} />
         <Route
           path="pricing"

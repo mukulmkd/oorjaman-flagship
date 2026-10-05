@@ -81,7 +81,7 @@ npm run functions:deploy -- razorpay-webhook --no-verify-jwt
 
 Webhook URL: `https://<UAT_PROJECT_REF>.supabase.co/functions/v1/razorpay-webhook`  
 
-Enable: `payment.authorized`, `payment.captured`, `payment.failed`, `order.paid`, `refund.created`, `refund.processed`, `refund.failed`.
+Enable: `payment.authorized`, `payment.captured`, `payment.failed`, `order.paid`, `payment_link.paid`, `refund.created`, `refund.processed`, `refund.failed`.
 
 ### 5. Customer app
 
@@ -91,9 +91,22 @@ EXPO_PUBLIC_RAZORPAY_KEY_ID=rzp_test_xxxxxxxx
 
 Rebuild native UAT/dev client after dependency or native module changes.
 
-## Production (Live) cutover
+## Production (Live)
 
-Mirror of UAT, with **Live** keys and the **PROD** Supabase project. Full checklist + status lives in root [`PROD_CHECKLIST.md`](../PROD_CHECKLIST.md) **§11a** (secrets, webhook URL, function deploys, Payment Links, app `EXPO_PUBLIC_RAZORPAY_KEY_ID=rzp_live_…`, smoke tests). Never put Test secrets on Prod.
+Live keys on PROD Supabase `nppfpegqnmclbcmmogux` only. Never put Test (`rzp_test_`) secrets on Prod.
+
+| Secret | Where |
+| --- | --- |
+| `RAZORPAY_KEY_ID` | PROD Edge secret, Live key id |
+| `RAZORPAY_KEY_SECRET` | PROD Edge secret |
+| `RAZORPAY_WEBHOOK_SECRET` | From the **Live** webhook (do not copy the Test webhook secret) |
+| `EXPO_PUBLIC_RAZORPAY_KEY_ID` | Customer app EAS **production** env, key id only |
+
+Webhook URL: `https://nppfpegqnmclbcmmogux.supabase.co/functions/v1/razorpay-webhook`
+
+Same eight events as UAT, including `payment_link.paid`. Deploy `razorpay-webhook` with JWT verification off. `payment.authorized` is recorded and is not paid. A QR payment link settles on an order Razorpay creates at pay time; the webhook matches it back to the order stored when the link was issued.
+
+Redeploy the four functions from §3 against the linked PROD project after a payment-function change. A native Checkout SDK or key-id change needs a new customer store binary. The Partner app does not embed the key id; QR links come from `create-razorpay-order`.
 
 ## Internal payment statuses (DB)
 

@@ -217,8 +217,7 @@ Project-level guides live in [**project-docs/**](project-docs/README.md). The ro
 
 | Doc | Purpose |
 | --- | ------- |
-| [PROD_MOBILE_ANDROID_LAUNCH.md](PROD_MOBILE_ANDROID_LAUNCH.md) | **PROD Android launch** — EAS, Maps, FCM, Play Store (customer + technician replicate) |
-| [PROD_CHECKLIST.md](PROD_CHECKLIST.md) | Full platform production checklist |
+| [ANDROID-PLAY.md](project-docs/ANDROID-PLAY.md) | Google Play rebuild — EAS, FCM, Maps SHA-1, internal track |
 | [DEPLOYMENT.md](project-docs/DEPLOYMENT.md) | PROD vs UAT matrix: **Vercel UAT portals (live)**, GoDaddy target, mobile EAS |
 | [VERCEL.md](project-docs/VERCEL.md) | Three Vercel projects, env vars, Supabase auth URLs |
 | [SUPABASE-UAT-PROD.md](project-docs/SUPABASE-UAT-PROD.md) | Dual Supabase projects, `db:push`, migration workflow |

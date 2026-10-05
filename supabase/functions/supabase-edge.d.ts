@@ -15,6 +15,15 @@ declare module "https://esm.sh/standardwebhooks@1.0.0" {
   }
 }
 
+declare module "node:crypto" {
+  export function createHmac(
+    algorithm: string,
+    key: string,
+  ): {
+    update(data: string): { digest(encoding: "hex"): string };
+  };
+}
+
 /** Minimal stubs for `@supabase/functions-js` typings (omit `serve` / `env` in bundled .d.ts). */
 declare namespace Deno {
   export const env: {

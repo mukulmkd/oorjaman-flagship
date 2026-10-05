@@ -16,6 +16,13 @@ type RazorpayEntity = {
   notes?: Record<string, string>;
 };
 
+type PaymentLinkEntity = {
+  id?: string;
+  order_id?: string;
+  status?: string;
+  notes?: Record<string, string>;
+};
+
 type RefundEntity = {
   id?: string;
   payment_id?: string;
@@ -30,9 +37,103 @@ type WebhookPayload = {
   payload?: {
     payment?: { entity?: RazorpayEntity };
     order?: { entity?: RazorpayEntity };
+    payment_link?: { entity?: PaymentLinkEntity };
     refund?: { entity?: RefundEntity };
   };
 };
+
+type StoredOrderRow = {
+  razorpay_order_id: string | null;
+};
+
+type StoredBookingPaymentRow = StoredOrderRow & {
+  amount: number | string;
+  status: string;
+};
+
+function noteValue(notes: Record<string, string> | undefined, key: string): string | null {
+  const value = notes?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+/**
+ * Payment Links settle against an order Razorpay creates at pay time, not the
+ * order we stored when the link was issued. Prefer a stored order id, then the
+ * link id, then the booking id stamped in the link notes.
+ */
+async function resolveStoredOrderId(
+  // Supabase query builder; kept loose so payment-link lookups can chain filters.
+  adminClient: { from: (table: string) => any },
+  input: {
+    gatewayOrderId: string | null;
+    paymentNotes?: Record<string, string>;
+    link?: PaymentLinkEntity;
+    amountPaise: number | null;
+  },
+): Promise<string | null> {
+  const candidates: string[] = [];
+  const push = (value: string | null | undefined) => {
+    const trimmed = value?.trim();
+    if (trimmed && !candidates.includes(trimmed)) candidates.push(trimmed);
+  };
+  const notedOrder =
+    noteValue(input.paymentNotes, "razorpay_order_id") ??
+    noteValue(input.link?.notes, "razorpay_order_id");
+  push(input.gatewayOrderId);
+  push(notedOrder);
+  push(input.link?.order_id);
+
+  if (candidates.length > 0) {
+    const { data, error } = await adminClient
+      .from("payments")
+      .select("razorpay_order_id")
+      .in("razorpay_order_id", candidates);
+    if (error) throw new Error(error.message);
+    const orderRows = (data ?? []) as StoredOrderRow[];
+    const found = new Set(
+      orderRows.map((row) => row.razorpay_order_id).filter((id): id is string => Boolean(id)),
+    );
+    for (const id of [input.gatewayOrderId, notedOrder, input.link?.order_id]) {
+      const trimmed = id?.trim();
+      if (trimmed && found.has(trimmed)) return trimmed;
+    }
+  }
+
+  const linkId = input.link?.id?.trim();
+  if (linkId) {
+    const { data, error } = await adminClient
+      .from("payments")
+      .select("razorpay_order_id")
+      .eq("razorpay_payment_link_id", linkId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (data?.razorpay_order_id) return data.razorpay_order_id;
+  }
+
+  const bookingId =
+    noteValue(input.paymentNotes, "booking_id") ?? noteValue(input.link?.notes, "booking_id");
+  if (bookingId) {
+    const { data, error } = await adminClient
+      .from("payments")
+      .select("razorpay_order_id, amount, status")
+      .eq("booking_id", bookingId)
+      .eq("provider", "razorpay")
+      .in("status", ["pending", "authorized", "success"])
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as StoredBookingPaymentRow[];
+    const amountMatched =
+      input.amountPaise != null
+        ? rows.filter((row) => Number(row.amount) === input.amountPaise)
+        : rows;
+    const pool = amountMatched.length > 0 ? amountMatched : rows;
+    const open = pool.find((row) => row.status === "pending" || row.status === "authorized");
+    const chosen = open ?? (pool.length === 1 ? pool[0] : null);
+    if (chosen?.razorpay_order_id) return chosen.razorpay_order_id;
+  }
+
+  return input.gatewayOrderId?.trim() || null;
+}
 
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -145,12 +246,20 @@ Deno.serve(async (req: Request) => {
   }
 
   const event = payload.event ?? "";
-  const eventId = typeof payload.id === "string" ? payload.id : "";
+  const eventId =
+    req.headers.get("x-razorpay-event-id")?.trim() ||
+    (typeof payload.id === "string" ? payload.id.trim() : "");
   const paymentEntity = payload.payload?.payment?.entity;
   const orderEntity = payload.payload?.order?.entity;
+  const paymentLinkEntity = payload.payload?.payment_link?.entity;
   const refundEntity = payload.payload?.refund?.entity;
 
   const adminClient = createClient(supabaseUrl, serviceKey);
+
+  const releaseClaim = async () => {
+    if (!eventId) return;
+    await adminClient.from("razorpay_webhook_events").delete().eq("event_id", eventId);
+  };
 
   if (eventId) {
     const { data: claimed, error: claimErr } = await adminClient.rpc("claim_razorpay_webhook_event", {
@@ -167,33 +276,59 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  const gatewayOrderId =
+    (event === "order.paid" ? orderEntity?.id : paymentEntity?.order_id)?.trim() ||
+    orderEntity?.id?.trim() ||
+    null;
+  const amountPaise = typeof paymentEntity?.amount === "number" ? paymentEntity.amount : null;
+
+  let storedOrderId: string | null = null;
+  try {
+    storedOrderId = await resolveStoredOrderId(adminClient, {
+      gatewayOrderId,
+      paymentNotes: paymentEntity?.notes,
+      link: paymentLinkEntity,
+      amountPaise,
+    });
+  } catch (error) {
+    console.error("resolveStoredOrderId", error instanceof Error ? error.message : error);
+    await releaseClaim();
+    return json({ ok: false, error: "Could not match payment" }, 500);
+  }
+
   // --- Captured / paid only (authorized is NOT paid) ---
-  if (event === "payment.captured" || event === "order.paid") {
-    const orderId =
-      (event === "order.paid" ? orderEntity?.id : paymentEntity?.order_id)?.trim() || null;
+  if (event === "payment.captured" || event === "order.paid" || event === "payment_link.paid") {
     const razorpayPaymentId = paymentEntity?.id?.trim() || null;
     const method = paymentEntity?.method?.trim() || null;
-    if (!orderId) return json({ ok: false, error: "Missing order_id in webhook" }, 400);
+    if (!storedOrderId) {
+      await releaseClaim();
+      return json({ ok: false, error: "Missing order_id in webhook" }, 400);
+    }
 
     const { data, error } = await adminClient.rpc("fulfill_razorpay_payment", {
-      p_razorpay_order_id: orderId,
+      p_razorpay_order_id: storedOrderId,
       p_razorpay_payment_id: razorpayPaymentId,
       p_payment_method: method ? method.toUpperCase() : "Razorpay",
       p_razorpay_payment_status: "captured",
-      p_amount_paise: typeof paymentEntity?.amount === "number" ? paymentEntity.amount : null,
+      p_amount_paise: amountPaise,
       p_method_type: method,
     });
     if (error) {
       console.error("fulfill_razorpay_payment", error.message);
+      await releaseClaim();
       return json({ ok: false, error: error.message }, 500);
     }
     return json({ ok: true, event, result: data });
   }
 
-  // Authorized: record only — never confirm booking / fund AMC
+  // Authorized: record only — never confirm booking / fund AMC.
+  // Only when Razorpay's order id is the one we stored. A payment-link attempt
+  // uses a different order; marking that failed or authorized would block the capture.
   if (event === "payment.authorized") {
-    const orderId = paymentEntity?.order_id?.trim() || null;
-    if (!orderId) return json({ ok: false, error: "Missing order_id" }, 400);
+    const orderId = gatewayOrderId && gatewayOrderId === storedOrderId ? storedOrderId : null;
+    if (!orderId) {
+      return json({ ok: true, ignored: true, event, reason: "unmatched_order" });
+    }
     const { data, error } = await adminClient.rpc("fulfill_razorpay_payment", {
       p_razorpay_order_id: orderId,
       p_razorpay_payment_id: paymentEntity?.id?.trim() || null,
@@ -204,14 +339,17 @@ Deno.serve(async (req: Request) => {
     });
     if (error) {
       console.error("authorized fulfill", error.message);
+      await releaseClaim();
       return json({ ok: false, error: error.message }, 500);
     }
     return json({ ok: true, event, result: data });
   }
 
   if (event === "payment.failed") {
-    const orderId = paymentEntity?.order_id?.trim() || null;
-    if (!orderId) return json({ ok: false, error: "Missing order_id" }, 400);
+    const orderId = gatewayOrderId && gatewayOrderId === storedOrderId ? storedOrderId : null;
+    if (!orderId) {
+      return json({ ok: true, ignored: true, event, reason: "unmatched_order" });
+    }
     const norm = normalizeFailure(paymentEntity);
     const { data, error } = await adminClient.rpc("record_razorpay_payment_failure", {
       p_razorpay_order_id: orderId,
@@ -229,6 +367,7 @@ Deno.serve(async (req: Request) => {
     });
     if (error) {
       console.error("record_razorpay_payment_failure", error.message);
+      await releaseClaim();
       return json({ ok: false, error: error.message }, 500);
     }
     return json({ ok: true, event, result: data });
@@ -237,7 +376,10 @@ Deno.serve(async (req: Request) => {
   if (event === "refund.created" || event === "refund.processed" || event === "refund.failed") {
     const rid = refundEntity?.id?.trim();
     const pid = refundEntity?.payment_id?.trim();
-    if (!rid || !pid) return json({ ok: false, error: "Missing refund/payment id" }, 400);
+    if (!rid || !pid) {
+      await releaseClaim();
+      return json({ ok: false, error: "Missing refund/payment id" }, 400);
+    }
     const status =
       event === "refund.processed" ? "processed" : event === "refund.failed" ? "failed" : "pending";
     const { data, error } = await adminClient.rpc("apply_razorpay_refund", {
@@ -249,6 +391,7 @@ Deno.serve(async (req: Request) => {
     });
     if (error) {
       console.error("apply_razorpay_refund", error.message);
+      await releaseClaim();
       return json({ ok: false, error: error.message }, 500);
     }
     return json({ ok: true, event, result: data });

@@ -2,7 +2,7 @@
 
 How OorjaMan limits abuse across Auth, Edge Functions, and (optionally) Vercel.
 
-**Related:** [PROD_CHECKLIST.md](../PROD_CHECKLIST.md) §4–§5 · [SECURITY-VERCEL.md](SECURITY-VERCEL.md)
+**Related:** [SECURITY-VERCEL.md](SECURITY-VERCEL.md) · [SUPABASE-UAT-PROD.md](SUPABASE-UAT-PROD.md)
 
 ---
 
@@ -64,7 +64,7 @@ Supabase splits these — they are **different** menu items under **Authenticati
 | Dashboard section | What to do now |
 |---|---|
 | **Authentication → Rate Limits** | Review / tighten OTP send & verify, sign-ins, token refresh. Do this on UAT and again on PROD. |
-| **Authentication → Attack Protection** (Bot and Abuse / CAPTCHA) | **CAPTCHA: leave OFF** while dummy OTP/auth is in use on UAT/local. Enabling CAPTCHA without apps sending `captchaToken` will break login. Enable only at prod cutover after real SMS + app wiring (see PROD_CHECKLIST §5 CAPTCHA). |
+| **Authentication → Attack Protection** (Bot and Abuse / CAPTCHA) | **CAPTCHA: leave OFF** while dummy OTP/auth is in use on UAT/local. Enabling CAPTCHA without apps sending `captchaToken` will break login. Turn it on only after the apps send `captchaToken` and real SMS OTP is live. |
 
 `supabase/config.toml` `[auth.rate_limit]` mainly affects local `supabase start`; hosted projects use the **Rate Limits** UI above.
 
