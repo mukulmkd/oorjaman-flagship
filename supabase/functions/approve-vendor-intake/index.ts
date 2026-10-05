@@ -108,10 +108,18 @@ Deno.serve(async (req: Request) => {
   }
 
   if (adminRow.role === "state_ops") {
-    const regions =
-      Array.isArray(form.operating_regions) && form.operating_regions.length
+    const addressState =
+      form.registered_address &&
+      typeof form.registered_address === "object" &&
+      !Array.isArray(form.registered_address)
+        ? String((form.registered_address as Record<string, unknown>).state ?? "")
+        : "";
+    const regions = [
+      ...(Array.isArray(form.operating_regions) && form.operating_regions.length
         ? (form.operating_regions as string[])
-        : splitCsv(form.operating_regions_text) ?? [];
+        : splitCsv(form.operating_regions_text) ?? []),
+      addressState,
+    ];
     const { data: assigned, error: assignedError } = await adminClient
       .from("user_operation_states")
       .select("operation_states(name)")
@@ -155,7 +163,21 @@ Deno.serve(async (req: Request) => {
 
     newUserId = createdUser.user.id;
 
-    await new Promise((r) => setTimeout(r, 300));
+    const tradeTrimEarly = form.trade_name ? String(form.trade_name).trim() : "";
+    const businessTrimEarly = String(form.business_name ?? "").trim();
+    const displayNameEarly = tradeTrimEarly || businessTrimEarly || null;
+    const { error: userRowErr } = await adminClient.from("users").upsert(
+      {
+        id: newUserId,
+        email,
+        phone,
+        role: "vendor",
+        is_active: true,
+        ...(displayNameEarly ? { full_name: displayNameEarly } : {}),
+      },
+      { onConflict: "id" },
+    );
+    if (userRowErr) throw userRowErr;
 
     const copyDoc = async (fromPath: string | undefined | null): Promise<string | null> => {
       if (!fromPath || typeof fromPath !== "string") return null;
@@ -273,18 +295,7 @@ Deno.serve(async (req: Request) => {
     if (vErr) throw vErr;
     vendorInsertId = vendorRow.id;
 
-    const tradeTrim = form.trade_name ? String(form.trade_name).trim() : "";
-    const businessTrim = String(form.business_name ?? "").trim();
-    const displayName = tradeTrim || businessTrim || null;
-
-    await adminClient
-      .from("users")
-      .update({
-        role: "vendor",
-        is_active: true,
-        ...(displayName ? { full_name: displayName } : {}),
-      })
-      .eq("id", newUserId);
+    const displayName = displayNameEarly;
 
     if (displayName) {
       try {

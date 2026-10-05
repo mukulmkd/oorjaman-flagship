@@ -37,6 +37,9 @@ const config: ExpoConfig = {
     deploymentTarget: "16.4",
     supportsTablet: false,
     bundleIdentifier: isUat ? "com.oorjaman.technician.uat" : "com.oorjaman.technician",
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   android: {
     icon: "./assets/images/icon.png",

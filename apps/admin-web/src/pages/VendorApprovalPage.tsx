@@ -94,8 +94,7 @@ export function VendorApprovalPage() {
                 {(query.error as Error).message}
               </p>
               <p className="dash-empty-help">
-                Ensure you are signed in as a user with{" "}
-                <code className="dash-mono">public.users.role = admin</code>.
+                Ensure you are signed in as a national admin or a state desk for this partner&apos;s state.
               </p>
             </div>
           ) : total === 0 ? (

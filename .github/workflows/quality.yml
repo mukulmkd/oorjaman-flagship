@@ -26,4 +26,4 @@ jobs:
           node-version: "20"
           cache: npm
       - run: npm ci
-      - run: npm run knip
+      - run: npm run analyze:knip

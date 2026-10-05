@@ -8,6 +8,13 @@ declare module "https://esm.sh/@supabase/supabase-js@2.49.1" {
   export * from "@supabase/supabase-js";
 }
 
+declare module "https://esm.sh/standardwebhooks@1.0.0" {
+  export class Webhook {
+    constructor(secret: string);
+    verify(payload: string, headers: Record<string, string>): unknown;
+  }
+}
+
 /** Minimal stubs for `@supabase/functions-js` typings (omit `serve` / `env` in bundled .d.ts). */
 declare namespace Deno {
   export const env: {

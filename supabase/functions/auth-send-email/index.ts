@@ -118,7 +118,7 @@ function messageCopy(action: string, token: string, link: string | null): { text
     : "";
   const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#0f2938;background:#f6faf9;">
   <div style="background:#ffffff;border-radius:16px;padding:32px 24px;border:1px solid #c5d9d4;">
-    <p style="margin:0 0 4px;font-size:13px;letter-spacing:0.04em;text-transform:uppercase;color:#516a7b;">OorjaMan</p>
+    <img src="https://www.oorjaman.com/logo-icon.png" width="56" height="56" alt="OorjaMan" style="display:block;width:56px;height:56px;margin:0 0 20px;border:0;outline:none;text-decoration:none;" />
     <h1 style="margin:0 0 12px;font-size:22px;color:#0f2938;">${escapeHtml(heading)}</h1>
     <p style="margin:0 0 16px;font-size:15px;line-height:1.5;color:#516a7b;">${escapeHtml(lead)}</p>
     <p style="margin:0 0 24px;font-size:32px;letter-spacing:8px;font-weight:700;color:#1f8660;">${safeToken}</p>
