@@ -31,7 +31,7 @@
     "@oorjaman/mobile-deps": "*",
     "@react-native-community/datetimepicker": "9.1.0",
     "expo": "~57.0.26",
-    "expo-document-picker": "~57.0.2",
+    "expo-document-picker": "~57.0.3",
     "expo-updates": "~57.0.24",
     "react": "19.2.3",
     "react-native": "0.86.3",
