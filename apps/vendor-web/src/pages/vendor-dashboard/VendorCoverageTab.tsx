@@ -169,7 +169,7 @@ export function VendorCoverageTab({ supabase, vendor, onSaved }: Props) {
         <h3 className="vd-subtitle">Where you serve</h3>
         <p className="vd-note vd-note-tight">
           Define service areas below: country, state, city, and <strong>PIN codes</strong> (one per line in the last
-          column). OorjaMan uses this for marketplace matching and visit assignment.
+          column). OorjaMan uses this when assigning visits in your area.
         </p>
         <p className="vd-caption vc-geo-note">
           City lists load offline from open geographic data - no API key required.
@@ -245,7 +245,7 @@ export function VendorCoverageTab({ supabase, vendor, onSaved }: Props) {
       {error ? <p className="vd-error">{error}</p> : null}
       {totalPins === 0 ? (
         <p className="vd-caption vc-warn">
-          Add at least one PIN in the table before saving - otherwise you may not appear in local marketplace results.
+          Add at least one PIN in the table before saving - otherwise visits in your area cannot be matched to you.
         </p>
       ) : null}
 

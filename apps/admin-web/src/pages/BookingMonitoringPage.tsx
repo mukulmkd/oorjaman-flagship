@@ -5,11 +5,9 @@ import {
   adminAssignVendorToBooking,
   adminReassignAmcBookingVendor,
   adminNotifyOverdueVendorResponses,
-  adminFloatDefaultVendorBooking,
   adminFlagBookingOpsIssue,
   adminGetBookingsMonitoringBySubscriptionBucket,
   adminGetBookingsMonitoringBySubscriptionBucketPaged,
-  adminRefloatMarketplaceBooking,
   adminCancelBookingWithRefund,
   formatInrFromCents,
   queryKeys,
@@ -41,7 +39,7 @@ const BUCKET_TABS: { id: AdminBookingsSubscriptionBucket; label: string; hint: s
   {
     id: "one_time",
     label: "One-time bookings",
-    hint: "Pay-per-visit rows (no subscription). Partner response timer starts when assigned or when a marketplace window opens.",
+    hint: "Pay-per-visit rows (no subscription). The partner response timer starts when a partner is assigned.",
   },
   {
     id: "amc",
@@ -173,28 +171,6 @@ function awaitingVendorReassignment(row: BookingMonitoringEnriched): boolean {
   return (vr as Record<string, unknown>).awaiting_admin_assignment === true;
 }
 
-function canFloatToMarketplace(row: BookingMonitoringEnriched): boolean {
-  if (row.vendor_id) return false;
-  if (row.status !== "confirmed") return false;
-  const m = row.metadata;
-  if (!m || typeof m !== "object" || Array.isArray(m)) return false;
-  const marketplace = (m as Record<string, unknown>).marketplace;
-  if (!marketplace || typeof marketplace !== "object" || Array.isArray(marketplace)) return false;
-  const mp = marketplace as Record<string, unknown>;
-  return mp.mode === "default_vendor" && mp.floated !== true;
-}
-
-function canRefloatMarketplace(row: BookingMonitoringEnriched): boolean {
-  if (row.vendor_id) return false;
-  if (row.status !== "confirmed") return false;
-  const m = row.metadata;
-  if (!m || typeof m !== "object" || Array.isArray(m)) return false;
-  const marketplace = (m as Record<string, unknown>).marketplace;
-  if (!marketplace || typeof marketplace !== "object" || Array.isArray(marketplace)) return false;
-  const mp = marketplace as Record<string, unknown>;
-  return mp.mode === "default_vendor" && mp.floated === true;
-}
-
 function needsVendorAssignment(row: BookingMonitoringEnriched): boolean {
   return row.status === "confirmed" && !row.vendor_id;
 }
@@ -232,11 +208,16 @@ function detectOpsRisks(row: BookingMonitoringEnriched, now = new Date()): OpsRi
       marketplace && typeof marketplace === "object" && !Array.isArray(marketplace)
         ? (marketplace as Record<string, unknown>)
         : null;
-    if (mp?.mode === "default_vendor" && mp?.awaiting_admin_float === true) {
+    const waitingForStateOps =
+      mp?.mode === "state_ops_assign" ||
+      mp?.awaiting_state_ops_assignment === true ||
+      mp?.awaiting_admin_assignment === true ||
+      (mp?.mode === "default_vendor" && mp?.awaiting_admin_float === true);
+    if (waitingForStateOps && !awaitingVendorReassignment(row)) {
       risks.push({
         level: "high",
         type: "awaiting_admin_float",
-        label: "Any-partner booking - float to marketplace from Actions",
+        label: "Assign a partner. This visit is not offered to the partner network.",
       });
     }
     const { openUntil } = readMarketplaceWindow(row);
@@ -292,8 +273,6 @@ function hasAssignableAction(row: BookingMonitoringEnriched, risks: OpsRisk[]): 
   return (
     needsVendorAssignment(row) ||
     canReassignAmcBooking(row) ||
-    canFloatToMarketplace(row) ||
-    canRefloatMarketplace(row) ||
     canAdminCancelWithRefund(row) ||
     risks.length > 0
   );
@@ -343,22 +322,6 @@ export function BookingMonitoringPage() {
 
   const tabHint = useMemo(() => BUCKET_TABS.find((t) => t.id === bucketTab)?.hint ?? "", [bucketTab]);
 
-  const floatMut = useMutation({
-    mutationFn: async (bookingId: string) => adminFloatDefaultVendorBooking(supabase!, bookingId),
-    onSuccess: async () => {
-      await invalidateAdminBookingMonitoringQueries(qc, bucketTab);
-      setBookingAction(null);
-      setAssignVendorId("");
-    },
-  });
-  const refloatMut = useMutation({
-    mutationFn: async (bookingId: string) => adminRefloatMarketplaceBooking(supabase!, bookingId),
-    onSuccess: async () => {
-      await invalidateAdminBookingMonitoringQueries(qc, bucketTab);
-      setBookingAction(null);
-      setAssignVendorId("");
-    },
-  });
   const opsFlagMut = useMutation({
     mutationFn: async ({ bookingId, type }: { bookingId: string; type: OpsIssueType }) =>
       adminFlagBookingOpsIssue(supabase!, bookingId, type),
@@ -443,8 +406,6 @@ export function BookingMonitoringPage() {
   const medRiskCount = rowsWithRisk.filter((x) => x.risks.some((r) => r.level === "medium")).length;
 
   const mutating =
-    floatMut.isPending ||
-    refloatMut.isPending ||
     opsFlagMut.isPending ||
     assignMut.isPending ||
     cancelRefundMut.isPending;
@@ -838,32 +799,6 @@ export function BookingMonitoringPage() {
                 </Button>
               ) : null}
 
-              {canFloatToMarketplace(actionRow) ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  loading={floatMut.isPending}
-                  disabled={mutating && !floatMut.isPending}
-                  onClick={() => void floatMut.mutateAsync(actionRow.id)}
-                >
-                  Float to vendors (broadcast)
-                </Button>
-              ) : null}
-
-              {canRefloatMarketplace(actionRow) ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  loading={refloatMut.isPending}
-                  disabled={mutating && !refloatMut.isPending}
-                  onClick={() => void refloatMut.mutateAsync(actionRow.id)}
-                >
-                  Re-float window (+1 hour)
-                </Button>
-              ) : null}
-
               {canAdminCancelWithRefund(actionRow) ? (
                 <Button
                   type="button"
@@ -943,7 +878,7 @@ export function BookingMonitoringPage() {
             <p style={{ margin: 0, fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)", lineHeight: 1.5 }}>
               {bookingAction.view === "amc_reassign"
                 ? "Reassign this AMC visit only. The contract default partner stays the same unless you change it from AMC wallets. Wallet payout goes to whoever completes the visit."
-                : "The partner's one-hour acceptance window starts when you confirm (unless a marketplace window is already active-then timers follow open_at)."}
+                : "The partner's one-hour acceptance window starts when you confirm the assignment."}
             </p>
             <label className="dash-card-label" htmlFor="assign-vendor-modal-select">
               Approved partner

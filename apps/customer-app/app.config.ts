@@ -22,6 +22,10 @@ const googleMapsApiKeyAndroid =
 const deployEnv = (process.env.EXPO_PUBLIC_DEPLOY_ENV ?? "").trim().toLowerCase();
 const isUat = deployEnv === "uat" || deployEnv === "staging";
 const displayName = isUat ? "OorjaMan (UAT)" : "OorjaMan";
+/** Expo Head / handoff base URL. Required in production or the app alerts on launch. */
+const routerOrigin = isUat
+  ? "https://oorjaman-customer-web-uat.vercel.app"
+  : "https://app.oorjaman.com";
 
 const easProjectId =
   process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim() || "7677ff40-7214-431a-a372-3059f6e6c91d";
@@ -42,6 +46,7 @@ const config: ExpoConfig = {
     bundleIdentifier: isUat ? "com.oorjaman.customer.uat" : "com.oorjaman.customer",
     ...(googleMapsApiKeyIos ? { config: { googleMapsApiKey: googleMapsApiKeyIos } } : {}),
     infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
       LSApplicationQueriesSchemes: ["tez", "phonepe", "paytmmp", "bhim"],
     },
   },
@@ -81,7 +86,7 @@ const config: ExpoConfig = {
     splashScreenPlugin,
     "expo-system-ui",
     "expo-status-bar",
-    "expo-router",
+    ["expo-router", { origin: routerOrigin }],
     notificationsPlugin,
     withAndroidNotificationBranding,
     "expo-font",

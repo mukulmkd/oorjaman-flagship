@@ -1,5 +1,6 @@
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { authApi } from "@oorjaman/api";
+import { useQuery } from "@tanstack/react-query";
+import { authApi, isNationalAdminRole, listMyOperationStateNames, queryKeys } from "@oorjaman/api";
 import { DropdownMenu, DropdownMenuItem, PortalSidebarBrand } from "@oorjaman/web-ui";
 import { NotificationCenterBell } from "@oorjaman/web-ui";
 import { useAdminPortalSession } from "@oorjaman/web-ui";
@@ -13,6 +14,17 @@ export function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const sessionQuery = useAdminPortalSession();
+  const nationalAdmin = isNationalAdminRole(sessionQuery.data?.row?.role);
+  const scopeQuery = useQuery({
+    queryKey: queryKeys.bookings.operationScope(),
+    queryFn: () => listMyOperationStateNames(supabase!),
+    enabled: Boolean(supabase) && sessionQuery.data?.row?.role === "state_ops",
+  });
+  const scopeLabel = nationalAdmin
+    ? "India"
+    : scopeQuery.data && scopeQuery.data.length > 0
+      ? scopeQuery.data.join(", ")
+      : "No state assigned";
   // Live-refresh booking/ops views on any booking change (no polling).
   useAdminBookingsRealtime();
   const sessionHint = !supabase
@@ -101,29 +113,40 @@ export function DashboardLayout() {
           <Link to="/dashboard/analytics" className={analyticsNavActive ? "dash-nav-active" : ""}>
             Analytics
           </Link>
-          <a href={supportPortalUrl("/inbox")} target="_blank" rel="noreferrer">
-            Support desk ↗
-          </a>
-          <Link to="/dashboard/notifications" className={notificationsNavActive ? "dash-nav-active" : ""}>
-            Notifications templates
-          </Link>
-          <Link to="/dashboard/feature-management" className={featureMgmtNavActive ? "dash-nav-active" : ""}>
-            Feature management
-          </Link>
-          <Link to="/dashboard/brand-collateral" className={brandCollateralNavActive ? "dash-nav-active" : ""}>
-            Branding
-          </Link>
+          {nationalAdmin ? (
+            <Link to="/dashboard/state-desks" className={location.pathname.startsWith("/dashboard/state-desks") ? "dash-nav-active" : ""}>
+              State desks
+            </Link>
+          ) : null}
+          {nationalAdmin ? (
+            <a href={supportPortalUrl("/inbox")} target="_blank" rel="noreferrer">
+              Support desk ↗
+            </a>
+          ) : null}
           <Link to="/dashboard/subscription-renewals" className={renewalNavActive ? "dash-nav-active" : ""}>
             Renewal reminders
           </Link>
-          <Link to="/dashboard/service-pricing" className={pricingNavActive ? "dash-nav-active" : ""}>
-            Service pricing
-          </Link>
+          {nationalAdmin ? (
+            <>
+              <Link to="/dashboard/notifications" className={notificationsNavActive ? "dash-nav-active" : ""}>
+                Notifications templates
+              </Link>
+              <Link to="/dashboard/feature-management" className={featureMgmtNavActive ? "dash-nav-active" : ""}>
+                Feature management
+              </Link>
+              <Link to="/dashboard/brand-collateral" className={brandCollateralNavActive ? "dash-nav-active" : ""}>
+                Branding
+              </Link>
+              <Link to="/dashboard/service-pricing" className={pricingNavActive ? "dash-nav-active" : ""}>
+                Service pricing
+              </Link>
+            </>
+          ) : null}
         </nav>
       </aside>
       <div className="dash-main">
         <header className="dash-topbar">
-          <span className="dash-topbar-title">Dashboard</span>
+          <span className="dash-topbar-title">{scopeLabel}</span>
           <div className="dash-topbar-right">
             <NotificationCenterBell audience="admin" />
             <span className="dash-session" title={sessionHint}>

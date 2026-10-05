@@ -23,6 +23,20 @@ function expoPublicEnv(name: "EXPO_PUBLIC_SUPABASE_URL" | "EXPO_PUBLIC_SUPABASE_
   }
 }
 
+/** UAT project. Login against this host always uses the shared code, never Auth email or SMS. */
+const UAT_SUPABASE_HOST = "caearbriteguqjvnbrcg.supabase.co";
+/** Production project. Shared-code login is never used against this host. */
+const PRODUCTION_SUPABASE_HOST = "nppfpegqnmclbcmmogux.supabase.co";
+
+function supabaseUrl(frameworkEnv?: Record<string, string | boolean | undefined>): string {
+  return (
+    expoPublicEnv("EXPO_PUBLIC_SUPABASE_URL") ??
+    String(frameworkEnv?.VITE_SUPABASE_URL ?? "")
+  )
+    .trim()
+    .toLowerCase();
+}
+
 /**
  * True when this build targets PRODUCTION (Expo `EXPO_PUBLIC_DEPLOY_ENV` / Vite `VITE_DEPLOY_ENV`).
  * Used as a hard safety gate so dummy auth can never be active in production, regardless of the
@@ -88,16 +102,24 @@ export type DummyAuthSettings = {
 /**
  * Resolves dummy-auth flags from `EXPO_PUBLIC_*` / `VITE_*` and optional `frameworkEnv`
  * (pass `import.meta.env` from Vite - it is not visible inside this package otherwise).
+ *
+ * UAT database logins always use the shared code. Email and phone both sign in with that
+ * password and do not call Auth OTP, so no login email or SMS is sent.
  */
 export function resolveDummyAuthSettings(
   frameworkEnv?: Record<string, string | boolean | undefined>,
 ): DummyAuthSettings {
+  const url = supabaseUrl(frameworkEnv);
+  const uatDatabase = url.includes(UAT_SUPABASE_HOST);
+  const productionDatabase = url.includes(PRODUCTION_SUPABASE_HOST);
   const flagEnabled =
     expoPublicEnv("EXPO_PUBLIC_USE_DUMMY_AUTH") === "true" ||
     String(frameworkEnv?.VITE_USE_DUMMY_AUTH ?? "") === "true";
-  // Hard safety gate: dummy auth (OTP bypass) is force-disabled in production builds,
-  // regardless of the flag. Keeps dummy auth working for local + UAT only.
-  const enabled = flagEnabled && !isProductionDeploy(frameworkEnv);
+  // UAT host forces the shared code even if the flag is missing.
+  // Production host and production deploy never use it.
+  const enabled =
+    uatDatabase ||
+    (flagEnabled && !isProductionDeploy(frameworkEnv) && !productionDatabase);
   const otpCode = (
     expoPublicEnv("EXPO_PUBLIC_DUMMY_OTP_CODE") ??
     String(frameworkEnv?.VITE_DUMMY_OTP_CODE ?? "123456")

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   authApi,
   buildLoginE164,
+  isOperationsPortalRole,
   LOGIN_PHONE_COUNTRIES,
   DEFAULT_LOGIN_COUNTRY_DIAL,
   resolveDummyAuthSettings,
@@ -32,7 +33,7 @@ async function routeAfterAdminLogin(
     onError("We could not load your profile. Try again or contact support.");
     return;
   }
-  if (row.role === "admin") {
+  if (isOperationsPortalRole(row.role)) {
     navigate("/dashboard/operations", { replace: true });
     return;
   }
@@ -80,7 +81,7 @@ export default function AdminLoginPage() {
       const { data } = await supabase.auth.getSession();
       if (!data.session) return;
       const row = await userApi.getMyUserRecord(supabase);
-      if (row?.role === "admin") {
+      if (row && isOperationsPortalRole(row.role)) {
         navigate("/dashboard/operations", { replace: true });
         return;
       }

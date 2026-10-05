@@ -174,7 +174,7 @@ export function readBookingRecipientMeta(
 }
 
 /**
- * First AMC visit row: paid/confirmed but `vendor_id` is null until ops floats to partners or assigns a vendor.
+ * Routing recorded when a visit is created. Unassigned visits wait for state operations.
  */
 export type BookingVendorRoutingMeta = {
   requestedVendorId: string | null;
@@ -213,7 +213,7 @@ export function readBookingVendorRoutingMeta(
   };
 }
 
-/** Visit floated for OorjaMan ops / partner assignment (not a customer-picked partner at checkout). */
+/** Visit waiting for state operations to assign a partner (not a customer-picked partner at checkout). */
 export function isDefaultVendorMarketplaceBooking(
   metadata: Json | null | undefined,
 ): boolean {

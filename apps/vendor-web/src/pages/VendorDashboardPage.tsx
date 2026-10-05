@@ -198,7 +198,6 @@ function invitePhoneMeetsMinimum(raw: string): boolean {
 type VendorDashRowAction =
   | null
   | { kind: "slot"; slot: BookingSlotOption }
-  | { kind: "marketplace"; booking: BookingRow }
   | { kind: "incoming"; booking: BookingRow }
   | { kind: "active"; booking: BookingRow }
   | { kind: "history"; booking: BookingRow };
@@ -255,11 +254,6 @@ export default function VendorDashboardPage() {
   const allBookingsQuery = useQuery({
     queryKey: queryKeys.bookings.vendorBookingsAll(VENDOR_BOOKINGS_LIMIT),
     queryFn: () => bookingApi.listVendorBookingsAll(supabase!, { limit: VENDOR_BOOKINGS_LIMIT }),
-    enabled: Boolean(supabase),
-  });
-  const marketplaceBookingsQuery = useQuery({
-    queryKey: [...queryKeys.bookings.all(), "vendor-marketplace"] as const,
-    queryFn: () => bookingApi.listVendorMarketplaceBookings(supabase!),
     enabled: Boolean(supabase),
   });
   const availabilityDays = useMemo(() => listSelectableDayKeys(new Date(), 7), []);
@@ -531,20 +525,11 @@ export default function VendorDashboardPage() {
       setReassignTechnicianId("");
     },
   });
-  const claimMarketplaceMut = useMutation({
-    mutationFn: async (bookingId: string) => bookingApi.vendorClaimMarketplaceBooking(supabase!, bookingId),
-    onSuccess: () => {
-      setVendorRowAction(null);
-      void qc.invalidateQueries({ queryKey: queryKeys.bookings.all() });
-      void marketplaceBookingsQuery.refetch();
-    },
-  });
   const availabilityMut = useMutation({
     mutationFn: async (input: { dayKey: string; slotId: string; isAvailable: boolean; capacity: number }) =>
       vendorApi.upsertMyVendorSlotAvailability(supabase!, input),
     onSuccess: () => {
       void availabilityQuery.refetch();
-      void marketplaceBookingsQuery.refetch();
     },
   });
   const inviteMut = useMutation({
@@ -746,7 +731,7 @@ export default function VendorDashboardPage() {
                 <div style={{ padding: "1rem 1rem 0" }}>
                   <h2 className="vd-section-title">Slot availability</h2>
                   <p style={{ margin: "0 0 0.75rem", fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)" }}>
-                    Configure which slots your team can claim in the default vendor marketplace.
+                    Choose which slots your team can take when a visit is assigned.
                   </p>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.75rem" }}>
                     {availabilityDays.map((d: string) => (
@@ -789,56 +774,6 @@ export default function VendorDashboardPage() {
                               </tr>
                             );
                           })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </Card>
-
-              <Card padded={false} style={{ marginBottom: "1.25rem" }}>
-                <div style={{ padding: "1rem 1rem 0" }}>
-                  <h2 className="vd-section-title">Default vendor marketplace</h2>
-                  <p style={{ margin: "0 0 0.75rem", fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)" }}>
-                    Open visits floated to the network ({marketplaceBookingsQuery.data?.length ?? 0}). You typically only see
-                    jobs whose service PIN matches your configured coverage; ops can widen delivery in exceptional cases.
-                  </p>
-                </div>
-                {marketplaceBookingsQuery.isLoading ? (
-                  <p className="vd-empty">Loading marketplace bookings…</p>
-                ) : (marketplaceBookingsQuery.data?.length ?? 0) === 0 ? (
-                  <p className="vd-empty">No open marketplace bookings.</p>
-                ) : (
-                  <div style={{ padding: "0 1rem 1rem" }}>
-                    <div className="vd-table-wrap">
-                      <table className="vd-table">
-                        <thead>
-                          <tr>
-                            <th>Reference</th>
-                            <th>Schedule</th>
-                            <th>Site</th>
-                            <th>Service for</th>
-                            <th>Value</th>
-                            <th>Notes</th>
-                            <th>Action</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(marketplaceBookingsQuery.data ?? []).map((b) => (
-                            <tr key={b.id}>
-                              <td className="vd-mono">{b.reference_code}</td>
-                              <td>{formatScheduleRange(b)}</td>
-                              <td>{vdEllipsis(formatSiteAddress(b.service_site_address), 44)}</td>
-                              <td>{serviceForLabel(b)}</td>
-                              <td>{formatInr(b.estimated_price_cents)}</td>
-                              <td>{opsWatchLabel(b) ?? "-"}</td>
-                              <td>
-                                <Button size="sm" type="button" variant="outline" onClick={() => setVendorRowAction({ kind: "marketplace", booking: b })}>
-                                  Action
-                                </Button>
-                              </td>
-                            </tr>
-                          ))}
                         </tbody>
                       </table>
                     </div>
@@ -1216,16 +1151,14 @@ export default function VendorDashboardPage() {
         open={vendorRowAction !== null}
         size="lg"
         onClose={() => {
-          if (availabilityMut.isPending || claimMarketplaceMut.isPending) return;
+          if (availabilityMut.isPending) return;
           closeVendorRowAction();
         }}
         title={
           vendorRowAction
             ? vendorRowAction.kind === "slot"
               ? `Slot · ${vendorRowAction.slot.label}`
-              : vendorRowAction.kind === "marketplace"
-                ? `Marketplace · ${vendorRowAction.booking.reference_code}`
-                : vendorRowAction.kind === "incoming"
+              : vendorRowAction.kind === "incoming"
                   ? `Needs response · ${vendorRowAction.booking.reference_code}`
                   : vendorRowAction.kind === "active"
                     ? `Active visit · ${vendorRowAction.booking.booking_code ?? vendorRowAction.booking.reference_code}`
@@ -1262,7 +1195,7 @@ export default function VendorDashboardPage() {
                     }}
                   >
                     <dt style={{ color: "var(--wb-muted-fg)" }}>Availability</dt>
-                    <dd style={{ margin: 0 }}>{isAvailable ? "Open for marketplace claims" : "Blocked"}</dd>
+                    <dd style={{ margin: 0 }}>{isAvailable ? "Open" : "Blocked"}</dd>
                     <dt style={{ color: "var(--wb-muted-fg)" }}>Capacity</dt>
                     <dd style={{ margin: 0 }}>{capacity}</dd>
                   </dl>
@@ -1310,53 +1243,6 @@ export default function VendorDashboardPage() {
               );
             })()
           )
-        ) : vendorRowAction.kind === "marketplace" ? (
-          (() => {
-            const b = vendorRowAction.booking;
-            return (
-              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                <p style={{ margin: 0, fontSize: webTypography.size.sm, lineHeight: 1.5 }}>
-                  <strong>Site:</strong> {formatSiteAddress(b.service_site_address)}
-                </p>
-                <p style={{ margin: 0, fontSize: webTypography.size.sm, lineHeight: 1.5 }}>
-                  <strong>Service for:</strong> {serviceForLabel(b)} · <strong>Estimate:</strong> {formatInr(b.estimated_price_cents)}
-                </p>
-                {opsWatchLabel(b) ? (
-                  <p style={{ margin: 0, fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)" }}>{opsWatchLabel(b)}</p>
-                ) : null}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-                  <Button
-                    size="sm"
-                    type="button"
-                    loading={claimMarketplaceMut.isPending && claimMarketplaceMut.variables === b.id}
-                    disabled={claimMarketplaceMut.isPending}
-                    onClick={() => void claimMarketplaceMut.mutateAsync(b.id)}
-                  >
-                    Claim request
-                  </Button>
-                  {b.status === "accepted" ? (
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      type="button"
-                      onClick={() => {
-                        closeVendorRowAction();
-                        setCancelAcceptedForId(b.id);
-                        setCancelAcceptedReason("");
-                      }}
-                    >
-                      Cancel & reassign to OorjaMan
-                    </Button>
-                  ) : null}
-                </div>
-                <div className="web-modal-actions">
-                  <Button variant="outline" type="button" disabled={claimMarketplaceMut.isPending} onClick={closeVendorRowAction}>
-                    Close
-                  </Button>
-                </div>
-              </div>
-            );
-          })()
         ) : vendorRowAction.kind === "incoming" ? (
           (() => {
             const b = vendorRowAction.booking;

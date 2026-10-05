@@ -87,12 +87,6 @@ export {
   VENDOR_INTAKE_SESSION_TOKEN_KEY,
 } from "./vendors/vendor-intake-api";
 export {
-  emitMarketplaceNotificationEvents,
-  readMarketplaceBroadcastFilter,
-  type MarketplaceNotificationChannel,
-  type MarketplaceNotificationEventType,
-} from "./notifications/marketplace-notifications";
-export {
   adminListNotificationEvents,
   adminListNotificationEventsPaged,
   adminCountNotificationEvents,
@@ -109,6 +103,16 @@ export {
   type OpsDeskSummary,
   type OpsDeskSummaryLight,
 } from "./operations/ops-desk-api";
+export {
+  isNationalAdminRole,
+  isOperationsPortalRole,
+  listMyOperationStateNames,
+  listOperationStaff,
+  listOperationStates,
+  saveOperationStaffAssignment,
+  type OperationAccess,
+  type OperationStaffMember,
+} from "./operations/state-ops-api";
 export {
   countUnreadInAppNotifications,
   listInAppNotifications,
@@ -162,13 +166,11 @@ export {
   HAPPY_CODE_REGENERATE_COOLDOWN_MS,
   VENDOR_BOOKING_RESPONSE_WINDOW_MS,
   VENDOR_CANCEL_REPEAT_LOOKBACK_MS,
-  adminFloatDefaultVendorBooking,
   adminAssignVendorToBooking,
   adminReassignAmcBookingVendor,
   adminFlagBookingOpsIssue,
   adminResetBookingOtpLock,
   adminListOpsBookingExceptions,
-  adminRefloatMarketplaceBooking,
   customerCancellationDeadline,
   customerCancellationPenaltyAnchorAt,
   customerCancellationPenaltyEligible,
@@ -179,13 +181,11 @@ export {
   listVendorBookingRequests,
   listVendorBookingsAll,
   listVendorBookingsAllPaged,
-  listVendorMarketplaceBookings,
   readBookingServiceOtpMeta,
   readBookingCustomerCancellationMeta,
   readBookingCustomerCompensationMeta,
   readBookingVendorCancellationPenaltyMeta,
   readBookingVendorReassignmentMeta,
-  vendorClaimMarketplaceBooking,
   vendorCancelAcceptedBooking,
   vendorAcceptBookingRequest,
   vendorRejectBookingRequest,

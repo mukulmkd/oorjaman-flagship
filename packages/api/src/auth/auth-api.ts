@@ -223,10 +223,20 @@ export async function verifyEmailOtp(
   const trimmed = email.trim().toLowerCase();
   const dummy = resolveDummyAuthSettings(options?.frameworkEnv);
   if (dummy.enabled && token.trim() === dummy.otpCode) {
-    const { data, error } = await client.auth.signInWithPassword({
-      email: trimmed,
-      password: dummy.password,
-    });
+    const signIn = () =>
+      client.auth.signInWithPassword({
+        email: trimmed,
+        password: dummy.password,
+      });
+    let { data, error } = await signIn();
+    if (error) {
+      const { error: ensureError } = await client.rpc("ensure_uat_dummy_auth_user", {
+        p_email: trimmed,
+      });
+      if (!ensureError) {
+        ({ data, error } = await signIn());
+      }
+    }
     if (error) throw new SupabaseApiError(error.message, error);
     await syncPublicUserAfterAuth(client);
     return data;

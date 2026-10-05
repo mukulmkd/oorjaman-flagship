@@ -29,7 +29,7 @@ export function RequireVendorRole({ children }: { children: ReactNode }) {
         setGate("unauthorized");
         return;
       }
-      if (row.role === "admin") {
+      if (row.role === "admin" || row.role === "state_ops") {
         setGate("admin");
         return;
       }

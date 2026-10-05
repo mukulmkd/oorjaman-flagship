@@ -58,7 +58,7 @@ Deno.serve(async (req: Request) => {
   const adminClient = createClient(supabaseUrl, serviceKey);
 
   const { data: adminRow } = await adminClient.from("users").select("role").eq("id", user.id).maybeSingle();
-  if (!adminRow || adminRow.role !== "admin") {
+  if (!adminRow || (adminRow.role !== "admin" && adminRow.role !== "state_ops")) {
     return json({ ok: false, error: "Forbidden" }, 403);
   }
 
@@ -105,6 +105,33 @@ Deno.serve(async (req: Request) => {
 
   if (!email || !phone) {
     return json({ ok: false, error: "Intake missing login email or phone" }, 400);
+  }
+
+  if (adminRow.role === "state_ops") {
+    const regions =
+      Array.isArray(form.operating_regions) && form.operating_regions.length
+        ? (form.operating_regions as string[])
+        : splitCsv(form.operating_regions_text) ?? [];
+    const { data: assigned, error: assignedError } = await adminClient
+      .from("user_operation_states")
+      .select("operation_states(name)")
+      .eq("user_id", user.id);
+    if (assignedError) {
+      return json({ ok: false, error: assignedError.message }, 500);
+    }
+    const allowed = new Set(
+      (assigned ?? [])
+        .map((row) => {
+          const joined = row.operation_states as { name?: string } | { name?: string }[] | null;
+          const name = Array.isArray(joined) ? joined[0]?.name : joined?.name;
+          return (name ?? "").trim().toLowerCase();
+        })
+        .filter(Boolean),
+    );
+    const covered = regions.some((region) => allowed.has(region.trim().toLowerCase()));
+    if (!covered) {
+      return json({ ok: false, error: "This partner is outside your states." }, 403);
+    }
   }
 
   let newUserId: string | null = null;

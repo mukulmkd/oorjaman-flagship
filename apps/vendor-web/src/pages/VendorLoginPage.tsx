@@ -49,7 +49,7 @@ async function routeAfterVendorLogin(
     return;
   }
   await authApi.signOut(supabase);
-  if (row.role === "admin") {
+  if (row.role === "admin" || row.role === "state_ops") {
     window.location.replace(adminPortalUrl("/login"));
     return;
   }
@@ -109,7 +109,7 @@ export default function VendorLoginPage() {
         navigate("/", { replace: true });
         return;
       }
-      if (row?.role === "admin") {
+      if (row?.role === "admin" || row?.role === "state_ops") {
         window.location.replace(adminPortalUrl("/dashboard/analytics"));
         return;
       }

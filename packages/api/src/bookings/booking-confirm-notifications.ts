@@ -6,14 +6,12 @@ import { SupabaseApiError, takeSingleRow } from "../result";
 const VENDOR_RESPONSE_MS = 60 * 60 * 1000;
 import {
   adminBookingCreatedCopy,
-  adminMarketplaceFloatedCopy,
   adminVendorResponseOverdueCopy,
   emitAdminBookingNotification,
   emitVendorBookingNotification,
   vendorCustomerPreferredBookingCopy,
   vendorBookingAssignedCopy,
 } from "../notifications/booking-notifications";
-import { emitMarketplaceNotificationEvents } from "../notifications/marketplace-notifications";
 
 function resolveVendorResponseAnchorIso(booking: Pick<BookingRow, "created_at" | "metadata">): string | null {
   const m =
@@ -66,12 +64,9 @@ function readMarketplaceMeta(metadata: Json | null | undefined): Record<string, 
 
 export function isBookingAwaitingAdminFloat(metadata: Json | null | undefined): boolean {
   const mp = readMarketplaceMeta(metadata);
-  return mp?.mode === "default_vendor" && mp?.awaiting_admin_float === true && mp?.floated !== true;
-}
-
-export function isMarketplaceFloated(metadata: Json | null | undefined): boolean {
-  const mp = readMarketplaceMeta(metadata);
-  return mp?.mode === "default_vendor" && mp?.floated === true;
+  if (!mp) return false;
+  if (mp.mode === "state_ops_assign" && mp.awaiting_state_ops_assignment === true) return true;
+  return mp.mode === "default_vendor" && mp.awaiting_admin_float === true && mp.floated !== true;
 }
 
 /** Start the 1-hour partner response window when a booking is confirmed with a direct partner assignment. */
@@ -142,6 +137,17 @@ export async function postBookingConfirmedNotifications(
     note: "Booking confirmed and visible in admin Bookings.",
   });
 
+  try {
+    const { error: emailErr } = await client.functions.invoke("notify-state-ops-booking", {
+      body: { bookingId: booking.id },
+    });
+    if (emailErr) {
+      console.warn("State ops booking email was not sent.", emailErr.message);
+    }
+  } catch (err) {
+    console.warn("State ops booking email was not sent.", err);
+  }
+
   if (booking.vendor_id) {
     const isCustomerPreferred = routing?.reason === "preferred_ok";
     const assignedCopy = isCustomerPreferred
@@ -156,26 +162,6 @@ export async function postBookingConfirmedNotifications(
       note: isCustomerPreferred ? "Customer selected this partner." : "Direct partner assignment.",
     });
     return booking;
-  }
-
-  if (isBookingAwaitingAdminFloat(booking.metadata)) {
-    return booking;
-  }
-
-  if (isMarketplaceFloated(booking.metadata)) {
-    const vendorCount = await emitMarketplaceNotificationEvents(client, {
-      booking,
-      eventType: "marketplace_broadcast",
-      channels: ["in_app", "email", "sms", "whatsapp"],
-      note: "Marketplace request broadcasted.",
-    });
-    const copy = adminMarketplaceFloatedCopy(booking, vendorCount);
-    await emitAdminBookingNotification(client, {
-      booking,
-      eventType: "admin_marketplace_floated",
-      ...copy,
-      note: "Marketplace opened after confirmation.",
-    });
   }
 
   return booking;
@@ -214,7 +200,6 @@ export async function adminNotifyOverdueVendorResponses(
   for (const row of data ?? []) {
     if (isWithinVendorResponseWindow(row)) continue;
     if (readOpsNotifyMeta(row.metadata).vendorResponseOverdueAt) continue;
-    if (isBookingAwaitingAdminFloat(row.metadata) || isMarketplaceFloated(row.metadata)) continue;
 
     const vendorName = await resolveVendorDisplayName(client, row.vendor_id);
     const copy = adminVendorResponseOverdueCopy(row, vendorName);

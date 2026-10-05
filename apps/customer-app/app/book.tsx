@@ -1165,13 +1165,9 @@ export default function BookVisitModal() {
         ...(useDefaultMarketplace
           ? {
               marketplace: {
-                mode: "default_vendor",
-                floated: false,
-                awaiting_admin_float: true,
-                accept_window_hours: 1,
-                post_7pm_admin_queue: true,
+                mode: "state_ops_assign",
+                awaiting_state_ops_assignment: true,
                 auto_routed_from_preferred_unavailable: vendorPick.mode === "preferred" && !preferredAvailable,
-                broadcast_filter: "customer_pin",
                 filter_pincode: filterPincode,
                 filter_city: signals.city?.trim() || null,
               } as Json,

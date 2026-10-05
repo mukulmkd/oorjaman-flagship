@@ -4,8 +4,6 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   adminAssignVendorToBooking,
   adminFlagBookingOpsIssue,
-  adminFloatDefaultVendorBooking,
-  adminRefloatMarketplaceBooking,
   getBookingById,
   queryKeys,
   vendorApi,
@@ -14,8 +12,6 @@ import {
 import { formatDisplayDateTimeRange } from "@oorjaman/utils";
 import { Button, Modal } from "@oorjaman/web-ui";
 import {
-  canFloatToMarketplace,
-  canRefloatMarketplace,
   formatOpsIssueType,
   isOpsExceptionPastWindow,
   needsPartnerAssignment,
@@ -90,28 +86,6 @@ export function OpsInterventionModal({ target, onClose, onSuccess }: Props) {
       await refreshQueues();
     },
   });
-  const floatMut = useMutation({
-    mutationFn: async (bookingId: string) => adminFloatDefaultVendorBooking(supabase!, bookingId),
-    onSuccess: async () => {
-      if (target?.bookingId) {
-        await qc.invalidateQueries({
-          queryKey: [...queryKeys.bookings.all(), "ops-intervention", target.bookingId] as const,
-        });
-      }
-      await refreshQueues();
-    },
-  });
-  const refloatMut = useMutation({
-    mutationFn: async (bookingId: string) => adminRefloatMarketplaceBooking(supabase!, bookingId),
-    onSuccess: async () => {
-      if (target?.bookingId) {
-        await qc.invalidateQueries({
-          queryKey: [...queryKeys.bookings.all(), "ops-intervention", target.bookingId] as const,
-        });
-      }
-      await refreshQueues();
-    },
-  });
   const opsFlagMut = useMutation({
     mutationFn: async ({ bookingId, type }: { bookingId: string; type: OpsIssueType }) =>
       adminFlagBookingOpsIssue(supabase!, bookingId, type),
@@ -126,7 +100,7 @@ export function OpsInterventionModal({ target, onClose, onSuccess }: Props) {
 
   const booking = bookingQuery.data ?? null;
   const mutating =
-    floatMut.isPending || refloatMut.isPending || opsFlagMut.isPending || assignMut.isPending;
+    opsFlagMut.isPending || assignMut.isPending;
 
   const modalIssueType =
     target?.issueType && target.issueType in OPS_ISSUE_LABELS
@@ -164,7 +138,7 @@ export function OpsInterventionModal({ target, onClose, onSuccess }: Props) {
       {view === "assign" && booking ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
           <p style={{ margin: 0, fontSize: webTypography.size.sm, color: "var(--wb-muted-fg)", lineHeight: 1.5 }}>
-            Partner acceptance SLA starts on confirm (unless a marketplace window is already open).
+            The partner has one hour to accept after you assign them.
           </p>
           <label className="dash-card-label" htmlFor="ops-assign-vendor-modal-select">
             Approved partner
@@ -271,32 +245,6 @@ export function OpsInterventionModal({ target, onClose, onSuccess }: Props) {
                     onClick={() => setView("assign")}
                   >
                     Assign partner…
-                  </Button>
-                ) : null}
-
-                {booking.status === "confirmed" && canFloatToMarketplace(booking) ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    loading={floatMut.isPending}
-                    disabled={mutating && !floatMut.isPending}
-                    onClick={() => void floatMut.mutateAsync(booking.id)}
-                  >
-                    Float to partners (broadcast)
-                  </Button>
-                ) : null}
-
-                {booking.status === "confirmed" && canRefloatMarketplace(booking) ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    loading={refloatMut.isPending}
-                    disabled={mutating && !refloatMut.isPending}
-                    onClick={() => void refloatMut.mutateAsync(booking.id)}
-                  >
-                    Re-float window (+1 hour)
                   </Button>
                 ) : null}
 

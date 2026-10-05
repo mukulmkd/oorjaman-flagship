@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { RequireAdminRole } from "./components/RequireAdminRole";
+import { RequireAdminRole, RequireNationalAdmin } from "./components/RequireAdminRole";
 import { RequireSession } from "@oorjaman/web-ui";
 import { DashboardLayout } from "./layouts/DashboardLayout";
 import { VendorDetailPage } from "./pages/VendorDetailPage";
@@ -23,6 +23,7 @@ import { AmcContractsPage } from "./pages/AmcContractsPage";
 import { FinanceSettlementsPage } from "./pages/FinanceSettlementsPage";
 import { PaymentsOpsPage } from "./pages/PaymentsOpsPage";
 import { BrandCollateralPage } from "./pages/BrandCollateralPage";
+import { StateDesksPage } from "./pages/StateDesksPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 
 export default function App() {
@@ -42,6 +43,14 @@ export default function App() {
       >
         <Route index element={<Navigate to="operations" replace />} />
         <Route path="analytics" element={<AnalyticsDashboardPage />} />
+        <Route
+          path="state-desks"
+          element={
+            <RequireNationalAdmin>
+              <StateDesksPage />
+            </RequireNationalAdmin>
+          }
+        />
         <Route path="vendor-approval" element={<VendorApprovalPage />} />
         <Route path="vendor-registration" element={<Navigate to="/dashboard/vendor-approval" replace />} />
         <Route path="technicians" element={<TechnicianDirectoryPage />} />
@@ -53,14 +62,49 @@ export default function App() {
         <Route path="operations" element={<OperationsDeskPage />} />
         <Route path="partners/quality" element={<PartnerQualityPage />} />
         <Route path="trust-safety" element={<TrustSafetyPage />} />
-        <Route path="notifications" element={<NotificationTemplatesPage />} />
-        <Route path="feature-management" element={<FeatureManagementPage />} />
-        <Route path="brand-collateral" element={<BrandCollateralPage />} />
+        <Route
+          path="notifications"
+          element={
+            <RequireNationalAdmin>
+              <NotificationTemplatesPage />
+            </RequireNationalAdmin>
+          }
+        />
+        <Route
+          path="feature-management"
+          element={
+            <RequireNationalAdmin>
+              <FeatureManagementPage />
+            </RequireNationalAdmin>
+          }
+        />
+        <Route
+          path="brand-collateral"
+          element={
+            <RequireNationalAdmin>
+              <BrandCollateralPage />
+            </RequireNationalAdmin>
+          }
+        />
         <Route path="subscription-renewals" element={<SubscriptionRenewalsPage />} />
         <Route path="bookings" element={<BookingMonitoringPage />} />
         <Route path="support" element={<Navigate to="/dashboard/operations" replace />} />
-        <Route path="pricing" element={<PricingManagementPage />} />
-        <Route path="service-pricing" element={<ServiceCapacityPricingPage />} />
+        <Route
+          path="pricing"
+          element={
+            <RequireNationalAdmin>
+              <PricingManagementPage />
+            </RequireNationalAdmin>
+          }
+        />
+        <Route
+          path="service-pricing"
+          element={
+            <RequireNationalAdmin>
+              <ServiceCapacityPricingPage />
+            </RequireNationalAdmin>
+          }
+        />
         <Route path="finance" element={<FinanceSettlementsPage />} />
         <Route path="finance/payments" element={<PaymentsOpsPage />} />
         <Route path="finance/amc-contracts" element={<AmcContractsPage />} />

@@ -15,6 +15,10 @@ import {
 const deployEnv = (process.env.EXPO_PUBLIC_DEPLOY_ENV ?? "").trim().toLowerCase();
 const isUat = deployEnv === "uat" || deployEnv === "staging";
 const displayName = isUat ? "OorjaMan Partner (UAT)" : "OorjaMan Partner";
+/** Expo Head / handoff base URL. Required in production or the app alerts on launch. */
+const routerOrigin = isUat
+  ? "https://oorjaman-technician-web-uat.vercel.app"
+  : "https://partner.oorjaman.com";
 
 const easProjectId =
   process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim() || "a89deab7-9f4e-4411-a533-061002c8b049";
@@ -61,7 +65,7 @@ const config: ExpoConfig = {
     splashScreenPlugin,
     "expo-system-ui",
     "expo-status-bar",
-    "expo-router",
+    ["expo-router", { origin: routerOrigin }],
     notificationsPlugin,
     withAndroidNotificationBranding,
     "@react-native-community/datetimepicker",

@@ -28,8 +28,8 @@ export function adminBookingCreatedCopy(
   const ref = bookingRef(booking);
   if (ctx.awaitingAdminFloat) {
     return {
-      title: "New booking - float marketplace",
-      body: `${ref} is confirmed (any-partner). Float it to partners from Bookings or Operations when ready.`,
+      title: "New booking — assign a partner",
+      body: `${ref} is confirmed with no partner yet. Assign one from Bookings. It is not sent to the partner network.`,
     };
   }
   if (ctx.routingReason === "preferred_ok" && ctx.vendorName) {
@@ -58,33 +58,7 @@ export function adminVendorResponseOverdueCopy(
   const who = partnerName(vendorName);
   return {
     title: "Partner response overdue",
-    body: `${who} has not accepted or assigned a technician for ${ref} within the 1-hour window. Reassign, float to marketplace, or contact the partner from Operations.`,
-  };
-}
-
-export function adminMarketplaceFloatedCopy(
-  booking: Pick<BookingRow, "reference_code" | "id">,
-  vendorCount: number,
-): { title: string; body: string } {
-  const ref = bookingRef(booking);
-  return {
-    title: "Marketplace is live",
-    body:
-      vendorCount > 0
-        ? `${ref} is open on the OorjaMan partner marketplace - ${vendorCount} eligible partner${vendorCount === 1 ? "" : "s"} can claim it. First to accept gets the visit.`
-        : `${ref} was floated, but no partners matched slot and service area yet. You may assign directly or widen the broadcast.`,
-  };
-}
-
-export function adminVendorClaimedCopy(
-  booking: Pick<BookingRow, "reference_code" | "id">,
-  vendorName: string | null,
-): { title: string; body: string } {
-  const ref = bookingRef(booking);
-  const who = partnerName(vendorName);
-  return {
-    title: "Partner claimed visit",
-    body: `${who} claimed marketplace visit ${ref}. Review acceptance and technician assignment when ready.`,
+    body: `${who} has not accepted or assigned a technician for ${ref} within the 1-hour window. Reassign the partner from Bookings, or contact them.`,
   };
 }
 
@@ -289,34 +263,6 @@ export function vendorSettlementWaivedCopy(
   return {
     title: "Penalty waived",
     body: `OorjaMan waived the cancellation penalty for ${ref}. Your Finance ledger has been updated.`,
-  };
-}
-
-// -- Marketplace (vendor channels) --
-
-export function marketplaceBroadcastCopy(
-  booking: Pick<BookingRow, "reference_code" | "id">,
-): {
-  title: string;
-  body: string;
-} {
-  const ref = bookingRef(booking);
-  return {
-    title: "New visit to claim",
-    body: `OorjaMan marketplace: ${ref} is open in your service area. Claim promptly - homeowners receive faster care when partners respond quickly.`,
-  };
-}
-
-export function marketplaceClaimWonCopy(
-  booking: Pick<BookingRow, "reference_code" | "id">,
-): {
-  title: string;
-  body: string;
-} {
-  const ref = bookingRef(booking);
-  return {
-    title: "Claim confirmed",
-    body: `You secured marketplace visit ${ref}. Assign your best technician and confirm the slot so the customer knows help is on the way.`,
   };
 }
 

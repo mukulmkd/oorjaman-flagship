@@ -8,7 +8,8 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_DEPLOY_ENV": "local"
+        "EXPO_PUBLIC_DEPLOY_ENV": "local",
+        "SHARP_IGNORE_GLOBAL_LIBVIPS": "1"
       }
     },
     "uat": {
@@ -18,14 +19,16 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_DEPLOY_ENV": "uat"
+        "EXPO_PUBLIC_DEPLOY_ENV": "uat",
+        "SHARP_IGNORE_GLOBAL_LIBVIPS": "1"
       }
     },
     "production": {
       "autoIncrement": true,
       "channel": "production",
       "env": {
-        "EXPO_PUBLIC_DEPLOY_ENV": "production"
+        "EXPO_PUBLIC_DEPLOY_ENV": "production",
+        "SHARP_IGNORE_GLOBAL_LIBVIPS": "1"
       }
     }
   },

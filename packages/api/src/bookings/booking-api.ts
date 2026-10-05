@@ -25,11 +25,9 @@ import {
 } from "./service-otp-codes";
 import {
   adminBookingCancelledCopy,
-  adminMarketplaceFloatedCopy,
   adminReassignmentNeededCopy,
   adminTechnicianReassignedCopy,
   adminVendorAcceptedCopy,
-  adminVendorClaimedCopy,
   adminVendorDeclinedCopy,
   vendorBookingAssignedCopy,
   vendorTechnicianChangedCopy,
@@ -39,15 +37,6 @@ import {
 import { isVendorCancelInLastHourBeforeSlot } from "../finance/customer-credits-policy";
 import { ensureCancellationPenaltySettlement } from "../finance/vendor-settlement-api";
 import { assertServiceAddressInLaunchArea } from "../launch/launch-area";
-import {
-  emitMarketplaceNotificationEvents,
-  readMarketplaceBroadcastFilter,
-} from "../notifications/marketplace-notifications";
-import * as vendorApi from "../vendors/vendor-api";
-import {
-  customerLocationSignalsFromServiceSiteAddress,
-  vendorCoversCustomerSignals,
-} from "../vendors/vendor-service-area";
 import {
   initiateBookingPaymentRefund,
   refundAttemptToMetadataJson,
@@ -1246,7 +1235,8 @@ export async function vendorRejectBookingRequest(
       previous_vendor_id: previousVendorId,
     },
     marketplace: {
-      mode: "default_vendor",
+      mode: "state_ops_assign",
+      awaiting_state_ops_assignment: true,
       floated: false,
       awaiting_admin_assignment: true,
       vendor_rejected_reassign: true,
@@ -1363,7 +1353,8 @@ export async function vendorCancelAcceptedBooking(
       : null;
   const nextMeta = mergeBookingMetadata(booking.metadata, {
     marketplace: {
-      mode: "default_vendor",
+      mode: "state_ops_assign",
+      awaiting_state_ops_assignment: true,
       floated: false,
       awaiting_admin_assignment: true,
       vendor_cancelled_reassign: true,
@@ -1581,10 +1572,7 @@ export async function adminListBookingsForMonitoring(
       q = q.eq("status", "confirmed");
       break;
     case "default_vendor_queue":
-      q = q
-        .eq("status", "confirmed")
-        .is("vendor_id", null)
-        .contains("metadata", { marketplace: { mode: "default_vendor" } });
+      q = q.eq("status", "confirmed").is("vendor_id", null);
       break;
     case "awaiting_confirmation":
       q = q.eq("status", "confirmed").contains("metadata", {
@@ -1631,10 +1619,7 @@ export async function adminListBookingsForMonitoringPaged(
       q = q.eq("status", "confirmed");
       break;
     case "default_vendor_queue":
-      q = q
-        .eq("status", "confirmed")
-        .is("vendor_id", null)
-        .contains("metadata", { marketplace: { mode: "default_vendor" } });
+      q = q.eq("status", "confirmed").is("vendor_id", null);
       break;
     case "awaiting_confirmation":
       q = q.eq("status", "confirmed").contains("metadata", {
@@ -1675,87 +1660,6 @@ export async function adminGetBookingMonitoringRowsPaged(
   return { rows: enriched, total };
 }
 
-function nextMorningAtNineIstIso(from = new Date()): string {
-  const dt = new Date(from);
-  const istOffsetMs = 5.5 * 60 * 60 * 1000;
-  const ist = new Date(dt.getTime() + istOffsetMs);
-  ist.setUTCDate(ist.getUTCDate() + 1);
-  ist.setUTCHours(3, 30, 0, 0);
-  return new Date(ist.getTime() - istOffsetMs).toISOString();
-}
-
-function addHoursIso(fromIso: string, hours: number): string {
-  const d = new Date(fromIso);
-  d.setTime(d.getTime() + hours * 60 * 60 * 1000);
-  return d.toISOString();
-}
-
-export async function adminFloatDefaultVendorBooking(
-  client: SupabaseClient<Database>,
-  bookingId: string,
-): Promise<BookingRow> {
-  const booking = await getBookingById(client, bookingId);
-  if (booking.status !== "confirmed") {
-    throw new SupabaseApiError(
-      "Only confirmed bookings can be floated to vendors.",
-    );
-  }
-  const m =
-    booking.metadata &&
-    typeof booking.metadata === "object" &&
-    !Array.isArray(booking.metadata)
-      ? (booking.metadata as Record<string, Json>)
-      : {};
-  const marketplace =
-    m.marketplace &&
-    typeof m.marketplace === "object" &&
-    !Array.isArray(m.marketplace)
-      ? (m.marketplace as Record<string, Json>)
-      : {};
-  if (marketplace.mode !== "default_vendor") {
-    throw new SupabaseApiError("This booking is not in default-vendor mode.");
-  }
-
-  const now = new Date();
-  const istHour = Number(
-    new Intl.DateTimeFormat("en-IN", {
-      hour: "2-digit",
-      hour12: false,
-      timeZone: "Asia/Kolkata",
-    }).format(now),
-  );
-  const openAt =
-    istHour >= 19 ? nextMorningAtNineIstIso(now) : now.toISOString();
-  const openUntil = addHoursIso(openAt, 1);
-  const nextMeta = mergeBookingMetadata(booking.metadata, {
-    marketplace: {
-      ...marketplace,
-      floated: true,
-      awaiting_admin_float: false,
-      open_at: openAt,
-      open_until: openUntil,
-      floated_at: now.toISOString(),
-    } as Json,
-  });
-  const updated = await updateBooking(client, bookingId, {
-    metadata: nextMeta,
-  });
-  const vendorCount = await emitMarketplaceNotificationEvents(client, {
-    booking: updated,
-    eventType: "marketplace_broadcast",
-    channels: ["in_app", "email", "sms", "whatsapp"],
-    note: "Marketplace request floated by operations.",
-  });
-  const copy = adminMarketplaceFloatedCopy(updated, vendorCount);
-  await emitAdminBookingNotification(client, {
-    booking: updated,
-    eventType: "admin_marketplace_floated",
-    ...copy,
-    note: "Floated by operations.",
-  });
-  return updated;
-}
-
 export type OpsIssueType =
   | "default_vendor_unclaimed"
   | "awaiting_admin_float"
@@ -1775,66 +1679,6 @@ export async function adminListOpsBookingExceptions(
     .order("scheduled_start", { ascending: true })
     .limit(limit);
   return takeRows(data, error);
-}
-
-export async function adminRefloatMarketplaceBooking(
-  client: SupabaseClient<Database>,
-  bookingId: string,
-  hours = 1,
-): Promise<BookingRow> {
-  const booking = await getBookingById(client, bookingId);
-  if (booking.status !== "confirmed") {
-    throw new SupabaseApiError("Only confirmed bookings can be re-floated.");
-  }
-  if (booking.vendor_id) {
-    throw new SupabaseApiError("Booking already has a vendor assigned.");
-  }
-  const m =
-    booking.metadata &&
-    typeof booking.metadata === "object" &&
-    !Array.isArray(booking.metadata)
-      ? (booking.metadata as Record<string, Json>)
-      : {};
-  const marketplace =
-    m.marketplace &&
-    typeof m.marketplace === "object" &&
-    !Array.isArray(m.marketplace)
-      ? (m.marketplace as Record<string, Json>)
-      : {};
-  if (marketplace.mode !== "default_vendor") {
-    throw new SupabaseApiError(
-      "Booking is not in default-vendor marketplace mode.",
-    );
-  }
-  const nowIso = new Date().toISOString();
-  const openUntil = addHoursIso(nowIso, Math.max(1, hours));
-  const nextMeta = mergeBookingMetadata(booking.metadata, {
-    marketplace: {
-      ...marketplace,
-      floated: true,
-      awaiting_admin_float: false,
-      open_at: nowIso,
-      open_until: openUntil,
-      re_floated_at: nowIso,
-    } as Json,
-  });
-  const updated = await updateBooking(client, bookingId, {
-    metadata: nextMeta,
-  });
-  const vendorCount = await emitMarketplaceNotificationEvents(client, {
-    booking: updated,
-    eventType: "marketplace_broadcast",
-    channels: ["in_app", "email", "sms", "whatsapp"],
-    note: "Marketplace window re-floated by operations.",
-  });
-  const copy = adminMarketplaceFloatedCopy(updated, vendorCount);
-  await emitAdminBookingNotification(client, {
-    booking: updated,
-    eventType: "admin_marketplace_floated",
-    ...copy,
-    note: "Re-floated by operations.",
-  });
-  return updated;
 }
 
 const AMC_BOOKING_REASSIGN_STATUSES: BookingStatus[] = [
@@ -1974,19 +1818,13 @@ export async function adminAssignVendorToBooking(
     !Array.isArray(m.vendor_response)
       ? (m.vendor_response as Record<string, Json>)
       : {};
-  /** Direct assign (no marketplace window): start vendor SLA from now. If already floated, keep deadline from open_at. */
-  const setVendorResponseAnchor =
-    !booking.vendor_id &&
-    !(
-      marketplace.floated === true &&
-      typeof marketplace.open_at === "string" &&
-      String(marketplace.open_at).trim()
-    );
+  const setVendorResponseAnchor = !booking.vendor_id;
   const nextMeta = mergeBookingMetadata(booking.metadata, {
     marketplace: {
       ...marketplace,
       floated: false,
       awaiting_admin_float: false,
+      awaiting_state_ops_assignment: false,
       awaiting_admin_assignment: false,
       assigned_by_admin_at: nowIso,
       assigned_vendor_id: vid,
@@ -2098,175 +1936,6 @@ export async function adminResetBookingOtpLock(
     } as Json,
   });
   return updateBooking(client, bookingId, { metadata: nextMeta });
-}
-
-export async function listVendorMarketplaceBookings(
-  client: SupabaseClient<Database>,
-): Promise<BookingRow[]> {
-  const vendorId = await getMyVendorId(client);
-  if (!vendorId) return [];
-  const myVendor = await vendorApi.getMyVendor(client);
-  const { data, error } = await client
-    .from("bookings")
-    .select("*")
-    .eq("status", "confirmed")
-    .is("vendor_id", null)
-    .contains("metadata", { marketplace: { floated: true } })
-    .order("created_at", { ascending: true });
-  const rows = takeRows(data, error);
-  const keep: BookingRow[] = [];
-  for (const row of rows) {
-    if (readMarketplaceBroadcastFilter(row) === "customer_pin" && myVendor) {
-      const sig = customerLocationSignalsFromServiceSiteAddress(
-        row.service_site_address,
-      );
-      const hasSig = Boolean(
-        sig.pincode?.trim() || sig.city?.trim() || sig.state?.trim(),
-      );
-      if (hasSig && !vendorCoversCustomerSignals(myVendor, sig)) continue;
-    }
-    if (await isVendorAvailableForBookingSlot(client, vendorId, row))
-      keep.push(row);
-  }
-  return keep;
-}
-
-export async function vendorClaimMarketplaceBooking(
-  client: SupabaseClient<Database>,
-  bookingId: string,
-): Promise<BookingRow> {
-  const booking = await getBookingById(client, bookingId);
-  if (booking.vendor_id) {
-    throw new SupabaseApiError("This booking is already assigned.");
-  }
-  if (booking.status !== "confirmed") {
-    throw new SupabaseApiError("Only confirmed bookings can be claimed.");
-  }
-  const vid = await getMyVendorId(client);
-  if (!vid) throw new SupabaseApiError("No vendor profile for this account.");
-  const myVendor = await vendorApi.getMyVendor(client);
-  if (readMarketplaceBroadcastFilter(booking) === "customer_pin" && myVendor) {
-    const sig = customerLocationSignalsFromServiceSiteAddress(
-      booking.service_site_address,
-    );
-    const hasSig = Boolean(
-      sig.pincode?.trim() || sig.city?.trim() || sig.state?.trim(),
-    );
-    if (hasSig && !vendorCoversCustomerSignals(myVendor, sig)) {
-      throw new SupabaseApiError(
-        "This booking is outside your declared service area for the customer location.",
-      );
-    }
-  }
-  if (!(await isVendorAvailableForBookingSlot(client, vid, booking))) {
-    throw new SupabaseApiError(
-      "Your configured slot capacity is full for this booking window.",
-    );
-  }
-  const m =
-    booking.metadata &&
-    typeof booking.metadata === "object" &&
-    !Array.isArray(booking.metadata)
-      ? (booking.metadata as Record<string, Json>)
-      : {};
-  const marketplace =
-    m.marketplace &&
-    typeof m.marketplace === "object" &&
-    !Array.isArray(m.marketplace)
-      ? (m.marketplace as Record<string, Json>)
-      : {};
-  const openUntil =
-    typeof marketplace.open_until === "string" ? marketplace.open_until : null;
-  if (openUntil && new Date() > new Date(openUntil)) {
-    throw new SupabaseApiError("The one-hour acceptance window has closed.");
-  }
-  const nextMeta = mergeBookingMetadata(booking.metadata, {
-    marketplace: {
-      ...marketplace,
-      awaiting_admin_float: false,
-      claimed_by_vendor_id: vid,
-      claimed_at: new Date().toISOString(),
-    } as Json,
-  });
-  const { data, error } = await client
-    .from("bookings")
-    .update({
-      vendor_id: vid,
-      status: "confirmed",
-      metadata: nextMeta,
-    })
-    .eq("id", bookingId)
-    .eq("status", "confirmed")
-    .is("vendor_id", null)
-    .select("*")
-    .maybeSingle();
-  if (error) throw new SupabaseApiError(error.message, error);
-  if (!data)
-    throw new SupabaseApiError(
-      "This booking has already been claimed by another vendor.",
-    );
-  await emitMarketplaceNotificationEvents(client, {
-    booking: data,
-    eventType: "marketplace_claim_won",
-    channels: ["in_app", "email"],
-    recipientVendorId: vid,
-    note: "You claimed this marketplace request.",
-  });
-  const vendorName = await resolveVendorDisplayName(client, vid);
-  const copy = adminVendorClaimedCopy(data, vendorName);
-  await emitAdminBookingNotification(client, {
-    booking: data,
-    eventType: "admin_booking_vendor_claimed",
-    ...copy,
-    vendorName,
-  });
-  return data;
-}
-
-function readBookingScheduleSlot(
-  metadata: Json | null | undefined,
-): { dayKey: string; slotId: string } | null {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata))
-    return null;
-  const slot = (metadata as Record<string, unknown>).schedule_slot;
-  if (!slot || typeof slot !== "object" || Array.isArray(slot)) return null;
-  const slotObj = slot as Record<string, unknown>;
-  const dayRaw = slotObj.day_key;
-  const slotRaw = slotObj.slot_id;
-  const dayKey = typeof dayRaw === "string" ? dayRaw.trim() : "";
-  const slotId = typeof slotRaw === "string" ? slotRaw.trim() : "";
-  if (!dayKey || !slotId) return null;
-  return { dayKey, slotId };
-}
-
-async function isVendorAvailableForBookingSlot(
-  client: SupabaseClient<Database>,
-  vendorId: string,
-  booking: BookingRow,
-): Promise<boolean> {
-  const schedule = readBookingScheduleSlot(booking.metadata);
-  if (!schedule) return true;
-  const { dayKey, slotId } = schedule;
-  const { data: row, error: rowErr } = await client
-    .from("vendor_slot_availability")
-    .select("is_available, capacity")
-    .eq("vendor_id", vendorId)
-    .eq("day_key", dayKey)
-    .eq("slot_id", slotId)
-    .maybeSingle();
-  if (rowErr) throw new SupabaseApiError(rowErr.message, rowErr);
-  if (row && !row.is_available) return false;
-  const capacity = row?.capacity ?? 1;
-  const { count, error: countErr } = await client
-    .from("bookings")
-    .select("id", { head: true, count: "exact" })
-    .eq("vendor_id", vendorId)
-    .in("status", ["confirmed", "accepted", "in_progress"])
-    .contains("metadata", {
-      schedule_slot: { day_key: dayKey, slot_id: slotId },
-    });
-  if (countErr) throw new SupabaseApiError(countErr.message, countErr);
-  return (count ?? 0) < capacity;
 }
 
 const userDisplayLabelCache = new Map<string, string>();

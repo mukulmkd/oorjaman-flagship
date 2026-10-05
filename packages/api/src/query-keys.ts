@@ -142,6 +142,9 @@ export const queryKeys = {
     opsDeskSummary: () => [...queryKeys.bookings.all(), "ops-desk-summary"] as const,
     opsDeskAmcAwaitingPartner: () =>
       [...queryKeys.bookings.all(), "ops-desk-amc-awaiting-partner"] as const,
+    operationStates: () => [...queryKeys.bookings.all(), "operation-states"] as const,
+    operationScope: () => [...queryKeys.bookings.all(), "operation-scope"] as const,
+    operationStaff: () => [...queryKeys.bookings.all(), "operation-staff"] as const,
     notificationFailedRecent: (hours: number) =>
       [...queryKeys.bookings.all(), "notification-failed-recent", hours] as const,
     notificationInbox: (audience: "admin" | "vendor", limit?: number) =>

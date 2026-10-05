@@ -16,7 +16,8 @@ export type UserRole =
   | "vendor"
   | "technician"
   | "admin"
-  | "support";
+  | "support"
+  | "state_ops";
 export type VendorApprovalStatus =
   | "pending"
   | "under_review"
@@ -87,6 +88,20 @@ export type VendorSettlementStatus =
   | "approved"
   | "settled"
   | "waived";
+
+export type OperationStateRow = {
+  id: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type UserOperationStateRow = {
+  user_id: string;
+  state_id: string;
+  created_at: string;
+  created_by: string | null;
+};
 
 export type UserRow = {
   id: string;
@@ -1835,6 +1850,28 @@ export type Database = {
         };
         Relationships: [];
       };
+      operation_states: {
+        Row: OperationStateRow;
+        Insert: {
+          id: string;
+          name: string;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<Omit<OperationStateRow, "id">>;
+        Relationships: [];
+      };
+      user_operation_states: {
+        Row: UserOperationStateRow;
+        Insert: {
+          user_id: string;
+          state_id: string;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Update: Partial<UserOperationStateRow>;
+        Relationships: [];
+      };
       bookings_created_daily: {
         Row: {
           day: string;
@@ -1880,6 +1917,10 @@ export type Database = {
       sync_my_user_from_auth: {
         Args: Record<string, never>;
         Returns: UserRow;
+      };
+      ensure_uat_dummy_auth_user: {
+        Args: { p_email: string };
+        Returns: undefined;
       };
       get_customer_booking_technician_profile: {
         Args: { p_booking_id: string };

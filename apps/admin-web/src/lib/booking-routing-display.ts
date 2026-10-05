@@ -13,15 +13,15 @@ export const ROUTING_REASON_LABELS: Record<string, string> = {
     "Preferred unavailable → platform default",
   preferred_missing_customer_fallback: "No match → customer backup",
   preferred_missing_platform_default: "No match → platform default",
-  default_vendor_marketplace: "Any partner (marketplace)",
-  amc_awaiting_admin_marketplace: "AMC - awaiting marketplace",
+  default_vendor_marketplace: "Any partner (state operations assigns)",
+  amc_awaiting_admin_marketplace: "AMC — waiting for state operations",
 };
 
 export const PREFERRED_FALLBACK_ROUTING_HELP =
   "The customer chose a specific partner who could not serve this location. The visit was assigned to their backup partner or the platform default instead.";
 
 export const MARKETPLACE_ROUTING_HELP =
-  "The customer chose any available partner. The booking is in the partner marketplace (or awaiting ops assignment) until a partner claims it or you assign one.";
+  "The customer chose any available partner. State operations assigns the partner. The visit is not offered to the partner network.";
 
 export type RoutingDisplayKind =
   | "preferred"
@@ -84,18 +84,20 @@ export function formatMarketplaceWindow(
   )
     return null;
   const mp = marketplace as Record<string, unknown>;
+  if (mp.mode === "state_ops_assign") {
+    return "Waiting for state operations to assign a partner";
+  }
   if (mp.mode !== "default_vendor") return null;
-  const floated = mp.floated === true;
   const openUntil = typeof mp.open_until === "string" ? mp.open_until : null;
-  if (!floated && !openUntil) return "Marketplace mode (not yet floated)";
+  if (!openUntil) return "Waiting for state operations to assign a partner";
   if (openUntil) {
     try {
-      return `Marketplace open until ${new Date(openUntil).toLocaleString("en-IN")}`;
+      return `Assign a partner. Earlier window ended ${new Date(openUntil).toLocaleString("en-IN")}`;
     } catch {
-      return "Marketplace window active";
+      return "Waiting for state operations to assign a partner";
     }
   }
-  return floated ? "Floated to marketplace" : null;
+  return "Waiting for state operations to assign a partner";
 }
 
 export function formatRoutingDetailLines(
@@ -130,8 +132,8 @@ export function formatRoutingDetailLines(
 }
 
 export const OPS_ISSUE_LABELS: Record<OpsIssueType, string> = {
-  default_vendor_unclaimed: "Marketplace / default vendor unclaimed",
-  awaiting_admin_float: "Awaiting ops marketplace float",
+  default_vendor_unclaimed: "Partner needed — assign from Bookings",
+  awaiting_admin_float: "Awaiting state ops to assign a partner",
   preferred_vendor_no_response: "Preferred partner - no response (1h)",
   vendor_slow_confirmation: "Partner slow to accept/assign",
   visit_not_started: "Visit not started on time",

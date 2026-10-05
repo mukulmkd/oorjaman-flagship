@@ -35,8 +35,8 @@ const ROUTING_TABS: { id: AdminFallbackRoutingFilter; label: string; hint: strin
   },
   {
     id: "marketplace",
-    label: "Any partner (marketplace)",
-    hint: "Customer chose any available partner, or AMC awaiting marketplace float.",
+    label: "Any partner",
+    hint: "Customer chose any available partner. State operations assigns the visit.",
   },
   {
     id: "all",
