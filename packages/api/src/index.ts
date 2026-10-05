@@ -95,6 +95,7 @@ export {
 } from "./notifications/notification-events-api";
 export {
   adminListAmcDesk,
+  adminScheduleAmcVisit,
   classifyAmcDeskSituation,
   type AmcDeskRow,
   type AmcDeskSituation,

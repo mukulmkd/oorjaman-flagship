@@ -7,6 +7,7 @@ import type {
   SubscriptionVisitSlotStatus,
 } from "../database.types";
 import { SupabaseApiError } from "../result";
+import { scheduleAmcVisitSlot } from "../subscriptions/amc-visit-slots";
 
 type Client = SupabaseClient<Database>;
 
@@ -35,6 +36,9 @@ export type AmcDeskRow = {
   city: string | null;
   site: string | null;
   vendorName: string | null;
+  assignedVendorId: string | null;
+  /** Next unused visit slot. Present when ops can schedule. */
+  nextSlotId: string | null;
   visitsIncluded: number | null;
   visitsCompleted: number;
   openBookingReference: string | null;
@@ -142,7 +146,7 @@ export async function adminListAmcDesk(
       .in("subscription_id", subscriptionIds),
     client
       .from("subscription_visit_slots")
-      .select("subscription_id, sequence, status, booking_id, ideal_scheduled_start")
+      .select("id, subscription_id, sequence, status, booking_id, ideal_scheduled_start")
       .in("subscription_id", subscriptionIds),
     vendorIds.length > 0
       ? client.from("vendors").select("id, business_name, trade_name").in("id", vendorIds)
@@ -218,6 +222,8 @@ export async function adminListAmcDesk(
       city: site.city ?? customerAddress.city,
       site: site.formatted,
       vendorName: vendor?.trade_name?.trim() || vendor?.business_name?.trim() || null,
+      assignedVendorId: sub.assigned_vendor_id,
+      nextSlotId: nextSlot?.id ?? null,
       visitsIncluded: sub.visits_included,
       visitsCompleted: bookings.filter((booking) => booking.status === "completed").length,
       openBookingReference: openBooking?.reference_code ?? null,
@@ -242,4 +248,26 @@ export async function adminListAmcDesk(
   };
   rows.sort((a, b) => priority[a.situation] - priority[b.situation] || a.customerName.localeCompare(b.customerName));
   return rows;
+}
+
+/** National admin or state desk: book the next unused visit on a paid AMC. */
+export async function adminScheduleAmcVisit(
+  client: Client,
+  input: {
+    slotId: string;
+    scheduledStart: string;
+    scheduledEnd: string;
+    scheduleSlotMeta: Json;
+    siteAddressText: string;
+  },
+) {
+  return scheduleAmcVisitSlot(client, {
+    slotId: input.slotId,
+    scheduledStart: input.scheduledStart,
+    scheduledEnd: input.scheduledEnd,
+    scheduleSlotMeta: input.scheduleSlotMeta,
+    siteAddressText: input.siteAddressText,
+    scheduledBy: "operations",
+    vendorPick: { mode: "any" },
+  });
 }

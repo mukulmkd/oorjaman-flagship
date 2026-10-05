@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   adminListAmcDesk,
+  adminScheduleAmcVisit,
   formatInrFromCents,
   isNationalAdminRole,
   listMyOperationStateNames,
@@ -9,10 +10,26 @@ import {
   type AmcDeskRow,
   type AmcDeskSituation,
 } from "@oorjaman/api";
-import { formatDisplayDate } from "@oorjaman/utils";
-import { Badge, Card, Input, PageHeader } from "@oorjaman/web-ui";
+import {
+  formatDayChip,
+  formatDisplayDate,
+  listSelectableDayKeys,
+  NEW_BOOKING_EARLIEST_DAY_KEY,
+  NEW_BOOKING_EARLIEST_LABEL,
+  slotsForDay,
+  type BookingSlotOption,
+} from "@oorjaman/utils";
+import { Badge, Button, Card, Input, Modal, PageHeader } from "@oorjaman/web-ui";
 import { useAdminPortalSession, useSupabase } from "@oorjaman/web-ui";
 import "./amc-desk-page.css";
+
+function canScheduleVisit(row: AmcDeskRow): boolean {
+  return Boolean(
+    row.nextSlotId &&
+      row.assignedVendorId &&
+      (row.situation === "paid_no_booking" || row.situation === "next_visit_due"),
+  );
+}
 
 const SITUATIONS: {
   id: AmcDeskSituation | "all";
@@ -40,13 +57,15 @@ function actionFor(row: AmcDeskRow): string {
     case "payment_pending":
       return `Collect ${formatInrFromCents(row.amountCents)} before scheduling a visit.`;
     case "paid_no_booking":
+      if (!row.assignedVendorId) return "Payment is in. Assign a partner before scheduling the first visit.";
       return row.nextSlotOverdue
-        ? "First visit is overdue. Schedule it with the partner."
-        : "Payment is in. Schedule the first visit.";
+        ? "First visit is overdue. Schedule it from this page, or ask the customer to schedule one."
+        : "Payment is in. Schedule the first visit from this page, or ask the customer to schedule one.";
     case "next_visit_due":
+      if (!row.assignedVendorId) return "Assign a partner before scheduling the next visit.";
       return row.nextSlotOverdue
-        ? "The next visit is overdue. Schedule it."
-        : "Earlier visits are done. Schedule the next one.";
+        ? "The next visit is overdue. Schedule it from this page, or ask the customer to schedule one."
+        : "Earlier visits are done. Schedule the next one from this page, or ask the customer to schedule one.";
     case "visit_open":
       return row.openBookingReference
         ? `${row.openBookingReference} is ${(row.openBookingStatus ?? "booked").replaceAll("_", " ")}.`
@@ -68,8 +87,29 @@ export function AmcDeskPage() {
   const supabase = useSupabase();
   const sessionQuery = useAdminPortalSession();
   const national = isNationalAdminRole(sessionQuery.data?.row?.role);
+  const queryClient = useQueryClient();
   const [situation, setSituation] = useState<AmcDeskSituation | "all">("all");
   const [search, setSearch] = useState("");
+  const [scheduleRow, setScheduleRow] = useState<AmcDeskRow | null>(null);
+  const [dayKey, setDayKey] = useState("");
+  const [slotId, setSlotId] = useState("");
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [scheduledReference, setScheduledReference] = useState<string | null>(null);
+
+  const dayKeys = useMemo(() => listSelectableDayKeys(new Date(), 21, NEW_BOOKING_EARLIEST_DAY_KEY), []);
+  const daySlots = useMemo(() => (dayKey ? slotsForDay(dayKey, new Date(), NEW_BOOKING_EARLIEST_DAY_KEY) : []), [dayKey]);
+
+  useEffect(() => {
+    if (!scheduleRow) return;
+    const first = dayKeys.find((key) => slotsForDay(key, new Date(), NEW_BOOKING_EARLIEST_DAY_KEY).length > 0) ?? dayKeys[0] ?? "";
+    setDayKey(first);
+    setSlotId("");
+    setScheduleError(null);
+  }, [scheduleRow, dayKeys]);
+
+  useEffect(() => {
+    if (!daySlots.some((slot) => slot.id === slotId)) setSlotId(daySlots[0]?.id ?? "");
+  }, [daySlots, slotId]);
 
   const scopeQuery = useQuery({
     queryKey: queryKeys.bookings.operationScope(),
@@ -111,6 +151,31 @@ export function AmcDeskPage() {
       return haystack.includes(needle);
     });
   }, [rows, search, situation]);
+
+  const scheduleMutation = useMutation({
+    mutationFn: async (slot: BookingSlotOption) => {
+      const siteAddressText =
+        scheduleRow?.site?.trim() ||
+        [scheduleRow?.city, scheduleRow?.state].filter(Boolean).join(", ");
+      if (!supabase || !scheduleRow?.nextSlotId || !siteAddressText) {
+        throw new Error("This contract has no site address to schedule.");
+      }
+      return adminScheduleAmcVisit(supabase, {
+        slotId: scheduleRow.nextSlotId,
+        scheduledStart: slot.scheduledStart,
+        scheduledEnd: slot.scheduledEnd,
+        scheduleSlotMeta: { day_key: dayKey, slot_id: slot.id, label: slot.label },
+        siteAddressText,
+      });
+    },
+    onSuccess: async ({ booking }) => {
+      setScheduledReference(booking.reference_code);
+      setScheduleRow(null);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.subscriptions.all() });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all() });
+    },
+    onError: (error: Error) => setScheduleError(error.message),
+  });
 
   const scopeLabel = national
     ? "All states"
@@ -203,7 +268,14 @@ export function AmcDeskPage() {
                       {row.visitsCompleted}
                       {row.visitsIncluded != null ? ` / ${row.visitsIncluded}` : ""}
                     </td>
-                    <td className="amc-desk-action">{actionFor(row)}</td>
+                    <td className="amc-desk-action">
+                      <div>{actionFor(row)}</div>
+                      {canScheduleVisit(row) ? (
+                        <Button type="button" size="sm" onClick={() => setScheduleRow(row)}>
+                          Schedule visit
+                        </Button>
+                      ) : null}
+                    </td>
                   </tr>
                 );
               })}
@@ -211,6 +283,75 @@ export function AmcDeskPage() {
           </table>
         </div>
       )}
+
+      {scheduledReference ? (
+        <p className="amc-desk-success">Scheduled {scheduledReference}. It now appears in Bookings as an AMC visit.</p>
+      ) : null}
+
+      <Modal
+        open={Boolean(scheduleRow)}
+        title="Schedule visit"
+        description={
+          scheduleRow
+            ? `${scheduleRow.customerName} · ${scheduleRow.vendorName ?? "Assigned partner"} · ${[scheduleRow.city, scheduleRow.state].filter(Boolean).join(", ")}`
+            : undefined
+        }
+        onClose={() => {
+          if (!scheduleMutation.isPending) setScheduleRow(null);
+        }}
+      >
+        {scheduleRow ? (
+          <form
+            className="amc-desk-schedule"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const slot = daySlots.find((item) => item.id === slotId);
+              if (!slot) {
+                setScheduleError("Choose a time slot.");
+                return;
+              }
+              setScheduleError(null);
+              scheduleMutation.mutate(slot);
+            }}
+          >
+            <p className="amc-desk-muted">{scheduleRow.site}</p>
+            <p className="amc-desk-muted">Visits can be scheduled from {NEW_BOOKING_EARLIEST_LABEL}.</p>
+            <label className="amc-desk-field">
+              <span>Date</span>
+              <select value={dayKey} onChange={(event) => setDayKey(event.target.value)}>
+                {dayKeys.map((key) => (
+                  <option key={key} value={key}>
+                    {formatDayChip(key)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="amc-desk-slots" role="radiogroup" aria-label="Time slot">
+              {daySlots.length === 0 ? <p className="amc-desk-muted">No slots on this day.</p> : null}
+              {daySlots.map((slot) => (
+                <label key={slot.id} className={slot.id === slotId ? "is-selected" : ""}>
+                  <input
+                    type="radio"
+                    name="amc-slot"
+                    checked={slot.id === slotId}
+                    onChange={() => setSlotId(slot.id)}
+                  />
+                  {slot.label}
+                </label>
+              ))}
+            </div>
+            {scheduleError ? <p className="amc-desk-error">{scheduleError}</p> : null}
+            <div className="amc-desk-schedule-actions">
+              <Button type="button" variant="ghost" onClick={() => setScheduleRow(null)} disabled={scheduleMutation.isPending}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={scheduleMutation.isPending || daySlots.length === 0}>
+                {scheduleMutation.isPending ? "Scheduling…" : "Schedule visit"}
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </Modal>
     </div>
   );
 }

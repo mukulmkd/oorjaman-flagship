@@ -95,6 +95,66 @@
   line-height: 1.4;
 }
 
+.amc-desk-action .web-btn {
+  margin-top: 0.65rem;
+}
+
+.amc-desk-success {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--wb-primary);
+}
+
+.amc-desk-schedule {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.amc-desk-field {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--wb-fg);
+}
+
+.amc-desk-field select {
+  min-height: 2.5rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--wb-border);
+  border-radius: 12px;
+  background: var(--wb-card);
+  color: var(--wb-fg);
+  font-size: 0.9375rem;
+}
+
+.amc-desk-slots {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.amc-desk-slots label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--wb-border);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.amc-desk-slots label.is-selected {
+  border-color: var(--wb-primary);
+  background: color-mix(in srgb, var(--wb-primary) 8%, white);
+}
+
+.amc-desk-schedule-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
 .amc-desk .web-badge {
   text-transform: none;
   letter-spacing: 0;

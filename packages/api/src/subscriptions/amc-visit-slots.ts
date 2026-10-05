@@ -20,6 +20,18 @@ import { getAmcWalletBySubscriptionId } from "../finance/amc-wallet-api";
 import { computeAmcVisitSlots } from "./amc-booking-generation";
 import { readServiceSiteAddressFromSubscription } from "./subscription-address";
 
+function withSubscriptionSiteFields(address: Json, site: Json | null): Json {
+  if (!site || typeof site !== "object" || Array.isArray(site)) return address;
+  if (!address || typeof address !== "object" || Array.isArray(address)) return address;
+  const merged: Record<string, Json> = { ...(address as Record<string, Json>) };
+  const source = site as Record<string, Json>;
+  for (const key of ["state", "city", "pincode", "line1", "line2"] as const) {
+    const next = source[key];
+    if (typeof next === "string" && next.trim()) merged[key] = next.trim();
+  }
+  return merged;
+}
+
 export type ScheduleAmcVisitSlotInput = {
   slotId: string;
   scheduledStart: string;
@@ -29,6 +41,8 @@ export type ScheduleAmcVisitSlotInput = {
   serviceAddressId?: string | null;
   customerNotes?: string | null;
   bookingRecipient?: Json;
+  /** Operations schedules on behalf of the customer. The visit still uses the assigned partner. */
+  scheduledBy?: "customer" | "operations";
   vendorPick:
     | { mode: "any" }
     | {
@@ -179,9 +193,11 @@ export async function scheduleAmcVisitSlot(
     used_fallback: false,
     reason: "amc_assigned_partner",
   };
+  const scheduledByOps = input.scheduledBy === "operations";
   const extraMetadata: Record<string, Json> = {
     source: "subscription_amc",
-    customer_scheduled_amc: true,
+    customer_scheduled_amc: !scheduledByOps,
+    ...(scheduledByOps ? { ops_scheduled_amc: true } : {}),
     amc_assigned_vendor_id: assignedVendorId,
     sequence: slot.sequence,
     subscription_plan: subscription.plan_code,
@@ -207,6 +223,8 @@ export async function scheduleAmcVisitSlot(
     serviceAddressId,
     extraMetadata,
   });
+  payload.service_site_address = withSubscriptionSiteFields(payload.service_site_address, addrJson);
+  if (scheduledByOps) payload.skipLaunchAreaCheck = true;
 
   const booking = await createBookingAsCustomer(client, payload);
 

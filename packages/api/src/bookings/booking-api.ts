@@ -187,6 +187,8 @@ export type CreateBookingInput = Pick<
   /** Customer inserts default to `pending_payment`; vendor inserts default to `confirmed`. */
   status?: BookingStatus;
   payment_timing?: "prepaid" | "postpaid";
+  /** Paid AMC already covers this site. Not written to the booking row. */
+  skipLaunchAreaCheck?: boolean;
 };
 
 /** First instant a new customer booking may start: 10 October 2026, 00:00 IST. */
@@ -209,7 +211,9 @@ export async function createBookingAsCustomer(
   const { data: userData } = await client.auth.getUser();
   const uid = requireSessionUserId(userData.user?.id);
 
-  await assertServiceAddressInLaunchArea(client, input.service_site_address);
+  if (!input.skipLaunchAreaCheck) {
+    await assertServiceAddressInLaunchArea(client, input.service_site_address);
+  }
   assertNewBookingOpensOnOrAfter(input.scheduled_start);
 
   if (!input.subscription_id) {
