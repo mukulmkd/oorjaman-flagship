@@ -7,6 +7,7 @@ import type {
   SubscriptionVisitSlotStatus,
 } from "../database.types";
 import { SupabaseApiError } from "../result";
+import { deactivateStaleAmcDrafts, readAmcPhase } from "../subscriptions/amc-draft";
 import { scheduleAmcVisitSlot } from "../subscriptions/amc-visit-slots";
 
 type Client = SupabaseClient<Database>;
@@ -47,6 +48,8 @@ export type AmcDeskRow = {
   nextSlotOverdue: boolean;
   startsAt: string;
   endsAt: string;
+  /** draft while unpaid, draft_inactive after 14 days, active once paid. */
+  amcPhase: string | null;
 };
 
 const OPEN_BOOKING_STATUSES = new Set<BookingStatus>([
@@ -117,6 +120,8 @@ export async function adminListAmcDesk(
 ): Promise<AmcDeskRow[]> {
   const stateNames = options?.stateNames?.map((name) => name.trim()).filter(Boolean);
   if (stateNames && stateNames.length === 0) return [];
+
+  await deactivateStaleAmcDrafts(client);
 
   const { data: subs, error: subError } = await client
     .from("subscriptions")
@@ -232,6 +237,7 @@ export async function adminListAmcDesk(
       nextSlotOverdue: Boolean(nextSlotAt && new Date(nextSlotAt).getTime() < now),
       startsAt: sub.starts_at,
       endsAt: sub.ends_at,
+      amcPhase: readAmcPhase(sub.metadata),
     });
   }
 

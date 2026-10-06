@@ -37,7 +37,7 @@ const SITUATIONS: {
   tone: "neutral" | "warning" | "success" | "danger";
 }[] = [
   { id: "all", label: "All", tone: "neutral" },
-  { id: "payment_pending", label: "Payment pending", tone: "warning" },
+  { id: "payment_pending", label: "Draft", tone: "warning" },
   { id: "paid_no_booking", label: "Paid, no visit booked", tone: "warning" },
   { id: "next_visit_due", label: "Next visit not booked", tone: "warning" },
   { id: "visit_open", label: "Visit booked", tone: "success" },
@@ -55,7 +55,11 @@ function situationMeta(id: AmcDeskSituation) {
 function actionFor(row: AmcDeskRow): string {
   switch (row.situation) {
     case "payment_pending":
-      return `Collect ${formatInrFromCents(row.amountCents)} before scheduling a visit.`;
+      return `Draft. Collect ${formatInrFromCents(row.amountCents)} to start the plan. It starts the day payment is received.`;
+    case "expired":
+      return row.amcPhase === "draft_inactive"
+        ? "Draft closed after 14 days without payment. The customer can start a new AMC."
+        : "Contract has ended.";
     case "paid_no_booking":
       if (!row.assignedVendorId) return "Payment is in. Assign a partner before scheduling the first visit.";
       return row.nextSlotOverdue
@@ -76,8 +80,6 @@ function actionFor(row: AmcDeskRow): string {
       return "Plan is paused. Resume it before scheduling.";
     case "cancelled":
       return "Contract is cancelled.";
-    case "expired":
-      return "Contract has ended.";
     case "complete":
       return "Included visits are done.";
   }
@@ -246,7 +248,9 @@ export function AmcDeskPage() {
                 return (
                   <tr key={row.subscriptionId}>
                     <td>
-                      <Badge tone={meta?.tone ?? "neutral"}>{meta?.label ?? row.situation}</Badge>
+                      <Badge tone={meta?.tone ?? "neutral"}>
+                        {row.amcPhase === "draft_inactive" ? "Draft closed" : (meta?.label ?? row.situation)}
+                      </Badge>
                     </td>
                     <td>
                       <div className="amc-desk-primary">{row.customerName}</div>
@@ -262,7 +266,11 @@ export function AmcDeskPage() {
                         {formatInrFromCents(row.amountCents)}
                         {row.vendorName ? ` · ${row.vendorName}` : " · No partner"}
                       </div>
-                      <div className="amc-desk-muted">Through {formatDisplayDate(row.endsAt)}</div>
+                      <div className="amc-desk-muted">
+                        {row.situation === "payment_pending"
+                          ? "Starts the day payment is received"
+                          : `Through ${formatDisplayDate(row.endsAt)}`}
+                      </div>
                     </td>
                     <td>
                       {row.visitsCompleted}

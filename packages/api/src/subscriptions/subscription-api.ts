@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   Database,
-  Json,
   SubscriptionRow,
   SubscriptionStatus,
 } from "../database.types";
@@ -17,7 +16,7 @@ import { resolveGeoPricingTierAddons } from "../pricing/pricing-api";
 import { normalizeCountryCode } from "../pricing/pricing-engine";
 import { getCustomerSolarSizing } from "../customers/customer-solar-sizing";
 import { ensureAmcWalletForSubscription } from "../finance/amc-wallet-api";
-import { syncAmcVisitSlotsForSubscription } from "./amc-visit-slots";
+import { amcDraftMetadata, deactivateStaleAmcDrafts } from "./amc-draft";
 import { serviceAddressCityKeyFromJson } from "../bookings/customer-booking-payload";
 import { getActiveSubscriptionForAddress } from "./subscription-address";
 import { assertServiceAddressInLaunchArea } from "../launch/launch-area";
@@ -87,6 +86,7 @@ export async function listVisibleSubscriptions(
     limit?: number;
   },
 ): Promise<SubscriptionRow[]> {
+  await deactivateStaleAmcDrafts(client);
   let q = client
     .from("subscriptions")
     .select("*")
@@ -158,9 +158,13 @@ export async function createAmcSubscriptionAsCustomer(
   const existing = await listVisibleSubscriptions(client, {
     status: ["active", "trialing"],
   });
-  if (getActiveSubscriptionForAddress(existing, addressId)) {
+  const onThisAddress = existing.filter(
+    (sub) => getActiveSubscriptionForAddress([sub], addressId) != null,
+  );
+  if (onThisAddress.some((sub) => sub.status === "active")) {
     throw new SupabaseApiError("This address already has an active AMC plan.");
   }
+  const openDraft = onThisAddress.find((sub) => sub.status === "trialing") ?? null;
 
   const sizing = getCustomerSolarSizing(customer);
   if (sizing.ready === false) {
@@ -195,6 +199,7 @@ export async function createAmcSubscriptionAsCustomer(
   const billedAmountCents = catalogPlan.amount_cents + geoAmcAddonCents;
 
   const serviceSiteAddress = buildServiceSiteAddressFromEntry(addressEntry);
+  // Placeholder dates only. Payment replaces them with the day the AMC actually starts.
   const startsAt = input.starts_at ?? new Date().toISOString();
   const endsAt = computeContractEndsAtIso(
     startsAt,
@@ -206,7 +211,7 @@ export async function createAmcSubscriptionAsCustomer(
     addressEntry.preferred_vendor_ids?.[0]?.trim() ||
     null;
 
-  const metadata = {
+  const metadata = amcDraftMetadata(openDraft?.metadata ?? null, {
     service_address_id: addressId,
     service_site_address: serviceSiteAddress,
     capacity_tier_code: sizing.tierCode,
@@ -219,7 +224,28 @@ export async function createAmcSubscriptionAsCustomer(
           geo_amc_addon_tier_label: geoAddons.matched_tier_label,
         }
       : {}),
-  } as Json;
+  });
+
+  if (openDraft) {
+    const { data, error } = await client
+      .from("subscriptions")
+      .update({
+        plan_code: catalogPlan.plan_code,
+        plan_name: catalogPlan.plan_name,
+        billing_period: catalogPlan.billing_period,
+        visits_included: catalogPlan.visits_included,
+        amount_cents: billedAmountCents,
+        metadata,
+        assigned_vendor_id: null,
+        assigned_vendor_at: null,
+      })
+      .eq("id", openDraft.id)
+      .eq("status", "trialing")
+      .select("*")
+      .single();
+    if (error) throw new SupabaseApiError(error.message, error);
+    return data as SubscriptionRow;
+  }
 
   const row = await createSubscription(client, {
     customer_id: customer.id,
@@ -236,7 +262,6 @@ export async function createAmcSubscriptionAsCustomer(
     status: "trialing",
   });
 
-  await syncAmcVisitSlotsForSubscription(client, row);
   await ensureAmcWalletForSubscription(client, row);
   return row;
 }

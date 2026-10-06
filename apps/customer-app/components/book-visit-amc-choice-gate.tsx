@@ -39,11 +39,11 @@ function gateCopy(gate: AmcVisitBookingGate): { title: string; body: string; amc
   }
   if (gate.kind === "trialing" || (gate.kind === "awaiting_setup" && gate.reason === "payment")) {
     return {
-      title: "AMC plan for this address",
+      title: "AMC draft",
       body:
         amcVisitBookingGateMessage(gate) ??
-        "Complete AMC payment to schedule your included visits, or book a one-time visit at the standard rate.",
-      amcLabel: "Complete AMC plan",
+        "This AMC is a draft. Pay to start it, or book a one-time visit at the standard rate.",
+      amcLabel: "Pay to start AMC",
       oneTimeLabel: "Book normal visit",
     };
   }

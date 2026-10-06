@@ -295,7 +295,7 @@ export function amcVisitBookingGateMessage(gate: AmcVisitBookingGate): string | 
     case "allowance_exhausted":
       return amcAllowanceExhaustedPromptMessage(gate);
     case "trialing":
-      return "Complete AMC payment to schedule your included visits.";
+      return "This AMC is a draft. Pay to start it. The plan year begins the day payment succeeds.";
     case "awaiting_setup":
       return gate.reason === "payment"
         ? "Complete AMC payment to schedule your included visits."

@@ -25,7 +25,8 @@ export function isSubscriptionActive(
   sub: SubscriptionRow,
   nowMs = Date.now(),
 ): boolean {
-  if (sub.status !== "active" && sub.status !== "trialing") return false;
+  if (sub.status === "trialing") return true;
+  if (sub.status !== "active") return false;
   return new Date(sub.ends_at).getTime() >= nowMs;
 }
 

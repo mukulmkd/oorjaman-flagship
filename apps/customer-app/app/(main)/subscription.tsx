@@ -759,7 +759,7 @@ export default function SubscriptionAmcScreen() {
           ) : null}
           {active ? (
             <Text style={styles.addressAmcBadge}>
-              {active.status === "trialing" ? "AMC pending payment" : "AMC active"} · {active.plan_name}
+              {active.status === "trialing" ? "AMC draft" : "AMC active"} · {active.plan_name}
             </Text>
           ) : renewalDue ? (
             <Text style={styles.addressRenewBadge}>
@@ -915,11 +915,14 @@ export default function SubscriptionAmcScreen() {
                 ) : null}
                 <Card variant="elevated" padded>
                   <Text style={styles.cardLabel}>
-                    {activeForSelected.status === "trialing" ? "AMC awaiting payment" : "Active plan for this address"}
+                    {activeForSelected.status === "trialing" ? "Draft" : "Active plan for this address"}
                   </Text>
                   <Text style={styles.planName}>{activeForSelected.plan_name}</Text>
                   <Text style={styles.metaLine}>
-                    Renews through {formatDisplayDate(activeForSelected.ends_at)} ·{" "}
+                    {activeForSelected.status === "trialing"
+                      ? "Starts the day you pay"
+                      : `Renews through ${formatDisplayDate(activeForSelected.ends_at)}`}
+                    {" · "}
                     {activeForSelected.visits_included != null
                       ? `${visitAllowanceSummary.scheduledOrBooked} / ${activeForSelected.visits_included} visits scheduled`
                       : "Visit tracking"}
@@ -947,8 +950,8 @@ export default function SubscriptionAmcScreen() {
                   ) : activeForSelected.status === "trialing" ? (
                     <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
                       <Text style={styles.metaLine}>
-                        Pay {formatInrFromCents(activeForSelected.amount_cents)} to activate your AMC for this address.
-                        Your dedicated partner is assigned after payment.
+                        This AMC is a draft. Pay {formatInrFromCents(activeForSelected.amount_cents)} to start it.
+                        The plan year begins that day, and a partner is assigned after payment.
                       </Text>
                       <Button
                         loading={amcCheckoutBusy}
