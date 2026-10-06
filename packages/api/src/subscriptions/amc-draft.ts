@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, Json, SubscriptionRow } from "../database.types";
+import type { Database, Json } from "../database.types";
 import { SupabaseApiError } from "../result";
 
 /** Unpaid AMC stays open this long, then it is deactivated and kept. */
@@ -56,8 +56,4 @@ export function readAmcPhase(metadata: Json | null | undefined): string | null {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
   const phase = (metadata as Record<string, unknown>).amc_phase;
   return typeof phase === "string" && phase.trim() ? phase.trim() : null;
-}
-
-export function isOpenAmcDraft(sub: Pick<SubscriptionRow, "status">): boolean {
-  return sub.status === "trialing";
 }
