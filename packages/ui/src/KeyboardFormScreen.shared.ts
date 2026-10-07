@@ -18,6 +18,11 @@ export type KeyboardFormScreenProps = {
   children: ReactNode;
   /** Extra offset for fixed headers / nav bars (mainly iOS). */
   keyboardVerticalOffset?: number;
+  /**
+   * Space kept between the keyboard and the focused field.
+   * Raise this when controls below the focused field (such as an OTP row) must stay visible.
+   */
+  bottomOffset?: number;
   contentContainerStyle?: StyleProp<ViewStyle>;
   /**
    * @deprecated Retained for call-site compatibility. Native keyboard resizing keeps the

@@ -39,6 +39,11 @@ import { supabase } from "../lib/supabase";
 
 const OTP_LEN = 6;
 const RESEND_SEC = 48;
+/**
+ * Keep the one-time code and verify button above the iOS keyboard while the
+ * email field is focused. The gap is the distance from that field to the button.
+ */
+const LOGIN_KEYBOARD_BOTTOM_OFFSET = 280;
 const PLAY_REVIEW_APP = "customer" as const;
 
 export type LoginEmailOtpScreenProps = {
@@ -227,6 +232,7 @@ export function LoginEmailOtpScreen({
   return (
     <KeyboardFormScreen
       keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      bottomOffset={LOGIN_KEYBOARD_BOTTOM_OFFSET}
       webVariant="auth"
       centerVertically
       contentContainerStyle={[

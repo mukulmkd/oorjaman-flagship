@@ -13844,4 +13844,1199 @@ end;
 
 $cron$;
 
+-- ----- 20261006203744_customer_contact_phone_on_login.sql -----
+create or replace function public.sync_customer_contact_phone_to_auth()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  digits text;
+
+e164 text;
+
+other_id uuid;
+
+au auth.users;
+
+begin
+  digits := regexp_replace(coalesce(new.alternate_phone, ''), '\D', '', 'g');
+
+if digits = '' then
+    return new;
+
+end if;
+
+if length(digits) = 10 then
+    e164 := '91' || digits;
+
+elsif length(digits) = 12 and left(digits, 2) = '91' then
+    e164 := digits;
+
+else
+    raise exception 'Enter a 10-digit mobile number';
+
+end if;
+
+if substring(e164 from 3 for 1) !~ '^[6-9]$' then
+    raise exception 'Enter a valid mobile number';
+
+end if;
+
+select u.id
+  into other_id
+  from auth.users u
+  where u.phone = e164
+    and u.id <> new.user_id;
+
+if other_id is not null then
+    raise exception 'This mobile number is already used by another account';
+
+end if;
+
+update auth.users
+  set
+    phone = e164,
+    phone_confirmed_at = coalesce(phone_confirmed_at, now()),
+    updated_at = now()
+  where id = new.user_id
+    and phone is distinct from e164;
+
+insert into auth.identities (
+    provider_id,
+    user_id,
+    identity_data,
+    provider,
+    created_at,
+    updated_at
+  )
+  values (
+    new.user_id::text,
+    new.user_id,
+    jsonb_build_object(
+      'sub', new.user_id::text,
+      'phone', e164,
+      'email_verified', false,
+      'phone_verified', true
+    ),
+    'phone',
+    now(),
+    now()
+  )
+  on conflict (provider_id, provider) do update
+  set
+    identity_data = excluded.identity_data,
+    updated_at = now();
+
+select * into au from auth.users where id = new.user_id;
+
+if au.id is not null then
+    perform public.apply_auth_user_to_public_users(au);
+
+end if;
+
+return new;
+
+end;
+
+$$;
+
+revoke all on function public.sync_customer_contact_phone_to_auth() from public;
+
+revoke all on function public.sync_customer_contact_phone_to_auth() from anon;
+
+revoke all on function public.sync_customer_contact_phone_to_auth() from authenticated;
+
+drop trigger if exists customers_sync_contact_phone_to_auth on public.customers;
+
+create trigger customers_sync_contact_phone_to_auth
+after insert or update of alternate_phone on public.customers
+for each row
+execute function public.sync_customer_contact_phone_to_auth();
+
+alter table public.customers
+  drop constraint if exists customers_completed_profile_requires_mobile;
+
+alter table public.customers
+  add constraint customers_completed_profile_requires_mobile
+  check (
+    onboarding_completed_at is null
+    or (
+      length(regexp_replace(coalesce(alternate_phone, ''), '\D', '', 'g')) = 10
+      and left(regexp_replace(coalesce(alternate_phone, ''), '\D', '', 'g'), 1) ~ '[6-9]'
+    )
+    or (
+      length(regexp_replace(coalesce(alternate_phone, ''), '\D', '', 'g')) = 12
+      and left(regexp_replace(coalesce(alternate_phone, ''), '\D', '', 'g'), 2) = '91'
+      and substring(regexp_replace(coalesce(alternate_phone, ''), '\D', '', 'g') from 3 for 1) ~ '[6-9]'
+    )
+  ) not valid;
+
+update public.customers c
+set alternate_phone = c.alternate_phone
+from public.users u
+where u.id = c.user_id
+  and u.role = 'customer'
+  and nullif(trim(u.phone), '') is null
+  and nullif(trim(c.alternate_phone), '') is not null;
+
+-- ----- 20261006204308_phone_e164_plus_91.sql -----
+create or replace function public.format_indian_mobile_e164(raw text)
+returns text
+language sql
+immutable
+as $$
+  select case
+    when d ~ '^[6-9][0-9]{9}$' then '+91' || d
+    when d ~ '^91[6-9][0-9]{9}$' then '+' || d
+    else null
+  end
+  from (
+    select regexp_replace(coalesce(raw, ''), '\D', '', 'g') as d
+  ) s;
+
+$$;
+
+create or replace function public.auth_user_phone_e164(au auth.users)
+returns text
+language sql
+immutable
+as $$
+  select coalesce(
+    public.format_indian_mobile_e164(nullif(trim(coalesce(au.phone, au.raw_user_meta_data->>'phone', '')), '')),
+    nullif(trim(coalesce(au.phone, au.raw_user_meta_data->>'phone', '')), '')
+  );
+
+$$;
+
+create or replace function public.sync_customer_contact_phone_to_auth()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  e164 text;
+
+other_id uuid;
+
+au auth.users;
+
+begin
+  e164 := public.format_indian_mobile_e164(new.alternate_phone);
+
+if e164 is null then
+    if regexp_replace(coalesce(new.alternate_phone, ''), '\D', '', 'g') = '' then
+      return new;
+
+end if;
+
+raise exception 'Enter a 10-digit mobile number';
+
+end if;
+
+select u.id
+  into other_id
+  from auth.users u
+  where public.format_indian_mobile_e164(u.phone) = e164
+    and u.id <> new.user_id;
+
+if other_id is not null then
+    raise exception 'This mobile number is already used by another account';
+
+end if;
+
+update auth.users
+  set
+    phone = e164,
+    phone_confirmed_at = coalesce(phone_confirmed_at, now()),
+    updated_at = now()
+  where id = new.user_id
+    and phone is distinct from e164;
+
+insert into auth.identities (
+    provider_id,
+    user_id,
+    identity_data,
+    provider,
+    created_at,
+    updated_at
+  )
+  values (
+    new.user_id::text,
+    new.user_id,
+    jsonb_build_object(
+      'sub', new.user_id::text,
+      'phone', e164,
+      'email_verified', false,
+      'phone_verified', true
+    ),
+    'phone',
+    now(),
+    now()
+  )
+  on conflict (provider_id, provider) do update
+  set
+    identity_data = excluded.identity_data,
+    updated_at = now();
+
+select * into au from auth.users where id = new.user_id;
+
+if au.id is not null then
+    perform public.apply_auth_user_to_public_users(au);
+
+end if;
+
+return new;
+
+end;
+
+$$;
+
+update auth.users
+set
+  phone = public.format_indian_mobile_e164(phone),
+  updated_at = now()
+where phone is not null
+  and public.format_indian_mobile_e164(phone) is not null
+  and phone is distinct from public.format_indian_mobile_e164(phone);
+
+update auth.identities
+set
+  identity_data = jsonb_set(
+    identity_data,
+    '{phone}',
+    to_jsonb(public.format_indian_mobile_e164(identity_data->>'phone'))
+  ),
+  updated_at = now()
+where provider = 'phone'
+  and public.format_indian_mobile_e164(identity_data->>'phone') is not null
+  and (identity_data->>'phone') is distinct from public.format_indian_mobile_e164(identity_data->>'phone');
+
+update public.users
+set phone = public.format_indian_mobile_e164(phone)
+where phone is not null
+  and public.format_indian_mobile_e164(phone) is not null
+  and phone is distinct from public.format_indian_mobile_e164(phone);
+
+-- ----- 20261006205451_customer_alternate_phone_plus_91.sql -----
+create or replace function public.sync_customer_contact_phone_to_auth()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  e164 text;
+
+other_id uuid;
+
+au auth.users;
+
+begin
+  e164 := public.format_indian_mobile_e164(new.alternate_phone);
+
+if e164 is null then
+    if regexp_replace(coalesce(new.alternate_phone, ''), '\D', '', 'g') = '' then
+      return new;
+
+end if;
+
+raise exception 'Enter a 10-digit mobile number';
+
+end if;
+
+new.alternate_phone := e164;
+
+select u.id
+  into other_id
+  from auth.users u
+  where public.format_indian_mobile_e164(u.phone) = e164
+    and u.id <> new.user_id;
+
+if other_id is not null then
+    raise exception 'This mobile number is already used by another account';
+
+end if;
+
+update auth.users
+  set
+    phone = e164,
+    phone_confirmed_at = coalesce(phone_confirmed_at, now()),
+    updated_at = now()
+  where id = new.user_id
+    and phone is distinct from e164;
+
+insert into auth.identities (
+    provider_id,
+    user_id,
+    identity_data,
+    provider,
+    created_at,
+    updated_at
+  )
+  values (
+    new.user_id::text,
+    new.user_id,
+    jsonb_build_object(
+      'sub', new.user_id::text,
+      'phone', e164,
+      'email_verified', false,
+      'phone_verified', true
+    ),
+    'phone',
+    now(),
+    now()
+  )
+  on conflict (provider_id, provider) do update
+  set
+    identity_data = excluded.identity_data,
+    updated_at = now();
+
+select * into au from auth.users where id = new.user_id;
+
+if au.id is not null then
+    perform public.apply_auth_user_to_public_users(au);
+
+end if;
+
+return new;
+
+end;
+
+$$;
+
+drop trigger if exists customers_sync_contact_phone_to_auth on public.customers;
+
+create trigger customers_sync_contact_phone_to_auth
+before insert or update of alternate_phone on public.customers
+for each row
+execute function public.sync_customer_contact_phone_to_auth();
+
+update public.customers c
+set alternate_phone = c.alternate_phone
+from public.users u
+where u.id = c.user_id
+  and u.role = 'customer'::public.user_role
+  and public.format_indian_mobile_e164(c.alternate_phone) is not null
+  and c.alternate_phone is distinct from public.format_indian_mobile_e164(c.alternate_phone);
+
+alter table public.customers disable trigger customers_assert_role;
+
+update public.customers c
+set alternate_phone = c.alternate_phone
+from public.users u
+where u.id = c.user_id
+  and u.role <> 'customer'::public.user_role
+  and public.format_indian_mobile_e164(c.alternate_phone) is not null
+  and c.alternate_phone is distinct from public.format_indian_mobile_e164(c.alternate_phone);
+
+alter table public.customers enable trigger customers_assert_role;
+
+-- ----- 20261007003000_restore_realtime_gate_push_cron.sql -----
+do $pub$
+declare
+  t text;
+
+begin
+  foreach t in array array[
+    'bookings',
+    'subscriptions',
+    'vendor_settlements',
+    'support_messages',
+    'support_conversations',
+    'notification_events',
+    'customer_site_activity_events',
+    'technician_activity_events'
+  ]
+  loop
+    if to_regclass('public.' || t) is null then
+      raise exception 'missing table public.%', t;
+
+end if;
+
+if not exists (
+      select 1
+      from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+
+end if;
+
+end loop;
+
+end
+$pub$;
+
+do $cron$
+begin
+  if to_regprocedure('public.notify_overdue_vendor_responses_batch(int)') is null then
+    raise exception 'notify_overdue_vendor_responses_batch(int) is missing';
+
+end if;
+
+if not exists (
+    select 1 from cron.job where jobname = 'notify-overdue-vendor-responses'
+  ) then
+    perform cron.schedule(
+      'notify-overdue-vendor-responses',
+      '*/5 * * * *',
+      $cmd$select public.notify_overdue_vendor_responses_batch(200);$cmd$
+    );
+
+end if;
+
+end
+$cron$;
+
+do $gate$
+declare
+  r record;
+
+inner_sql text;
+
+outbox text;
+
+gated text;
+
+begin
+  for r in
+    select jobid, jobname, command
+    from cron.job
+    where jobname in (
+      'send-customer-expo-push-every-minute',
+      'send-technician-expo-push-every-minute'
+    )
+  loop
+    if r.command ~* 'push_outbox' then
+      continue;
+
+end if;
+
+if r.command !~* 'net\.http_post' then
+      continue;
+
+end if;
+
+inner_sql := regexp_replace(btrim(r.command), '^\s*select\s+', '', 'i');
+
+inner_sql := regexp_replace(inner_sql, ';\s*$', '');
+
+outbox := case r.jobname
+      when 'send-customer-expo-push-every-minute' then 'customer_push_outbox'
+      else 'technician_push_outbox'
+    end;
+
+gated := format(
+      $fmt$do $body$
+begin
+  if exists (
+    select 1
+    from public.%I
+    where status = 'queued'
+      and next_attempt_at <= now()
+  ) then
+    perform %s;
+
+end if;
+
+end
+$body$;$fmt$,
+      outbox,
+      inner_sql
+    );
+
+perform cron.alter_job(job_id := r.jobid, command := gated);
+
+end loop;
+
+end
+$gate$;
+
+delete from cron.job_run_details
+where status = 'succeeded'
+  and start_time < now() - interval '1 day'
+  and jobid in (
+    select jobid
+    from cron.job
+    where jobname in (
+      'send-customer-expo-push-every-minute',
+      'send-technician-expo-push-every-minute'
+    )
+  );
+
+-- ----- 20261007010000_push_dispatch_on_insert.sql -----
+create schema if not exists internal;
+
+revoke all on schema internal from public;
+
+revoke all on schema internal from anon, authenticated;
+
+create table if not exists internal.push_dispatch (
+  audience text primary key check (audience in ('customer', 'technician')),
+  function_url text not null,
+  dispatch_secret text not null,
+  updated_at timestamptz not null default now()
+);
+
+revoke all on table internal.push_dispatch from public, anon, authenticated, service_role;
+
+alter table public.customer_push_outbox
+  add column if not exists claimed_at timestamptz;
+
+alter table public.technician_push_outbox
+  add column if not exists claimed_at timestamptz;
+
+do $checks$
+declare
+  cname text;
+
+rel regclass;
+
+constraint_name text;
+
+begin
+  foreach rel in array array[
+    'public.customer_push_outbox'::regclass,
+    'public.technician_push_outbox'::regclass
+  ]
+  loop
+    for cname in
+      select c.conname
+      from pg_constraint c
+      where c.conrelid = rel
+        and c.contype = 'c'
+        and pg_get_constraintdef(c.oid) ilike '%status%'
+        and pg_get_constraintdef(c.oid) ilike '%queued%'
+    loop
+      execute format('alter table %s drop constraint %I', rel, cname);
+
+end loop;
+
+constraint_name := regexp_replace(rel::text, '^.*\.', '') || '_status_check';
+
+execute format(
+      'alter table %s add constraint %I check (status in (''queued'', ''sending'', ''sent'', ''failed''))',
+      rel,
+      constraint_name
+    );
+
+end loop;
+
+end
+$checks$;
+
+create or replace function public.claim_customer_push_outbox(p_id uuid default null, p_limit int default 25)
+returns setof public.customer_push_outbox
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_limit int := greatest(1, least(coalesce(p_limit, 25), 100));
+
+begin
+  return query
+  with due as (
+    select o.id
+    from public.customer_push_outbox o
+    where case
+      when p_id is not null then o.id = p_id and (
+        o.status = 'queued'
+        or (o.status = 'sending' and o.claimed_at < now() - interval '10 minutes')
+      )
+      else (
+        (o.status = 'queued' and o.next_attempt_at <= now())
+        or (o.status = 'sending' and o.claimed_at < now() - interval '10 minutes')
+      )
+    end
+    order by o.created_at
+    limit v_limit
+    for update skip locked
+  )
+  update public.customer_push_outbox o
+  set status = 'sending',
+      claimed_at = now()
+  from due
+  where o.id = due.id
+  returning o.*;
+
+end;
+
+$$;
+
+create or replace function public.claim_technician_push_outbox(p_id uuid default null, p_limit int default 25)
+returns setof public.technician_push_outbox
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_limit int := greatest(1, least(coalesce(p_limit, 25), 100));
+
+begin
+  return query
+  with due as (
+    select o.id
+    from public.technician_push_outbox o
+    where case
+      when p_id is not null then o.id = p_id and (
+        o.status = 'queued'
+        or (o.status = 'sending' and o.claimed_at < now() - interval '10 minutes')
+      )
+      else (
+        (o.status = 'queued' and o.next_attempt_at <= now())
+        or (o.status = 'sending' and o.claimed_at < now() - interval '10 minutes')
+      )
+    end
+    order by o.created_at
+    limit v_limit
+    for update skip locked
+  )
+  update public.technician_push_outbox o
+  set status = 'sending',
+      claimed_at = now()
+  from due
+  where o.id = due.id
+  returning o.*;
+
+end;
+
+$$;
+
+revoke all on function public.claim_customer_push_outbox(uuid, int) from public, anon, authenticated;
+
+revoke all on function public.claim_technician_push_outbox(uuid, int) from public, anon, authenticated;
+
+grant execute on function public.claim_customer_push_outbox(uuid, int) to service_role;
+
+grant execute on function public.claim_technician_push_outbox(uuid, int) to service_role;
+
+create or replace function public.try_dispatch_customer_push_outbox()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, internal, extensions
+as $$
+declare
+  v_url text;
+
+v_secret text;
+
+request_id bigint;
+
+begin
+  select nullif(trim(function_url), ''), nullif(trim(dispatch_secret), '')
+  into v_url, v_secret
+  from internal.push_dispatch
+  where audience = 'customer';
+
+if v_url is null then
+    v_url := nullif(trim(current_setting('app.customer_push_function_url', true)), '');
+
+v_secret := nullif(trim(current_setting('app.push_dispatch_secret', true)), '');
+
+end if;
+
+if v_url is null then
+    return NEW;
+
+end if;
+
+select net.http_post(
+    url := v_url,
+    headers := jsonb_strip_nulls(
+      jsonb_build_object(
+        'Content-Type', 'application/json',
+        'x-push-dispatch-secret', v_secret
+      )
+    ),
+    body := jsonb_build_object('outbox_id', NEW.id::text)
+  )
+  into request_id;
+
+return NEW;
+
+exception
+  when others then
+    return NEW;
+
+end;
+
+$$;
+
+create or replace function public.try_dispatch_technician_push_outbox()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, internal, extensions
+as $$
+declare
+  v_url text;
+
+v_secret text;
+
+request_id bigint;
+
+begin
+  select nullif(trim(function_url), ''), nullif(trim(dispatch_secret), '')
+  into v_url, v_secret
+  from internal.push_dispatch
+  where audience = 'technician';
+
+if v_url is null then
+    v_url := nullif(trim(current_setting('app.technician_push_function_url', true)), '');
+
+v_secret := nullif(trim(current_setting('app.push_dispatch_secret', true)), '');
+
+end if;
+
+if v_url is null then
+    return NEW;
+
+end if;
+
+select net.http_post(
+    url := v_url,
+    headers := jsonb_strip_nulls(
+      jsonb_build_object(
+        'Content-Type', 'application/json',
+        'x-push-dispatch-secret', v_secret
+      )
+    ),
+    body := jsonb_build_object('outbox_id', NEW.id::text)
+  )
+  into request_id;
+
+return NEW;
+
+exception
+  when others then
+    return NEW;
+
+end;
+
+$$;
+
+create or replace function public.dispatch_due_expo_pushes()
+returns void
+language plpgsql
+security definer
+set search_path = public, internal, extensions
+as $$
+declare
+  r record;
+
+due boolean;
+
+begin
+  for r in
+    select audience, function_url, dispatch_secret
+    from internal.push_dispatch
+  loop
+    if r.audience = 'customer' then
+      select exists (
+        select 1
+        from public.customer_push_outbox
+        where (status = 'queued' and next_attempt_at <= now())
+           or (status = 'sending' and claimed_at < now() - interval '10 minutes')
+      )
+      into due;
+
+else
+      select exists (
+        select 1
+        from public.technician_push_outbox
+        where (status = 'queued' and next_attempt_at <= now())
+           or (status = 'sending' and claimed_at < now() - interval '10 minutes')
+      )
+      into due;
+
+end if;
+
+if not due then
+      continue;
+
+end if;
+
+perform net.http_post(
+      url := r.function_url,
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'x-push-dispatch-secret', r.dispatch_secret
+      ),
+      body := '{}'::jsonb
+    );
+
+end loop;
+
+end;
+
+$$;
+
+revoke all on function public.dispatch_due_expo_pushes() from public, anon, authenticated;
+
+insert into internal.push_dispatch (audience, function_url, dispatch_secret)
+select
+  case jobname
+    when 'send-customer-expo-push-every-minute' then 'customer'
+    else 'technician'
+  end,
+  (regexp_match(command, $re$https://[^'[:space:]]+/functions/v1/send-customer-expo-push|https://[^'[:space:]]+/functions/v1/send-technician-expo-push$re$))[1],
+  (regexp_match(command, $re$x-push-dispatch-secret',\s*'([^']+)'$re$))[1]
+from cron.job
+where jobname in (
+  'send-customer-expo-push-every-minute',
+  'send-technician-expo-push-every-minute'
+)
+  and (regexp_match(command, $re$https://[^'[:space:]]+/functions/v1/send-customer-expo-push|https://[^'[:space:]]+/functions/v1/send-technician-expo-push$re$))[1] is not null
+  and (regexp_match(command, $re$x-push-dispatch-secret',\s*'([^']+)'$re$))[1] is not null
+on conflict (audience) do update
+set function_url = excluded.function_url,
+    dispatch_secret = excluded.dispatch_secret,
+    updated_at = now();
+
+do $jobs$
+declare
+  r record;
+
+begin
+  if exists (
+    select 1 from internal.push_dispatch
+    where audience = 'customer' and function_url like 'https://%'
+  ) then
+    for r in
+      select jobid from cron.job where jobname = 'send-customer-expo-push-every-minute'
+    loop
+      perform cron.unschedule(r.jobid);
+
+end loop;
+
+end if;
+
+if exists (
+    select 1 from internal.push_dispatch
+    where audience = 'technician' and function_url like 'https://%'
+  ) then
+    for r in
+      select jobid from cron.job where jobname = 'send-technician-expo-push-every-minute'
+    loop
+      perform cron.unschedule(r.jobid);
+
+end loop;
+
+end if;
+
+if not exists (
+    select 1 from cron.job where jobname = 'dispatch-due-expo-pushes'
+  ) then
+    perform cron.schedule(
+      'dispatch-due-expo-pushes',
+      '*/5 * * * *',
+      $cmd$select public.dispatch_due_expo_pushes();$cmd$
+    );
+
+end if;
+
+end
+$jobs$;
+
+-- ----- 20261007020000_push_dispatch_secret_ok.sql -----
+create or replace function public.push_dispatch_secret_ok(p_audience text, p_secret text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = internal, public
+as $$
+  select exists (
+    select 1
+    from internal.push_dispatch d
+    where d.audience = p_audience
+      and p_secret is not null
+      and length(btrim(p_secret)) > 0
+      and d.dispatch_secret = p_secret
+  );
+
+$$;
+
+comment on function public.push_dispatch_secret_ok(text, text) is
+  'True when the dispatch header matches the private secret for that audience. Does not return the secret.';
+
+revoke all on function public.push_dispatch_secret_ok(text, text) from public, anon, authenticated;
+
+grant execute on function public.push_dispatch_secret_ok(text, text) to service_role;
+
+-- ----- 20261007142424_finance_recognized_and_settled_revenue.sql -----
+drop view if exists public.finance_dashboard_stats;
+
+create view public.finance_dashboard_stats
+with (security_invoker = true) as
+with earned_visit_fees as (
+  select
+    coalesce(sum(coalesce(vs.platform_fee_paise, 0)), 0)::bigint as total_paise,
+    coalesce(
+      sum(coalesce(vs.platform_fee_paise, 0)) filter (where b.subscription_id is not null),
+      0
+    )::bigint as amc_paise,
+    coalesce(
+      sum(coalesce(vs.platform_fee_paise, 0)) filter (where b.subscription_id is null),
+      0
+    )::bigint as one_time_paise
+  from public.vendor_settlements vs
+  inner join public.bookings b on b.id = vs.booking_id
+  where vs.kind = 'visit_payout'::public.vendor_settlement_kind
+    and vs.status <> 'waived'::public.vendor_settlement_status
+),
+settled_penalties as (
+  select coalesce(sum(greatest(0, coalesce(vs.penalty_final_paise, 0))), 0)::bigint as paise
+  from public.vendor_settlements vs
+  where vs.kind = 'cancellation_penalty'::public.vendor_settlement_kind
+    and vs.status = 'settled'::public.vendor_settlement_status
+),
+late_cancel_fees as (
+  select coalesce(
+    sum(
+      greatest(
+        0,
+        coalesce((b.metadata -> 'customer_cancellation' ->> 'late_fee_paise')::bigint, 0)
+      )
+    ),
+    0
+  )::bigint as paise
+  from public.bookings b
+  where b.status = 'cancelled'::public.booking_status
+    and b.cancelled_at is not null
+    and coalesce((b.metadata -> 'customer_cancellation' ->> 'within_grace_window')::boolean, true) = false
+)
+select
+  r.total_revenue_cents,
+  r.amc_revenue_cents,
+  r.one_time_revenue_cents,
+  r.revenue_per_day,
+  coalesce(
+    (select sum(p.amount)::bigint from public.payments p where p.status = 'success'::public.payment_status),
+    0::bigint
+  ) as total_collections_cents,
+  coalesce(
+    (
+      select sum(p.amount)::bigint
+      from public.payments p
+      where p.status = 'success'::public.payment_status
+        and p.subscription_id is not null
+    ),
+    0::bigint
+  ) as amc_contract_collections_cents,
+  coalesce(
+    (
+      select sum(w.balance_paise)::bigint
+      from public.amc_wallets w
+      where w.status in ('pending_funding'::public.amc_wallet_status, 'funded'::public.amc_wallet_status)
+    ),
+    0::bigint
+  ) as amc_deferred_liability_paise,
+  coalesce(
+    (
+      select sum(vs.net_payout_paise)::bigint
+      from public.vendor_settlements vs
+      inner join public.bookings b on b.id = vs.booking_id
+      where vs.kind = 'visit_payout'::public.vendor_settlement_kind
+        and vs.status in (
+          'pending_review'::public.vendor_settlement_status,
+          'approved'::public.vendor_settlement_status
+        )
+        and b.subscription_id is not null
+    ),
+    0::bigint
+  ) as amc_vendor_payables_pending_paise,
+  coalesce(
+    (
+      select sum(vs.net_payout_paise)::bigint
+      from public.vendor_settlements vs
+      inner join public.bookings b on b.id = vs.booking_id
+      where vs.kind = 'visit_payout'::public.vendor_settlement_kind
+        and vs.status in (
+          'pending_review'::public.vendor_settlement_status,
+          'approved'::public.vendor_settlement_status
+        )
+        and b.subscription_id is null
+    ),
+    0::bigint
+  ) as one_time_vendor_payables_pending_paise,
+  (
+    (select total_paise from earned_visit_fees)
+    + (select paise from settled_penalties)
+    + (select paise from late_cancel_fees)
+  ) as recognized_revenue_paise,
+  (select amc_paise from earned_visit_fees) as recognized_amc_revenue_paise,
+  (select one_time_paise from earned_visit_fees) as recognized_one_time_revenue_paise
+from public.recognized_revenue_stats r;
+
+comment on view public.finance_dashboard_stats is
+  'Admin finance KPIs. recognized_revenue_paise is the platform fee on completed visits (not waived), plus settled penalties and customer late-cancel fees. total_revenue_cents is only the portion already marked settled. amc_deferred_liability_paise is prepaid AMC still held until visits are completed.';
+
+grant select on public.finance_dashboard_stats to authenticated;
+
+-- ----- 20261007183514_payment_documents_email_claim.sql -----
+create or replace function public.claim_payment_documents_email(
+  p_booking_id uuid,
+  p_payment_id uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_count integer;
+
+begin
+  update public.bookings
+  set metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
+    'payment_documents_email_sent_at', to_jsonb(now()),
+    'payment_documents_payment_id', to_jsonb(p_payment_id::text)
+  )
+  where id = p_booking_id
+    and nullif(metadata->>'payment_documents_email_sent_at', '') is null;
+
+get diagnostics v_count = row_count;
+
+return v_count > 0;
+
+end;
+
+$$;
+
+create or replace function public.release_payment_documents_email(p_booking_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.bookings
+  set metadata = coalesce(metadata, '{}'::jsonb)
+    - 'payment_documents_email_sent_at'
+    - 'payment_documents_payment_id'
+  where id = p_booking_id;
+
+end;
+
+$$;
+
+revoke all on function public.claim_payment_documents_email(uuid, uuid) from public;
+
+revoke all on function public.release_payment_documents_email(uuid) from public;
+
+grant execute on function public.claim_payment_documents_email(uuid, uuid) to service_role;
+
+grant execute on function public.release_payment_documents_email(uuid) to service_role;
+
+-- ----- 20261008004500_state_ops_mark_notifications_read.sql -----
+create or replace function public.mark_notification_read(p_event_id uuid)
+returns public.notification_events
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  row public.notification_events;
+begin
+  select * into row from public.notification_events where id = p_event_id;
+  if not found then
+    raise exception 'notification not found';
+  end if;
+
+  if row.recipient_audience = 'admin' then
+    if public.is_admin() then
+      null;
+    elsif public.is_state_ops()
+      and row.booking_id is not null
+      and exists (
+        select 1
+        from public.bookings b
+        where b.id = row.booking_id
+          and public.state_in_my_operation(b.service_site_address->>'state')
+      )
+    then
+      null;
+    else
+      raise exception 'not allowed';
+    end if;
+  elsif row.recipient_audience = 'vendor' then
+    if row.recipient_vendor_id is distinct from public.my_vendor_id() then
+      raise exception 'not allowed';
+    end if;
+  else
+    raise exception 'invalid audience';
+  end if;
+
+  update public.notification_events
+  set read_at = coalesce(read_at, now())
+  where id = p_event_id
+  returning * into row;
+
+  return row;
+end;
+$$;
+
+create or replace function public.mark_all_notifications_read(p_audience text)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n integer;
+begin
+  if p_audience not in ('admin', 'vendor') then
+    raise exception 'invalid audience';
+  end if;
+
+  if p_audience = 'admin' then
+    if public.is_admin() then
+      update public.notification_events
+      set read_at = coalesce(read_at, now())
+      where recipient_audience = 'admin' and read_at is null;
+    elsif public.is_state_ops() then
+      update public.notification_events ne
+      set read_at = coalesce(ne.read_at, now())
+      where ne.recipient_audience = 'admin'
+        and ne.read_at is null
+        and ne.booking_id is not null
+        and exists (
+          select 1
+          from public.bookings b
+          where b.id = ne.booking_id
+            and public.state_in_my_operation(b.service_site_address->>'state')
+        );
+    else
+      raise exception 'not allowed';
+    end if;
+  else
+    if not public.is_approved_vendor_user() then
+      raise exception 'not allowed';
+    end if;
+    update public.notification_events
+    set read_at = coalesce(read_at, now())
+    where recipient_audience = 'vendor'
+      and recipient_vendor_id = public.my_vendor_id()
+      and read_at is null;
+  end if;
+
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
+
+revoke all on function public.mark_notification_read(uuid) from public;
+grant execute on function public.mark_notification_read(uuid) to authenticated;
+
+revoke all on function public.mark_all_notifications_read(text) from public;
+grant execute on function public.mark_all_notifications_read(text) to authenticated;
+
 -- End of schema (generated)

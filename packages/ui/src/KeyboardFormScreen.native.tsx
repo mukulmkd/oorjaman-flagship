@@ -20,7 +20,11 @@ export const KeyboardFormScreen = forwardRef<
   KeyboardFormScreenRef,
   KeyboardFormScreenProps
 >(function KeyboardFormScreen(
-  { children, contentContainerStyle },
+  {
+    children,
+    contentContainerStyle,
+    bottomOffset = spacing.xxxl + spacing.md,
+  },
   ref,
 ) {
   const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
@@ -44,7 +48,7 @@ export const KeyboardFormScreen = forwardRef<
       style={styles.flex}
       contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
       // OTP cells + Android SMS autofill bar sit below the caret; keep a generous gap.
-      bottomOffset={spacing.xxxl + spacing.md}
+      bottomOffset={bottomOffset}
       extraKeyboardSpace={spacing.lg}
       mode="insets"
       keyboardShouldPersistTaps="always"

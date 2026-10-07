@@ -24,6 +24,30 @@ function timingSafeEqual(a: string, b: string): boolean {
   return out === 0;
 }
 
+async function enqueuePaymentDocumentsEmail(
+  bookingId: string | null | undefined,
+  paymentId: string | null | undefined,
+): Promise<void> {
+  if (!bookingId) return;
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceKey) return;
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/send-customer-payment-documents`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceKey}`,
+        apikey: serviceKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ bookingId, paymentId: paymentId ?? null }),
+    });
+    if (!res.ok) console.error("send-customer-payment-documents", res.status);
+  } catch (error) {
+    console.error("send-customer-payment-documents", error instanceof Error ? error.message : error);
+  }
+}
+
 function basicAuthHeader(keyId: string, keySecret: string): string {
   return `Basic ${btoa(`${keyId}:${keySecret}`)}`;
 }
@@ -117,6 +141,7 @@ Deno.serve(async (req: Request) => {
 
   // Already captured via webhook — race-safe success.
   if (payRow.status === "success" || payRow.status === "partially_refunded") {
+    await enqueuePaymentDocumentsEmail(payRow.booking_id, payRow.id);
     return json({
       ok: true,
       status: payRow.status,
@@ -157,6 +182,8 @@ Deno.serve(async (req: Request) => {
       p_method_type: rzJson.method ?? null,
     });
     if (error) return json({ ok: false, error: error.message }, 500);
+    const fulfilled = (data ?? {}) as { booking_id?: string | null; payment_id?: string | null };
+    await enqueuePaymentDocumentsEmail(fulfilled.booking_id ?? payRow.booking_id, fulfilled.payment_id ?? payRow.id);
     return json({
       ok: true,
       status: "success",

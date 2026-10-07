@@ -36,6 +36,42 @@ function statusTone(status: VendorSettlementStatus): "neutral" | "warning" | "su
   return "warning";
 }
 
+function kpiMoney(
+  query: { isPending: boolean; isError: boolean; isSuccess: boolean },
+  paise: number | undefined,
+): string {
+  if (query.isPending) return "…";
+  if (query.isError || !query.isSuccess) return "-";
+  return formatInrFromPaise(paise ?? 0);
+}
+
+function splitHint(
+  query: { isPending: boolean; isSuccess: boolean },
+  amcPaise: number | undefined,
+  oneTimePaise: number | undefined,
+  otherPaise = 0,
+  amcLabel = "AMC",
+  oneTimeLabel = "One-time",
+): string {
+  if (query.isPending || !query.isSuccess) return "";
+  const parts = [
+    `${amcLabel} ${formatInrFromPaise(amcPaise ?? 0)}`,
+    `${oneTimeLabel} ${formatInrFromPaise(oneTimePaise ?? 0)}`,
+  ];
+  if (otherPaise > 0) parts.push(`Other ${formatInrFromPaise(otherPaise)}`);
+  return parts.join(" · ");
+}
+
+function FinanceKpi({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return (
+    <div className="fin-kpi">
+      <span className="fin-kpi-label">{label}</span>
+      <span className="fin-kpi-value">{value}</span>
+      {hint ? <span className="fin-kpi-hint">{hint}</span> : null}
+    </div>
+  );
+}
+
 function settlementLoadErrorMessage(error: unknown): string {
   const msg = error instanceof Error ? error.message : String(error);
   if (msg.includes("vendor_settlements") || msg.includes("42P01") || msg.includes("does not exist")) {
@@ -141,7 +177,7 @@ export function FinanceSettlementsPage() {
     <div className="dash-page fin-page">
       <PageHeader
         title="Finance & settlements"
-        subtitle="All collections flow through OorjaMan. Recognized revenue is the platform fee when you mark a visit payout settled (AMC and one-time)."
+        subtitle="Customer payments are collected by OorjaMan. Recognized revenue is the platform fee on each completed visit. Settled revenue is that fee after the partner payout is marked settled. Prepaid AMC stays held until those visits happen."
         actions={
           <>
           <Link to="/dashboard/finance/payments" className="fin-amc-wallets-link">
@@ -172,9 +208,9 @@ export function FinanceSettlementsPage() {
           <Card padded>
             <h2 className="fin-settings-title">Platform settings</h2>
             <p className="dash-muted-line fin-settings-help">
-              Commission on the GST-exclusive visit value (18% GST stripped from catalogue gross). One-time checkout
-              price or AMC per-visit allocation. Snapshotted when the
-              payout row is created at visit completion. Revenue is recognized only after you mark the payout settled.
+              Commission on the GST-exclusive visit value (18% GST stripped from the catalogue price), for a one-time
+              checkout or an AMC visit. The percent is saved on the payout row when the visit is completed, and that fee
+              is recognized then. Marking the payout settled records that the partner has been paid.
             </p>
             {platformSettingsQ.isPending ? (
               <p className="dash-muted-line">Loading platform settings…</p>
@@ -240,80 +276,76 @@ export function FinanceSettlementsPage() {
           </Card>
 
           <div className="fin-kpi-grid" aria-label="Finance summary">
-            <div className="fin-kpi">
-              <span className="fin-kpi-label">Recognized revenue</span>
-              <span className="fin-kpi-value">
-                {financeDashboardQ.isPending
-                  ? "…"
-                  : financeDashboardQ.isError
-                    ? "-"
-                    : formatInrFromPaise(financeDashboardQ.data?.total_revenue_cents ?? 0)}
-              </span>
-              <span className="dash-muted-line" style={{ fontSize: "0.75rem", marginTop: "0.2rem" }}>
-                Settled platform fees · AMC{" "}
-                {financeDashboardQ.isSuccess
-                  ? formatInrFromPaise(financeDashboardQ.data.amc_revenue_cents)
-                  : "…"}{" "}
-                · One-time{" "}
-                {financeDashboardQ.isSuccess
-                  ? formatInrFromPaise(financeDashboardQ.data.one_time_revenue_cents)
-                  : "…"}
-              </span>
-            </div>
-            <div className="fin-kpi">
-              <span className="fin-kpi-label">Total collections</span>
-              <span className="fin-kpi-value">
-                {financeDashboardQ.isPending
-                  ? "…"
-                  : formatInrFromPaise(financeDashboardQ.data?.total_collections_cents ?? 0)}
-              </span>
-              <span className="dash-muted-line" style={{ fontSize: "0.75rem", marginTop: "0.2rem" }}>
-                AMC contracts{" "}
-                {financeDashboardQ.isSuccess
-                  ? formatInrFromPaise(financeDashboardQ.data.amc_contract_collections_cents)
-                  : "…"}
-              </span>
-            </div>
-            <div className="fin-kpi">
-              <span className="fin-kpi-label">AMC deferred liability</span>
-              <span className="fin-kpi-value">
-                {financeDashboardQ.isPending
-                  ? "…"
-                  : formatInrFromPaise(financeDashboardQ.data?.amc_deferred_liability_paise ?? 0)}
-              </span>
-              <span className="dash-muted-line" style={{ fontSize: "0.75rem", marginTop: "0.2rem" }}>
-                Prepaid AMC not yet released to partners
-              </span>
-            </div>
-            <div className="fin-kpi">
-              <span className="fin-kpi-label">Vendor payables pending</span>
-              <span className="fin-kpi-value">
-                {financeDashboardQ.isPending
-                  ? "…"
-                  : formatInrFromPaise(
-                      (financeDashboardQ.data?.amc_vendor_payables_pending_paise ?? 0) +
-                        (financeDashboardQ.data?.one_time_vendor_payables_pending_paise ?? 0),
-                    )}
-              </span>
-              <span className="dash-muted-line" style={{ fontSize: "0.75rem", marginTop: "0.2rem" }}>
-                AMC{" "}
-                {financeDashboardQ.isSuccess
-                  ? formatInrFromPaise(financeDashboardQ.data.amc_vendor_payables_pending_paise)
-                  : "…"}{" "}
-                · One-time{" "}
-                {financeDashboardQ.isSuccess
-                  ? formatInrFromPaise(financeDashboardQ.data.one_time_vendor_payables_pending_paise)
-                  : "…"}
-              </span>
-            </div>
-            <div className="fin-kpi">
-              <span className="fin-kpi-label">Payouts to review</span>
-              <span className="fin-kpi-value">{pendingPayouts}</span>
-            </div>
-            <div className="fin-kpi">
-              <span className="fin-kpi-label">Penalties to review</span>
-              <span className="fin-kpi-value">{pendingPenalties}</span>
-            </div>
+            <FinanceKpi
+              label="Recognized revenue"
+              value={kpiMoney(financeDashboardQ, financeDashboardQ.data?.recognized_revenue_paise)}
+              hint={`${
+                platformSettingsQ.isSuccess ? `OorjaMan's ${platformFeePercent}%` : "OorjaMan's platform fee"
+              } on each completed visit. Earned when the visit finishes, including payouts still waiting to be marked settled. ${splitHint(
+                financeDashboardQ,
+                financeDashboardQ.data?.recognized_amc_revenue_paise,
+                financeDashboardQ.data?.recognized_one_time_revenue_paise,
+                (financeDashboardQ.data?.recognized_revenue_paise ?? 0) -
+                  (financeDashboardQ.data?.recognized_amc_revenue_paise ?? 0) -
+                  (financeDashboardQ.data?.recognized_one_time_revenue_paise ?? 0),
+              )}`}
+            />
+            <FinanceKpi
+              label="Settled revenue"
+              value={kpiMoney(financeDashboardQ, financeDashboardQ.data?.total_revenue_cents)}
+              hint={`Platform fee already marked settled with the partner. ${splitHint(
+                financeDashboardQ,
+                financeDashboardQ.data?.amc_revenue_cents,
+                financeDashboardQ.data?.one_time_revenue_cents,
+                (financeDashboardQ.data?.total_revenue_cents ?? 0) -
+                  (financeDashboardQ.data?.amc_revenue_cents ?? 0) -
+                  (financeDashboardQ.data?.one_time_revenue_cents ?? 0),
+              )}`}
+            />
+            <FinanceKpi
+              label="Customer payments"
+              value={kpiMoney(financeDashboardQ, financeDashboardQ.data?.total_collections_cents)}
+              hint={`Money received from customers. This includes the partner's share, not only OorjaMan's fee. ${splitHint(
+                financeDashboardQ,
+                financeDashboardQ.data?.amc_contract_collections_cents,
+                Math.max(
+                  0,
+                  (financeDashboardQ.data?.total_collections_cents ?? 0) -
+                    (financeDashboardQ.data?.amc_contract_collections_cents ?? 0),
+                ),
+                0,
+                "AMC plans",
+                "One-time visits",
+              )}`}
+            />
+            <FinanceKpi
+              label="AMC prepaid still held"
+              value={kpiMoney(financeDashboardQ, financeDashboardQ.data?.amc_deferred_liability_paise)}
+              hint="Customers paid this up front for AMC visits that have not happened yet. It is not OorjaMan income. When a visit is completed, the partner is paid and OorjaMan's fee is recognized. This is what has not been released."
+            />
+            <FinanceKpi
+              label="Still to pay partners"
+              value={kpiMoney(
+                financeDashboardQ,
+                (financeDashboardQ.data?.amc_vendor_payables_pending_paise ?? 0) +
+                  (financeDashboardQ.data?.one_time_vendor_payables_pending_paise ?? 0),
+              )}
+              hint={`Partner share on finished visits that is not marked settled yet. ${splitHint(
+                financeDashboardQ,
+                financeDashboardQ.data?.amc_vendor_payables_pending_paise,
+                financeDashboardQ.data?.one_time_vendor_payables_pending_paise,
+              )}`}
+            />
+            <FinanceKpi
+              label="Payouts to review"
+              value={String(pendingPayouts)}
+              hint="Visit payouts waiting for approval."
+            />
+            <FinanceKpi
+              label="Penalties to review"
+              value={String(pendingPenalties)}
+              hint="Cancellation charges waiting for a decision."
+            />
           </div>
 
           {backfillMut.isSuccess ? (
@@ -460,10 +492,10 @@ function SettlementRow({
         row.status === "settled"
           ? isPartnerHeld
             ? " · Fee collected from vendor"
-            : " · Revenue recognized"
+            : " · Fee settled"
           : isPartnerHeld
-            ? " · Fee receivable pending settle"
-            : " · Revenue pending settle"
+            ? " · Fee receivable, not settled"
+            : " · Fee earned, payout not settled"
       }`
       : `Assessed ${formatInrFromPaise(row.penalty_assessed_paise ?? 0)}`;
 

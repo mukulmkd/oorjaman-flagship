@@ -2947,4 +2947,30 @@ with check (
   )
 );
 
+alter table internal.push_dispatch enable row level security;
+
+-- ----- 20261007144157_state_ops_vendor_settlement_update.sql -----
+drop policy if exists vendor_settlements_update_state_ops on public.vendor_settlements;
+
+create policy vendor_settlements_update_state_ops
+on public.vendor_settlements for update to authenticated
+using (
+  public.is_state_ops()
+  and exists (
+    select 1
+    from public.bookings b
+    where b.id = vendor_settlements.booking_id
+      and public.state_in_my_operation(b.service_site_address->>'state')
+  )
+)
+with check (
+  public.is_state_ops()
+  and exists (
+    select 1
+    from public.bookings b
+    where b.id = vendor_settlements.booking_id
+      and public.state_in_my_operation(b.service_site_address->>'state')
+  )
+);
+
 -- End of policies (generated)

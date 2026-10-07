@@ -22,13 +22,15 @@ const routerOrigin = isUat
 
 const easProjectId =
   process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim() || "a89deab7-9f4e-4411-a533-061002c8b049";
+/** Path to google-services.json. Set on the EAS production environment; omitted for UAT. */
+const googleServicesFile = process.env.GOOGLE_SERVICES_JSON?.trim();
 
 const config: ExpoConfig = {
   // Home-screen label on iOS (CFBundleDisplayName) and Android (app_name).
   name: displayName,
   slug: "technician-app",
   scheme: isUat ? "oorjaman-technician-uat" : "oorjaman-technician",
-  version: "1.0.0",
+  version: "1.0.1",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   userInterfaceStyle: "automatic",
@@ -49,6 +51,7 @@ const config: ExpoConfig = {
       backgroundColor: "#ffffff",
     },
     package: isUat ? "com.oorjaman.technician.uat" : "com.oorjaman.technician",
+    ...(!isUat && googleServicesFile ? { googleServicesFile } : {}),
     softwareKeyboardLayoutMode: "resize",
     permissions: ["android.permission.CAMERA"],
   },

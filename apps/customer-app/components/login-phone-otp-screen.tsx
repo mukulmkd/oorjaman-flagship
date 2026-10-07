@@ -41,6 +41,8 @@ import { supabase } from "../lib/supabase";
 
 const OTP_LEN = 6;
 const RESEND_SEC = 48;
+/** Keep the one-time code and verify button above the keyboard. */
+const LOGIN_KEYBOARD_BOTTOM_OFFSET = 280;
 
 export type LoginPhoneOtpScreenProps = {
   /** Mobile OTP | Email method switcher. */
@@ -181,6 +183,7 @@ export function LoginPhoneOtpScreen({
   return (
     <KeyboardFormScreen
       keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      bottomOffset={LOGIN_KEYBOARD_BOTTOM_OFFSET}
       webVariant="auth"
       centerVertically
       contentContainerStyle={[

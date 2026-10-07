@@ -1812,6 +1812,9 @@ export type Database = {
           amc_deferred_liability_paise: number;
           amc_vendor_payables_pending_paise: number;
           one_time_vendor_payables_pending_paise: number;
+          recognized_revenue_paise: number;
+          recognized_amc_revenue_paise: number;
+          recognized_one_time_revenue_paise: number;
         };
         Relationships: [];
       };

@@ -23,6 +23,30 @@ type PaymentLinkEntity = {
   notes?: Record<string, string>;
 };
 
+async function enqueuePaymentDocumentsEmail(
+  bookingId: string | null | undefined,
+  paymentId: string | null | undefined,
+): Promise<void> {
+  if (!bookingId) return;
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceKey) return;
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/send-customer-payment-documents`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceKey}`,
+        apikey: serviceKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ bookingId, paymentId: paymentId ?? null }),
+    });
+    if (!res.ok) console.error("send-customer-payment-documents", res.status);
+  } catch (error) {
+    console.error("send-customer-payment-documents", error instanceof Error ? error.message : error);
+  }
+}
+
 type RefundEntity = {
   id?: string;
   payment_id?: string;
@@ -318,6 +342,8 @@ Deno.serve(async (req: Request) => {
       await releaseClaim();
       return json({ ok: false, error: error.message }, 500);
     }
+    const fulfilled = (data ?? {}) as { booking_id?: string | null; payment_id?: string | null };
+    await enqueuePaymentDocumentsEmail(fulfilled.booking_id, fulfilled.payment_id);
     return json({ ok: true, event, result: data });
   }
 

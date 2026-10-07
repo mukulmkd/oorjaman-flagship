@@ -269,6 +269,10 @@ export type FinanceDashboardStats = RecognizedRevenueStats & {
   amc_deferred_liability_paise: number;
   amc_vendor_payables_pending_paise: number;
   one_time_vendor_payables_pending_paise: number;
+  /** Platform fee on completed visits, plus settled penalties and late-cancel fees. */
+  recognized_revenue_paise: number;
+  recognized_amc_revenue_paise: number;
+  recognized_one_time_revenue_paise: number;
 };
 
 /** Settled platform fees (visit payouts + penalties) + customer late-cancel fees. */
@@ -290,7 +294,7 @@ export async function adminFetchRecognizedRevenueStats(
   };
 }
 
-/** Finance tab KPIs: collections, settled revenue split, AMC liability, vendor payables. */
+/** Finance tab KPIs: collections, recognized vs settled revenue, AMC held balance, vendor payables. */
 export async function adminFetchFinanceDashboardStats(
   client: SupabaseClient<Database>,
 ): Promise<FinanceDashboardStats> {
@@ -305,6 +309,9 @@ export async function adminFetchFinanceDashboardStats(
     amc_deferred_liability_paise?: number;
     amc_vendor_payables_pending_paise?: number;
     one_time_vendor_payables_pending_paise?: number;
+    recognized_revenue_paise?: number;
+    recognized_amc_revenue_paise?: number;
+    recognized_one_time_revenue_paise?: number;
   };
   return {
     total_revenue_cents: Number(row.total_revenue_cents) || 0,
@@ -316,6 +323,9 @@ export async function adminFetchFinanceDashboardStats(
     amc_deferred_liability_paise: Number(row.amc_deferred_liability_paise) || 0,
     amc_vendor_payables_pending_paise: Number(row.amc_vendor_payables_pending_paise) || 0,
     one_time_vendor_payables_pending_paise: Number(row.one_time_vendor_payables_pending_paise) || 0,
+    recognized_revenue_paise: Number(row.recognized_revenue_paise) || 0,
+    recognized_amc_revenue_paise: Number(row.recognized_amc_revenue_paise) || 0,
+    recognized_one_time_revenue_paise: Number(row.recognized_one_time_revenue_paise) || 0,
   };
 }
 

@@ -43,6 +43,19 @@ function isAuthorized(req: Request, dispatchSecret: string | undefined): boolean
   return authHeader === `Bearer ${serviceKey}`;
 }
 
+async function storedDispatchSecretOk(
+  admin: ReturnType<typeof createClient>,
+  audience: "customer" | "technician",
+  header: string | null,
+): Promise<boolean> {
+  if (!header) return false;
+  const { data, error } = await admin.rpc("push_dispatch_secret_ok", {
+    p_audience: audience,
+    p_secret: header,
+  });
+  return !error && data === true;
+}
+
 Deno.serve(async (req: Request) => {
   const cors = resolveCors(req);
   const json = (body: Record<string, unknown>, status = 200): Response =>
@@ -58,11 +71,6 @@ Deno.serve(async (req: Request) => {
     return json({ ok: false, error: "Method not allowed" }, 405);
   }
 
-  const dispatchSecret = Deno.env.get("PUSH_DISPATCH_SECRET");
-  if (!isAuthorized(req, dispatchSecret)) {
-    return json({ ok: false, error: "Unauthorized" }, 401);
-  }
-
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseUrl || !serviceKey) {
@@ -70,6 +78,13 @@ Deno.serve(async (req: Request) => {
   }
 
   const admin = createClient(supabaseUrl, serviceKey);
+  const dispatchSecret = Deno.env.get("PUSH_DISPATCH_SECRET");
+  const allowed =
+    isAuthorized(req, dispatchSecret) ||
+    (await storedDispatchSecretOk(admin, "technician", req.headers.get("x-push-dispatch-secret")));
+  if (!allowed) {
+    return json({ ok: false, error: "Unauthorized" }, 401);
+  }
   const rateLimited = await enforceEdgeRateLimit({
     admin,
     req,
@@ -87,26 +102,13 @@ Deno.serve(async (req: Request) => {
   }
 
   const limit = Math.max(1, Math.min(100, Math.round(Number(body.limit ?? 25))));
-  const nowIso = new Date().toISOString();
 
-  let query = admin
-    .from("technician_push_outbox")
-    .select("id, user_id, title, body, data, status, attempt_count")
-    .eq("status", "queued")
-    .lte("next_attempt_at", nowIso)
-    .order("created_at", { ascending: true })
-    .limit(limit);
-
-  if (body.outbox_id) {
-    query = admin
-      .from("technician_push_outbox")
-      .select("id, user_id, title, body, data, status, attempt_count")
-      .eq("id", body.outbox_id)
-      .limit(1);
-  }
-
-  const { data: rows, error: fetchErr } = await query;
-  if (fetchErr) return json({ ok: false, error: fetchErr.message }, 500);
+  const claim = await admin.rpc("claim_technician_push_outbox", {
+    p_id: body.outbox_id ?? null,
+    p_limit: limit,
+  });
+  if (claim.error) return json({ ok: false, error: claim.error.message }, 500);
+  const rows = (claim.data ?? []) as OutboxRow[];
 
   const expoAccessToken = Deno.env.get("EXPO_ACCESS_TOKEN");
   let sent = 0;
@@ -206,6 +208,7 @@ async function markSent(
       status: "sent",
       attempt_count: attempt,
       sent_at: new Date().toISOString(),
+      claimed_at: null,
       last_error: null,
     })
     .eq("id", id);
@@ -225,6 +228,7 @@ async function markFailed(
       status: terminal ? "failed" : "queued",
       attempt_count: attempt,
       next_attempt_at: retryAt,
+      claimed_at: null,
       last_error: message.slice(0, 500),
     })
     .eq("id", id);

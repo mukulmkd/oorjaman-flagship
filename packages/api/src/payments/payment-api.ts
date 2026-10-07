@@ -10,6 +10,21 @@ import { listPaymentsForBooking } from "./payment-queries";
 
 export { listPaymentsForBooking } from "./payment-queries";
 
+async function enqueuePaymentDocumentsEmail(
+  client: SupabaseClient<Database>,
+  bookingId: string | null | undefined,
+  paymentId?: string | null,
+): Promise<void> {
+  if (!bookingId) return;
+  try {
+    await client.functions.invoke("send-customer-payment-documents", {
+      body: { bookingId, paymentId: paymentId ?? null },
+    });
+  } catch {
+    // Payment is already recorded. A mail failure must not undo it.
+  }
+}
+
 async function getCustomerIdForSession(client: SupabaseClient<Database>): Promise<string> {
   const { data: userData } = await client.auth.getUser();
   const uid = requireSessionUserId(userData.user?.id);
@@ -249,6 +264,7 @@ export async function completeDummyPaymentSuccess(
 
   const { postBookingConfirmedNotifications } = await import("../bookings/booking-confirm-notifications");
   const notifiedBooking = await postBookingConfirmedNotifications(client, booking);
+  await enqueuePaymentDocumentsEmail(client, notifiedBooking.id, payUpdated.id);
 
   return { booking: notifiedBooking, payment: payUpdated as PaymentRow };
 }
@@ -289,7 +305,9 @@ export async function createPaidOneTimeBookingCheckout(
     .select()
     .single();
 
-  return { booking, payment: takeSingleRow(data, error) as PaymentRow };
+  const payment = takeSingleRow(data, error) as PaymentRow;
+  await enqueuePaymentDocumentsEmail(client, booking.id, payment.id);
+  return { booking, payment };
 }
 
 export type RazorpayCheckoutSession = {
@@ -433,8 +451,17 @@ export async function finalizeRazorpayOneTimeAfterCapture(
   const { postBookingConfirmedNotifications } = await import("../bookings/booking-confirm-notifications");
   const notified = await postBookingConfirmedNotifications(client, booking as BookingRow);
 
+  const { data: freshBooking } = await client
+    .from("bookings")
+    .select("metadata")
+    .eq("id", notified.id)
+    .maybeSingle();
+  const freshMeta =
+    freshBooking?.metadata && typeof freshBooking.metadata === "object" && !Array.isArray(freshBooking.metadata)
+      ? (freshBooking.metadata as Record<string, unknown>)
+      : meta;
   const nextMeta = {
-    ...meta,
+    ...freshMeta,
     razorpay: { ...rz, confirm_notifications_at: new Date().toISOString() },
   };
   const { data: patched, error: patchErr } = await client
@@ -663,6 +690,9 @@ export async function markPartnerCollectedPayment(
     settlement_id?: string;
     already?: boolean;
   } | null;
+  if (row?.ok) {
+    await enqueuePaymentDocumentsEmail(client, params.bookingId, row.payment_id);
+  }
   return {
     ok: Boolean(row?.ok),
     paymentId: row?.payment_id,

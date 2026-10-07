@@ -92,7 +92,7 @@ function downloadAnalyticsSnapshotCsv(payload: {
   lines.push(`summary,total_bookings,${payload.bookingStats.total_bookings}`);
   lines.push(`summary,completed_bookings,${payload.bookingStats.completed_bookings}`);
   lines.push(`summary,pending_bookings,${payload.bookingStats.pending_bookings}`);
-  lines.push(`summary,recognized_revenue_paise,${payload.recognizedRevenue.total_revenue_cents}`);
+  lines.push(`summary,settled_revenue_paise,${payload.recognizedRevenue.total_revenue_cents}`);
   lines.push(`summary,total_payments_paise,${payload.payments.total_payments_cents}`);
   lines.push(`summary,active_subscriptions,${payload.subscriptionStats.active_subscriptions}`);
   lines.push(`summary,upcoming_subscription_visits,${payload.subscriptionStats.upcoming_services}`);
@@ -273,12 +273,12 @@ export function AnalyticsDashboardPage() {
               </p>
             </article>
             <article className="analytics-kpi">
-              <p className="analytics-kpi-label">Recognized revenue</p>
+              <p className="analytics-kpi-label">Settled revenue</p>
               <p className="analytics-kpi-value">
                 {formatInrFromPaise(dashboardQuery.data.recognizedRevenue.total_revenue_cents)}
               </p>
               <p className="analytics-kpi-hint">
-                Settled platform fees · AMC {formatInrFromPaise(dashboardQuery.data.recognizedRevenue.amc_revenue_cents)}{" "}
+                Platform fee marked settled · AMC {formatInrFromPaise(dashboardQuery.data.recognizedRevenue.amc_revenue_cents)}{" "}
                 · One-time {formatInrFromPaise(dashboardQuery.data.recognizedRevenue.one_time_revenue_cents)}
               </p>
             </article>
@@ -327,7 +327,7 @@ export function AnalyticsDashboardPage() {
               <p className="analytics-window-kpi-value">{formatCompact(windowTotals.bookings)}</p>
             </article>
             <article className="analytics-window-kpi">
-              <p className="analytics-window-kpi-label">Recognized revenue in view</p>
+              <p className="analytics-window-kpi-label">Settled revenue in view</p>
               <p className="analytics-window-kpi-value">{formatInrFromPaise(windowTotals.revenue_cents)}</p>
             </article>
           </section>
@@ -394,8 +394,8 @@ export function AnalyticsDashboardPage() {
             </Card>
 
             <Card padded className="analytics-chart-card">
-              <h2 className="analytics-chart-title">Recognized revenue</h2>
-              <p className="analytics-chart-sub">Successful payments · {ANALYTICS_BUSINESS_PERIOD_LABELS[chartPeriod]} (IST).</p>
+              <h2 className="analytics-chart-title">Settled revenue</h2>
+              <p className="analytics-chart-sub">Platform fee marked settled · {ANALYTICS_BUSINESS_PERIOD_LABELS[chartPeriod]} (IST).</p>
               <div className="analytics-chart-wrap">
                 <ResponsiveContainer width="100%" height={280}>
                   {useBarCharts ? (

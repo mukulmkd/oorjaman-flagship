@@ -380,6 +380,21 @@ verify_jwt = false
 [functions.delete-technician-account]
 verify_jwt = true
 
+# Database trigger and retry job authenticate with x-push-dispatch-secret, not a user JWT.
+[functions.send-customer-expo-push]
+verify_jwt = false
+
+[functions.send-technician-expo-push]
+verify_jwt = false
+
+# Customer service summary after a visit is marked complete. Caller JWT is checked in the function.
+[functions.send-customer-service-summary]
+verify_jwt = true
+
+# Tax invoice and partner receipt after a booking payment succeeds. Caller JWT is checked in the function.
+[functions.send-customer-payment-documents]
+verify_jwt = true
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

@@ -1266,6 +1266,13 @@ export async function technicianFinalizeJobReport(
     });
   }
   await ensureVisitPayoutSettlement(client, completed);
+  try {
+    await client.functions.invoke("send-customer-service-summary", {
+      body: { bookingId: completed.id },
+    });
+  } catch {
+    // The visit is already complete. A mail failure must not block the technician.
+  }
   return { booking: completed, report };
 }
 

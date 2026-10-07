@@ -8,6 +8,16 @@ import {
   type AmcTierRealignmentSummary,
 } from "../subscriptions/amc-tier-realignment";
 
+/** 10-digit Indian mobile required on a customer profile. Stored as +91XXXXXXXXXX. */
+function requireCustomerContactMobile(raw: string | null | undefined): string {
+  const digits = (raw ?? "").replace(/\D/g, "");
+  const national = digits.length === 12 && digits.startsWith("91") ? digits.slice(2) : digits;
+  if (!/^[6-9]\d{9}$/.test(national)) {
+    throw new SupabaseApiError("Enter a 10-digit mobile number.");
+  }
+  return `+91${national}`;
+}
+
 /** Current user's customer profile (if role customer). */
 export async function getMyCustomer(
   client: SupabaseClient<Database>,
@@ -295,7 +305,7 @@ export async function updateCustomerProfileAfterOnboarding(
     .update({
       display_name: input.display_name.trim(),
       contact_email: input.contact_email?.trim() ?? null,
-      alternate_phone: input.alternate_phone?.trim() || null,
+      alternate_phone: requireCustomerContactMobile(input.alternate_phone),
       billing_address: billingAddress,
       service_default_address: serviceDefaultAddress,
       service_lat: input.service_lat ?? null,
@@ -353,7 +363,7 @@ export async function completeCustomerOnboarding(
     user_id: userId,
     display_name: input.display_name.trim(),
     contact_email: input.contact_email?.trim() ?? null,
-    alternate_phone: input.alternate_phone?.trim() || null,
+    alternate_phone: requireCustomerContactMobile(input.alternate_phone),
     billing_address: input.billing_address ?? null,
     service_default_address: input.service_default_address,
     service_lat: input.service_lat ?? null,
@@ -386,7 +396,7 @@ export async function completeCustomerOnboarding(
     .update({
       display_name: row.display_name,
       contact_email: row.contact_email,
-      alternate_phone: row.alternate_phone,
+      alternate_phone: requireCustomerContactMobile(row.alternate_phone),
       billing_address: row.billing_address,
       service_default_address: row.service_default_address,
       service_lat: row.service_lat,

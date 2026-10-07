@@ -342,7 +342,7 @@ export default function ProfileTab() {
     if (pincode.length !== 6) throw new Error("Enter a 6-digit PIN code.");
     const siteAddress = addrToJson({ ...addr, pincode });
     if (alternatePhone.replace(/\D/g, "").length < 10) {
-      throw new Error("Enter a 10-digit mobile number so crews can reach you.");
+      throw new Error("Enter a 10-digit mobile number. It is saved on this account.");
     }
 
     let lastCleaningIso: string | null = null;
@@ -415,6 +415,7 @@ export default function ProfileTab() {
       pinValueRef.current = saved.addr.pincode;
       setAddr(saved.addr);
       await qc.invalidateQueries({ queryKey: queryKeys.customers.mine() });
+      await qc.invalidateQueries({ queryKey: queryKeys.users.me() });
       await qc.invalidateQueries({ queryKey: queryKeys.subscriptions.all() });
       qc.setQueryData(queryKeys.customers.mine(), result.customer);
       const realign = result.amc_realignments;
@@ -653,7 +654,7 @@ export default function ProfileTab() {
         contentContainerStyle={styles.scroll}
       >
           <Text style={styles.lede}>
-            Sign-in uses email OTP. Contact mobile is for crews and visit coordination — you can update it anytime.
+            Email sign-in stays. Your contact mobile is required, and it is saved on this same account for mobile sign-in.
           </Text>
 
           <View style={styles.section}>

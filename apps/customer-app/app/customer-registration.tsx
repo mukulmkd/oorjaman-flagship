@@ -139,7 +139,7 @@ export default function CustomerRegistrationScreen() {
       }
       if (!addr.label.trim()) throw new Error("Enter a short site label (e.g. Home, Factory).");
       if (alternatePhone.replace(/\D/g, "").length < 10) {
-        throw new Error("Enter a 10-digit mobile number so crews can reach you.");
+        throw new Error("Enter a 10-digit mobile number. It is saved on this account.");
       }
 
       let lastCleaningIso: string | null = null;
@@ -349,10 +349,10 @@ export default function CustomerRegistrationScreen() {
                   value={alternatePhone}
                   onChangeText={(t) => setAlternatePhone(t.replace(/\D/g, "").slice(0, 15))}
                   keyboardType="number-pad"
-                  placeholder="10-digit number for visit contact"
+                  placeholder="10-digit mobile number"
                 />
                 <Text style={styles.fieldHint}>
-                  For crews and visit coordination. Sign-in stays on email OTP.
+                  Required. Crews use this number, and it stays on this same account for mobile sign-in.
                 </Text>
               </>
             ) : null}
