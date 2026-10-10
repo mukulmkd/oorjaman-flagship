@@ -13,6 +13,7 @@ import {
   settlementCustomerPaidToLabel,
   settlementDisplayAmountPaise,
   settlementKindLabel,
+  settlementRemittancePending,
   settlementStatusLabel,
   settlementVisitChannelLabel,
   visitGrossTaxableValuePaise,
@@ -168,7 +169,47 @@ export function FinanceSettlementsPage() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.finance.all() }),
   });
 
-  const pendingPayouts = rows.filter((r) => r.kind === "visit_payout" && r.status === "pending_review").length;
+  const heldQuery = useQuery({
+    queryKey: ["finance", "technician-held"] as const,
+    queryFn: async () => {
+      const { data, error } = await supabase!
+        .from("vendor_settlements")
+        .select("*")
+        .eq("remittance_status", "pending")
+        .order("remittance_held_since", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: Boolean(supabase),
+  });
+
+  const heldRows = heldQuery.data ?? [];
+  const heldTechnicianIds = [...new Set(heldRows.map((r) => r.held_by_technician_id).filter(Boolean))] as string[];
+
+  const techniciansQuery = useQuery({
+    queryKey: ["finance", "held-technicians", ...heldTechnicianIds],
+    queryFn: async () => {
+      const { data, error } = await supabase!
+        .from("technicians")
+        .select("id, name_as_per_aadhaar")
+        .in("id", heldTechnicianIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: Boolean(supabase && heldTechnicianIds.length > 0),
+  });
+
+  const technicianNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of techniciansQuery.data ?? []) {
+      map.set(t.id, t.name_as_per_aadhaar?.trim() || "Technician");
+    }
+    return map;
+  }, [techniciansQuery.data]);
+
+  const pendingPayouts = rows.filter(
+    (r) => r.kind === "visit_payout" && r.status === "pending_review" && !settlementRemittancePending(r),
+  ).length;
   const pendingPenalties = rows.filter(
     (r) => r.kind === "cancellation_penalty" && r.status === "pending_review",
   ).length;
@@ -361,6 +402,51 @@ export function FinanceSettlementsPage() {
           ) : null}
 
           <Card padded={false}>
+            <div className="fin-held-head">
+              <h2 className="fin-held-title">Held by technician</h2>
+              <p className="fin-held-copy">
+                The customer paid the technician. The full visit amount stays here until they transfer it to
+                OorjaMan. After it arrives, the partner share is in the table below. Pay each vendor once a month,
+                then mark those rows settled.
+              </p>
+            </div>
+            {heldQuery.isError ? (
+              <p className="fin-error">{heldQuery.error instanceof Error ? heldQuery.error.message : "Could not load held amounts."}</p>
+            ) : heldRows.length === 0 ? (
+              <p className="bm-empty">No visit amounts are waiting with a technician.</p>
+            ) : (
+              <div className="bm-table-wrap">
+                <table className="bm-table fin-table">
+                  <thead>
+                    <tr>
+                      <th>Visit</th>
+                      <th>Technician</th>
+                      <th>Partner</th>
+                      <th>Amount held</th>
+                      <th>Since</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {heldRows.map((row) => (
+                      <tr key={row.id}>
+                        <td className="bm-cell-mono">{row.reference_code ?? row.booking_id.slice(0, 8)}</td>
+                        <td>
+                          {row.held_by_technician_id
+                            ? technicianNameById.get(row.held_by_technician_id) ?? "Technician"
+                            : "Unassigned"}
+                        </td>
+                        <td>{vendorNameById.get(row.vendor_id) ?? "Partner"}</td>
+                        <td className="fin-amount-payout">{formatInrFromPaise(row.visit_gross_paise ?? 0)}</td>
+                        <td>{row.remittance_held_since ? formatDisplayDateTime(row.remittance_held_since) : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+
+          <Card padded={false}>
             <div className="fin-toolbar">
               <div className="fin-field">
                 <label className="fin-field-label" htmlFor="fin-filter-kind">
@@ -474,6 +560,7 @@ function SettlementRow({
   const amount = settlementDisplayAmountPaise(row);
   const isPenalty = row.kind === "cancellation_penalty";
   const isPartnerHeld = row.kind === "visit_payout" && row.customer_paid_to === "partner";
+  const remitPending = settlementRemittancePending(row);
   const feePercent =
     row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
       ? (row.metadata as Record<string, unknown>).platform_fee_percent
@@ -488,8 +575,14 @@ function SettlementRow({
       ? `Gross ${formatInrFromPaise(row.visit_gross_paise ?? 0)} · Fee base (ex-GST) ${formatInrFromPaise(
           typeof taxableValuePaise === "number" ? taxableValuePaise : visitGrossTaxableValuePaise(row.visit_gross_paise ?? 0),
         )} · OorjaMan fee ${formatInrFromPaise(row.platform_fee_paise ?? 0)}${typeof feePercent === "number" ? ` (${feePercent}%)` : ""
-      } · ${settlementCustomerPaidToLabel(row.customer_paid_to)}${
-        row.status === "settled"
+      } · ${
+        remitPending
+          ? "Full amount is still with the technician"
+          : settlementCustomerPaidToLabel(row.customer_paid_to)
+      }${
+        remitPending
+          ? ""
+          : row.status === "settled"
           ? isPartnerHeld
             ? " · Fee collected from vendor"
             : " · Fee settled"
@@ -506,7 +599,7 @@ function SettlementRow({
       <td>{settlementKindLabel(row.kind)}</td>
       <td>{channelLabel ?? "-"}</td>
       <td className={isPenalty ? "fin-amount-penalty" : "fin-amount-payout"}>
-        {isPenalty ? "Charge " : isPartnerHeld ? "Collect fee " : "Pay "}
+        {isPenalty ? "Charge " : remitPending ? "Held " : isPartnerHeld ? "Collect fee " : "Pay "}
         {formatInrFromPaise(amount)}
       </td>
       <td className="fin-breakdown">{breakdown}</td>
@@ -516,6 +609,10 @@ function SettlementRow({
       <td>{formatDisplayDateTime(row.created_at)}</td>
       <td>
         <div className="fin-row-actions">
+          {remitPending ? (
+            <span className="fin-held-wait">Waiting for the technician transfer</span>
+          ) : (
+            <>
           {isPenalty && row.status === "pending_review" ? (
             <>
               <label className="fin-sr-only" htmlFor={`fin-penalty-${row.id}`}>
@@ -580,6 +677,8 @@ function SettlementRow({
               Mark settled
             </Button>
           ) : null}
+            </>
+          )}
         </div>
       </td>
     </tr>

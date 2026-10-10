@@ -30,12 +30,14 @@ export function JobListCard({
   onPress,
   cta = "View job",
   paymentDue = false,
+  paymentDueLabel = "Payment due",
 }: {
   item: BookingRow;
   onPress: () => void;
   cta?: string;
-  /** Completed postpaid visit with no successful payment yet. */
+  /** Completed postpaid visit with no successful payment yet, or a transfer still due. */
   paymentDue?: boolean;
+  paymentDueLabel?: string;
 }) {
   const opsWatch = opsWatchLabel(item);
   return (
@@ -58,7 +60,7 @@ export function JobListCard({
           <Text style={styles.serviceFor} numberOfLines={1}>
             For: {serviceForLabel(item)}
           </Text>
-          {paymentDue ? <Text style={styles.paymentDue}>Payment due</Text> : null}
+          {paymentDue ? <Text style={styles.paymentDue}>{paymentDueLabel}</Text> : null}
           {opsWatch ? <Text style={styles.opsWatch}>{opsWatch}</Text> : null}
           <Text style={styles.cta}>{cta}</Text>
         </View>

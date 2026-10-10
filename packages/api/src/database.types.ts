@@ -393,8 +393,8 @@ export type PaymentRow = {
   status: PaymentStatus;
   /** `dummy` | `razorpay` | `partner_collected` (cash/UPI held by partner). */
   provider: "dummy" | "razorpay" | "partner_collected";
-  /** Who received customer funds: oorjaman (gateway) or partner (door/UPI personal). */
-  collection_channel: "oorjaman" | "partner";
+  /** Who received customer funds: oorjaman (gateway), partner (door/UPI personal), or technician_remittance (technician sent the full amount to OorjaMan). */
+  collection_channel: "oorjaman" | "partner" | "technician_remittance";
   razorpay_order_id: string | null;
   razorpay_payment_id: string | null;
   razorpay_payment_link_id: string | null;
@@ -492,8 +492,14 @@ export type VendorSettlementRow = {
   visit_gross_paise: number | null;
   platform_fee_paise: number | null;
   net_payout_paise: number | null;
-  /** oorjaman = pay vendor net; partner = fee receivable (vendor held cash). */
+  /** oorjaman = pay vendor net; partner = fee receivable (vendor held cash) unless remittance_status is set. */
   customer_paid_to: "oorjaman" | "partner";
+  /** pending = full amount still with the technician. received = OorjaMan has it. null = not this flow. */
+  remittance_status: "pending" | "received" | null;
+  held_by_technician_id: string | null;
+  remittance_held_since: string | null;
+  remitted_at: string | null;
+  remittance_payment_id: string | null;
   penalty_assessed_paise: number | null;
   penalty_final_paise: number | null;
   admin_notes: string | null;
@@ -2060,6 +2066,19 @@ export type Database = {
           p_method?: string | null;
           p_note?: string | null;
         };
+        Returns: Json;
+      };
+      my_pending_technician_remittances: {
+        Args: Record<string, never>;
+        Returns: {
+          booking_id: string;
+          reference_code: string | null;
+          gross_paise: number | null;
+          held_since: string | null;
+        }[];
+      };
+      technician_remittance_for_booking: {
+        Args: { p_booking_id: string };
         Returns: Json;
       };
     };

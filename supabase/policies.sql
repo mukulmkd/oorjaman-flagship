@@ -2973,4 +2973,24 @@ with check (
   )
 );
 
+create or replace function public.my_pending_technician_remittances()
+returns table (
+  booking_id uuid,
+  reference_code text,
+  gross_paise bigint,
+  held_since timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select vs.booking_id, vs.reference_code, vs.visit_gross_paise, vs.remittance_held_since
+  from public.vendor_settlements vs
+  join public.technicians t on t.id = vs.held_by_technician_id
+  where vs.remittance_status = 'pending'
+    and t.user_id = auth.uid();
+
+grant execute on function public.my_pending_technician_remittances() to authenticated;
+
 -- End of policies (generated)

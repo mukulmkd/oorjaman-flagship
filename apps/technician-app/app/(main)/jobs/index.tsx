@@ -69,6 +69,17 @@ export default function AssignedJobsScreen() {
 
   const unpaidByBookingId = unpaidCollectQuery.data ?? {};
 
+  const remittanceQuery = useQuery({
+    queryKey: ["technician-remittances-pending"],
+    queryFn: () => paymentApi.listMyPendingTechnicianRemittances(supabase!),
+    enabled: Boolean(supabase),
+    staleTime: 5_000,
+  });
+  const remitByBookingId = useMemo(() => {
+    const map = new Set((remittanceQuery.data ?? []).map((row) => row.bookingId));
+    return map;
+  }, [remittanceQuery.data]);
+
   useEffect(() => {
     autoSegmentAppliedRef.current = false;
   }, [query.dataUpdatedAt]);
@@ -99,20 +110,24 @@ export default function AssignedJobsScreen() {
 
   const renderItem: ListRenderItem<BookingRow> = useCallback(
     ({ item }) => {
+      const sendToOorjaMan = remitByBookingId.has(item.id);
       const paymentDue = isPostpaidCompleted(item) && unpaidByBookingId[item.id] === true;
       return (
         <JobListCard
           item={item}
-          paymentDue={paymentDue}
+          paymentDue={paymentDue || sendToOorjaMan}
+          paymentDueLabel={sendToOorjaMan ? "Send the full amount to OorjaMan" : "Payment due"}
           cta={
-            paymentDue
+            sendToOorjaMan
+              ? "Send to OorjaMan"
+              : paymentDue
               ? "Collect payment"
               : item.status === "in_progress"
                 ? "Continue visit"
                 : "View job"
           }
           onPress={() => {
-            if (paymentDue) {
+            if (paymentDue || sendToOorjaMan) {
               router.push(`/(main)/jobs/collect/${item.id}`);
               return;
             }
@@ -125,17 +140,18 @@ export default function AssignedJobsScreen() {
         />
       );
     },
-    [unpaidByBookingId],
+    [unpaidByBookingId, remitByBookingId],
   );
 
   const Separator = useCallback(() => <View style={styles.gapMd} />, []);
 
   const refreshControl = (
     <RefreshControl
-      refreshing={query.isRefetching || unpaidCollectQuery.isRefetching}
+      refreshing={query.isRefetching || unpaidCollectQuery.isRefetching || remittanceQuery.isRefetching}
       onRefresh={() => {
         void query.refetch();
         void unpaidCollectQuery.refetch();
+        void remittanceQuery.refetch();
       }}
     />
   );

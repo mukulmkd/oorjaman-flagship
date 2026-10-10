@@ -172,6 +172,13 @@ export default function JobDetailScreen() {
   });
   const hasSuccessfulPayment = (paymentsQuery.data ?? []).some((p) => p.status === "success");
   const needsCollect = Boolean(b && bookingNeedsPostpaidCollect(b, hasSuccessfulPayment));
+  const remittanceQuery = useQuery({
+    queryKey: ["technician-remittance", bookingId],
+    queryFn: () => paymentApi.technicianRemittanceForBooking(supabase!, bookingId!),
+    enabled: Boolean(supabase && bookingId && hasSuccessfulPayment),
+    refetchInterval: hasSuccessfulPayment ? 5000 : false,
+  });
+  const sendFullAmount = remittanceQuery.data?.remittanceStatus === "pending";
 
   const enRouteMut = useMutation({
     mutationFn: async (fix: { lat: number; lng: number; recordedAt: string }) => {
@@ -222,13 +229,14 @@ export default function JobDetailScreen() {
     if (b.status === "accepted") return "You are assigned - mark en route when you leave for the site.";
     if (b.status === "in_progress") return "Job marked in progress.";
     if (needsCollect) return "Visit completed — payment still outstanding.";
+    if (sendFullAmount) return "Visit completed — send the full amount to OorjaMan.";
     if (b.status === "completed" && b.payment_timing === "postpaid" && hasSuccessfulPayment) {
       return "Visit completed — payment recorded.";
     }
     if (b.status === "completed") return "This visit is completed.";
     if (b.status === "cancelled") return "This job was cancelled.";
     return undefined;
-  }, [b, hasSuccessfulPayment, needsCollect]);
+  }, [b, hasSuccessfulPayment, needsCollect, sendFullAmount]);
 
   const modalHeader = useModalStackHeader({
     title: b?.reference_code ?? "Job details",
@@ -437,6 +445,23 @@ export default function JobDetailScreen() {
                 onPress={() => router.push(`/(main)/jobs/execute/${b.id}`)}
               >
                 {b.status === "in_progress" ? "Continue visit" : "Start visit on site"}
+              </Button>
+            </View>
+          ) : null}
+
+          {sendFullAmount ? (
+            <View style={styles.executeFooter}>
+              <Text style={styles.bodyMuted}>
+                You collected{" "}
+                {formatInrFromCents(remittanceQuery.data?.grossPaise || b.final_price_cents || b.estimated_price_cents || 0)}
+                . Transfer the full amount to OorjaMan.
+              </Text>
+              <Button
+                size="lg"
+                variant="primary"
+                onPress={() => router.push(`/(main)/jobs/collect/${b.id}`)}
+              >
+                Send to OorjaMan
               </Button>
             </View>
           ) : null}

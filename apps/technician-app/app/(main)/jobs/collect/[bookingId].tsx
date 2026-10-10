@@ -64,11 +64,50 @@ export default function PostpaidCollectScreen() {
   });
 
   const booking = bookingQuery.data;
-  const paid = (paymentsQuery.data ?? []).some((p) => p.status === "success");
+  const paid = (paymentsQuery.data ?? []).some(
+    (p) => p.status === "success" && p.collection_channel !== "technician_remittance",
+  );
+  const partnerCollected = (paymentsQuery.data ?? []).some(
+    (p) => p.status === "success" && p.provider === "partner_collected",
+  );
   const amountPaise = Math.max(
     0,
     booking?.final_price_cents ?? booking?.estimated_price_cents ?? 0,
   );
+
+  const remittanceQuery = useQuery({
+    queryKey: ["technician-remittance", bookingId],
+    queryFn: () => paymentApi.technicianRemittanceForBooking(supabase!, bookingId!),
+    enabled: Boolean(supabase && bookingId && paid),
+    refetchInterval: 4000,
+  });
+  const [remitUrl, setRemitUrl] = useState<string | null>(null);
+  const remitPending = remittanceQuery.data?.remittanceStatus === "pending";
+  const remitReceived = remittanceQuery.data?.remittanceStatus === "received";
+  const remitAmount = remittanceQuery.data?.grossPaise || amountPaise;
+
+  const remitMut = useMutation({
+    mutationFn: async () => {
+      if (!supabase || !bookingId) throw new Error("Missing booking");
+      return paymentApi.createTechnicianRemittanceSession(supabase, {
+        bookingId,
+        amountPaise: remitAmount,
+      });
+    },
+    onSuccess: (session) => {
+      setCollectError(null);
+      setRemitUrl(session.paymentLinkUrl);
+      if (!session.paymentLinkUrl) {
+        const msg = "The transfer link could not be created. Try again in a moment.";
+        setCollectError(msg);
+        if (Platform.OS !== "web") Alert.alert("Link unavailable", msg);
+      }
+    },
+    onError: (e: Error) => {
+      setCollectError(e.message);
+      if (Platform.OS !== "web") Alert.alert("Could not start transfer", e.message);
+    },
+  });
 
   const createLinkMut = useMutation({
     mutationFn: async () => {
@@ -117,14 +156,15 @@ export default function PostpaidCollectScreen() {
         qc.invalidateQueries({ queryKey: queryKeys.bookings.detail(bookingId!) }),
         qc.invalidateQueries({ queryKey: queryKeys.bookings.list({ scope: "technician-assigned" }) }),
         qc.invalidateQueries({ queryKey: [...TECHNICIAN_POSTPAID_UNPAID_QUERY_KEY] }),
+        qc.invalidateQueries({ queryKey: ["technician-remittance", bookingId!] }),
+        qc.invalidateQueries({ queryKey: ["technician-remittances-pending"] }),
         qc.invalidateQueries({ queryKey: queryKeys.payments.all() }),
       ]);
 
-      router.replace("/(main)/jobs");
       if (Platform.OS !== "web") {
         Alert.alert(
           "Marked as partner collected",
-          "Customer will not be charged again. OorjaMan platform fee will be settled with the vendor.",
+          "Customer will not be charged again. Send the full amount to OorjaMan next.",
         );
       }
     },
@@ -188,6 +228,79 @@ export default function PostpaidCollectScreen() {
     );
   }
 
+  if (partnerCollected && remittanceQuery.isPending) {
+    return (
+      <Screen edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+        {modalHeader}
+        <SkeletonStack />
+      </Screen>
+    );
+  }
+
+  if (remitReceived) {
+    return (
+      <Screen edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+        {modalHeader}
+        <Card padded>
+          <Text style={styles.title}>Transfer received</Text>
+          <Text style={styles.body}>
+            OorjaMan has this visit amount. Your employer is paid the rest in the monthly settlement.
+          </Text>
+          <Button variant="primary" onPress={() => router.replace("/(main)/jobs")}>
+            Done
+          </Button>
+        </Card>
+      </Screen>
+    );
+  }
+
+  if (remitPending) {
+    return (
+      <Screen edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
+        {modalHeader}
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <Text style={styles.title}>Send {formatInrFromCents(remitAmount)} to OorjaMan</Text>
+          <Text style={styles.body}>
+            The customer already paid you. Transfer this full amount from your own UPI. OorjaMan keeps the platform
+            fee and pays your employer the rest once a month.
+          </Text>
+          <Card padded>
+            <View style={styles.cardBody}>
+              <Button
+                variant="primary"
+                loading={remitMut.isPending}
+                onPress={() => {
+                  setCollectError(null);
+                  remitMut.mutate();
+                }}
+              >
+                {remitUrl ? "Refresh transfer QR" : "Show transfer QR"}
+              </Button>
+              {collectError ? <Text style={styles.errorText}>{collectError}</Text> : null}
+              {remitUrl ? (
+                <View style={styles.qrBlock}>
+                  <Image source={{ uri: qrImageUrl(remitUrl) }} style={styles.qr} accessibilityLabel="Transfer QR" />
+                  <Pressable onPress={() => void Linking.openURL(remitUrl)}>
+                    <Text style={styles.link}>{remitUrl}</Text>
+                  </Pressable>
+                  <Button
+                    variant="secondary"
+                    onPress={() => void Share.share({ message: `OorjaMan transfer: ${remitUrl}`, url: remitUrl })}
+                  >
+                    Open link
+                  </Button>
+                </View>
+              ) : null}
+            </View>
+          </Card>
+          <Button variant="ghost" onPress={() => router.replace("/(main)/jobs")}>
+            Back to jobs
+          </Button>
+        </ScrollView>
+      </Screen>
+    );
+  }
+
   if (paid) {
     return (
       <Screen edges={SCREEN_EDGES_BENEATH_NATIVE_HEADER}>
@@ -245,8 +358,8 @@ export default function PostpaidCollectScreen() {
           <View style={styles.cardBody}>
             <Text style={styles.section}>Already paid partner?</Text>
             <Text style={styles.body}>
-              Use only if customer paid cash or the vendor/technician UPI. Settlement will treat this as partner-held
-              funds; OorjaMan fee is collected on vendor settlement.
+              Use only if the customer paid you cash or by personal UPI. You then transfer the full amount to
+              OorjaMan. Do not charge the customer again.
             </Text>
             <Button
               variant="outline"

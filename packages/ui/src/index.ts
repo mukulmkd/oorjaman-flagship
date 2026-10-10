@@ -13,6 +13,8 @@ export * from "./LoginPhoneRow";
 export * from "./LoginAuthMethodTabs";
 export * from "./OtpCodeInput";
 export * from "./mobile-auth-session-guard";
+export * from "./app-update-gate";
+export * from "./app-update-policy";
 export * from "./mobile-offline-gate";
 export * from "./ListStates";
 export * from "./ModalCloseButton";

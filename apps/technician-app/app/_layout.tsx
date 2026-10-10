@@ -20,6 +20,7 @@ import {
   installMobileAuthConsoleFilters,
   installWebFocusReset,
   keepNativeSplashScreenVisible,
+  AppUpdateGate,
   MobileAuthSessionGuard,
   MobileOfflineGate,
   USE_WEB_LAYOUT,
@@ -110,13 +111,15 @@ export default function RootLayout() {
         <QueryProvider>
           <HelpSupportProvider>
             <MobileOfflineGate>
-              <MobileAuthSessionGuard client={supabase} loginHref="/login" />
-              <StatusBar style="dark" />
-              {USE_WEB_LAYOUT ? (
-                <View style={webPageCanvasStyle()}>{stack}</View>
-              ) : (
-                stack
-              )}
+              <AppUpdateGate audience="partner">
+                <MobileAuthSessionGuard client={supabase} loginHref="/login" />
+                <StatusBar style="dark" />
+                {USE_WEB_LAYOUT ? (
+                  <View style={webPageCanvasStyle()}>{stack}</View>
+                ) : (
+                  stack
+                )}
+              </AppUpdateGate>
             </MobileOfflineGate>
           </HelpSupportProvider>
         </QueryProvider>

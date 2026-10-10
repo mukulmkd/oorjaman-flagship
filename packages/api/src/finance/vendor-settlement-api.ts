@@ -252,6 +252,11 @@ export async function adminUpdateVendorSettlement(
   }
 
   if (input.status) {
+    if (row.remittance_status === "pending") {
+      throw new SupabaseApiError(
+        "This visit amount is still with the technician. Approve it after they transfer the full amount to OorjaMan.",
+      );
+    }
     patch.status = input.status;
     if (input.status === "approved" && row.status === "pending_review") {
       patch.approved_at = now;
@@ -355,8 +360,17 @@ export async function adminBackfillVisitPayoutSettlements(
   return { created, skipped };
 }
 
+export function settlementRemittancePending(
+  row: Pick<VendorSettlementRow, "remittance_status">,
+): boolean {
+  return row.remittance_status === "pending";
+}
+
 export function settlementDisplayAmountPaise(row: VendorSettlementRow): number {
   if (row.kind === "visit_payout") {
+    if (settlementRemittancePending(row)) {
+      return row.visit_gross_paise ?? 0;
+    }
     // Partner held cash: settle = platform fee receivable (not net payout to vendor).
     if (row.customer_paid_to === "partner") {
       return row.platform_fee_paise ?? 0;
@@ -371,9 +385,12 @@ export function settlementKindLabel(kind: VendorSettlementKind): string {
 }
 
 export function settlementVisitChannelLabel(
-  row: Pick<VendorSettlementRow, "kind" | "metadata" | "customer_paid_to"> & { is_amc_visit?: boolean },
+  row: Pick<VendorSettlementRow, "kind" | "metadata" | "customer_paid_to" | "remittance_status"> & {
+    is_amc_visit?: boolean;
+  },
 ): string | null {
   if (row.kind !== "visit_payout") return null;
+  if (settlementRemittancePending(row)) return "Held by technician";
   if (row.is_amc_visit || settlementIsAmcVisit(row)) return "AMC visit";
   if (row.customer_paid_to === "partner") return "One-time · partner collected";
   return "One-time visit";

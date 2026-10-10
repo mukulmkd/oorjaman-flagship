@@ -31,9 +31,16 @@ export const KeyboardFormScreen = forwardRef<
   ref,
 ) {
   const scrollRef = useRef<ScrollView>(null);
+  const scrollY = useRef(0);
 
   const scrollToEnd = (animated = true) => {
     scrollRef.current?.scrollToEnd({ animated });
+  };
+
+  const scrollBy = (delta: number, animated = true) => {
+    const y = Math.max(0, scrollY.current + delta);
+    scrollY.current = y;
+    scrollRef.current?.scrollTo({ y, animated });
   };
 
   const scrollToInput = (
@@ -48,7 +55,7 @@ export const KeyboardFormScreen = forwardRef<
     });
   };
 
-  useImperativeHandle(ref, () => ({ scrollToEnd, scrollToInput }), []);
+  useImperativeHandle(ref, () => ({ scrollToEnd, scrollToInput, scrollBy }), []);
 
   return (
     <ScrollView

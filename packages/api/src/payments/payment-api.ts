@@ -359,7 +359,7 @@ async function messageFromFunctionsInvokeError(error: unknown): Promise<string> 
 async function invokeCreateRazorpayOrder(
   client: SupabaseClient<Database>,
   body: {
-    purpose: "one_time" | "amc" | "postpaid_collect";
+    purpose: "one_time" | "amc" | "postpaid_collect" | "technician_remittance";
     amount_paise: number;
     booking_id?: string;
     subscription_id?: string;
@@ -701,10 +701,65 @@ export async function markPartnerCollectedPayment(
   };
 }
 
+export type TechnicianRemittanceState = {
+  remittanceStatus: "pending" | "received" | null;
+  grossPaise: number;
+  referenceCode: string | null;
+};
+
+export async function technicianRemittanceForBooking(
+  client: SupabaseClient<Database>,
+  bookingId: string,
+): Promise<TechnicianRemittanceState> {
+  const { data, error } = await client.rpc("technician_remittance_for_booking", {
+    p_booking_id: bookingId,
+  });
+  if (error) throw new SupabaseApiError(error.message, error);
+  const row = (data ?? {}) as {
+    remittance_status?: string | null;
+    gross_paise?: number | null;
+    reference_code?: string | null;
+  };
+  const status = row.remittance_status;
+  return {
+    remittanceStatus: status === "pending" || status === "received" ? status : null,
+    grossPaise: Math.max(0, Math.round(Number(row.gross_paise ?? 0))),
+    referenceCode: row.reference_code ?? null,
+  };
+}
+
+export async function listMyPendingTechnicianRemittances(
+  client: SupabaseClient<Database>,
+): Promise<{ bookingId: string; grossPaise: number; referenceCode: string | null }[]> {
+  const { data, error } = await client.rpc("my_pending_technician_remittances");
+  if (error) throw new SupabaseApiError(error.message, error);
+  return (data ?? []).map((row) => ({
+    bookingId: row.booking_id,
+    grossPaise: Math.max(0, Math.round(Number(row.gross_paise ?? 0))),
+    referenceCode: row.reference_code,
+  }));
+}
+
+/** Technician sends the full partner-collected amount to OorjaMan. */
+export async function createTechnicianRemittanceSession(
+  client: SupabaseClient<Database>,
+  params: { bookingId: string; amountPaise: number },
+): Promise<PostpaidCollectSession> {
+  const session = await invokeCreateRazorpayOrder(client, {
+    purpose: "technician_remittance",
+    amount_paise: params.amountPaise,
+    booking_id: params.bookingId,
+  });
+  return {
+    ...session,
+    paymentLinkUrl: session.paymentLinkUrl ?? null,
+  };
+}
+
 export async function bookingHasSuccessfulPayment(
   client: SupabaseClient<Database>,
   bookingId: string,
 ): Promise<boolean> {
   const rows = await listPaymentsForBooking(client, bookingId);
-  return rows.some((p) => p.status === "success");
+  return rows.some((p) => p.status === "success" && p.collection_channel !== "technician_remittance");
 }

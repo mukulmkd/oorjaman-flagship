@@ -603,6 +603,7 @@ export {
   settlementDisplayAmountPaise,
   settlementIsAmcVisit,
   settlementKindLabel,
+  settlementRemittancePending,
   settlementStatusLabel,
   settlementVisitChannelLabel,
   settlementCustomerPaidToLabel,

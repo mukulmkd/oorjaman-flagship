@@ -229,6 +229,7 @@ Project-level guides live in [**project-docs/**](project-docs/README.md). The ro
 | [EMAILS.md](project-docs/EMAILS.md) | Business email setup & DNS |
 | [RUNNING-APPS.md](project-docs/RUNNING-APPS.md) | **All run modes:** local, debug, UAT, prod, Expo Go — Android & iOS |
 | [TODO.md](project-docs/TODO.md) | Release & ops checklist |
+| [RAZORPAYX-PAYOUTS.md](RAZORPAYX-PAYOUTS.md) | Later: pay partners from the portal via RazorpayX (not built) |
 | [docs/android-local-apk.md](docs/android-local-apk.md) | UAT APK without EAS cloud |
 | [docs/ios-qa-distribution.md](docs/ios-qa-distribution.md) | UAT iOS on physical devices (EAS internal) |
 | [docs/customer-push-setup.md](docs/customer-push-setup.md) | Customer support push |

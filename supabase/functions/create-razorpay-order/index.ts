@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders as resolveCors } from "../_shared/cors.ts";
 import { enforceEdgeRateLimit, subjectUserAndIp } from "../_shared/rate-limit.ts";
 
-type Purpose = "one_time" | "amc" | "postpaid_collect";
+type Purpose = "one_time" | "amc" | "postpaid_collect" | "technician_remittance";
 
 type Body = {
   purpose?: Purpose;
@@ -96,8 +96,13 @@ Deno.serve(async (req: Request) => {
 
   const purpose = body.purpose;
   const amountPaise = Math.round(Number(body.amount_paise));
-  if (purpose !== "one_time" && purpose !== "amc" && purpose !== "postpaid_collect") {
-    return json({ ok: false, error: "purpose must be one_time, amc, or postpaid_collect" }, 400);
+  if (
+    purpose !== "one_time" &&
+    purpose !== "amc" &&
+    purpose !== "postpaid_collect" &&
+    purpose !== "technician_remittance"
+  ) {
+    return json({ ok: false, error: "purpose must be one_time, amc, postpaid_collect, or technician_remittance" }, 400);
   }
   if (!Number.isFinite(amountPaise) || amountPaise < 100) {
     return json({ ok: false, error: "amount_paise must be at least 100 (₹1)" }, 400);
@@ -160,6 +165,64 @@ Deno.serve(async (req: Request) => {
     if (existingPaid?.id) {
       return json({ ok: false, error: "Booking is already paid" }, 400);
     }
+  } else if (purpose === "technician_remittance") {
+    bookingId = body.booking_id?.trim() || null;
+    if (!bookingId) return json({ ok: false, error: "booking_id required" }, 400);
+    if (!technician?.id) return json({ ok: false, error: "Technician profile not found" }, 403);
+
+    const { data: booking, error: bookErr } = await adminClient
+      .from("bookings")
+      .select("id, customer_id, status, payment_timing, technician_id")
+      .eq("id", bookingId)
+      .maybeSingle();
+    if (bookErr) return json({ ok: false, error: bookErr.message }, 500);
+    if (!booking) return json({ ok: false, error: "Booking not found" }, 404);
+    if (booking.technician_id !== technician.id) {
+      return json({ ok: false, error: "Not authorized for this booking" }, 403);
+    }
+    if (booking.payment_timing !== "postpaid" || booking.status !== "completed") {
+      return json({ ok: false, error: "Transfer opens after a completed postpaid visit" }, 400);
+    }
+
+    const { data: settlement, error: settleErr } = await adminClient
+      .from("vendor_settlements")
+      .select("id, remittance_status, visit_gross_paise")
+      .eq("booking_id", bookingId)
+      .eq("kind", "visit_payout")
+      .maybeSingle();
+    if (settleErr) return json({ ok: false, error: settleErr.message }, 500);
+    if (!settlement || settlement.remittance_status !== "pending") {
+      return json({ ok: false, error: "This visit is not waiting for a technician transfer" }, 400);
+    }
+    const gross = Math.round(Number(settlement.visit_gross_paise ?? 0));
+    if (gross < 100 || gross !== amountPaise) {
+      return json({ ok: false, error: "Transfer the full visit amount" }, 400);
+    }
+
+    paymentCustomerId = booking.customer_id;
+
+    const { data: openRemit } = await adminClient
+      .from("payments")
+      .select("id, amount, razorpay_order_id, status, razorpay_payment_link_url")
+      .eq("booking_id", bookingId)
+      .eq("collection_channel", "technician_remittance")
+      .in("status", ["pending", "authorized"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (openRemit?.razorpay_order_id && openRemit.razorpay_payment_link_url) {
+      return json({
+        ok: true,
+        key_id: razorpayKeyId,
+        order_id: openRemit.razorpay_order_id,
+        amount: openRemit.amount,
+        currency: "INR",
+        payment_id: openRemit.id,
+        booking_id: bookingId,
+        subscription_id: null,
+        payment_link_url: openRemit.razorpay_payment_link_url,
+      });
+    }
   } else {
     if (!customer?.id) return json({ ok: false, error: "Customer profile not found" }, 400);
     subscriptionId = body.subscription_id?.trim() || null;
@@ -184,7 +247,8 @@ Deno.serve(async (req: Request) => {
   }
 
   const receiptKey = bookingId ?? subscriptionId ?? "x";
-  const receipt = `om_${purpose === "amc" ? "s" : "b"}_${receiptKey.replace(/-/g, "").slice(0, 24)}`;
+  const receiptPrefix = purpose === "amc" ? "s" : purpose === "technician_remittance" ? "r" : "b";
+  const receipt = `om_${receiptPrefix}_${receiptKey.replace(/-/g, "").slice(0, 24)}`;
   const orderPayload = {
     amount: amountPaise,
     currency: "INR",
@@ -228,7 +292,7 @@ Deno.serve(async (req: Request) => {
   let paymentLinkId: string | null = null;
 
   // Postpaid: also create a Payment Link so technician can show QR / share UPI-friendly URL.
-  if (purpose === "postpaid_collect" && bookingId) {
+  if ((purpose === "postpaid_collect" || purpose === "technician_remittance") && bookingId) {
     const linkRes = await fetch("https://api.razorpay.com/v1/payment_links", {
       method: "POST",
       headers: {
@@ -239,10 +303,10 @@ Deno.serve(async (req: Request) => {
         amount: amountPaise,
         currency: "INR",
         accept_partial: false,
-        description: "OorjaMan visit payment",
+        description: purpose === "technician_remittance" ? "OorjaMan technician transfer" : "OorjaMan visit payment",
         reference_id: orderId.slice(0, 40),
         notes: {
-          purpose: "postpaid_collect",
+          purpose,
           booking_id: bookingId,
           customer_id: paymentCustomerId,
           // Webhook matches the capture back to this order. The link payment
@@ -296,7 +360,7 @@ Deno.serve(async (req: Request) => {
       currency: "INR",
       status: "pending",
       provider: "razorpay",
-      collection_channel: "oorjaman",
+      collection_channel: purpose === "technician_remittance" ? "technician_remittance" : "oorjaman",
       razorpay_order_id: orderId,
       razorpay_order_status: "created",
       razorpay_payment_link_id: paymentLinkId,

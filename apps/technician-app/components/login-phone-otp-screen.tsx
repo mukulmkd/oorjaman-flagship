@@ -38,6 +38,7 @@ import {
 import { fontFamily, fontSize } from "../constants/fonts";
 import { refreshPartnerSessionQueries } from "../lib/partner-session-cache";
 import { supabase } from "../lib/supabase";
+import { usePartnerOtpKeyboardLift } from "./use-partner-otp-keyboard-lift";
 
 const OTP_LEN = 6;
 const RESEND_SEC = 48;
@@ -54,6 +55,7 @@ export function LoginPhoneOtpScreen({
 }: LoginPhoneOtpScreenProps) {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const otpLift = usePartnerOtpKeyboardLift();
   const otpRef = useRef<TextInput>(null);
   const autoVerifyOtpRef = useRef<string | null>(null);
   const sendInFlightRef = useRef(false);
@@ -176,7 +178,9 @@ export function LoginPhoneOtpScreen({
 
   return (
     <KeyboardFormScreen
+      ref={otpLift.formRef}
       keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      bottomOffset={spacing.lg}
       webVariant="auth"
       centerVertically
       contentContainerStyle={[
@@ -246,36 +250,40 @@ export function LoginPhoneOtpScreen({
             Use the UAT one-time code 123456.
           </Text>
 
-          {!verifying ? (
-            <OtpCodeInput
-              ref={otpRef}
-              value={otp}
-              onChangeText={setOtp}
-              length={OTP_LEN}
-              editable={otpSent && !verifying}
-            />
-          ) : null}
+          <View ref={otpLift.anchorRef}>
+            {!verifying ? (
+              <OtpCodeInput
+                ref={otpRef}
+                value={otp}
+                onChangeText={setOtp}
+                length={OTP_LEN}
+                editable={otpSent && !verifying}
+                onFocus={otpLift.onOtpFocus}
+                onBlur={otpLift.onOtpBlur}
+              />
+            ) : null}
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Verify and continue"
-            disabled={verifying || otp.length !== OTP_LEN || !otpSent}
-            onPress={() => void verify()}
-            style={({ pressed }) => [
-              styles.primary,
-              (verifying || otp.length !== OTP_LEN || !otpSent) &&
-                styles.primaryDisabled,
-              pressed &&
-                !(verifying || otp.length !== OTP_LEN || !otpSent) &&
-                styles.primaryPressed,
-            ]}
-          >
-            {verifying ? (
-              <ActivityIndicator color={colors.primaryForeground} />
-            ) : (
-              <Text style={styles.primaryLabel}>Verify & continue</Text>
-            )}
-          </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Verify and continue"
+              disabled={verifying || otp.length !== OTP_LEN || !otpSent}
+              onPress={() => void verify()}
+              style={({ pressed }) => [
+                styles.primary,
+                (verifying || otp.length !== OTP_LEN || !otpSent) &&
+                  styles.primaryDisabled,
+                pressed &&
+                  !(verifying || otp.length !== OTP_LEN || !otpSent) &&
+                  styles.primaryPressed,
+              ]}
+            >
+              {verifying ? (
+                <ActivityIndicator color={colors.primaryForeground} />
+              ) : (
+                <Text style={styles.primaryLabel}>Verify & continue</Text>
+              )}
+            </Pressable>
+          </View>
         </>
       )}
 

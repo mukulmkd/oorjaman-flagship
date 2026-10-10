@@ -1,5 +1,5 @@
 import { forwardRef, useImperativeHandle, useRef } from "react";
-import { StyleSheet } from "react-native";
+import { StyleSheet, type NativeSyntheticEvent, type NativeScrollEvent } from "react-native";
 import {
   KeyboardAwareScrollView,
   type KeyboardAwareScrollViewRef,
@@ -28,6 +28,7 @@ export const KeyboardFormScreen = forwardRef<
   ref,
 ) {
   const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
+  const scrollY = useRef(0);
 
   const scrollToEnd = (animated = true) => {
     scrollRef.current?.scrollToEnd({ animated });
@@ -40,7 +41,17 @@ export const KeyboardFormScreen = forwardRef<
     scrollRef.current?.assureFocusedInputVisible();
   };
 
-  useImperativeHandle(ref, () => ({ scrollToEnd, scrollToInput }), []);
+  const scrollBy = (delta: number, animated = true) => {
+    const y = Math.max(0, scrollY.current + delta);
+    scrollY.current = y;
+    scrollRef.current?.scrollTo({ y, animated });
+  };
+
+  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    scrollY.current = event.nativeEvent.contentOffset.y;
+  };
+
+  useImperativeHandle(ref, () => ({ scrollToEnd, scrollToInput, scrollBy }), []);
 
   return (
     <KeyboardAwareScrollView
@@ -51,6 +62,8 @@ export const KeyboardFormScreen = forwardRef<
       bottomOffset={bottomOffset}
       extraKeyboardSpace={spacing.lg}
       mode="insets"
+      onScroll={onScroll}
+      scrollEventThrottle={16}
       keyboardShouldPersistTaps="always"
       keyboardDismissMode="on-drag"
       showsVerticalScrollIndicator={false}

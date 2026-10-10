@@ -39,6 +39,24 @@
   color: var(--wb-muted-fg, #64748b);
 }
 
+.fin-held-head {
+  padding: 1rem 1rem 0.25rem;
+}
+
+.fin-held-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.fin-held-copy,
+.fin-held-wait {
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--wb-muted-fg, #64748b);
+}
+
 .fin-toolbar {
   display: flex;
   flex-wrap: wrap;

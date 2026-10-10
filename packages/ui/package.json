@@ -23,6 +23,7 @@
     "@supabase/supabase-js": ">=2",
     "expo-network": ">=8",
     "expo-notifications": ">=0.28",
+    "expo-updates": ">=0.28",
     "@react-navigation/native": ">=6",
     "expo-router": ">=4",
     "expo-splash-screen": ">=0.27",

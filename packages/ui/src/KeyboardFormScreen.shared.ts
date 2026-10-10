@@ -12,6 +12,8 @@ export type KeyboardFormScreenRef = {
   scrollToEnd: (animated?: boolean) => void;
   /** Reveal only the requested input above the keyboard. */
   scrollToInput: (input: TextInput | null, additionalOffset?: number) => void;
+  /** Move the form by a distance, keeping the current field in place relative to that shift. */
+  scrollBy: (delta: number, animated?: boolean) => void;
 };
 
 export type KeyboardFormScreenProps = {
