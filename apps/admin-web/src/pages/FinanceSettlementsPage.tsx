@@ -27,6 +27,7 @@ import { Badge, Button, Card, PageHeader } from "@oorjaman/web-ui";
 import { Link } from "react-router-dom";
 import { TablePaginationBar } from "@oorjaman/web-ui";
 import { useSupabase } from "@oorjaman/web-ui";
+import { HeldBookingDetailModal } from "../components/HeldBookingDetailModal";
 import "./finance-settlements-page.css";
 
 const PAGE_SIZE = 10;
@@ -89,6 +90,7 @@ export function FinanceSettlementsPage() {
   const [page, setPage] = useState(1);
   const [editingPenalty, setEditingPenalty] = useState<Record<string, string>>({});
   const [platformFeeText, setPlatformFeeText] = useState("10");
+  const [heldBookingId, setHeldBookingId] = useState<string | null>(null);
 
   const filtersKey = `${kindFilter}|${statusFilter}`;
 
@@ -429,7 +431,15 @@ export function FinanceSettlementsPage() {
                   <tbody>
                     {heldRows.map((row) => (
                       <tr key={row.id}>
-                        <td className="bm-cell-mono">{row.reference_code ?? row.booking_id.slice(0, 8)}</td>
+                        <td className="bm-cell-mono">
+                          <button
+                            type="button"
+                            className="fin-booking-link"
+                            onClick={() => setHeldBookingId(row.booking_id)}
+                          >
+                            {row.reference_code ?? row.booking_id.slice(0, 8)}
+                          </button>
+                        </td>
                         <td>
                           {row.held_by_technician_id
                             ? technicianNameById.get(row.held_by_technician_id) ?? "Technician"
@@ -534,6 +544,7 @@ export function FinanceSettlementsPage() {
           </Card>
         </div>
       )}
+      <HeldBookingDetailModal bookingId={heldBookingId} onClose={() => setHeldBookingId(null)} />
     </div>
   );
 }

@@ -1951,12 +1951,20 @@ export type Database = {
         Args: Record<string, never>;
         Returns: number;
       };
+      count_unread_support_messages_for_customer_booking: {
+        Args: { p_booking_id: string };
+        Returns: number;
+      };
       mark_support_conversation_read_by_customer: {
         Args: { p_conversation_id: string };
         Returns: SupportConversationRow;
       };
       count_unread_support_messages_for_technician: {
         Args: Record<string, never>;
+        Returns: number;
+      };
+      count_unread_support_messages_for_technician_booking: {
+        Args: { p_booking_id: string };
         Returns: number;
       };
       mark_support_conversation_read_by_technician: {

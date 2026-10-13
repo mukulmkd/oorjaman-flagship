@@ -30,6 +30,7 @@ import {
   isWithinVendorResponseWindow,
   paymentApi,
   queryKeys,
+  supportApi,
   readBookingCustomerCancellationMeta,
   readBookingOpsMeta,
   readBookingRecipientMeta,
@@ -63,6 +64,7 @@ import {
 } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { bookingSupportMailto } from "../lib/support";
+import { openSupportChat } from "../lib/support-chat-navigation";
 import {
   customerConfirmedBookingStatusHelp,
   isBookingAwaitingOorjamanPartnerAssignment,
@@ -259,6 +261,18 @@ export default function BookingDetailScreen() {
     queryKey: bookingId ? queryKeys.payments.forBooking(bookingId) : [],
     queryFn: () => paymentApi.listPaymentsForBooking(supabase!, bookingId!),
     enabled: Boolean(supabase && bookingId && query.data),
+  });
+
+  const bookingChatsQuery = useQuery({
+    queryKey: bookingId ? queryKeys.support.bookingChats(bookingId) : [],
+    queryFn: () => supportApi.listSupportConversationsForCustomerBooking(supabase!, bookingId!),
+    enabled: Boolean(supabase && bookingId),
+  });
+
+  const bookingUnreadQuery = useQuery({
+    queryKey: bookingId ? queryKeys.support.bookingUnread(bookingId) : [],
+    queryFn: () => supportApi.countUnreadSupportMessagesForCustomerBooking(supabase!, bookingId!),
+    enabled: Boolean(supabase && bookingId),
   });
 
   const b = query.data;
@@ -1063,6 +1077,61 @@ export default function BookingDetailScreen() {
             </DetailSection>
           ) : null}
 
+          <View style={styles.section}>
+            <Card variant="elevated" padded>
+              <Text style={styles.sectionTitle}>Chats about this booking</Text>
+              {(bookingUnreadQuery.data ?? 0) > 0 ? (
+                <Text style={[styles.meta, styles.helpSpaced]}>
+                  {bookingUnreadQuery.data} new {bookingUnreadQuery.data === 1 ? "reply" : "replies"}
+                </Text>
+              ) : (
+                <Text style={[styles.body, styles.helpSpaced]}>
+                  Open and closed chats for this booking stay here.
+                </Text>
+              )}
+              {(bookingChatsQuery.data ?? []).map((chat) => {
+                const label =
+                  chat.subject ??
+                  supportApi.supportCategoryLabel(chat.category_slug, chat.subcategory_slug);
+                return (
+                  <Pressable
+                    key={chat.id}
+                    style={({ pressed }) => [styles.supportRow, pressed && styles.supportRowPressed]}
+                    onPress={() =>
+                      openSupportChat({
+                        conversation_id: chat.id,
+                        booking_id: b.id,
+                        list_scope: "booking",
+                      })
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open support chat ${label}`}
+                  >
+                    <Text style={styles.body} numberOfLines={1}>
+                      {label}
+                    </Text>
+                    <Text style={styles.meta}>
+                      {chat.status === "resolved" ? "Closed" : "Open"} · {formatDisplayDateTime(chat.last_message_at)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+              <Button
+                variant="outline"
+                size="md"
+                onPress={() =>
+                  openSupportChat({
+                    booking_id: b.id,
+                    category_slug: "booking",
+                    list_scope: "booking",
+                  })
+                }
+              >
+                Chat about this booking
+              </Button>
+            </Card>
+          </View>
+
           {b.status && CUSTOMER_CANCELLABLE.includes(b.status) ? (
             <View style={styles.section}>
               <Card variant="elevated" padded>
@@ -1316,6 +1385,15 @@ const styles = StyleSheet.create({
   },
   helpSpaced: {
     marginBottom: spacing.md,
+  },
+  supportRow: {
+    marginBottom: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  supportRowPressed: {
+    opacity: 0.7,
   },
   ratingRow: {
     flexDirection: "row",

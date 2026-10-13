@@ -22,12 +22,11 @@ export function SupportChatHeaderButton() {
       }
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       onPress={() => {
-        const ctx = unreadCount > 0 ? { focus_active_thread: true as const } : undefined;
         if (onModalStack) {
-          openSupportChat(ctx);
+          openSupportChat();
           return;
         }
-        openHelp(ctx);
+        openHelp();
       }}
       style={({ pressed }) => [styles.btn, pressed && styles.btnPressed]}
     >

@@ -14,7 +14,9 @@ export default function SupportChatModalScreen() {
     service_address_id?: string | string[];
     category_slug?: string | string[];
     subcategory_slug?: string | string[];
+    booking_id?: string | string[];
     conversation_id?: string | string[];
+    list_scope?: string | string[];
     focus_active_thread?: string | string[];
   }>();
   const { setFocusedThreadId, refreshUnreadCount } = useHelpSupport();

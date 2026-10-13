@@ -225,6 +225,10 @@ export const queryKeys = {
       [...queryKeys.support.all(), "my-conversations", audience] as const,
     unreadCount: (audience: "customer" | "technician" = "customer") =>
       [...queryKeys.support.all(), "unread-count", audience] as const,
+    bookingChats: (bookingId: string) =>
+      [...queryKeys.support.all(), "booking-chats", bookingId] as const,
+    bookingUnread: (bookingId: string) =>
+      [...queryKeys.support.all(), "booking-unread", bookingId] as const,
     conversation: (id: string) => [...queryKeys.support.all(), "conversation", id] as const,
     messages: (conversationId: string) =>
       [...queryKeys.support.conversation(conversationId), "messages"] as const,

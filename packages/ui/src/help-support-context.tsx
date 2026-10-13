@@ -10,6 +10,8 @@ export type HelpSupportOpenContext = {
   conversation_id?: string | null;
   /** Jump into the active thread (e.g. when opening from unread badge). */
   focus_active_thread?: boolean;
+  /** Technician job screen: list only chats for booking_id. */
+  list_scope?: "booking";
 };
 
 export type HelpSupportState = {

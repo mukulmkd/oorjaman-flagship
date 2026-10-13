@@ -62,7 +62,7 @@ type Props = {
   presentation?: "overlay" | "screen";
 };
 
-type IntakeStep = "category" | "subcategory" | "details";
+type IntakeStep = "category" | "visit" | "subcategory" | "details";
 type ModalView = "loading" | "inbox" | "intake" | "thread";
 
 function conversationStatusLabel(status: SupportConversationRow["status"]): string {
@@ -127,11 +127,26 @@ export function HelpSupportModalBody({
   const [composerText, setComposerText] = useState("");
   const [modalView, setModalView] = useState<ModalView>("loading");
   const [activeChats, setActiveChats] = useState<SupportConversationRow[]>([]);
+  const [pastChats, setPastChats] = useState<SupportConversationRow[]>([]);
+  const [linkedBookingId, setLinkedBookingId] = useState<string | null>(context?.booking_id ?? null);
 
   const participantRole = helpSupportParticipantSenderRole(role);
   const showSubcategoryHints = role === "customer";
 
   const catalog = useMemo(() => helpSupportListCatalog(role), [role]);
+  const visitsQ = useQuery({
+    queryKey: ["support", "visit-picker", role],
+    queryFn: async () => {
+      const { data, error } = await client!
+        .from("bookings")
+        .select("id, reference_code, scheduled_start")
+        .order("scheduled_start", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: Boolean(client && intakeStep === "visit"),
+  });
   const selectedCategory = useMemo(
     () => (categorySlug ? helpSupportGetCategory(role, categorySlug) : undefined),
     [role, categorySlug],
@@ -184,7 +199,10 @@ export function HelpSupportModalBody({
         category_slug: categorySlug,
         subcategory_slug: subcategorySlug,
         details_text: detailsDraft,
-        context,
+        context: {
+          ...context,
+          booking_id: linkedBookingId ?? context?.booking_id,
+        },
       });
     },
     onSuccess: async (conv) => {
@@ -213,6 +231,7 @@ export function HelpSupportModalBody({
   });
 
   const resetIntake = useCallback(() => {
+    setLinkedBookingId(context?.booking_id ?? null);
     const welcome: LocalBubble = {
       id: uid(),
       role: "bot",
@@ -275,13 +294,14 @@ export function HelpSupportModalBody({
     setLocalBubbles([welcome]);
     setConversationId(null);
     setComposerText("");
-  }, [context?.category_slug, context?.subcategory_slug, role]);
+  }, [context?.booking_id, context?.category_slug, context?.subcategory_slug, role]);
 
   const markThreadRead = useCallback(
     async (convId: string) => {
       if (!client) return;
       await helpSupportMarkConversationRead(role, client, convId);
       await qc.invalidateQueries({ queryKey: helpSupportUnreadCountQueryKey(role) });
+      await qc.invalidateQueries({ queryKey: queryKeys.support.all() });
       refreshUnreadCount();
     },
     [client, qc, refreshUnreadCount, role],
@@ -304,17 +324,44 @@ export function HelpSupportModalBody({
     setFocusedThreadId(null);
     const deepLinkConversationId = context?.conversation_id?.trim() ?? null;
     const focusActiveThread = Boolean(context?.focus_active_thread);
+    const bookingScope = context?.list_scope === "booking" && Boolean(context.booking_id);
+    const audience = role === "technician" ? "technician" : "customer";
 
     void (async () => {
       try {
-        const active = await helpSupportListActiveConversations(role, sb);
+        const openRows = await helpSupportListActiveConversations(role, sb);
         if (cancelled) return;
+
+        let active = openRows;
+        let past: SupportConversationRow[] = [];
+        {
+          const all = await supportApi.listMySupportConversations(sb, { limit: 50 });
+          if (cancelled) return;
+          const scoped = all.filter((row) => {
+            if (row.participant_audience !== audience) return false;
+            if (bookingScope) return row.booking_id === context?.booking_id;
+            return !row.booking_id;
+          });
+          const activeIds = new Set(
+            scoped
+              .filter(
+                (row) =>
+                  supportApi.isSupportConversationOpen(row) &&
+                  !supportApi.shouldTreatSupportConversationAsInactive(row),
+              )
+              .map((row) => row.id),
+          );
+          active = scoped.filter((row) => activeIds.has(row.id));
+          past = scoped.filter((row) => !activeIds.has(row.id));
+        }
+
         setActiveChats(active);
+        setPastChats(past);
 
         const openConversationThread = async (convId: string) => {
-          const fromActive = active.find((c) => c.id === convId);
+          const fromListed = [...active, ...past].find((c) => c.id === convId);
           const conv =
-            fromActive ??
+            fromListed ??
             (await supportApi.getSupportConversationById(sb, convId).catch(() => null));
           if (cancelled || !conv) return false;
           setConversationId(conv.id);
@@ -336,13 +383,14 @@ export function HelpSupportModalBody({
           if (opened) return;
         }
 
-        if (active.length > 0) {
+        if (active.length > 0 || past.length > 0) {
           setModalView("inbox");
           return;
         }
       } catch {
         if (cancelled) return;
         setActiveChats([]);
+        setPastChats([]);
       }
       if (!cancelled) {
         resetIntake();
@@ -359,6 +407,9 @@ export function HelpSupportModalBody({
     setFocusedThreadId,
     context?.conversation_id,
     context?.focus_active_thread,
+    context?.list_scope,
+    context?.booking_id,
+    role,
   ]);
 
   const openThread = useCallback(
@@ -375,8 +426,8 @@ export function HelpSupportModalBody({
     setConversationId(null);
     setComposerText("");
     setFocusedThreadId(null);
-    setModalView(activeChats.length > 0 ? "inbox" : "intake");
-  }, [activeChats.length, setFocusedThreadId]);
+    setModalView(activeChats.length > 0 || pastChats.length > 0 ? "inbox" : "intake");
+  }, [activeChats.length, pastChats.length, setFocusedThreadId]);
 
   const startNewConversation = useCallback(() => {
     resetIntake();
@@ -411,9 +462,40 @@ export function HelpSupportModalBody({
 
   const pickCategory = (cat: SupportCategory) => {
     setCategorySlug(cat.slug);
+    const nextBubbles: LocalBubble[] = [
+      ...localBubbles,
+      { id: uid(), role: "user", body: cat.label },
+    ];
+    const asksForBooking =
+      (role === "technician" && cat.slug === "job") || (role === "customer" && cat.slug === "booking");
+    if (asksForBooking && !(linkedBookingId ?? context?.booking_id)) {
+      setLocalBubbles([
+        ...nextBubbles,
+        {
+          id: uid(),
+          role: "bot",
+          body: role === "customer" ? "Which booking is this about?" : "Which visit is this about?",
+        },
+      ]);
+      setIntakeStep("visit");
+      return;
+    }
+    setLocalBubbles([
+      ...nextBubbles,
+      {
+        id: uid(),
+        role: "bot",
+        body: "Got it. Which of these best describes your question?",
+      },
+    ]);
+    setIntakeStep("subcategory");
+  };
+
+  const pickVisit = (bookingId: string | null, label: string) => {
+    setLinkedBookingId(bookingId);
     setLocalBubbles((prev) => [
       ...prev,
-      { id: uid(), role: "user", body: cat.label },
+      { id: uid(), role: "user", body: label },
       {
         id: uid(),
         role: "bot",
@@ -455,7 +537,8 @@ export function HelpSupportModalBody({
   const showInbox = modalView === "inbox";
   const showLoading = modalView === "loading";
   const canBack =
-    modalView === "thread" || (modalView === "intake" && activeChats.length > 0);
+    modalView === "thread" ||
+    (modalView === "intake" && (activeChats.length > 0 || pastChats.length > 0));
 
   const listData: (SupportMessageRow | LocalBubble)[] = showLive
     ? liveMessages
@@ -553,9 +636,14 @@ export function HelpSupportModalBody({
     [liveMessages],
   );
 
+  const bookingInbox = context?.list_scope === "booking";
   const sheetSubtitle =
     modalView === "inbox"
-      ? `${activeChats.length} active ${activeChats.length === 1 ? "chat" : "chats"}`
+      ? bookingInbox
+        ? "Chats about this visit"
+        : pastChats.length > 0
+          ? "Open chats, then earlier ones that are not about a visit"
+          : `${activeChats.length} open ${activeChats.length === 1 ? "chat" : "chats"}`
       : modalView === "thread" && conversationQ.data
         ? helpSupportThreadSubtitle(conversationQ.data, assignedAgentName)
         : "We typically reply within business hours";
@@ -601,21 +689,39 @@ export function HelpSupportModalBody({
           {showInbox ? (
             <FlatList
               style={styles.sheetScroll}
-              data={activeChats}
+              data={[
+                ...(activeChats.length > 0
+                  ? [{ kind: "heading" as const, id: "open-heading", title: "Open" }]
+                  : []),
+                ...activeChats.map((chat) => ({ kind: "chat" as const, id: chat.id, chat })),
+                ...(pastChats.length > 0
+                  ? [{ kind: "heading" as const, id: "past-heading", title: "Past" }]
+                  : []),
+                ...pastChats.map((chat) => ({ kind: "chat" as const, id: `past-${chat.id}`, chat })),
+              ]}
               keyExtractor={(item) => item.id}
               contentContainerStyle={[styles.inboxList, { paddingBottom: scrollBottomPad }]}
               keyboardShouldPersistTaps="handled"
               ListHeaderComponent={
-                <Text style={styles.inboxHint}>Tap a chat to continue, or start a new one.</Text>
+                <Text style={styles.inboxHint}>
+                  {bookingInbox
+                    ? "These chats stay with this booking. Open one, or start a new one."
+                    : role === "customer"
+                      ? "Chats about a booking stay on that booking. Everything else is here."
+                      : "Visit chats stay on the job. Everything else is here."}
+                </Text>
               }
               renderItem={({ item }) => {
+                if (item.kind === "heading") {
+                  return <Text style={styles.inboxSection}>{item.title}</Text>;
+                }
                 const label =
-                  item.subject ??
-                  supportApi.supportCategoryLabel(item.category_slug, item.subcategory_slug);
+                  item.chat.subject ??
+                  supportApi.supportCategoryLabel(item.chat.category_slug, item.chat.subcategory_slug);
                 return (
                   <Pressable
                     style={({ pressed }) => [styles.inboxCard, pressed && styles.inboxCardPressed]}
-                    onPress={() => openThread(item)}
+                    onPress={() => openThread(item.chat)}
                     accessibilityRole="button"
                     accessibilityLabel={`Open chat ${label}`}
                   >
@@ -625,15 +731,15 @@ export function HelpSupportModalBody({
                       </Text>
                       <View style={styles.inboxBadge}>
                         <Text style={styles.inboxBadgeText}>
-                          {conversationStatusLabel(item.status)}
+                          {conversationStatusLabel(item.chat.status)}
                         </Text>
                       </View>
                     </View>
                     <Text style={styles.inboxCardMeta} numberOfLines={2}>
-                      {item.details_text}
+                      {item.chat.details_text}
                     </Text>
                     <Text style={styles.inboxCardTime}>
-                      Last message {formatDisplayDateTime(item.last_message_at)}
+                      Last message {formatDisplayDateTime(item.chat.last_message_at)}
                     </Text>
                   </Pressable>
                 );
@@ -670,6 +776,33 @@ export function HelpSupportModalBody({
                         <Text style={styles.chipBody}>{cat.description}</Text>
                       </Pressable>
                     ))}
+                  </View>
+                ) : showIntake && intakeStep === "visit" ? (
+                  <View style={styles.chipsWrap}>
+                    {(visitsQ.data ?? []).map((visit) => (
+                      <Pressable
+                        key={visit.id}
+                        style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
+                        onPress={() => pickVisit(visit.id, visit.reference_code)}
+                      >
+                        <Text style={styles.chipTitle}>{visit.reference_code}</Text>
+                        <Text style={styles.chipBody}>{formatDisplayDateTime(visit.scheduled_start)}</Text>
+                      </Pressable>
+                    ))}
+                      <Pressable
+                      style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
+                      onPress={() =>
+                        pickVisit(
+                          null,
+                          role === "customer" ? "Not about a specific booking" : "Not about a specific visit",
+                        )
+                      }
+                    >
+                      <Text style={styles.chipTitle}>
+                        {role === "customer" ? "Not about a specific booking" : "Not about a specific visit"}
+                      </Text>
+                      <Text style={styles.chipBody}>Keep this chat in your general support history.</Text>
+                    </Pressable>
                   </View>
                 ) : showIntake && intakeStep === "subcategory" && selectedCategory ? (
                   <View style={styles.chipsWrap}>
@@ -758,17 +891,12 @@ export function HelpSupportModalBody({
                 size="sm"
                 onPress={() => {
                   setConversationId(null);
-                  void (async () => {
-                    if (!client) return;
-                    const active = await helpSupportListActiveConversations(role, client);
-                    setActiveChats(active);
-                    if (active.length > 0) {
-                      setModalView("inbox");
-                    } else {
-                      resetIntake();
-                      setModalView("intake");
-                    }
-                  })();
+                  if (activeChats.length > 0 || pastChats.length > 0) {
+                    setModalView("inbox");
+                    return;
+                  }
+                  resetIntake();
+                  setModalView("intake");
                 }}
               >
                 New conversation
@@ -872,6 +1000,15 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     flexGrow: 1,
     gap: spacing.sm,
+  },
+  inboxSection: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: fontSize.xs,
+    color: colors.mutedForeground,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
   },
   inboxHint: {
     fontFamily: fontFamily.regular,

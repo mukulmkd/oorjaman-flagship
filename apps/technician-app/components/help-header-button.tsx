@@ -17,9 +17,7 @@ export function SupportChatHeaderButton() {
           : "Chat with OorjaMan support"
       }
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      onPress={() =>
-        openHelp(unreadCount > 0 ? { focus_active_thread: true } : undefined)
-      }
+      onPress={() => openHelp()}
       style={({ pressed }) => [styles.btn, pressed && styles.btnPressed]}
     >
       <Ionicons name="chatbubbles-outline" size={24} color={colors.primary} />

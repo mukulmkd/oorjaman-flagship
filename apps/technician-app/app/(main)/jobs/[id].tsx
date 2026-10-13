@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { Alert, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -9,6 +9,7 @@ import {
   formatInrFromCents,
   paymentApi,
   queryKeys,
+  supportApi,
   technicianApi,
   readBookingCustomerCancellationMeta,
   readBookingOpsMeta,
@@ -32,6 +33,7 @@ import {
   useModalStackHeader,
 } from "@oorjaman/ui";
 import { ModalHeaderSupportTrailing } from "../../../components/modal-header-support-trailing";
+import { useHelpSupport } from "../../../components/help-support-provider";
 import { fontFamily, fontSize } from "../../../constants/fonts";
 import { BookingSitePhotos } from "../../../components/booking-site-photos";
 import { ensureEnRouteLocationFix } from "../../../lib/location-permission";
@@ -39,7 +41,7 @@ import { useForegroundLocationGranted } from "../../../lib/use-foreground-locati
 import { JobDirectionsPreview } from "../../../components/job-directions-preview";
 import { openGoogleMapsDirections } from "../../../lib/open-google-maps";
 import { supabase } from "../../../lib/supabase";
-import { formatDisplayDateTimeRange } from "@oorjaman/utils";
+import { formatDisplayDateTime, formatDisplayDateTimeRange } from "@oorjaman/utils";
 
 function formatRange(startIso: string, endIso: string): string {
   return formatDisplayDateTimeRange(startIso, endIso);
@@ -108,11 +110,24 @@ export default function JobDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string | string[] }>();
   const bookingId = Array.isArray(id) ? id[0] : id;
   const qc = useQueryClient();
+  const { openHelp } = useHelpSupport();
   const locationGranted = useForegroundLocationGranted();
 
   const query = useQuery({
     queryKey: bookingId ? queryKeys.bookings.detail(bookingId) : [],
     queryFn: () => bookingApi.getBookingById(supabase!, bookingId!),
+    enabled: Boolean(supabase && bookingId),
+  });
+
+  const visitChatsQ = useQuery({
+    queryKey: bookingId ? queryKeys.support.bookingChats(bookingId) : [],
+    queryFn: () => supportApi.listSupportConversationsForTechnicianBooking(supabase!, bookingId!),
+    enabled: Boolean(supabase && bookingId),
+  });
+
+  const visitUnreadQ = useQuery({
+    queryKey: bookingId ? queryKeys.support.bookingUnread(bookingId) : [],
+    queryFn: () => supportApi.countUnreadSupportMessagesForTechnicianBooking(supabase!, bookingId!),
     enabled: Boolean(supabase && bookingId),
   });
 
@@ -375,6 +390,57 @@ export default function JobDetailScreen() {
             ) : null}
           </DetailSection>
 
+          <DetailSection title="Support for this visit">
+            {(visitUnreadQ.data ?? 0) > 0 ? (
+              <Text style={styles.meta}>
+                {visitUnreadQ.data} new {visitUnreadQ.data === 1 ? "reply" : "replies"}
+              </Text>
+            ) : (
+              <Text style={styles.bodyMuted}>Chats about this visit stay here, including closed ones.</Text>
+            )}
+            {(visitChatsQ.data ?? []).map((chat) => {
+              const label =
+                chat.subject ??
+                supportApi.supportCategoryLabel(chat.category_slug, chat.subcategory_slug);
+              return (
+                <Pressable
+                  key={chat.id}
+                  style={({ pressed }) => [styles.supportRow, pressed && styles.supportRowPressed]}
+                  onPress={() =>
+                    openHelp({
+                      conversation_id: chat.id,
+                      booking_id: b.id,
+                      list_scope: "booking",
+                    })
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open support chat ${label}`}
+                >
+                  <Text style={styles.body} numberOfLines={1}>
+                    {label}
+                  </Text>
+                  <Text style={styles.meta}>
+                    {chat.status === "resolved" ? "Closed" : "Open"} · {formatDisplayDateTime(chat.last_message_at)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+            <Button
+              size="sm"
+              variant="outline"
+              style={styles.mapsBtn}
+              onPress={() =>
+                openHelp({
+                  booking_id: b.id,
+                  category_slug: "job",
+                  list_scope: "booking",
+                })
+              }
+            >
+              Ask about this visit
+            </Button>
+          </DetailSection>
+
           {opsMeta && opsMeta.issue_count > 0 ? (
             <DetailSection title="Operations watch">
               <Text style={styles.body}>Operations team is monitoring this visit closely.</Text>
@@ -585,6 +651,15 @@ const styles = StyleSheet.create({
   mapsBtn: {
     marginTop: spacing.sm,
     alignSelf: "flex-start",
+  },
+  supportRow: {
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  supportRowPressed: {
+    opacity: 0.7,
   },
   directionsBlock: {
     gap: spacing.sm,

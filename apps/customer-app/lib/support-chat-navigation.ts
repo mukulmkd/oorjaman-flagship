@@ -25,7 +25,9 @@ export function supportChatHref(context?: HelpSupportOpenContext): string {
   if (context?.service_address_id?.trim()) q.set("service_address_id", context.service_address_id.trim());
   if (context?.category_slug?.trim()) q.set("category_slug", context.category_slug.trim());
   if (context?.subcategory_slug?.trim()) q.set("subcategory_slug", context.subcategory_slug.trim());
+  if (context?.booking_id?.trim()) q.set("booking_id", context.booking_id.trim());
   if (context?.conversation_id?.trim()) q.set("conversation_id", context.conversation_id.trim());
+  if (context?.list_scope === "booking") q.set("list_scope", "booking");
   if (context?.focus_active_thread) q.set("focus_active_thread", "1");
   const query = q.toString();
   return query ? `/support-chat?${query}` : "/support-chat";
@@ -41,15 +43,20 @@ export function parseSupportChatRouteParams(params: {
   service_address_id?: string | string[];
   category_slug?: string | string[];
   subcategory_slug?: string | string[];
+  booking_id?: string | string[];
   conversation_id?: string | string[];
+  list_scope?: string | string[];
   focus_active_thread?: string | string[];
 }): HelpSupportOpenContext {
+  const listScope = firstParam(params.list_scope);
   return {
     subscription_id: firstParam(params.subscription_id) ?? null,
     service_address_id: firstParam(params.service_address_id) ?? null,
     category_slug: firstParam(params.category_slug) ?? null,
     subcategory_slug: firstParam(params.subcategory_slug) ?? null,
+    booking_id: firstParam(params.booking_id) ?? null,
     conversation_id: firstParam(params.conversation_id) ?? null,
+    list_scope: listScope === "booking" ? "booking" : undefined,
     focus_active_thread: firstParam(params.focus_active_thread) === "1",
   };
 }

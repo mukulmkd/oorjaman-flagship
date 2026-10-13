@@ -391,6 +391,30 @@ export async function countUnreadSupportMessagesForCustomer(
   return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
 }
 
+export async function countUnreadSupportMessagesForCustomerBooking(
+  client: SupabaseClient<Database>,
+  bookingId: string,
+): Promise<number> {
+  const { data, error } = await client.rpc("count_unread_support_messages_for_customer_booking", {
+    p_booking_id: bookingId,
+  });
+  if (error) throw new SupabaseApiError(error.message, error);
+  const n = typeof data === "number" ? data : Number(data ?? 0);
+  return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+}
+
+/** Customer chats for one booking, newest first. Closes timed-out threads first. */
+export async function listSupportConversationsForCustomerBooking(
+  client: SupabaseClient<Database>,
+  bookingId: string,
+): Promise<SupportConversationRow[]> {
+  await closeInactiveSupportChatsForCustomer(client);
+  const rows = await listMySupportConversations(client, { limit: 50 });
+  return rows.filter(
+    (row) => row.participant_audience === "customer" && row.booking_id === bookingId,
+  );
+}
+
 export async function markSupportConversationReadByCustomer(
   client: SupabaseClient<Database>,
   conversationId: string,
@@ -561,6 +585,30 @@ export async function countUnreadSupportMessagesForTechnician(
   if (error) throw new SupabaseApiError(error.message, error);
   const n = typeof data === "number" ? data : Number(data ?? 0);
   return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+}
+
+export async function countUnreadSupportMessagesForTechnicianBooking(
+  client: SupabaseClient<Database>,
+  bookingId: string,
+): Promise<number> {
+  const { data, error } = await client.rpc("count_unread_support_messages_for_technician_booking", {
+    p_booking_id: bookingId,
+  });
+  if (error) throw new SupabaseApiError(error.message, error);
+  const n = typeof data === "number" ? data : Number(data ?? 0);
+  return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+}
+
+/** Technician chats for one visit, newest first. Closes timed-out threads first. */
+export async function listSupportConversationsForTechnicianBooking(
+  client: SupabaseClient<Database>,
+  bookingId: string,
+): Promise<SupportConversationRow[]> {
+  await closeInactiveSupportChatsForTechnician(client);
+  const rows = await listMySupportConversations(client, { limit: 50 });
+  return rows.filter(
+    (row) => row.participant_audience === "technician" && row.booking_id === bookingId,
+  );
 }
 
 export async function markSupportConversationReadByTechnician(
