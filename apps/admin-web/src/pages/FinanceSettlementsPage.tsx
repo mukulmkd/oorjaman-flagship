@@ -27,6 +27,7 @@ import { Badge, Button, Card, PageHeader } from "@oorjaman/web-ui";
 import { Link } from "react-router-dom";
 import { TablePaginationBar } from "@oorjaman/web-ui";
 import { useSupabase } from "@oorjaman/web-ui";
+import { FinanceKpiBreakdown, type FinanceKpiId } from "../components/FinanceKpiBreakdown";
 import { HeldBookingDetailModal } from "../components/HeldBookingDetailModal";
 import "./finance-settlements-page.css";
 
@@ -64,13 +65,30 @@ function splitHint(
   return parts.join(" · ");
 }
 
-function FinanceKpi({ label, value, hint }: { label: string; value: string; hint: string }) {
+function FinanceKpi({
+  label,
+  value,
+  hint,
+  open,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+  open: boolean;
+  onClick: () => void;
+}) {
   return (
-    <div className="fin-kpi">
+    <button
+      type="button"
+      className={open ? "fin-kpi fin-kpi--open" : "fin-kpi"}
+      onClick={onClick}
+      aria-expanded={open}
+    >
       <span className="fin-kpi-label">{label}</span>
       <span className="fin-kpi-value">{value}</span>
       {hint ? <span className="fin-kpi-hint">{hint}</span> : null}
-    </div>
+    </button>
   );
 }
 
@@ -91,6 +109,7 @@ export function FinanceSettlementsPage() {
   const [editingPenalty, setEditingPenalty] = useState<Record<string, string>>({});
   const [platformFeeText, setPlatformFeeText] = useState("10");
   const [heldBookingId, setHeldBookingId] = useState<string | null>(null);
+  const [openKpi, setOpenKpi] = useState<FinanceKpiId | null>(null);
 
   const filtersKey = `${kindFilter}|${statusFilter}`;
 
@@ -216,6 +235,10 @@ export function FinanceSettlementsPage() {
     (r) => r.kind === "cancellation_penalty" && r.status === "pending_review",
   ).length;
 
+  function toggleKpi(id: FinanceKpiId) {
+    setOpenKpi((current) => (current === id ? null : id));
+  }
+
   return (
     <div className="dash-page fin-page">
       <PageHeader
@@ -320,6 +343,8 @@ export function FinanceSettlementsPage() {
 
           <div className="fin-kpi-grid" aria-label="Finance summary">
             <FinanceKpi
+              open={openKpi === "recognized"}
+              onClick={() => toggleKpi("recognized")}
               label="Recognized revenue"
               value={kpiMoney(financeDashboardQ, financeDashboardQ.data?.recognized_revenue_paise)}
               hint={`${
@@ -334,6 +359,8 @@ export function FinanceSettlementsPage() {
               )}`}
             />
             <FinanceKpi
+              open={openKpi === "settled"}
+              onClick={() => toggleKpi("settled")}
               label="Settled revenue"
               value={kpiMoney(financeDashboardQ, financeDashboardQ.data?.total_revenue_cents)}
               hint={`Platform fee already marked settled with the partner. ${splitHint(
@@ -346,6 +373,8 @@ export function FinanceSettlementsPage() {
               )}`}
             />
             <FinanceKpi
+              open={openKpi === "collections"}
+              onClick={() => toggleKpi("collections")}
               label="Customer payments"
               value={kpiMoney(financeDashboardQ, financeDashboardQ.data?.total_collections_cents)}
               hint={`Money received from customers. This includes the partner's share, not only OorjaMan's fee. ${splitHint(
@@ -362,11 +391,15 @@ export function FinanceSettlementsPage() {
               )}`}
             />
             <FinanceKpi
+              open={openKpi === "amc_held"}
+              onClick={() => toggleKpi("amc_held")}
               label="AMC prepaid still held"
               value={kpiMoney(financeDashboardQ, financeDashboardQ.data?.amc_deferred_liability_paise)}
               hint="Customers paid this up front for AMC visits that have not happened yet. It is not OorjaMan income. When a visit is completed, the partner is paid and OorjaMan's fee is recognized. This is what has not been released."
             />
             <FinanceKpi
+              open={openKpi === "partner_payable"}
+              onClick={() => toggleKpi("partner_payable")}
               label="Still to pay partners"
               value={kpiMoney(
                 financeDashboardQ,
@@ -380,16 +413,29 @@ export function FinanceSettlementsPage() {
               )}`}
             />
             <FinanceKpi
+              open={openKpi === "payouts_review"}
+              onClick={() => toggleKpi("payouts_review")}
               label="Payouts to review"
               value={String(pendingPayouts)}
               hint="Visit payouts waiting for approval."
             />
             <FinanceKpi
+              open={openKpi === "penalties_review"}
+              onClick={() => toggleKpi("penalties_review")}
               label="Penalties to review"
               value={String(pendingPenalties)}
               hint="Cancellation charges waiting for a decision."
             />
           </div>
+
+          {openKpi ? (
+            <FinanceKpiBreakdown
+              key={openKpi}
+              kpi={openKpi}
+              onOpenBooking={setHeldBookingId}
+              onClose={() => setOpenKpi(null)}
+            />
+          ) : null}
 
           {backfillMut.isSuccess ? (
             <p className="dash-muted-line">

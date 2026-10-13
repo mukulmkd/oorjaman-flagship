@@ -227,6 +227,11 @@
   max-height: min(88vh, 48rem);
 }
 
+.web-modal--xl {
+  width: min(1080px, calc(100vw - 2.5rem));
+  max-height: min(88vh, 52rem);
+}
+
 .web-modal-header {
   display: flex;
   align-items: flex-start;

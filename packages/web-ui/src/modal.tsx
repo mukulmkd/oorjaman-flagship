@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useBodyScrollLock } from "./use-body-scroll-lock";
 
-export type ModalSize = "sm" | "md" | "lg";
+export type ModalSize = "sm" | "md" | "lg" | "xl";
 
 export type ModalProps = {
   open: boolean;
@@ -9,7 +9,7 @@ export type ModalProps = {
   description?: string;
   children?: ReactNode;
   onClose: () => void;
-  /** sm ≈ 400px · md ≈ 560px (default) · lg ≈ 720px */
+  /** sm ≈ 400px · md ≈ 560px (default) · lg ≈ 720px · xl ≈ 1080px */
   size?: ModalSize;
 };
 
