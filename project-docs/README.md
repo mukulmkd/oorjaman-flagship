@@ -25,6 +25,12 @@ Topic-specific how-tos (push setup, local APK, realtime) remain in [`docs/`](../
 | [ANDROID-PLAY.md](ANDROID-PLAY.md) | Google Play rebuild: EAS, FCM, Maps SHA-1, internal track |
 | [LAUNCH.md](LAUNCH.md) | Marketing site and store listing URLs |
 
+## Product plans
+
+| Doc | Purpose |
+| --- | ------- |
+| [../KPI-DASHBOARD-PLAN.md](../KPI-DASHBOARD-PLAN.md) | National Admin KPIs menu: what to show first, and what waits on a definition |
+
 ## Ops & billing
 
 | Doc | Purpose |

@@ -14,6 +14,7 @@ import {
 } from "@oorjaman/web-ui";
 import { DocumentViewButton } from "@oorjaman/web-ui";
 import { useSupabase } from "@oorjaman/web-ui";
+import { RegisteredAddressFields } from "../components/RegisteredAddressFields";
 import {
   approvalBadgeTone,
   formatSubmittedAt,
@@ -25,16 +26,6 @@ function vendorLogoStoragePath(metadata: unknown): string | null {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
   const p = (metadata as Record<string, unknown>).company_logo_storage_path;
   return typeof p === "string" && p.trim() ? p.trim() : null;
-}
-
-function stringifyAddress(value: unknown): string {
-  if (value == null) return "-";
-  if (typeof value === "string") return value || "-";
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
 }
 
 export function VendorDetailPage() {
@@ -212,22 +203,11 @@ export function VendorDetailPage() {
                 <dd className="dash-mono">{v.user_id}</dd>
               </dl>
             </Card>
-            <Card padded style={{ gridColumn: "1 / -1" }}>
+            <Card padded>
               <h3 style={{ margin: "0 0 1rem", fontSize: webTypography.size.md, fontWeight: webTypography.weight.bold }}>
                 Registered address
               </h3>
-              <pre
-                style={{
-                  margin: 0,
-                  fontSize: webTypography.size.sm,
-                  whiteSpace: "pre-wrap",
-                  fontFamily: "inherit",
-                  color: "var(--wb-fg)",
-                  lineHeight: 1.5,
-                }}
-              >
-                {stringifyAddress(v.registered_address)}
-              </pre>
+              <RegisteredAddressFields value={v.registered_address} />
             </Card>
             <Card padded>
               <h3 style={{ margin: "0 0 1rem", fontSize: webTypography.size.md, fontWeight: webTypography.weight.bold }}>Company details</h3>

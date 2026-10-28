@@ -298,6 +298,18 @@ export {
   type SubscriptionStatsRow,
   type VendorPerformanceRow,
 } from "./admin/analytics-api";
+export {
+  adminFetchNationalKpiScorecard,
+  adminFetchNationalKpiSource,
+  nationalKpiMondayYmd,
+  nationalKpiScorecardForWeek,
+  nationalKpiWeekBounds,
+  type NationalKpiFormat,
+  type NationalKpiItem,
+  type NationalKpiScorecard,
+  type NationalKpiSource,
+  type NationalKpiWeekBounds,
+} from "./admin/national-kpi-api";
 export * as technicianApi from "./technicians/technician-api";
 export * as technicianActivityApi from "./technicians/technician-activity-api";
 export {

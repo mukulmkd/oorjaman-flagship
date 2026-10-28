@@ -3,6 +3,64 @@ import { formatDisplayDateTime } from "@oorjaman/utils";
 
 export type VendorTab = "pending" | "approved" | "rejected";
 
+const REGISTERED_ADDRESS_FIELDS = [
+  { key: "line1", label: "Address" },
+  { key: "line2", label: "Address line 2" },
+  { key: "city", label: "City" },
+  { key: "district", label: "District" },
+  { key: "state", label: "State" },
+  { key: "pincode", label: "PIN code" },
+  { key: "postal_code", label: "PIN code" },
+  { key: "country", label: "Country" },
+] as const;
+
+function addressRecord(value: unknown): Record<string, unknown> | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+    return null;
+  }
+  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
+  return null;
+}
+
+function addressText(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return "";
+}
+
+export type RegisteredAddressField = { label: string; value: string };
+
+/** Labelled lines for a partner registered address. Empty when nothing readable is stored. */
+export function registeredAddressFields(value: unknown): RegisteredAddressField[] {
+  if (typeof value === "string" && value.trim() && !addressRecord(value)) {
+    return [{ label: "Address", value: value.trim() }];
+  }
+  const record = addressRecord(value);
+  if (!record) return [];
+  const fields: RegisteredAddressField[] = [];
+  const seen = new Set<string>();
+  for (const field of REGISTERED_ADDRESS_FIELDS) {
+    if (seen.has(field.label)) continue;
+    const text = addressText(record[field.key]);
+    if (!text) continue;
+    seen.add(field.label);
+    fields.push({ label: field.label, value: text });
+  }
+  if (fields.length === 0) {
+    const formatted = addressText(record.formatted);
+    if (formatted) return [{ label: "Address", value: formatted }];
+  }
+  return fields;
+}
+
 /** Human-readable city from `registered_address` JSON or plain string. */
 export function cityFromRegisteredAddress(value: unknown): string {
   if (value == null) return "-";

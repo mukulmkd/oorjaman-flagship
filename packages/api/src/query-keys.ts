@@ -17,6 +17,7 @@ export const queryKeys = {
       [...queryKeys.admin.analytics(), "bookings-daily", days] as const,
     vendorPerformance: (limit: number) =>
       [...queryKeys.admin.analytics(), "vendor-performance", limit] as const,
+    nationalKpis: () => [...queryKeys.root, "admin", "national-kpis"] as const,
   },
 
   auth: {

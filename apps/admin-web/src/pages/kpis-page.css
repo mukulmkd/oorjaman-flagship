@@ -1,0 +1,142 @@
+.kpis-week {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.kpis-week-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.kpis-week-label {
+  font-size: var(--type-xs, 0.75rem);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--wb-muted-fg, #516a7b);
+}
+
+.kpis-week-input {
+  width: auto;
+  min-width: 11rem;
+}
+
+.kpis-root {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.kpis-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.kpis-section-title {
+  margin: 0;
+  font-size: var(--type-md, 1rem);
+  font-weight: 600;
+  color: var(--wb-fg, #0f2938);
+}
+
+.kpis-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+@media (max-width: 960px) {
+  .kpis-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .kpis-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.kpis-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+  box-sizing: border-box;
+  min-width: 0;
+  height: 100%;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid var(--wb-border, #e7e5e4);
+  border-radius: 14px;
+  background: var(--wb-card, #fff);
+  box-shadow: var(--wb-card-shadow, 0 1px 2px rgb(15 23 42 / 0.06));
+  color: inherit;
+  text-align: left;
+  text-decoration: none;
+}
+
+.kpis-card:hover,
+.kpis-card:focus-visible {
+  border-color: rgb(15 118 110 / 0.45);
+}
+
+.kpis-card:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(15 118 110 / 0.18);
+}
+
+.kpis-label {
+  font-size: var(--type-xs, 0.75rem);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--wb-muted-fg, #516a7b);
+}
+
+.kpis-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--wb-fg, #0f2938);
+}
+
+.kpis-detail,
+.kpis-compare,
+.kpis-hint,
+.kpis-note {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--wb-muted-fg, #516a7b);
+  overflow-wrap: anywhere;
+}
+
+.kpis-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.kpis-delta {
+  color: var(--wb-fg, #0f2938);
+}
+
+.kpis-hint {
+  margin-top: auto;
+  padding-top: 0.35rem;
+}
+
+.kpis-error {
+  margin: 0;
+  color: rgb(185 28 28);
+  font-size: 0.875rem;
+}

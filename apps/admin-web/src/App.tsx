@@ -18,6 +18,7 @@ import { SubscriptionRenewalsPage } from "./pages/SubscriptionRenewalsPage";
 import { PricingManagementPage } from "./pages/PricingManagementPage";
 import { ServiceCapacityPricingPage } from "./pages/ServiceCapacityPricingPage";
 import { AnalyticsDashboardPage } from "./pages/AnalyticsDashboardPage";
+import { KpisPage } from "./pages/KpisPage";
 import { FeatureManagementPage } from "./pages/FeatureManagementPage";
 import { AmcContractsPage } from "./pages/AmcContractsPage";
 import { FinanceSettlementsPage } from "./pages/FinanceSettlementsPage";
@@ -44,6 +45,14 @@ export default function App() {
       >
         <Route index element={<Navigate to="operations" replace />} />
         <Route path="analytics" element={<AnalyticsDashboardPage />} />
+        <Route
+          path="kpis"
+          element={
+            <RequireNationalAdmin>
+              <KpisPage />
+            </RequireNationalAdmin>
+          }
+        />
         <Route
           path="state-desks"
           element={

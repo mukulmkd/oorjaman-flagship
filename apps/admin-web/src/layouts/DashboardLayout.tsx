@@ -54,6 +54,7 @@ export function DashboardLayout() {
     location.pathname.startsWith("/dashboard/pricing") ||
     location.pathname.startsWith("/dashboard/service-pricing");
   const analyticsNavActive = location.pathname.startsWith("/dashboard/analytics");
+  const kpisNavActive = location.pathname.startsWith("/dashboard/kpis");
   const featureMgmtNavActive = location.pathname.startsWith("/dashboard/feature-management");
   const brandCollateralNavActive = location.pathname.startsWith("/dashboard/brand-collateral");
   const financeNavActive = location.pathname.startsWith("/dashboard/finance");
@@ -117,6 +118,11 @@ export function DashboardLayout() {
           <Link to="/dashboard/analytics" className={analyticsNavActive ? "dash-nav-active" : ""}>
             Analytics
           </Link>
+          {nationalAdmin ? (
+            <Link to="/dashboard/kpis" className={kpisNavActive ? "dash-nav-active" : ""}>
+              KPIs
+            </Link>
+          ) : null}
           {nationalAdmin ? (
             <Link to="/dashboard/state-desks" className={location.pathname.startsWith("/dashboard/state-desks") ? "dash-nav-active" : ""}>
               State desks

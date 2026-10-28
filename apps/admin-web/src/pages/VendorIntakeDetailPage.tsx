@@ -15,21 +15,12 @@ import {
 } from "@oorjaman/web-ui";
 import { DocumentViewButton } from "@oorjaman/web-ui";
 import { useSupabase } from "@oorjaman/web-ui";
+import { RegisteredAddressFields } from "../components/RegisteredAddressFields";
 import {
   cityFromRegisteredAddress,
   formatIntakeExperienceLine,
   formatSubmittedAt,
 } from "../lib/vendor-approval-utils";
-
-function stringifyAddress(value: unknown): string {
-  if (value == null) return "-";
-  if (typeof value === "string") return value || "-";
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
 
 function asFormRecord(form: Json): Record<string, unknown> {
   if (form && typeof form === "object" && !Array.isArray(form)) {
@@ -233,20 +224,9 @@ export function VendorIntakeDetailPage() {
                 <dd>{String(f.contact_phone ?? "-")}</dd>
               </dl>
             </Card>
-            <Card padded style={{ gridColumn: "1 / -1" }}>
+            <Card padded>
               <h3 style={{ margin: "0 0 1rem", fontSize: webTypography.size.md, fontWeight: webTypography.weight.bold }}>Registered address</h3>
-              <pre
-                style={{
-                  margin: 0,
-                  fontSize: webTypography.size.sm,
-                  whiteSpace: "pre-wrap",
-                  fontFamily: "inherit",
-                  color: "var(--wb-fg)",
-                  lineHeight: 1.5,
-                }}
-              >
-                {stringifyAddress(f.registered_address)}
-              </pre>
+              <RegisteredAddressFields value={f.registered_address} />
             </Card>
             <Card padded>
               <h3 style={{ margin: "0 0 1rem", fontSize: webTypography.size.md, fontWeight: webTypography.weight.bold }}>Company details</h3>
