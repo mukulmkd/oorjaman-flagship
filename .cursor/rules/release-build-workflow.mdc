@@ -39,7 +39,7 @@ In the target app directory, check:
 | EAS profile | `apps/<app>/eas.json` → `build.production` |
 | Remote build numbers | `npx eas-cli build:version:get --platform android\|ios` |
 | Production env on EAS | Supabase PROD URL/keys, `EXPO_PUBLIC_DEPLOY_ENV=production`, Maps keys (customer) |
-| Doctor | `npx expo-doctor` (production scripts already run this) |
+| Doctor | `npx expo-doctor` in that app. Must exit 0 before any EAS build or store submit |
 
 Primary config is **`app.config.ts`**, not `app.json` / `app.config.js`.
 
@@ -85,7 +85,10 @@ Requirements:
 
 - Profile: **`production`** only for store
 - Env: EAS **production** environment (not UAT / local)
-- Run `brand:sync` + `expo-doctor` (wrapped in existing Android production scripts)
+- From the app directory, `npx expo-doctor` must pass **before** `eas build` and again before `eas submit`
+- Applies to Customer and Partner, Android and iOS, including UAT builds
+- If Doctor fails, fix the reported packages first. Do not build or submit that app
+- Android production scripts already run Doctor. iOS must run the same check before the build command
 
 ### 4.3 After build succeeds
 
@@ -102,6 +105,7 @@ Requirements:
 - Never skip inspecting remote `versionCode` / `buildNumber` when diagnosing Play/Asc rejection for “version already used”
 - Never bump semver and ship OTA alone expecting old binaries to pick it up (`runtimeVersion` = `appVersion`)
 - Never run production build/submit unless the user asked for a release (or clearly confirmed)
+- Never start an EAS build or store submit for Customer or Partner when `npx expo-doctor` in that app fails
 
 ---
 
@@ -111,6 +115,6 @@ Requirements:
 - [ ] Store binary vs OTA decided
 - [ ] `version` updated only if store release needs a new user-facing version
 - [ ] Production EAS env vars verified
-- [ ] `expo-doctor` clean
+- [ ] `npx expo-doctor` passed in the app being built, before build and before submit
 - [ ] Build profile `production`
 - [ ] Artifact identity matches listing (package / bundle ID)
