@@ -6,6 +6,14 @@
   background: var(--om-card);
 }
 
+.compact {
+  margin-top: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
 .intro {
   margin: 0 0 1.15rem;
   font-size: 0.9375rem;

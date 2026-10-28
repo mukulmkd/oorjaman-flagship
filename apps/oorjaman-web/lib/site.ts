@@ -81,12 +81,32 @@ export function isPublicHttpsUrl(url: string | undefined | null): boolean {
 }
 
 /**
- * Customer store listing URLs. Leave env unset until listings are live -
- * `/download` then shows a notify / waitlist path instead of broken buttons.
+ * Live customer store listings (App Store id from EAS `ascAppId`, Play package
+ * `com.oorjaman.customer`). Override with NEXT_PUBLIC_* when a region/locale
+ * URL is preferred. Empty override that fails `isPublicHttpsUrl` falls back.
+ */
+const DEFAULT_CUSTOMER_APP_STORE_URL = "https://apps.apple.com/app/id6818586874";
+const DEFAULT_CUSTOMER_PLAY_STORE_URL =
+  "https://play.google.com/store/apps/details?id=com.oorjaman.customer";
+
+function envOrDefaultStoreUrl(envValue: string | undefined, fallback: string): string {
+  const trimmed = (envValue ?? "").trim();
+  return isPublicHttpsUrl(trimmed) ? trimmed : fallback;
+}
+
+/**
+ * Customer store listing URLs. Defaults point at the live production listings.
+ * `/download` shows official store badges when both resolve to public https URLs.
  */
 export const APP_LINKS = {
-  customerIos: (process.env.NEXT_PUBLIC_APP_STORE_URL ?? "").trim(),
-  customerAndroid: (process.env.NEXT_PUBLIC_PLAY_STORE_URL ?? "").trim(),
+  customerIos: envOrDefaultStoreUrl(
+    process.env.NEXT_PUBLIC_APP_STORE_URL,
+    DEFAULT_CUSTOMER_APP_STORE_URL,
+  ),
+  customerAndroid: envOrDefaultStoreUrl(
+    process.env.NEXT_PUBLIC_PLAY_STORE_URL,
+    DEFAULT_CUSTOMER_PLAY_STORE_URL,
+  ),
   customerScheme: "oorjaman-customer://",
 } as const;
 

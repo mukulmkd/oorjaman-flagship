@@ -20,9 +20,9 @@ export type AppUpdatePolicy = {
 
 export const APP_UPDATE_POLICY: Record<AppUpdateAudience, AppUpdatePolicy> = {
   customer: {
-    minimumStoreVersion: null,
+    minimumStoreVersion: "1.0.1",
     androidPackage: "com.oorjaman.customer",
-    iosAppStoreUrl: null,
+    iosAppStoreUrl: "https://apps.apple.com/app/id6818586874",
     storeSearch: "OorjaMan",
     storeMessage:
       "A newer OorjaMan is ready. Update to keep your bookings and receipts working smoothly.",
@@ -31,7 +31,7 @@ export const APP_UPDATE_POLICY: Record<AppUpdateAudience, AppUpdatePolicy> = {
     refreshButton: "Refresh",
   },
   partner: {
-    minimumStoreVersion: null,
+    minimumStoreVersion: "1.0.1",
     androidPackage: "com.oorjaman.technician",
     iosAppStoreUrl: null,
     storeSearch: "OorjaMan Partner",

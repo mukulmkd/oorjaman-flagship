@@ -49,12 +49,15 @@ export type LoginPhoneOtpScreenProps = {
   methodTabs?: ReactNode;
   /** Render a non-interactive production placeholder until SMS delivery is live. */
   comingSoon?: boolean;
+  /** Local/UAT dummy-auth copy only — never show on production. */
+  useTestAccountCopy?: boolean;
 };
 
-/** Local / UAT: phone OTP (dummy auth when `EXPO_PUBLIC_USE_DUMMY_AUTH=true`). */
+/** Phone OTP sign-in (real SMS on production; dummy OTP copy only when UAT/local). */
 export function LoginPhoneOtpScreen({
   methodTabs,
   comingSoon = false,
+  useTestAccountCopy = false,
 }: LoginPhoneOtpScreenProps) {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
@@ -202,9 +205,9 @@ export function LoginPhoneOtpScreen({
       <Text style={styles.lede}>
         {comingSoon
           ? "Mobile sign-in is not available yet. Use the Email tab to continue securely."
-          : methodTabs
+          : useTestAccountCopy
             ? "Send code, then enter the one-time code for your test mobile."
-            : "We'll text you a one-time code. Standard SMS rates may apply from your carrier."}
+            : "We'll text a one-time code to your mobile. Standard SMS rates may apply."}
       </Text>
 
       {comingSoon ? (
@@ -232,6 +235,13 @@ export function LoginPhoneOtpScreen({
             onNationalDigitsChange={setNationalPhone}
             editable={!verifying}
           />
+          {!useTestAccountCopy ? (
+            <Text style={styles.phoneHint}>
+              Use the mobile number registered with OorjaMan. A different number
+              creates a new login — your existing bookings and profile won’t
+              move with it.
+            </Text>
+          ) : null}
 
           <View style={styles.otpHeader}>
             <Text style={styles.label}>One-time code</Text>
@@ -248,9 +258,11 @@ export function LoginPhoneOtpScreen({
             </Button>
           </View>
 
-          <Text style={styles.otpSmsHint}>
-            Use the UAT one-time code 123456.
-          </Text>
+          {useTestAccountCopy ? (
+            <Text style={styles.otpSmsHint}>
+              Use the UAT one-time code 123456.
+            </Text>
+          ) : null}
 
           {!verifying ? (
             <OtpCodeInput
@@ -362,6 +374,13 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.foreground,
     marginTop: spacing.sm,
+  },
+  phoneHint: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    lineHeight: 18,
+    color: colors.mutedForeground,
+    marginTop: spacing.xs,
   },
   otpSmsHint: {
     fontFamily: fontFamily.regular,

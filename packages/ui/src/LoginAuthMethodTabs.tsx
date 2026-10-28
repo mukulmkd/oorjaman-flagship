@@ -9,23 +9,10 @@ export type LoginAuthMethodTabsProps = {
   disabled?: boolean;
 };
 
-/** Local/UAT: switch between phone OTP and email/password. */
+/** Switch between mobile OTP (primary) and email OTP. */
 export function LoginAuthMethodTabs({ method, onChange, disabled }: LoginAuthMethodTabsProps) {
   return (
     <View style={styles.row} accessibilityRole="tablist" accessibilityLabel="Sign-in method">
-      <Pressable
-        accessibilityRole="tab"
-        accessibilityState={{ selected: method === "email" }}
-        disabled={disabled}
-        onPress={() => onChange("email")}
-        style={({ pressed }) => [
-          styles.tab,
-          method === "email" && styles.tabActive,
-          pressed && !disabled && styles.tabPressed,
-        ]}
-      >
-        <Text style={[styles.tabLabel, method === "email" && styles.tabLabelActive]}>Email</Text>
-      </Pressable>
       <Pressable
         accessibilityRole="tab"
         accessibilityState={{ selected: method === "phone" }}
@@ -38,6 +25,19 @@ export function LoginAuthMethodTabs({ method, onChange, disabled }: LoginAuthMet
         ]}
       >
         <Text style={[styles.tabLabel, method === "phone" && styles.tabLabelActive]}>Mobile OTP</Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="tab"
+        accessibilityState={{ selected: method === "email" }}
+        disabled={disabled}
+        onPress={() => onChange("email")}
+        style={({ pressed }) => [
+          styles.tab,
+          method === "email" && styles.tabActive,
+          pressed && !disabled && styles.tabPressed,
+        ]}
+      >
+        <Text style={[styles.tabLabel, method === "email" && styles.tabLabelActive]}>Email</Text>
       </Pressable>
     </View>
   );

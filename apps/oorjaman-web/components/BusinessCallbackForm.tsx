@@ -5,11 +5,32 @@ import { SUPPORT_EMAIL } from "@/lib/site";
 import styles from "./business-callback-form.module.css";
 
 type BusinessCallbackFormProps = {
-  /** Prefill subject context */
-  context?: "business" | "contact";
+  /** Prefill subject / intro context */
+  context?: "business" | "contact" | "support";
+  /** Tighter layout for Help sheet popup */
+  compact?: boolean;
 };
 
-export function BusinessCallbackForm({ context = "business" }: BusinessCallbackFormProps) {
+function subjectFor(context: NonNullable<BusinessCallbackFormProps["context"]>): string {
+  if (context === "support") return "OorjaMan support enquiry";
+  if (context === "contact") return "OorjaMan callback request";
+  return "Business / multi-site enquiry";
+}
+
+function introFor(context: NonNullable<BusinessCallbackFormProps["context"]>): string {
+  if (context === "support") {
+    return `Tell us how we can help. Opens your email app with a ready draft to ${SUPPORT_EMAIL}.`;
+  }
+  if (context === "contact") {
+    return `Request a callback for multi-site or commercial rooftops. Opens your email app with a ready draft to ${SUPPORT_EMAIL}.`;
+  }
+  return `Request a callback for multi-site or commercial rooftops. Opens your email app with a ready draft to ${SUPPORT_EMAIL}.`;
+}
+
+export function BusinessCallbackForm({
+  context = "business",
+  compact = false,
+}: BusinessCallbackFormProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [company, setCompany] = useState("");
@@ -19,10 +40,6 @@ export function BusinessCallbackForm({ context = "business" }: BusinessCallbackF
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
-    const subject =
-      context === "contact"
-        ? "OorjaMan callback request"
-        : "Business / multi-site enquiry";
     const body = [
       `Name: ${name.trim()}`,
       `Phone: ${phone.trim()}`,
@@ -34,17 +51,18 @@ export function BusinessCallbackForm({ context = "business" }: BusinessCallbackF
       .filter((line) => line !== null)
       .join("\n");
 
-    const href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subjectFor(context))}&body=${encodeURIComponent(body)}`;
     window.location.href = href;
     setSentHint(true);
   }
 
   return (
-    <form className={styles.form} onSubmit={onSubmit} noValidate>
-      <p className={styles.intro}>
-        Request a callback for multi-site or commercial rooftops. Opens your email app with a ready draft to{" "}
-        {SUPPORT_EMAIL}.
-      </p>
+    <form
+      className={[styles.form, compact ? styles.compact : ""].filter(Boolean).join(" ")}
+      onSubmit={onSubmit}
+      noValidate
+    >
+      <p className={styles.intro}>{introFor(context)}</p>
       <div className={styles.grid}>
         <label className={styles.field}>
           <span>Name</span>
@@ -91,13 +109,17 @@ export function BusinessCallbackForm({ context = "business" }: BusinessCallbackF
         </label>
       </div>
       <label className={styles.field}>
-        <span>What do you need?</span>
+        <span>{context === "support" ? "How can we help?" : "What do you need?"}</span>
         <textarea
           name="message"
-          rows={3}
+          rows={compact ? 3 : 3}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="Sites, kW capacity, preferred timeline…"
+          placeholder={
+            context === "support"
+              ? "Booking, visit, payment, or anything else…"
+              : "Sites, kW capacity, preferred timeline…"
+          }
         />
       </label>
       <div className={styles.actions}>

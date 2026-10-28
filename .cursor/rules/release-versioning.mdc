@@ -42,6 +42,8 @@ New backward-compatible features, screens, workflows, significant enhancements. 
 
 Breaking product/API/compatibility changes. Reset MINOR and PATCH to `0`.
 
+After a MAJOR store binary is **live**, force remaining users off older binaries via `minimumStoreVersion` + old-runtime OTAs — see `release-force-store-update.mdc`. Do not treat a MAJOR OTA alone as enough.
+
 If the bump type is unclear, **ask before changing `version`**.
 
 Customer and Partner versions are **independent** — bump only the app being released.
@@ -75,6 +77,8 @@ Both apps use `expo-updates` with:
 | Native change (new native module, permission, plugin, SDK bump, Maps key in native config) | Usually **Yes** (at least PATCH) | **New native build** — OTA cannot ship this |
 
 Never bump `version` only to “force” OTA — that orphans updates for older binaries still on the previous runtime.
+
+To require a store upgrade for everyone still on older binaries, use `release-force-store-update.mdc` (not a version bump alone).
 
 ---
 

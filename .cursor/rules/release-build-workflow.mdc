@@ -106,6 +106,7 @@ Requirements:
 - Never bump semver and ship OTA alone expecting old binaries to pick it up (`runtimeVersion` = `appVersion`)
 - Never run production build/submit unless the user asked for a release (or clearly confirmed)
 - Never start an EAS build or store submit for Customer or Partner when `npx expo-doctor` in that app fails
+- On every **MAJOR** store release (and whenever “everyone on latest” is required): after the binary is live, follow `release-force-store-update.mdc` — raise `minimumStoreVersion` and OTA all older runtimes
 
 ---
 
@@ -118,3 +119,4 @@ Requirements:
 - [ ] `npx expo-doctor` passed in the app being built, before build and before submit
 - [ ] Build profile `production`
 - [ ] Artifact identity matches listing (package / bundle ID)
+- [ ] **MAJOR** (or forced-upgrade) release: plan post-live `minimumStoreVersion` + old-runtime OTAs (`release-force-store-update.mdc`)

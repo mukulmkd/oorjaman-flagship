@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -16,7 +17,7 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { colors, spacing } from "@oorjaman/config";
-import { Button, Card, Input, KEYBOARD_AVOIDING_BEHAVIOR, LoadingSpinner, ModalSheetHeader } from "@oorjaman/ui";
+import { Button, Card, Input, LoadingSpinner, ModalSheetHeader } from "@oorjaman/ui";
 import { fontFamily, fontSize } from "../constants/fonts";
 import { fillAddressFromCurrentLocation, type GpsAddressFill } from "../lib/fill-address-from-gps";
 import {
@@ -25,6 +26,10 @@ import {
   type ServiceAddressEntry,
   type ServiceAddressSaveExtras,
 } from "../lib/service-address-book";
+
+/** Lift the whole bottom sheet; RN Modal does not inherit root window keyboard padding. */
+const SHEET_KEYBOARD_BEHAVIOR =
+  Platform.OS === "ios" ? ("padding" as const) : ("height" as const);
 
 type Props = {
   visible: boolean;
@@ -162,13 +167,18 @@ function ServiceAddressPickerSheetBody({
     void runCurrentLocationFill({ showErrors: true });
   };
 
+  const onBackdropPress = () => {
+    Keyboard.dismiss();
+    if (!blockDismiss) onClose();
+  };
+
   return (
-    <View style={styles.modalRoot}>
-      {blockDismiss ? (
-        <View style={styles.backdropFill} />
-      ) : (
-        <Pressable style={styles.backdropFill} onPress={onClose} accessibilityLabel="Dismiss" />
-      )}
+    <KeyboardAvoidingView style={styles.modalRoot} behavior={SHEET_KEYBOARD_BEHAVIOR}>
+      <Pressable
+        style={styles.backdropFill}
+        onPress={onBackdropPress}
+        accessibilityLabel={blockDismiss ? "Dismiss keyboard" : "Dismiss"}
+      />
       <View
         style={[
           styles.sheet,
@@ -190,13 +200,14 @@ function ServiceAddressPickerSheetBody({
           showClose={!blockDismiss}
           closeAccessibilityLabel="Close address picker"
         />
-        <KeyboardAvoidingView behavior={KEYBOARD_AVOIDING_BEHAVIOR} style={styles.list}>
-          <ScrollView
-            contentContainerStyle={styles.listContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-          >
+        <ScrollView
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+        >
           {draftEntries.map((e) => {
             const selected = e.id === defaultId;
             return (
@@ -330,10 +341,9 @@ function ServiceAddressPickerSheetBody({
               {draftEntries.length === 0 ? "Add address" : "Add another address"}
             </Button>
           )}
-          </ScrollView>
-        </KeyboardAvoidingView>
+        </ScrollView>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -379,8 +389,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     gap: spacing.sm,
   },
-  list: { maxHeight: 420 },
-  listContent: { gap: spacing.sm, paddingBottom: spacing.sm },
+  list: {
+    flexGrow: 0,
+    flexShrink: 1,
+    maxHeight: 420,
+  },
+  listContent: { gap: spacing.sm, paddingBottom: spacing.lg },
   selectedEntry: {
     borderWidth: 1.5,
     borderColor: colors.primary,

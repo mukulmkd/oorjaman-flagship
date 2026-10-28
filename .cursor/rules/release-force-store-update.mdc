@@ -1,0 +1,41 @@
+---
+description: Force all users onto the latest store binary via minimumStoreVersion + OTA
+alwaysApply: true
+---
+
+# Force users onto the latest store version
+
+OTA cannot change `runtimeVersion` (`appVersion`). To move everyone off old binaries, use the in-app store gate.
+
+Source of truth: `packages/ui/src/app-update-policy.ts` → `APP_UPDATE_POLICY.*.minimumStoreVersion`  
+Gate UI: `packages/ui/src/app-update-gate.tsx`
+
+## When this is mandatory
+
+- Every **MAJOR** store release (`2.0.0`, `3.0.0`, …) — do not skip
+- Also run when the user says everyone must be on the new store version (often after a **MINOR** that is already live)
+
+PATCH/JS-only OTAs do **not** raise the store minimum unless explicitly requested.
+
+## Checklist (after the new store binary is live)
+
+1. Confirm **Play** and/or **App Store** listing shows the new version (e.g. `2.0.0`) for that app.
+2. Set `minimumStoreVersion` to that version for **customer** and/or **partner** (only apps in the release).
+3. Publish production OTA for **every older runtime still in the wild** (e.g. `1.0.0`, `1.0.1`, `1.1.0`):
+   - Temporarily set `version` in that app’s `app.config.ts` to the old runtime
+   - `eas update --channel production --environment production --message "Require store version X.Y.Z."`
+   - Restore `version` to the current store version
+   - Repeat per app (Customer / Partner) and per old runtime
+4. Also publish the same policy OTA for the **new** runtime so binaries already on it stay aligned.
+5. Do **not** leave `app.config.ts` `version` stuck on an old runtime after publishing.
+
+## Forbidden
+
+- Raising `minimumStoreVersion` **before** that version is live in the store (users hit Update with nowhere useful to go)
+- Raising the minimum and only OTAing the new runtime (old binaries never receive the gate)
+- Expecting a `2.0.0` OTA alone to upgrade a `1.x` install — impossible; they must install the store binary
+- Setting Customer and Partner minima differently “for neatness” unless only one app shipped
+
+## User-facing behaviour
+
+Users below the minimum open the app → pick up the OTA → blocking screen → Play / App Store. They cannot use the app until they update. They must open the app once for the gate OTA to download.

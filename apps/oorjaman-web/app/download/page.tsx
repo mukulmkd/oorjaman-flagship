@@ -1,11 +1,12 @@
 import Link from "next/link";
+import Image from "next/image";
 import { MarketingPage } from "@/components/MarketingPage";
 import { FeatureCardGrid, SectionHead } from "@/components/marketing-sections";
 import { ScrollReveal } from "@/components/ScrollReveal";
+import { StoreBadges } from "@/components/StoreBadges";
 import { getAppScreenshotSlots } from "@/lib/marketing-media";
 import { buildPageMetadata } from "@/lib/seo";
-import { APP_LINKS, SUPPORT_EMAIL, customerStoreListingsLive, customerWebLoginUrl } from "@/lib/site";
-import Image from "next/image";
+import { SUPPORT_EMAIL, customerStoreListingsLive, customerWebLoginUrl } from "@/lib/site";
 import styles from "./download.module.css";
 
 export const metadata = buildPageMetadata({
@@ -49,25 +50,17 @@ export default function DownloadPage() {
       closingCta={false}
       cta={
         <>
+          {storesLive ? <StoreBadges /> : null}
           {webLogin ? (
-            <a href={webLogin} className="om-btn om-btn--primary" rel="noopener noreferrer">
+            <a
+              href={webLogin}
+              className={storesLive ? "om-btn om-btn--ghost-light" : "om-btn om-btn--primary"}
+              rel="noopener noreferrer"
+            >
               Open web app
             </a>
           ) : null}
-          {storesLive ? (
-            <>
-              <a
-                href={APP_LINKS.customerIos}
-                className={webLogin ? "om-btn om-btn--ghost-light" : "om-btn om-btn--primary"}
-                rel="noopener noreferrer"
-              >
-                App Store
-              </a>
-              <a href={APP_LINKS.customerAndroid} className="om-btn om-btn--ghost-light" rel="noopener noreferrer">
-                Google Play
-              </a>
-            </>
-          ) : !webLogin ? (
+          {!storesLive && !webLogin ? (
             <>
               <a
                 href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Notify me when the OorjaMan app launches")}`}
@@ -79,11 +72,12 @@ export default function DownloadPage() {
                 View pricing
               </Link>
             </>
-          ) : (
+          ) : null}
+          {!storesLive && webLogin ? (
             <Link href="/pricing" className="om-btn om-btn--ghost-light">
               View pricing
             </Link>
-          )}
+          ) : null}
         </>
       }
     >
@@ -95,26 +89,15 @@ export default function DownloadPage() {
             care — we will notify you when downloads are live.
           </p>
         </ScrollReveal>
-      ) : !storesLive && webLogin ? (
+      ) : null}
+      {!storesLive && webLogin ? (
         <ScrollReveal className={styles.waitlistNote}>
           <p>
             Prefer the native apps when they launch — until then, book and manage visits in the browser at{" "}
             <a href={webLogin}>{webLogin.replace(/^https?:\/\//, "")}</a>.
           </p>
         </ScrollReveal>
-      ) : (
-        <ScrollReveal className={styles.waitlistNote}>
-          <p>
-            Already installed? Open <code>{APP_LINKS.customerScheme}</code>
-            {webLogin ? (
-              <>
-                {" "}
-                or continue in the browser via <a href={webLogin}>web app</a>.
-              </>
-            ) : null}
-          </p>
-        </ScrollReveal>
-      )}
+      ) : null}
 
       <ScrollReveal>
         <SectionHead
