@@ -16,7 +16,7 @@ import {
   takeRows,
   takeSingleRow,
 } from "../result";
-import { getMySignInPhoneE164 } from "../users/user-api";
+import { getMySignInEmail, getMySignInPhoneE164 } from "../users/user-api";
 import { syncUserDisplayNameFromTechnician } from "../users/user-display-name";
 import { normalizePhoneE164 } from "../auth/auth-api";
 import { mergeInviteFullNameIntoMetadata } from "./technician-display-name";
@@ -571,11 +571,55 @@ function normalizeInvitePhone(raw: string): string {
   return normalizePhoneE164(trimmed);
 }
 
-async function resolveCurrentUserInvitePhone(
+function normalizeInviteEmail(raw: string | null | undefined): string | null {
+  const email = raw?.trim().toLowerCase() || "";
+  return email || null;
+}
+
+type InviteMatchKeys = {
+  phone: string | null;
+  email: string | null;
+};
+
+async function resolveCurrentUserInviteMatchKeys(
   client: SupabaseClient<Database>,
-): Promise<string | null> {
-  const phone = (await getMySignInPhoneE164(client)).trim();
-  return phone || null;
+): Promise<InviteMatchKeys> {
+  const [phoneRaw, emailRaw] = await Promise.all([
+    getMySignInPhoneE164(client),
+    getMySignInEmail(client),
+  ]);
+  return {
+    phone: phoneRaw.trim() || null,
+    email: normalizeInviteEmail(emailRaw),
+  };
+}
+
+/** PostgREST `.or()` filter: match invite by signed-in phone and/or email. */
+function inviteIdentityOrFilter(keys: InviteMatchKeys): string | null {
+  const parts: string[] = [];
+  if (keys.phone) parts.push(`invite_phone_e164.eq.${keys.phone}`);
+  if (keys.email) parts.push(`invite_email.eq.${keys.email}`);
+  return parts.length > 0 ? parts.join(",") : null;
+}
+
+async function findInviteForCurrentUser(
+  client: SupabaseClient<Database>,
+  statuses: Array<"invited" | "opened" | "completed">,
+): Promise<VendorTechnicianInviteRow | null> {
+  const keys = await resolveCurrentUserInviteMatchKeys(client);
+  const orFilter = inviteIdentityOrFilter(keys);
+  if (!orFilter) return null;
+
+  const { data, error } = await client
+    .from("vendor_technician_invites")
+    .select("*")
+    .in("status", statuses)
+    .or(orFilter)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new SupabaseApiError(error.message, error);
+  return data;
 }
 
 function createInviteToken(): string {
@@ -845,12 +889,14 @@ export async function submitTechnicianOnboarding(
 async function markInviteCompletedForCurrentUser(
   client: SupabaseClient<Database>,
 ): Promise<void> {
-  const phone = await resolveCurrentUserInvitePhone(client);
-  if (!phone) return;
+  const orFilter = inviteIdentityOrFilter(
+    await resolveCurrentUserInviteMatchKeys(client),
+  );
+  if (!orFilter) return;
   const { error } = await client
     .from("vendor_technician_invites")
     .update({ status: "completed", completed_at: new Date().toISOString() })
-    .eq("invite_phone_e164", phone)
+    .or(orFilter)
     .in("status", ["invited", "opened"]);
   if (error) throw new SupabaseApiError(error.message, error);
 }
@@ -883,7 +929,7 @@ export async function vendorInviteTechnician(
       invited_by_user_id: userId,
       full_name: input.full_name?.trim() || null,
       invite_phone_e164: normalizeInvitePhone(input.invite_phone_e164),
-      invite_email: input.invite_email?.trim() || null,
+      invite_email: normalizeInviteEmail(input.invite_email),
       invite_token: token,
       invite_url: inviteUrl,
       status: "invited",
@@ -943,26 +989,19 @@ export async function vendorListMyTechnicianInvites(
 
 /**
  * True when the signed-in technician was added by a vendor (invite or existing profile).
- * Used to block self-sign-in before the vendor invites this phone number.
+ * Matches vendor invite by signed-in phone and/or email.
  */
 export async function technicianHasVendorOnboardingAccess(
   client: SupabaseClient<Database>,
 ): Promise<boolean> {
   const tech = await getMyTechnicianProfile(client);
   if (tech) return true;
-
-  const phone = await resolveCurrentUserInvitePhone(client);
-  if (!phone) return false;
-
-  const { data, error } = await client
-    .from("vendor_technician_invites")
-    .select("id")
-    .eq("invite_phone_e164", phone)
-    .in("status", ["invited", "opened", "completed"])
-    .limit(1)
-    .maybeSingle();
-  if (error) throw new SupabaseApiError(error.message, error);
-  return Boolean(data);
+  const invite = await findInviteForCurrentUser(client, [
+    "invited",
+    "opened",
+    "completed",
+  ]);
+  return Boolean(invite);
 }
 
 export async function technicianGetMyInvite(
@@ -972,25 +1011,16 @@ export async function technicianGetMyInvite(
   if (userErr) throw new SupabaseApiError(userErr.message, userErr);
   if (!userData.user?.id) return null;
 
-  const phone = await resolveCurrentUserInvitePhone(client);
-  if (!phone) return null;
-  const { data, error } = await client
-    .from("vendor_technician_invites")
-    .select("*")
-    .eq("invite_phone_e164", phone)
-    .in("status", ["invited", "opened"])
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error) throw new SupabaseApiError(error.message, error);
+  const data = await findInviteForCurrentUser(client, ["invited", "opened"]);
   if (!data) return null;
   if (data.status === "invited") {
+    const openedAt = new Date().toISOString();
     const { error: updateErr } = await client
       .from("vendor_technician_invites")
-      .update({ status: "opened", opened_at: new Date().toISOString() })
+      .update({ status: "opened", opened_at: openedAt })
       .eq("id", data.id);
     if (updateErr) throw new SupabaseApiError(updateErr.message, updateErr);
-    return { ...data, status: "opened", opened_at: new Date().toISOString() };
+    return { ...data, status: "opened", opened_at: openedAt };
   }
   return data;
 }

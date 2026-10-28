@@ -8,7 +8,7 @@ import { fontFamily, fontSize } from "../constants/fonts";
 import { supabase } from "../lib/supabase";
 
 /**
- * Shown when a technician signs in with a phone number that has no vendor invite
+ * Shown when a technician signs in with no matching vendor invite (phone or email)
  * and no existing technician profile. Session is cleared so reopening the app
  * returns to splash → login.
  */
@@ -50,7 +50,7 @@ export default function VendorNotOnboardedScreen() {
           Your vendor has not onboarded you yet. Contact your vendor for the same.
         </Text>
         <Text style={styles.hint}>
-          Ask them to add your mobile number from the partner portal, then sign in again with that number.
+          Ask them to invite you from the partner portal with your mobile number or email, then sign in again with the same email or phone.
         </Text>
         <Button variant="primary" size="lg" onPress={() => void returnToSignIn()}>
           Return to sign in

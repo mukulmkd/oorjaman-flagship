@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, UserRow } from "../database.types";
 import { isAuthSessionMissingError, SupabaseApiError } from "../result";
-import { resolveSignInAccountPhone } from "./session-display";
+import {
+  resolveSignInAccountEmail,
+  resolveSignInAccountPhone,
+} from "./session-display";
 
 /**
  * `public.users` = auth identity; role tables = profile source of truth.
@@ -48,6 +51,29 @@ export async function getMySignInPhoneE164(
     throw new SupabaseApiError(authErr.message, authErr);
   }
   return resolveSignInAccountPhone(row, authData.user);
+}
+
+/**
+ * Sign-in email for invite matching and profile UI: syncs `public.users` from auth,
+ * then falls back to the live auth session. Dummy-auth synthetic emails are omitted.
+ */
+export async function getMySignInEmail(
+  client: SupabaseClient<Database>,
+): Promise<string> {
+  try {
+    await syncMyUserFromAuth(client);
+  } catch {
+    /* trigger may still provision; fall through */
+  }
+  const row = await getMyUserRecord(client);
+  const { data: authData, error: authErr } = await client.auth.getUser();
+  if (authErr) {
+    if (isAuthSessionMissingError(authErr)) {
+      return resolveSignInAccountEmail(row, null);
+    }
+    throw new SupabaseApiError(authErr.message, authErr);
+  }
+  return resolveSignInAccountEmail(row, authData.user);
 }
 
 export async function getMyUserRecord(

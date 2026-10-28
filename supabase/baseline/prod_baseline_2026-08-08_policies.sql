@@ -695,16 +695,16 @@ drop policy if exists vendor_technician_invites_select_scope on public.vendor_te
 create policy vendor_technician_invites_select_scope on public.vendor_technician_invites as permissive for select to authenticated
   using ((is_admin() OR (is_approved_vendor_user() AND (vendor_id = my_vendor_id())) OR (EXISTS ( SELECT 1
    FROM users u
-  WHERE ((u.id = auth.uid()) AND (u.phone IS NOT NULL) AND (u.phone = vendor_technician_invites.invite_phone_e164))))));
+  WHERE ((u.id = auth.uid()) AND (((u.phone IS NOT NULL) AND (u.phone = vendor_technician_invites.invite_phone_e164)) OR ((u.email IS NOT NULL) AND (vendor_technician_invites.invite_email IS NOT NULL) AND (lower(u.email) = lower(vendor_technician_invites.invite_email)))))))));
 
 drop policy if exists vendor_technician_invites_update_scope on public.vendor_technician_invites;
 create policy vendor_technician_invites_update_scope on public.vendor_technician_invites as permissive for update to authenticated
   using ((is_admin() OR (is_approved_vendor_user() AND (vendor_id = my_vendor_id())) OR (EXISTS ( SELECT 1
    FROM users u
-  WHERE ((u.id = auth.uid()) AND (u.phone IS NOT NULL) AND (u.phone = vendor_technician_invites.invite_phone_e164))))))
+  WHERE ((u.id = auth.uid()) AND (((u.phone IS NOT NULL) AND (u.phone = vendor_technician_invites.invite_phone_e164)) OR ((u.email IS NOT NULL) AND (vendor_technician_invites.invite_email IS NOT NULL) AND (lower(u.email) = lower(vendor_technician_invites.invite_email))))))))
   with check ((is_admin() OR (is_approved_vendor_user() AND (vendor_id = my_vendor_id())) OR (EXISTS ( SELECT 1
    FROM users u
-  WHERE ((u.id = auth.uid()) AND (u.phone IS NOT NULL) AND (u.phone = vendor_technician_invites.invite_phone_e164))))));
+  WHERE ((u.id = auth.uid()) AND (((u.phone IS NOT NULL) AND (u.phone = vendor_technician_invites.invite_phone_e164)) OR ((u.email IS NOT NULL) AND (vendor_technician_invites.invite_email IS NOT NULL) AND (lower(u.email) = lower(vendor_technician_invites.invite_email))))))));
 
 alter table public.vendors enable row level security;
 
