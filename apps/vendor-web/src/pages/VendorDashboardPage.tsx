@@ -760,7 +760,7 @@ export default function VendorDashboardPage() {
                             const key = `${availabilityDayKey}__${s.id}`;
                             const rowAvail = slotAvailabilityMap.get(key);
                             const isAvailable = rowAvail?.is_available ?? true;
-                            const capacity = rowAvail?.capacity ?? 1;
+                            const capacity = rowAvail?.capacity ?? 5;
                             return (
                               <tr key={s.id}>
                                 <td>{s.label}</td>
@@ -1182,7 +1182,7 @@ export default function VendorDashboardPage() {
               const key = `${availabilityDayKey}__${s.id}`;
               const rowAvail = slotAvailabilityMap.get(key);
               const isAvailable = rowAvail?.is_available ?? true;
-              const capacity = rowAvail?.capacity ?? 1;
+              const capacity = rowAvail?.capacity ?? 5;
               return (
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                   <dl
@@ -1196,8 +1196,8 @@ export default function VendorDashboardPage() {
                   >
                     <dt style={{ color: "var(--wb-muted-fg)" }}>Availability</dt>
                     <dd style={{ margin: 0 }}>{isAvailable ? "Open" : "Blocked"}</dd>
-                    <dt style={{ color: "var(--wb-muted-fg)" }}>Capacity</dt>
-                    <dd style={{ margin: 0 }}>{capacity}</dd>
+                    <dt style={{ color: "var(--wb-muted-fg)" }}>Capacity hint</dt>
+                    <dd style={{ margin: 0 }}>{capacity} (platform max 5 raised visits / slot)</dd>
                   </dl>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
                     <Button
@@ -1220,14 +1220,14 @@ export default function VendorDashboardPage() {
                       size="sm"
                       type="button"
                       variant="outline"
-                      disabled={!isAvailable}
+                      disabled={!isAvailable || capacity >= 5}
                       loading={availabilityMut.isPending && availabilityMut.variables?.slotId === s.id}
                       onClick={() =>
                         availabilityMut.mutate({
                           dayKey: availabilityDayKey,
                           slotId: s.id,
                           isAvailable: true,
-                          capacity: Math.min(20, capacity + 1),
+                          capacity: Math.min(5, capacity + 1),
                         })
                       }
                     >

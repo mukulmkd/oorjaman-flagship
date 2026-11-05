@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Redirect, router } from "expo-router";
-import { customerApi, queryKeys, userApi } from "@oorjaman/api";
+import { customerApi, queryKeys, resolveSignInAccountPhone, userApi } from "@oorjaman/api";
 import { colors, spacing } from "@oorjaman/config";
 import { Button, FadeInView, Input, KeyboardFormScreen, Screen, SCREEN_EDGES_FULL_SCREEN } from "@oorjaman/ui";
 import { Ionicons } from "@expo/vector-icons";
@@ -32,6 +32,14 @@ import { customerLegalUrls } from "../lib/legal-urls";
 import { supabase } from "../lib/supabase";
 
 const STEPS = ["About you", "Address", "Location", "Solar & site", "Safety & terms"] as const;
+
+/** 10-digit Indian national number for the contact-mobile field. */
+function nationalMobileDigits(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length >= 12 && digits.startsWith("91")) return digits.slice(-10);
+  if (digits.length === 10) return digits;
+  return digits.length > 10 ? digits.slice(-10) : digits;
+}
 
 export default function CustomerRegistrationScreen() {
   const insets = useSafeAreaInsets();
@@ -76,6 +84,17 @@ export default function CustomerRegistrationScreen() {
     enabled: Boolean(supabase),
   });
 
+  const authUserQuery = useQuery({
+    queryKey: queryKeys.auth.user(),
+    queryFn: async () => {
+      if (!supabase) return null;
+      const { data, error } = await supabase.auth.getUser();
+      if (error) return null;
+      return data.user ?? null;
+    },
+    enabled: Boolean(supabase),
+  });
+
   const custQuery = useQuery({
     queryKey: queryKeys.customers.mine(),
     queryFn: () => customerApi.getMyCustomer(supabase!),
@@ -84,12 +103,24 @@ export default function CustomerRegistrationScreen() {
 
   const customer = custQuery.data;
 
+  const signInPhoneNational = useMemo(() => {
+    const e164 = resolveSignInAccountPhone(userQuery.data, authUserQuery.data);
+    return nationalMobileDigits(e164);
+  }, [userQuery.data, authUserQuery.data]);
+
+  /** Phone OTP (or Auth phone already on the account) — lock contact mobile to that number. */
+  const contactPhoneLocked = signInPhoneNational.length === 10;
+
   useEffect(() => {
     if (customer && !customer.onboarding_completed_at) {
       const f = customerRowToProfileForm(customer);
       setDisplayName(f.display_name);
       setContactEmail(f.contact_email);
-      setAlternatePhone(f.alternate_phone);
+      setAlternatePhone((current) => {
+        if (contactPhoneLocked) return signInPhoneNational;
+        const fromProfile = nationalMobileDigits(f.alternate_phone);
+        return fromProfile || current;
+      });
       setAddr(f.addr);
       setCapacity(f.capacity);
       setPanels(f.panels);
@@ -117,6 +148,11 @@ export default function CustomerRegistrationScreen() {
     const fromUser = userQuery.data?.email?.trim();
     if (fromUser) setContactEmail(fromUser);
   }, [userQuery.data?.email, contactEmail]);
+
+  useEffect(() => {
+    if (!contactPhoneLocked) return;
+    setAlternatePhone(signInPhoneNational);
+  }, [contactPhoneLocked, signInPhoneNational]);
 
   const wrongRole = userQuery.data && userQuery.data.role !== "customer";
 
@@ -350,9 +386,12 @@ export default function CustomerRegistrationScreen() {
                   onChangeText={(t) => setAlternatePhone(t.replace(/\D/g, "").slice(0, 15))}
                   keyboardType="number-pad"
                   placeholder="10-digit mobile number"
+                  editable={!contactPhoneLocked}
                 />
                 <Text style={styles.fieldHint}>
-                  Required. Crews use this number, and it stays on this same account for mobile sign-in.
+                  {contactPhoneLocked
+                    ? "From your mobile sign-in. Crews use this number; it stays on this account."
+                    : "Required. Crews use this number, and it stays on this same account for mobile sign-in."}
                 </Text>
               </>
             ) : null}
@@ -615,6 +654,7 @@ function Field({
   multiline,
   keyboardType,
   autoCapitalize,
+  editable = true,
 }: {
   label: string;
   value: string;
@@ -623,6 +663,7 @@ function Field({
   multiline?: boolean;
   keyboardType?: "default" | "email-address" | "number-pad" | "decimal-pad";
   autoCapitalize?: "none" | "sentences";
+  editable?: boolean;
 }) {
   return (
     <View style={styles.fieldWrap}>
@@ -634,6 +675,7 @@ function Field({
         multiline={multiline}
         keyboardType={keyboardType ?? "default"}
         autoCapitalize={autoCapitalize ?? "sentences"}
+        editable={editable}
       />
     </View>
   );

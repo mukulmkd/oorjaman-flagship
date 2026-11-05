@@ -770,7 +770,7 @@ export default function BookVisitModal() {
 
   const slotIdsQueryKey = useMemo(() => baseSlotOptions.map((s) => s.id).join(","), [baseSlotOptions]);
 
-  const slotBookabilityQuery = useQuery({
+  const preferredSlotBookabilityQuery = useQuery({
     queryKey: queryKeys.vendors.slotBookabilityBatch(vendorId ?? "", dayKey ?? "", slotIdsQueryKey),
     queryFn: () =>
       vendorApi.vendorSlotBookabilityBatch(supabase!, {
@@ -783,18 +783,36 @@ export default function BookVisitModal() {
     ),
   });
 
+  const raisedSlotBookabilityQuery = useQuery({
+    queryKey: queryKeys.vendors.scheduleSlotRaisedBookabilityBatch(dayKey ?? "", slotIdsQueryKey),
+    queryFn: () =>
+      vendorApi.scheduleSlotRaisedBookabilityBatch(supabase!, {
+        dayKey: dayKey!,
+        slotIds: baseSlotOptions.map((s) => s.id),
+      }),
+    enabled: Boolean(
+      supabase && step === 1 && dayKey && vendorPick.mode === "any" && baseSlotOptions.length > 0,
+    ),
+  });
+
+  const slotBookabilityQuery =
+    vendorPick.mode === "preferred" ? preferredSlotBookabilityQuery : raisedSlotBookabilityQuery;
+
+  const slotBookabilityEnabled =
+    Boolean(dayKey && baseSlotOptions.length > 0) &&
+    (vendorPick.mode === "any" || (vendorPick.mode === "preferred" && Boolean(vendorId)));
+
   const filteredSlotOptions = useMemo(() => {
-    if (vendorPick.mode !== "preferred" || !vendorId) return baseSlotOptions;
     if (!dayKey || baseSlotOptions.length === 0) return [];
+    if (!slotBookabilityEnabled) return baseSlotOptions;
     if (slotBookabilityQuery.isPending || slotBookabilityQuery.isFetching) return [];
     if (slotBookabilityQuery.isError) return baseSlotOptions;
     const m = slotBookabilityQuery.data ?? new Map();
     return baseSlotOptions.filter((s) => m.get(s.id));
   }, [
-    vendorPick.mode,
-    vendorId,
     dayKey,
     baseSlotOptions,
+    slotBookabilityEnabled,
     slotBookabilityQuery.data,
     slotBookabilityQuery.isPending,
     slotBookabilityQuery.isFetching,
@@ -802,24 +820,14 @@ export default function BookVisitModal() {
   ]);
 
   useEffect(() => {
-    if (!slot) return;
-    if (vendorPick.mode === "preferred" && vendorId && slotBookabilityQuery.isSuccess) {
-      if (filteredSlotOptions.length === 0) {
-        setSlot(null);
-        return;
-      }
-      if (!filteredSlotOptions.some((s) => s.id === slot.id)) setSlot(null);
-    } else if (vendorPick.mode === "any") {
-      if (!baseSlotOptions.some((s) => s.id === slot.id)) setSlot(null);
+    if (!slot || !slotBookabilityEnabled) return;
+    if (!slotBookabilityQuery.isSuccess) return;
+    if (filteredSlotOptions.length === 0) {
+      setSlot(null);
+      return;
     }
-  }, [
-    slot,
-    vendorPick.mode,
-    vendorId,
-    filteredSlotOptions,
-    baseSlotOptions,
-    slotBookabilityQuery.isSuccess,
-  ]);
+    if (!filteredSlotOptions.some((s) => s.id === slot.id)) setSlot(null);
+  }, [slot, slotBookabilityEnabled, filteredSlotOptions, slotBookabilityQuery.isSuccess]);
 
   const calendarRows = useMemo(() => {
     const grid = buildMonthCalendarGridIST(calendarMonth.y, calendarMonth.m);
@@ -1125,6 +1133,15 @@ export default function BookVisitModal() {
           })
         : true;
     const useDefaultMarketplace = vendorPick.mode === "any" || !preferredAvailable;
+    if (useDefaultMarketplace) {
+      const raisedOk = await vendorApi.isScheduleSlotRaisedAvailable(supabase, {
+        dayKey,
+        slotId: slot.id,
+      });
+      if (!raisedOk) {
+        throw new Error("This time slot is fully booked. Choose another day or time.");
+      }
+    }
     const estimatePaise = payableEstimatePaise;
     const serviceAddressId =
       selectedServiceAddressId ?? addressBook.defaultId ?? addressBook.entries[0]?.id ?? null;
@@ -1510,6 +1527,15 @@ export default function BookVisitModal() {
             slotId: slot.id,
           })
           : true;
+      if (vendorPick.mode === "any" || !preferredAvailable) {
+        const raisedOk = await vendorApi.isScheduleSlotRaisedAvailable(supabase, {
+          dayKey,
+          slotId: slot.id,
+        });
+        if (!raisedOk) {
+          throw new Error("This time slot is fully booked. Choose another day or time.");
+        }
+      }
       const useDefaultMarketplace = vendorPick.mode === "any" || !preferredAvailable;
       const recipientMeta = buildBookingRecipientMeta({
         isSelf: bookingFor === "self",
@@ -2005,15 +2031,16 @@ export default function BookVisitModal() {
             <Text style={styles.slotsSectionTitle}>Available slots</Text>
             <Text style={styles.slotsSectionHint}>
               {vendorPick.mode === "preferred" && vendorId
-                ? "Times reflect this partner’s saved availability and capacity."
-                : "Standard visit windows (2 hours) - a partner will be assigned from the pool."}
+                ? "Times reflect this partner’s availability and platform slot capacity (max 5 open visits)."
+                : "Standard visit windows (2 hours) - max 5 open visits per slot; a partner will be assigned from the pool."}
             </Text>
 
             {!dayKey ? (
               <Card variant="muted" padded>
                 <Text style={styles.muted}>Select a date to see times.</Text>
               </Card>
-            ) : vendorPick.mode === "preferred" && vendorId && (slotBookabilityQuery.isPending || slotBookabilityQuery.isFetching) ? (
+            ) : slotBookabilityEnabled &&
+              (slotBookabilityQuery.isPending || slotBookabilityQuery.isFetching) ? (
               <View style={styles.slotsLoadingRow}>
                 <ActivityIndicator color={colors.primary} />
                 <Text style={styles.muted}>Loading slots…</Text>

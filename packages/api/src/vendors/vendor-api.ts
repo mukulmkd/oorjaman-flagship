@@ -570,7 +570,7 @@ export async function upsertMyVendorSlotAvailability(
   if (!dayKey || !slotId) {
     throw new SupabaseApiError("Day and slot are required.");
   }
-  const nextCapacity = Math.max(1, Math.min(20, Math.round(Number(input.capacity ?? 1))));
+  const nextCapacity = Math.max(1, Math.min(5, Math.round(Number(input.capacity ?? 5))));
   const { data, error } = await client
     .from("vendor_slot_availability")
     .upsert(
@@ -617,6 +617,37 @@ export async function vendorSlotBookabilityBatch(
   return m;
 }
 
+/**
+ * Platform-wide raised-booking capacity for schedule slots (no vendor availability row).
+ * Used for "any partner" booking UI.
+ */
+export async function scheduleSlotRaisedBookabilityBatch(
+  client: SupabaseClient<Database>,
+  input: {
+    dayKey: string;
+    slotIds: string[];
+    excludeBookingId?: string | null;
+  },
+): Promise<Map<string, boolean>> {
+  const dayKey = input.dayKey.trim();
+  const slotIds = input.slotIds.map((s) => s.trim()).filter(Boolean);
+  if (!dayKey || slotIds.length === 0) return new Map();
+
+  const { data, error } = await client.rpc("schedule_slot_raised_bookability_batch", {
+    p_day_key: dayKey,
+    p_slot_ids: slotIds,
+    p_exclude_booking_id: input.excludeBookingId ?? null,
+  });
+  if (error) throw new SupabaseApiError(error.message, error);
+
+  const m = new Map<string, boolean>();
+  for (const row of data ?? []) {
+    const r = row as { slot_id?: string; bookable?: boolean };
+    if (typeof r.slot_id === "string") m.set(r.slot_id, Boolean(r.bookable));
+  }
+  return m;
+}
+
 export async function isVendorAvailableForSlot(
   client: SupabaseClient<Database>,
   input: {
@@ -631,6 +662,26 @@ export async function isVendorAvailableForSlot(
   if (!dayKey || !slotId) return true;
   const map = await vendorSlotBookabilityBatch(client, {
     vendorId: input.vendorId,
+    dayKey,
+    slotIds: [slotId],
+    excludeBookingId: input.excludeBookingId ?? null,
+  });
+  return map.get(slotId) ?? true;
+}
+
+/** True when the schedule slot still has platform raised capacity (under 5). */
+export async function isScheduleSlotRaisedAvailable(
+  client: SupabaseClient<Database>,
+  input: {
+    dayKey: string;
+    slotId: string;
+    excludeBookingId?: string | null;
+  },
+): Promise<boolean> {
+  const dayKey = input.dayKey.trim();
+  const slotId = input.slotId.trim();
+  if (!dayKey || !slotId) return true;
+  const map = await scheduleSlotRaisedBookabilityBatch(client, {
     dayKey,
     slotIds: [slotId],
     excludeBookingId: input.excludeBookingId ?? null,

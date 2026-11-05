@@ -15,6 +15,12 @@ export const LAST_SLOT_START_HOUR_IST = 16;
 export const SLOT_DURATION_MS = 2 * 60 * 60 * 1000;
 export const LEAD_TIME_MS = 2 * 60 * 60 * 1000;
 
+/**
+ * Max *raised* bookings allowed for one schedule slot (day_key + slot_id), platform-wide.
+ * Raised includes pending payment through in-progress; cancelled / completed free capacity.
+ */
+export const SCHEDULE_SLOT_RAISED_CAPACITY = 5;
+
 /** First IST day a customer may choose when creating a booking. Reschedules are not limited by this. */
 export const NEW_BOOKING_EARLIEST_DAY_KEY = "2026-10-10";
 export const NEW_BOOKING_EARLIEST_LABEL = "10 October 2026";

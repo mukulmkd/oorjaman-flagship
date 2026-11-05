@@ -65,6 +65,8 @@ export const queryKeys = {
       [...queryKeys.vendors.all(), "slot-availability", daysKey] as const,
     slotBookabilityBatch: (vendorId: string, dayKey: string, slotIdsKey: string) =>
       [...queryKeys.vendors.all(), "slot-bookability-batch", vendorId, dayKey, slotIdsKey] as const,
+    scheduleSlotRaisedBookabilityBatch: (dayKey: string, slotIdsKey: string) =>
+      [...queryKeys.vendors.all(), "schedule-slot-raised-bookability", dayKey, slotIdsKey] as const,
     publicStats: (idsKey?: string) =>
       [...queryKeys.vendors.all(), "public-stats", idsKey ?? "all"] as const,
   },

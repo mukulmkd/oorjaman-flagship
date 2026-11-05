@@ -2009,6 +2009,14 @@ export type Database = {
         };
         Returns: { slot_id: string; bookable: boolean }[];
       };
+      schedule_slot_raised_bookability_batch: {
+        Args: {
+          p_day_key: string;
+          p_slot_ids: string[];
+          p_exclude_booking_id?: string | null;
+        };
+        Returns: { slot_id: string; bookable: boolean; raised_count: number }[];
+      };
       issue_vendor_last_hour_cancel_credits: {
         Args: {
           p_customer_id: string;

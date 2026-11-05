@@ -201,6 +201,43 @@ function assertNewBookingOpensOnOrAfter(scheduledStart: string): void {
   }
 }
 
+function readScheduleSlotFromBookingMetadata(
+  metadata: Json | Record<string, unknown> | null | undefined,
+): { dayKey: string; slotId: string } | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  const raw = (metadata as Record<string, unknown>).schedule_slot;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const slot = raw as Record<string, unknown>;
+  const dayKey = typeof slot.day_key === "string" ? slot.day_key.trim() : "";
+  const slotId = typeof slot.slot_id === "string" ? slot.slot_id.trim() : "";
+  if (!dayKey || !slotId) return null;
+  return { dayKey, slotId };
+}
+
+/**
+ * Enforce platform raised-booking cap (5) for schedule_slot metadata on create.
+ * Cancelled / completed bookings do not count toward capacity.
+ */
+export async function assertScheduleSlotHasRaisedCapacity(
+  client: SupabaseClient<Database>,
+  metadata: Json | Record<string, unknown> | null | undefined,
+  options?: { excludeBookingId?: string | null },
+): Promise<void> {
+  const slot = readScheduleSlotFromBookingMetadata(metadata);
+  if (!slot) return;
+  const { isScheduleSlotRaisedAvailable } = await import("../vendors/vendor-api");
+  const ok = await isScheduleSlotRaisedAvailable(client, {
+    dayKey: slot.dayKey,
+    slotId: slot.slotId,
+    excludeBookingId: options?.excludeBookingId ?? null,
+  });
+  if (!ok) {
+    throw new SupabaseApiError(
+      "This time slot is fully booked. Choose another day or time.",
+    );
+  }
+}
+
 /**
  * Customer: create booking for own customer_id (RLS enforced).
  */
@@ -215,6 +252,7 @@ export async function createBookingAsCustomer(
     await assertServiceAddressInLaunchArea(client, input.service_site_address);
   }
   assertNewBookingOpensOnOrAfter(input.scheduled_start);
+  await assertScheduleSlotHasRaisedCapacity(client, input.metadata);
 
   if (!input.subscription_id) {
     const { assertCustomerMayBookOneTimeVisit, readServiceAddressIdFromBookingMetadata } =
