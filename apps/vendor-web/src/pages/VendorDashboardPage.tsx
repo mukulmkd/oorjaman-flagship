@@ -2,12 +2,13 @@ import { webTypography } from "./../styles/typography";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { BookingRow, Json, TechnicianRow } from "@oorjaman/api";
+import type { BookingWithCustomerContact, Json, TechnicianRow } from "@oorjaman/api";
 import {
   bookingApi,
   createTechnicianDocumentSignedUrl,
   DEFAULT_TABLE_PAGE_SIZE,
   formatInrFromCents,
+  formattedSiteAddressFromJson,
   inviteFullNameByPhone,
   inviteFullNameForTechnician,
   listVendorJobReports,
@@ -53,20 +54,8 @@ import "./vendor-dashboard.css";
 function formatSiteAddress(addr: Json): string {
   if (addr == null) return "-";
   if (typeof addr === "string") return addr.trim() || "-";
-  if (typeof addr === "object" && !Array.isArray(addr)) {
-    const o = addr as Record<string, unknown>;
-    const line =
-      (typeof o.line1 === "string" && o.line1) ||
-      (typeof o.line_1 === "string" && o.line_1) ||
-      "";
-    const city = typeof o.city === "string" ? o.city : "";
-    const state = typeof o.state === "string" ? o.state : "";
-    const pin = typeof o.pincode === "string" ? o.pincode : "";
-    const parts = [line, [city, state].filter(Boolean).join(", "), pin].filter(Boolean);
-    const s = parts.join(" · ");
-    return s || "-";
-  }
-  return "-";
+  const formatted = formattedSiteAddressFromJson(addr).replace(/\n/g, ", ").trim();
+  return formatted || "-";
 }
 
 function technicianExtras(
@@ -96,7 +85,7 @@ function readPenaltyPaiseFromMeta(metadata: Json): number {
 }
 
 function statusTone(
-  s: BookingRow["status"],
+  s: BookingWithCustomerContact["status"],
 ): "neutral" | "warning" | "success" | "danger" {
   switch (s) {
     case "confirmed":
@@ -113,7 +102,7 @@ function statusTone(
   }
 }
 
-function vendorBookingStatusLabel(s: BookingRow["status"]): string {
+function vendorBookingStatusLabel(s: BookingWithCustomerContact["status"]): string {
   switch (s) {
     case "pending_payment":
       return "Pending payment";
@@ -146,14 +135,21 @@ function responseSlaLabel(ratePercent: number): "Good" | "Warning" | "Critical" 
   return "Critical";
 }
 
-function serviceForLabel(b: BookingRow): string {
+function customerNameLabel(b: BookingWithCustomerContact): string {
+  return b.customerDisplayName?.trim() || "Customer";
+}
+
+function customerPhoneLabel(b: BookingWithCustomerContact): string {
+  return b.customerContactPhone?.trim() || "-";
+}
+
+function onSiteContactLabel(b: BookingWithCustomerContact): string | null {
   const rec = readBookingRecipientMeta(b.metadata);
-  if (!rec) return "Customer";
-  if (rec.is_self) return "Customer";
+  if (!rec || rec.is_self) return null;
   return rec.recipient_name?.trim() || "Someone else";
 }
 
-function opsWatchLabel(b: BookingRow): string | null {
+function opsWatchLabel(b: BookingWithCustomerContact): string | null {
   const ops = readBookingOpsMeta(b.metadata);
   if (!ops || ops.issue_count <= 0) return null;
   return `Ops watch (${ops.issue_count})`;
@@ -198,9 +194,9 @@ function invitePhoneMeetsMinimum(raw: string): boolean {
 type VendorDashRowAction =
   | null
   | { kind: "slot"; slot: BookingSlotOption }
-  | { kind: "incoming"; booking: BookingRow }
-  | { kind: "active"; booking: BookingRow }
-  | { kind: "history"; booking: BookingRow };
+  | { kind: "incoming"; booking: BookingWithCustomerContact }
+  | { kind: "active"; booking: BookingWithCustomerContact }
+  | { kind: "history"; booking: BookingWithCustomerContact };
 
 const VENDOR_BOOKINGS_LIMIT = 500;
 
@@ -591,7 +587,7 @@ export default function VendorDashboardPage() {
     void qc.invalidateQueries({ queryKey: queryKeys.vendors.mine() });
   };
 
-  const openAccept = (b: BookingRow) => {
+  const openAccept = (b: BookingWithCustomerContact) => {
     setAcceptForId(b.id);
     setAckTechnicianReady(false);
     setAckSafetyCompliance(false);
@@ -798,8 +794,9 @@ export default function VendorDashboardPage() {
                           <tr>
                             <th>Reference</th>
                             <th>Schedule</th>
+                            <th>Customer</th>
+                            <th>Contact</th>
                             <th>Site</th>
-                            <th>Service for</th>
                             <th>Respond by</th>
                             <th>Value</th>
                             <th>Notes</th>
@@ -810,12 +807,21 @@ export default function VendorDashboardPage() {
                           {incoming.map((b) => {
                             const deadline = vendorResponseDeadline(b);
                             const df = new Intl.DateTimeFormat(undefined, { timeStyle: "short", dateStyle: "short" });
+                            const onSite = onSiteContactLabel(b);
                             return (
                               <tr key={b.id}>
                                 <td className="vd-mono">{b.reference_code}</td>
                                 <td>{formatScheduleRange(b)}</td>
+                                <td>
+                                  {customerNameLabel(b)}
+                                  {onSite ? (
+                                    <div style={{ fontSize: webTypography.size.xs, color: "var(--wb-muted-fg)" }}>
+                                      On-site: {onSite}
+                                    </div>
+                                  ) : null}
+                                </td>
+                                <td className="vd-mono">{customerPhoneLabel(b)}</td>
                                 <td>{vdEllipsis(formatSiteAddress(b.service_site_address), 44)}</td>
-                                <td>{serviceForLabel(b)}</td>
                                 <td>{df.format(deadline)}</td>
                                 <td>{formatInr(b.estimated_price_cents)}</td>
                                 <td>{opsWatchLabel(b) ?? "-"}</td>
@@ -852,23 +858,34 @@ export default function VendorDashboardPage() {
                             <th>Reference</th>
                             <th>Status</th>
                             <th>Schedule</th>
+                            <th>Customer</th>
+                            <th>Contact</th>
                             <th>Site</th>
-                            <th>Service for</th>
                             <th>Technician</th>
                             <th>Notes</th>
                             <th>Action</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {active.map((b) => (
+                          {active.map((b) => {
+                            const onSite = onSiteContactLabel(b);
+                            return (
                             <tr key={b.id}>
                               <td className="vd-mono">{b.booking_code ?? b.reference_code}</td>
                               <td>
                                 <Badge tone={statusTone(b.status)}>{vendorBookingStatusLabel(b.status)}</Badge>
                               </td>
                               <td>{formatScheduleRange(b)}</td>
+                              <td>
+                                {customerNameLabel(b)}
+                                {onSite ? (
+                                  <div style={{ fontSize: webTypography.size.xs, color: "var(--wb-muted-fg)" }}>
+                                    On-site: {onSite}
+                                  </div>
+                                ) : null}
+                              </td>
+                              <td className="vd-mono">{customerPhoneLabel(b)}</td>
                               <td>{vdEllipsis(formatSiteAddress(b.service_site_address), 44)}</td>
-                              <td>{serviceForLabel(b)}</td>
                               <td>{techDisplayLabel(techById, b.technician_id, inviteNamesByPhone)}</td>
                               <td>{opsWatchLabel(b) ?? "-"}</td>
                               <td>
@@ -877,7 +894,8 @@ export default function VendorDashboardPage() {
                                 </Button>
                               </td>
                             </tr>
-                          ))}
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -1091,8 +1109,9 @@ export default function VendorDashboardPage() {
                           <th>Reference</th>
                           <th>Status</th>
                           <th>Schedule</th>
+                          <th>Customer</th>
+                          <th>Contact</th>
                           <th>Site</th>
-                          <th>Service for</th>
                           <th>Value</th>
                           <th>Technician</th>
                           <th>Notes</th>
@@ -1102,6 +1121,7 @@ export default function VendorDashboardPage() {
                       <tbody>
                         {historyWindow.map((b) => {
                           const cc = readBookingCustomerCancellationMeta(b.metadata);
+                          const onSite = onSiteContactLabel(b);
                           const cancelNote =
                             b.status === "cancelled"
                               ? [b.cancellation_reason, cc && !cc.withinGraceWindow && cc.lateFeePaise > 0 ? "Late-cancel fee" : null]
@@ -1115,8 +1135,16 @@ export default function VendorDashboardPage() {
                                 <Badge tone={statusTone(b.status)}>{b.status}</Badge>
                               </td>
                               <td>{formatScheduleRange(b)}</td>
+                              <td>
+                                {customerNameLabel(b)}
+                                {onSite ? (
+                                  <div style={{ fontSize: webTypography.size.xs, color: "var(--wb-muted-fg)" }}>
+                                    On-site: {onSite}
+                                  </div>
+                                ) : null}
+                              </td>
+                              <td className="vd-mono">{customerPhoneLabel(b)}</td>
                               <td>{vdEllipsis(formatSiteAddress(b.service_site_address), 40)}</td>
-                              <td>{serviceForLabel(b)}</td>
                               <td>{formatInr(bookingValueCents(b))}</td>
                               <td>{techDisplayLabel(techById, b.technician_id, inviteNamesByPhone)}</td>
                               <td>{vdEllipsis(cancelNote === "-" ? (opsWatchLabel(b) ?? "-") : cancelNote, 36)}</td>
@@ -1248,14 +1276,33 @@ export default function VendorDashboardPage() {
             const b = vendorRowAction.booking;
             const deadline = vendorResponseDeadline(b);
             const df = new Intl.DateTimeFormat(undefined, { timeStyle: "short", dateStyle: "short" });
+            const onSite = onSiteContactLabel(b);
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                <p style={{ margin: 0, fontSize: webTypography.size.sm, lineHeight: 1.5 }}>
-                  <strong>Site:</strong> {formatSiteAddress(b.service_site_address)}
-                </p>
-                <p style={{ margin: 0, fontSize: webTypography.size.sm }}>
-                  <strong>Respond by:</strong> {df.format(deadline)}
-                </p>
+                <dl
+                  style={{
+                    margin: 0,
+                    display: "grid",
+                    gridTemplateColumns: "auto 1fr",
+                    gap: "0.35rem 1rem",
+                    fontSize: webTypography.size.sm,
+                  }}
+                >
+                  <dt style={{ color: "var(--wb-muted-fg)" }}>Customer</dt>
+                  <dd style={{ margin: 0 }}>{customerNameLabel(b)}</dd>
+                  <dt style={{ color: "var(--wb-muted-fg)" }}>Contact</dt>
+                  <dd style={{ margin: 0 }}>{customerPhoneLabel(b)}</dd>
+                  {onSite ? (
+                    <>
+                      <dt style={{ color: "var(--wb-muted-fg)" }}>On-site</dt>
+                      <dd style={{ margin: 0 }}>{onSite}</dd>
+                    </>
+                  ) : null}
+                  <dt style={{ color: "var(--wb-muted-fg)" }}>Address</dt>
+                  <dd style={{ margin: 0, lineHeight: 1.45 }}>{formatSiteAddress(b.service_site_address)}</dd>
+                  <dt style={{ color: "var(--wb-muted-fg)" }}>Respond by</dt>
+                  <dd style={{ margin: 0 }}>{df.format(deadline)}</dd>
+                </dl>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
                   <Button
                     size="sm"
@@ -1291,6 +1338,7 @@ export default function VendorDashboardPage() {
         ) : vendorRowAction.kind === "active" ? (
           (() => {
             const b = vendorRowAction.booking;
+            const onSite = onSiteContactLabel(b);
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                 <dl
@@ -1306,7 +1354,17 @@ export default function VendorDashboardPage() {
                   <dd style={{ margin: 0 }}>
                     <Badge tone={statusTone(b.status)}>{b.status}</Badge>
                   </dd>
-                  <dt style={{ color: "var(--wb-muted-fg)" }}>Site</dt>
+                  <dt style={{ color: "var(--wb-muted-fg)" }}>Customer</dt>
+                  <dd style={{ margin: 0 }}>{customerNameLabel(b)}</dd>
+                  <dt style={{ color: "var(--wb-muted-fg)" }}>Contact</dt>
+                  <dd style={{ margin: 0 }}>{customerPhoneLabel(b)}</dd>
+                  {onSite ? (
+                    <>
+                      <dt style={{ color: "var(--wb-muted-fg)" }}>On-site</dt>
+                      <dd style={{ margin: 0 }}>{onSite}</dd>
+                    </>
+                  ) : null}
+                  <dt style={{ color: "var(--wb-muted-fg)" }}>Address</dt>
                   <dd style={{ margin: 0, lineHeight: 1.45 }}>{formatSiteAddress(b.service_site_address)}</dd>
                   <dt style={{ color: "var(--wb-muted-fg)" }}>Technician</dt>
                   <dd style={{ margin: 0 }}>{techDisplayLabel(techById, b.technician_id, inviteNamesByPhone)}</dd>
@@ -1338,6 +1396,7 @@ export default function VendorDashboardPage() {
           (() => {
             const b = vendorRowAction.booking;
             const cc = readBookingCustomerCancellationMeta(b.metadata);
+            const onSite = onSiteContactLabel(b);
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                 <dl
@@ -1353,7 +1412,17 @@ export default function VendorDashboardPage() {
                   <dd style={{ margin: 0 }}>
                     <Badge tone={statusTone(b.status)}>{b.status}</Badge>
                   </dd>
-                  <dt style={{ color: "var(--wb-muted-fg)" }}>Site</dt>
+                  <dt style={{ color: "var(--wb-muted-fg)" }}>Customer</dt>
+                  <dd style={{ margin: 0 }}>{customerNameLabel(b)}</dd>
+                  <dt style={{ color: "var(--wb-muted-fg)" }}>Contact</dt>
+                  <dd style={{ margin: 0 }}>{customerPhoneLabel(b)}</dd>
+                  {onSite ? (
+                    <>
+                      <dt style={{ color: "var(--wb-muted-fg)" }}>On-site</dt>
+                      <dd style={{ margin: 0 }}>{onSite}</dd>
+                    </>
+                  ) : null}
+                  <dt style={{ color: "var(--wb-muted-fg)" }}>Address</dt>
                   <dd style={{ margin: 0, lineHeight: 1.45 }}>{formatSiteAddress(b.service_site_address)}</dd>
                   <dt style={{ color: "var(--wb-muted-fg)" }}>Value</dt>
                   <dd style={{ margin: 0 }}>{formatInr(bookingValueCents(b))}</dd>

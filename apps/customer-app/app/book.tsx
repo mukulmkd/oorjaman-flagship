@@ -56,6 +56,7 @@ import { colors, spacing } from "@oorjaman/config";
 import {
   BOOKING_TIMEZONE,
   buildMonthCalendarGridIST,
+  formatDayChip,
   getISTWallParts,
   istDayKeyFromDate,
   isEveningBookingCutoff,
@@ -158,7 +159,7 @@ function vendorStatsCaption(
   return `${jobs} services · ${stars} · ${ratingBit}`;
 }
 
-type Step = 0 | 1 | 2 | 3;
+type Step = 0 | 1 | 2 | 3 | 4;
 
 const BOOKING_SCHEDULE_HORIZON_DAYS = 90;
 
@@ -779,7 +780,7 @@ export default function BookVisitModal() {
         slotIds: baseSlotOptions.map((s) => s.id),
       }),
     enabled: Boolean(
-      supabase && step === 1 && dayKey && vendorPick.mode === "preferred" && vendorId && baseSlotOptions.length > 0,
+      supabase && step === 2 && dayKey && vendorPick.mode === "preferred" && vendorId && baseSlotOptions.length > 0,
     ),
   });
 
@@ -791,7 +792,7 @@ export default function BookVisitModal() {
         slotIds: baseSlotOptions.map((s) => s.id),
       }),
     enabled: Boolean(
-      supabase && step === 1 && dayKey && vendorPick.mode === "any" && baseSlotOptions.length > 0,
+      supabase && step === 2 && dayKey && vendorPick.mode === "any" && baseSlotOptions.length > 0,
     ),
   });
 
@@ -985,8 +986,8 @@ export default function BookVisitModal() {
   }, [bookingPlanMode, activeSubscription, amcSlotId, amcBlocksOneTime]);
 
   useEffect(() => {
-    if (bookingPlanMode === "amc" && step === 3) {
-      setStep(2);
+    if (bookingPlanMode === "amc" && step === 4) {
+      setStep(3);
     }
   }, [bookingPlanMode, step]);
 
@@ -1241,25 +1242,27 @@ export default function BookVisitModal() {
     title: "Book a visit",
     subtitle:
       step === 1
-        ? "Choose service and schedule"
+        ? "Choose a date"
         : step === 2
-          ? "Site and partner"
+          ? "Choose a time"
           : step === 3
-            ? checkoutOutcome?.phase === "success"
-              ? "Booking confirmed"
-              : checkoutOutcome?.phase === "failed"
-                ? "Payment result"
-                : checkoutOutcome?.phase === "confirming"
-                  ? "Confirming payment"
-                  : "Review and pay"
-            : undefined,
+            ? "Review your visit"
+            : step === 4
+              ? checkoutOutcome?.phase === "success"
+                ? "Booking confirmed"
+                : checkoutOutcome?.phase === "failed"
+                  ? "Payment result"
+                  : checkoutOutcome?.phase === "confirming"
+                    ? "Confirming payment"
+                    : "Review and pay"
+              : undefined,
     onClose: requestCloseBooking,
     closeAccessibilityLabel: "Close booking",
   });
   const keyboardHeaderOffset = insets.top + 52;
 
   useEffect(() => {
-    if (step < 3) {
+    if (step < 4) {
       setPaymentFailedBanner(false);
       setCheckoutOutcome(null);
     }
@@ -1751,8 +1754,16 @@ export default function BookVisitModal() {
       {modalHeader}
       <View style={styles.root}>
         <Text style={styles.stepHint}>
-          Step {step + 1} of {bookingPlanMode === "amc" ? 3 : 4} ·{" "}
-          {step === 0 ? "Partner" : step === 1 ? "Schedule" : step === 2 ? "Confirm" : "Payment"}
+          Step {step + 1} of {bookingPlanMode === "amc" ? 4 : 5} ·{" "}
+          {step === 0
+            ? "Partner"
+            : step === 1
+              ? "Date"
+              : step === 2
+                ? "Time"
+                : step === 3
+                  ? "Confirm"
+                  : "Payment"}
         </Text>
 
         {bookingPlanMode === "one_time" && amcBookingGate.kind === "allowance_exhausted" ? (
@@ -1932,7 +1943,7 @@ export default function BookVisitModal() {
             style={styles.scheduleScroll}
             contentContainerStyle={styles.scheduleScrollContent}
           >
-            <Text style={styles.sectionTitle}>Pick date & time</Text>
+            <Text style={styles.sectionTitle}>Pick a date</Text>
             <Text style={styles.sectionBody}>
               {minSelectableDayKey(scheduleAnchor) < NEW_BOOKING_EARLIEST_DAY_KEY
                 ? `Calendar is in India (IST). New bookings start on ${NEW_BOOKING_EARLIEST_LABEL}. Pick a date on or after that day.`
@@ -2027,8 +2038,22 @@ export default function BookVisitModal() {
               </View>
             ))}
             </View>
+          </ScrollView>
+        ) : null}
 
-            <Text style={styles.slotsSectionTitle}>Available slots</Text>
+        {step === 2 ? (
+          <ScrollView
+            keyboardShouldPersistTaps="always"
+            showsVerticalScrollIndicator={false}
+            style={styles.scheduleScroll}
+            contentContainerStyle={styles.scheduleScrollContent}
+          >
+            <Text style={styles.sectionTitle}>Pick a time</Text>
+            <Text style={styles.sectionBody}>
+              {dayKey
+                ? `Available 2-hour windows on ${formatDayChip(dayKey)} (IST).`
+                : "Go back and choose a date to see available times."}
+            </Text>
             <Text style={styles.slotsSectionHint}>
               {vendorPick.mode === "preferred" && vendorId
                 ? "Times reflect this partner’s availability and platform slot capacity (max 5 open visits)."
@@ -2037,7 +2062,7 @@ export default function BookVisitModal() {
 
             {!dayKey ? (
               <Card variant="muted" padded>
-                <Text style={styles.muted}>Select a date to see times.</Text>
+                <Text style={styles.muted}>Select a date first to see times.</Text>
               </Card>
             ) : slotBookabilityEnabled &&
               (slotBookabilityQuery.isPending || slotBookabilityQuery.isFetching) ? (
@@ -2049,8 +2074,8 @@ export default function BookVisitModal() {
               <Card variant="muted" padded>
                 <Text style={styles.muted}>
                   {vendorPick.mode === "preferred" && vendorId
-                    ? "No open slots from this partner on this day - try another date."
-                    : "No slots left on this date - pick another day."}
+                    ? "No open slots from this partner on this day - go back and try another date."
+                    : "No slots left on this date - go back and pick another day."}
                 </Text>
               </Card>
             ) : (
@@ -2083,7 +2108,7 @@ export default function BookVisitModal() {
           </ScrollView>
         ) : null}
 
-        {step === 2 ? (
+        {step === 3 ? (
           <ScrollView
             keyboardShouldPersistTaps="always"
             showsVerticalScrollIndicator={false}
@@ -2343,7 +2368,7 @@ export default function BookVisitModal() {
           </ScrollView>
         ) : null}
 
-        {step === 3 && bookingPlanMode === "one_time" ? (
+        {step === 4 && bookingPlanMode === "one_time" ? (
           <ScrollView
             keyboardShouldPersistTaps="always"
             showsVerticalScrollIndicator={false}
@@ -2366,7 +2391,7 @@ export default function BookVisitModal() {
                 }}
                 onBackFromFailed={() => {
                   setCheckoutOutcome(null);
-                  setStep(2);
+                  setStep(3);
                 }}
               />
             ) : (
@@ -2504,7 +2529,7 @@ export default function BookVisitModal() {
         ) : null}
 
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.sm }]}>
-          {step === 3 && checkoutOutcome ? null : step === 3 ? (
+          {step === 4 && checkoutOutcome ? null : step === 4 ? (
             <View style={styles.footerPayBlock}>
               <Button
                 variant="primary"
@@ -2529,7 +2554,7 @@ export default function BookVisitModal() {
                 onPress={() =>
                   void (async () => {
                     await abandonCheckoutIfNeeded();
-                    setStep(2);
+                    setStep(3);
                   })()
                 }
                 style={styles.footerBackLink}
@@ -2557,7 +2582,7 @@ export default function BookVisitModal() {
                   </Button>
                 </View>
               )}
-              {step < 3 ? (
+              {step < 4 ? (
                 <View style={styles.footerBtnMain}>
                   <Button
                     variant="primary"
@@ -2565,8 +2590,9 @@ export default function BookVisitModal() {
                     style={styles.footerBtnStretch}
                     disabled={
                       (step === 0 && vendorPick.mode === "preferred" && !vendorId) ||
-                      (step === 1 && (!dayKey || !slot)) ||
-                      (step === 2 &&
+                      (step === 1 && !dayKey) ||
+                      (step === 2 && !slot) ||
+                      (step === 3 &&
                         ((bookingPlanMode === "one_time" &&
                           (pricingQuery.isPending ||
                             pricingQuery.isError ||
@@ -2579,14 +2605,14 @@ export default function BookVisitModal() {
                           confirmAmcVisitMut.isPending))
                     }
                     onPress={() => {
-                      if (step === 2 && bookingPlanMode === "amc") {
+                      if (step === 3 && bookingPlanMode === "amc") {
                         void confirmAmcVisitMut.mutateAsync();
                         return;
                       }
                       setStep((s) => (s + 1) as Step);
                     }}
                   >
-                    {step === 2
+                    {step === 3
                       ? bookingPlanMode === "amc"
                         ? "Confirm visit"
                         : "Continue"

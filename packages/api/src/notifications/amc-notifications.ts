@@ -83,3 +83,59 @@ export function customerAmcPartnerAssignedCopy(
     body: `${partner} is assigned to ${plan}. Open the app to schedule your included visits.`,
   };
 }
+
+export function vendorAmcSubscriptionAssignedCopy(
+  subscription: Pick<SubscriptionRow, "plan_name">,
+): { title: string; body: string } {
+  const plan = subscription.plan_name?.trim() || "AMC plan";
+  return {
+    title: "New AMC contract for you",
+    body: `You are now the dedicated partner for ${plan}. Open Operations to review upcoming included visits.`,
+  };
+}
+
+function vendorOperationsHref(): string {
+  return "/dashboard/operations";
+}
+
+/** In-app bell for the vendor when ops assigns them as the AMC dedicated partner. */
+export async function emitVendorAmcSubscriptionAssignedNotification(
+  client: SupabaseClient<Database>,
+  input: {
+    subscription: Pick<SubscriptionRow, "id" | "plan_name" | "status">;
+    recipientVendorId: string;
+    vendorName?: string | null;
+  },
+): Promise<void> {
+  const nowIso = new Date().toISOString();
+  const copy = vendorAmcSubscriptionAssignedCopy(input.subscription);
+  const payload: AmcInAppNotificationPayload = {
+    reference_code: null,
+    booking_id: null,
+    subscription_id: input.subscription.id,
+    title: copy.title,
+    body: copy.body,
+    href: vendorOperationsHref(),
+    vendor_id: input.recipientVendorId,
+    vendor_name: input.vendorName ?? null,
+    technician_id: null,
+    technician_name: null,
+    status: input.subscription.status,
+    emitted_at: nowIso,
+    note: "AMC subscription assigned by operations.",
+  };
+
+  const row: Database["public"]["Tables"]["notification_events"]["Insert"] = {
+    booking_id: null,
+    recipient_audience: "vendor",
+    recipient_vendor_id: input.recipientVendorId,
+    event_type: "vendor_amc_subscription_assigned",
+    channels: ["in_app"] as unknown as Database["public"]["Tables"]["notification_events"]["Insert"]["channels"],
+    status: "sent",
+    processed_at: nowIso,
+    payload: payload as unknown as Database["public"]["Tables"]["notification_events"]["Insert"]["payload"],
+  };
+
+  const { error } = await client.from("notification_events").insert(row);
+  if (error) throw new SupabaseApiError(error.message, error);
+}

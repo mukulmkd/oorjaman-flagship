@@ -10,12 +10,14 @@ import { takeRows } from "../result";
 import { dbPaymentStatusToDomain } from "./razorpay-status";
 
 export type AdminPaymentListFilters = {
-  status?: PaymentStatus | "";
+  status?: PaymentStatus | PaymentStatus[] | "";
   provider?: "dummy" | "razorpay" | "";
   /** Free text: razorpay order/payment id, payment uuid, booking uuid */
   search?: string;
   bookingId?: string;
   subscriptionId?: string;
+  /** When true, only payments linked to a booking visit. */
+  requireBookingId?: boolean;
   limit?: number;
 };
 
@@ -53,9 +55,17 @@ export async function adminListPayments(
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  if (filters.status) q = q.eq("status", filters.status);
+  if (filters.status) {
+    if (Array.isArray(filters.status)) {
+      if (filters.status.length === 1) q = q.eq("status", filters.status[0]!);
+      else if (filters.status.length > 1) q = q.in("status", filters.status);
+    } else {
+      q = q.eq("status", filters.status);
+    }
+  }
   if (filters.provider) q = q.eq("provider", filters.provider);
   if (filters.bookingId) q = q.eq("booking_id", filters.bookingId);
+  if (filters.requireBookingId) q = q.not("booking_id", "is", null);
   if (filters.subscriptionId) q = q.eq("subscription_id", filters.subscriptionId);
 
   const search = filters.search?.trim();

@@ -1,10 +1,19 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import type { BookingRow, BookingStatus } from "@oorjaman/api";
+import type { BookingCustomerContactFields, BookingRow, BookingStatus } from "@oorjaman/api";
 import { Card } from "@oorjaman/ui";
 import { colors, spacing } from "@oorjaman/config";
 import { jobStatusLabel, jobUiBucket } from "../lib/job-status";
-import { formatJobWhen, opsWatchLabel, serviceForLabel, stringifyAddress } from "../lib/booking-display";
+import {
+  customerNameLabel,
+  customerPhoneLabel,
+  formatJobWhen,
+  onSiteContactLabel,
+  opsWatchLabel,
+  stringifyAddress,
+} from "../lib/booking-display";
 import { fontFamily, fontSize } from "../constants/fonts";
+
+type JobListBooking = BookingRow & Partial<BookingCustomerContactFields>;
 
 function StatusChip({ status }: { status: BookingStatus }) {
   const bucket = jobUiBucket(status);
@@ -32,7 +41,7 @@ export function JobListCard({
   paymentDue = false,
   paymentDueLabel = "Payment due",
 }: {
-  item: BookingRow;
+  item: JobListBooking;
   onPress: () => void;
   cta?: string;
   /** Completed postpaid visit with no successful payment yet, or a transfer still due. */
@@ -40,6 +49,8 @@ export function JobListCard({
   paymentDueLabel?: string;
 }) {
   const opsWatch = opsWatchLabel(item);
+  const phone = customerPhoneLabel(item);
+  const onSite = onSiteContactLabel(item);
   return (
     <Pressable
       accessibilityRole="button"
@@ -54,12 +65,22 @@ export function JobListCard({
             <StatusChip status={item.status} />
           </View>
           <Text style={styles.when}>{formatJobWhen(item.scheduled_start)}</Text>
+          <Text style={styles.customer} numberOfLines={1}>
+            {customerNameLabel(item)}
+          </Text>
+          {phone ? (
+            <Text style={styles.serviceFor} numberOfLines={1}>
+              {phone}
+            </Text>
+          ) : null}
           <Text style={styles.address} numberOfLines={2}>
             {stringifyAddress(item.service_site_address)}
           </Text>
-          <Text style={styles.serviceFor} numberOfLines={1}>
-            For: {serviceForLabel(item)}
-          </Text>
+          {onSite ? (
+            <Text style={styles.serviceFor} numberOfLines={1}>
+              On-site: {onSite}
+            </Text>
+          ) : null}
           {paymentDue ? <Text style={styles.paymentDue}>{paymentDueLabel}</Text> : null}
           {opsWatch ? <Text style={styles.opsWatch}>{opsWatch}</Text> : null}
           <Text style={styles.cta}>{cta}</Text>
@@ -97,6 +118,11 @@ const styles = StyleSheet.create({
   },
   when: {
     fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.foreground,
+  },
+  customer: {
+    fontFamily: fontFamily.semiBold,
     fontSize: fontSize.sm,
     color: colors.foreground,
   },

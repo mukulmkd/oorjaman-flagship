@@ -1,5 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { formatInrFromPaise, getBookingById, type BookingRow, type Json } from "@oorjaman/api";
+import {
+  formatInrFromPaise,
+  formattedSiteAddressFromJson,
+  getBookingById,
+  type BookingWithCustomerContact,
+  type Json,
+} from "@oorjaman/api";
 import { formatDisplayDateTime } from "@oorjaman/utils";
 import { Modal, useSupabase } from "@oorjaman/web-ui";
 
@@ -108,7 +114,8 @@ function MetaGroupView({ group }: { group: MetaGroup }) {
   );
 }
 
-function visitGroup(booking: BookingRow): MetaGroup {
+function visitGroup(booking: BookingWithCustomerContact): MetaGroup {
+  const siteLine = formattedSiteAddressFromJson(booking.service_site_address);
   return {
     title: "Visit",
     rows: [
@@ -117,6 +124,9 @@ function visitGroup(booking: BookingRow): MetaGroup {
       { label: "Service", value: fieldLabel(booking.service_type) },
       { label: "Payment timing", value: fieldLabel(booking.payment_timing) },
       { label: "Visit code", value: booking.booking_code ?? "—" },
+      { label: "Customer", value: booking.customerDisplayName?.trim() || "—" },
+      { label: "Contact", value: booking.customerContactPhone?.trim() || "—" },
+      { label: "Address", value: siteLine || "—" },
       { label: "Scheduled start", value: formatDisplayDateTime(booking.scheduled_start) },
       { label: "Scheduled end", value: formatDisplayDateTime(booking.scheduled_end) },
       { label: "Started", value: booking.actual_start ? formatDisplayDateTime(booking.actual_start) : "—" },
@@ -137,7 +147,7 @@ function visitGroup(booking: BookingRow): MetaGroup {
   };
 }
 
-function recordGroup(booking: BookingRow): MetaGroup {
+function recordGroup(booking: BookingWithCustomerContact): MetaGroup {
   return {
     title: "Record",
     rows: [

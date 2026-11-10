@@ -18,6 +18,7 @@ import {
   takeRows,
   takeSingleRow,
 } from "../result";
+import { resolveCustomerContactPhone } from "../users/session-display";
 import {
   allocateNumericHappyCode,
   allocateNumericVisitCode,
@@ -34,6 +35,7 @@ import {
   emitAdminBookingNotification,
   emitVendorBookingNotification,
 } from "../notifications/booking-notifications";
+import { invokeNotifyVendorAssignment } from "../notifications/vendor-assignment-email";
 import { isVendorCancelInLastHourBeforeSlot } from "../finance/customer-credits-policy";
 import { ensureCancellationPenaltySettlement } from "../finance/vendor-settlement-api";
 import { assertServiceAddressInLaunchArea } from "../launch/launch-area";
@@ -42,6 +44,73 @@ import {
   refundAttemptToMetadataJson,
   type RefundAttemptResult,
 } from "../payments/refund-api";
+
+/** Account-holder contact for ops / partner / technician booking UIs. */
+export type BookingCustomerContactFields = {
+  customerDisplayName: string | null;
+  customerContactPhone: string | null;
+};
+
+export type BookingWithCustomerContact = BookingRow & BookingCustomerContactFields;
+
+async function enrichBookingsWithCustomerContact<T extends BookingRow>(
+  client: SupabaseClient<Database>,
+  rows: T[],
+): Promise<Array<T & BookingCustomerContactFields>> {
+  if (rows.length === 0) {
+    return rows.map((row) => ({
+      ...row,
+      customerDisplayName: null,
+      customerContactPhone: null,
+    }));
+  }
+
+  const customerIds = [
+    ...new Set(rows.map((row) => row.customer_id).filter(Boolean)),
+  ];
+  if (customerIds.length === 0) {
+    return rows.map((row) => ({
+      ...row,
+      customerDisplayName: null,
+      customerContactPhone: null,
+    }));
+  }
+
+  const { data: customers, error: customersError } = await client
+    .from("customers")
+    .select("id, display_name, alternate_phone, user_id")
+    .in("id", customerIds);
+  if (customersError) throw new SupabaseApiError(customersError.message, customersError);
+
+  const userIds = [
+    ...new Set(
+      (customers ?? [])
+        .map((row) => row.user_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const usersRes =
+    userIds.length > 0
+      ? await client.from("users").select("id, full_name, phone").in("id", userIds)
+      : { data: [] as { id: string; full_name: string | null; phone: string | null }[], error: null };
+  if (usersRes.error) throw new SupabaseApiError(usersRes.error.message, usersRes.error);
+
+  const customerById = new Map((customers ?? []).map((row) => [row.id, row]));
+  const userById = new Map((usersRes.data ?? []).map((row) => [row.id, row]));
+
+  return rows.map((row) => {
+    const customer = customerById.get(row.customer_id);
+    const user = customer ? userById.get(customer.user_id) : undefined;
+    const displayName =
+      customer?.display_name?.trim() || user?.full_name?.trim() || null;
+    const phone = resolveCustomerContactPhone(customer, user) || null;
+    return {
+      ...row,
+      customerDisplayName: displayName,
+      customerContactPhone: phone,
+    };
+  });
+}
 
 /** One hour to accept or reject an incoming customer request (see {@link vendorResponseDeadline}). */
 export const VENDOR_BOOKING_RESPONSE_WINDOW_MS = 60 * 60 * 1000;
@@ -339,7 +408,7 @@ export type BookingListFilters = {
 export async function listVisibleBookings(
   client: SupabaseClient<Database>,
   filters?: BookingListFilters,
-): Promise<BookingRow[]> {
+): Promise<BookingWithCustomerContact[]> {
   let q = client
     .from("bookings")
     .select("*")
@@ -362,7 +431,7 @@ export async function listVisibleBookings(
   }
 
   const { data, error } = await q;
-  return takeRows(data, error);
+  return enrichBookingsWithCustomerContact(client, takeRows(data, error));
 }
 
 /**
@@ -371,7 +440,7 @@ export async function listVisibleBookings(
  */
 export async function listVendorBookingRequests(
   client: SupabaseClient<Database>,
-): Promise<BookingRow[]> {
+): Promise<BookingWithCustomerContact[]> {
   const rows = await listVisibleBookings(client, {
     status: ["confirmed", "accepted", "in_progress"],
   });
@@ -392,7 +461,7 @@ const VENDOR_BOOKINGS_PAGE_LIMIT = 500;
 export async function listVendorBookingsAll(
   client: SupabaseClient<Database>,
   options?: { limit?: number },
-): Promise<BookingRow[]> {
+): Promise<BookingWithCustomerContact[]> {
   const limit = options?.limit ?? VENDOR_BOOKINGS_PAGE_LIMIT;
   const { data, error } = await client
     .from("bookings")
@@ -400,13 +469,13 @@ export async function listVendorBookingsAll(
     .order("scheduled_start", { ascending: false })
     .limit(limit);
 
-  return takeRows(data, error);
+  return enrichBookingsWithCustomerContact(client, takeRows(data, error));
 }
 
 export async function listVendorBookingsAllPaged(
   client: SupabaseClient<Database>,
   params: PagedParams,
-): Promise<PagedResult<BookingRow>> {
+): Promise<PagedResult<BookingWithCustomerContact>> {
   const { from, to } = offsetRangeForPage(params.page, params.pageSize);
   const { data, error, count } = await client
     .from("bookings")
@@ -414,19 +483,28 @@ export async function listVendorBookingsAllPaged(
     .order("scheduled_start", { ascending: false })
     .range(from, to);
 
-  return { rows: takeRows(data, error), total: count ?? 0 };
+  return {
+    rows: await enrichBookingsWithCustomerContact(client, takeRows(data, error)),
+    total: count ?? 0,
+  };
 }
 
 export async function getBookingById(
   client: SupabaseClient<Database>,
   bookingId: string,
-): Promise<BookingRow> {
+): Promise<BookingWithCustomerContact> {
   const { data, error } = await client
     .from("bookings")
     .select("*")
     .eq("id", bookingId)
     .single();
-  return takeSingleRow(data, error);
+  const row = takeSingleRow(data, error);
+  const enriched = await enrichBookingsWithCustomerContact(client, [row]);
+  return enriched[0] ?? {
+    ...row,
+    customerDisplayName: null,
+    customerContactPhone: null,
+  };
 }
 
 /**
@@ -1585,7 +1663,7 @@ export type AdminBookingMonitorTab =
   | "fallback"
   | "cancelled";
 
-export type BookingMonitoringEnriched = BookingRow & {
+export type BookingMonitoringEnriched = BookingWithCustomerContact & {
   vendorDisplayName: string | null;
   technicianDisplayName: string | null;
 };
@@ -1809,6 +1887,10 @@ export async function adminReassignAmcBookingVendor(
     vendorName,
     note: "AMC visit reassigned by operations.",
   });
+  await invokeNotifyVendorAssignment(client, {
+    kind: "booking",
+    bookingId: updated.id,
+  });
   return updated;
 }
 
@@ -1901,6 +1983,10 @@ export async function adminAssignVendorToBooking(
     ...assignedCopy,
     vendorName,
     note: "Direct admin assignment.",
+  });
+  await invokeNotifyVendorAssignment(client, {
+    kind: "booking",
+    bookingId: updated.id,
   });
   return updated;
 }
@@ -2055,11 +2141,13 @@ async function enrichBookingsWithVendorTechnicianLabels(
   client: SupabaseClient<Database>,
   rows: BookingRow[],
 ): Promise<BookingMonitoringEnriched[]> {
+  const withCustomer = await enrichBookingsWithCustomerContact(client, rows);
+
   const vendorIds = [
-    ...new Set(rows.map((r) => r.vendor_id).filter(Boolean)),
+    ...new Set(withCustomer.map((r) => r.vendor_id).filter(Boolean)),
   ] as string[];
   const techIds = [
-    ...new Set(rows.map((r) => r.technician_id).filter(Boolean)),
+    ...new Set(withCustomer.map((r) => r.technician_id).filter(Boolean)),
   ] as string[];
 
   const vendorLabelById = new Map<string, string>();
@@ -2096,7 +2184,7 @@ async function enrichBookingsWithVendorTechnicianLabels(
     }
   }
 
-  return rows.map((row) => ({
+  return withCustomer.map((row) => ({
     ...row,
     vendorDisplayName: row.vendor_id
       ? (vendorLabelById.get(row.vendor_id) ?? null)

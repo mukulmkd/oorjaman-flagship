@@ -14,13 +14,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { useFocusEffect, useNavigation } from "expo-router";
 import { bookingApi, normalizeServiceOtpCode, paymentApi, queryKeys, technicianApi } from "@oorjaman/api";
-import type { BookingRow, Json } from "@oorjaman/api";
+import type { BookingWithCustomerContact, Json } from "@oorjaman/api";
 import {
   createSignedJobEvidenceUrl,
   createSignedJobEvidenceUrlMap,
   readBookingOpsMeta,
-  readBookingRecipientMeta,
 } from "@oorjaman/api";
+import {
+  customerNameLabel,
+  customerPhoneLabel,
+  onSiteContactLabel,
+  stringifyAddress,
+} from "../../../../lib/booking-display";
 import { colors, spacing } from "@oorjaman/config";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -98,35 +103,8 @@ function parsePhotoUrlArray(value: Json | null | undefined): string[] {
   return value.filter((u): u is string => typeof u === "string");
 }
 
-function useBookingGuard(booking: BookingRow | undefined): boolean {
+function useBookingGuard(booking: BookingWithCustomerContact | undefined): boolean {
   return Boolean(booking && (booking.status === "accepted" || booking.status === "in_progress"));
-}
-
-function stringifyAddressPreview(value: unknown): string {
-  if (value == null) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "object" && value !== null && "formatted" in value) {
-    const f = (value as { formatted?: unknown }).formatted;
-    if (typeof f === "string") return f;
-  }
-  try {
-    const lines: string[] = [];
-    const o = value as Record<string, unknown>;
-    for (const k of ["line1", "city"]) {
-      const v = o[k];
-      if (typeof v === "string" && v.trim()) lines.push(v.trim());
-    }
-    return lines.join(", ");
-  } catch {
-    return "";
-  }
-}
-
-function serviceForLabel(booking: BookingRow): string {
-  const rec = readBookingRecipientMeta(booking.metadata);
-  if (!rec || rec.is_self) return "Customer";
-  const rel = rec.relationship?.trim() ? ` (${rec.relationship.trim()})` : "";
-  return `${rec.recipient_name?.trim() || "Someone else"}${rel}`;
 }
 
 export default function JobExecutionWizardScreen() {
@@ -959,10 +937,22 @@ export default function JobExecutionWizardScreen() {
             ) : null}
             <Text style={styles.meta}>Booking</Text>
             <Text style={styles.body}>{b.reference_code}</Text>
-            <Text style={styles.meta}>Site</Text>
-            <Text style={styles.body}>{stringifyAddressPreview(b.service_site_address) || "-"}</Text>
-            <Text style={styles.meta}>Service for</Text>
-            <Text style={styles.body}>{serviceForLabel(b)}</Text>
+            <Text style={styles.meta}>Customer</Text>
+            <Text style={styles.body}>{customerNameLabel(b)}</Text>
+            {customerPhoneLabel(b) ? (
+              <>
+                <Text style={styles.meta}>Contact</Text>
+                <Text style={styles.body}>{customerPhoneLabel(b)}</Text>
+              </>
+            ) : null}
+            <Text style={styles.meta}>Address</Text>
+            <Text style={styles.body}>{stringifyAddress(b.service_site_address) || "-"}</Text>
+            {onSiteContactLabel(b) ? (
+              <>
+                <Text style={styles.meta}>On-site</Text>
+                <Text style={styles.body}>{onSiteContactLabel(b)}</Text>
+              </>
+            ) : null}
             {opsMeta && opsMeta.issue_count > 0 ? (
               <Text style={styles.opsWatchNote}>Ops watch: prioritize updates and timeline accuracy.</Text>
             ) : null}

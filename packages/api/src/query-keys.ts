@@ -279,6 +279,9 @@ export const queryKeys = {
     forBooking: (bookingId: string) => [...queryKeys.payments.all(), "booking", bookingId] as const,
     adminList: (filtersKey: string) => [...queryKeys.payments.all(), "admin-list", filtersKey] as const,
     adminDetail: (paymentId: string) => [...queryKeys.payments.all(), "admin-detail", paymentId] as const,
+    adminTaxInvoice: (key: string) => [...queryKeys.payments.all(), "admin-tax-invoice", key] as const,
+    adminTaxInvoiceHtml: (key: string) =>
+      [...queryKeys.payments.all(), "admin-tax-invoice-html", key] as const,
   },
 
   finance: {
@@ -286,6 +289,7 @@ export const queryKeys = {
     adminSettlements: (filtersKey: string) => [...queryKeys.finance.all(), "admin-settlements", filtersKey] as const,
     amcWallets: (statusKey: string) => [...queryKeys.finance.all(), "amc-wallets", statusKey] as const,
     amcContracts: (statusKey: string) => [...queryKeys.finance.all(), "amc-contracts", statusKey] as const,
+    invoices: (filtersKey: string) => [...queryKeys.finance.all(), "invoices", filtersKey] as const,
     amcWalletBySubscription: (subscriptionId: string) =>
       [...queryKeys.finance.all(), "amc-wallet", subscriptionId] as const,
     customerOorjamanCredits: () =>

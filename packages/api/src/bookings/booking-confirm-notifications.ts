@@ -12,6 +12,7 @@ import {
   vendorCustomerPreferredBookingCopy,
   vendorBookingAssignedCopy,
 } from "../notifications/booking-notifications";
+import { invokeNotifyVendorAssignment } from "../notifications/vendor-assignment-email";
 
 function resolveVendorResponseAnchorIso(booking: Pick<BookingRow, "created_at" | "metadata">): string | null {
   const m =
@@ -160,6 +161,10 @@ export async function postBookingConfirmedNotifications(
       ...assignedCopy,
       vendorName: vendorName ?? undefined,
       note: isCustomerPreferred ? "Customer selected this partner." : "Direct partner assignment.",
+    });
+    await invokeNotifyVendorAssignment(client, {
+      kind: "booking",
+      bookingId: booking.id,
     });
     return booking;
   }

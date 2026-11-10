@@ -1,0 +1,87 @@
+.inv-page .inv-back-link {
+  font-size: 0.875rem;
+  color: var(--wb-muted-fg);
+  text-decoration: none;
+}
+
+.inv-page .inv-back-link:hover {
+  color: var(--wb-foreground);
+  text-decoration: underline;
+}
+
+.inv-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.inv-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem 0.85rem;
+}
+
+.inv-filter-label {
+  font-size: 0.8rem;
+  color: var(--wb-muted-fg);
+}
+
+.inv-select,
+.inv-input {
+  min-height: 2.25rem;
+  border: 1px solid var(--wb-border);
+  border-radius: 10px;
+  padding: 0.35rem 0.65rem;
+  background: var(--wb-elevated, #fff);
+  color: var(--wb-foreground);
+  font-size: 0.875rem;
+}
+
+.inv-input {
+  min-width: 16rem;
+  flex: 1;
+}
+
+.inv-filter-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--wb-muted-fg);
+}
+
+.inv-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8rem;
+}
+
+.inv-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.inv-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.inv-detail-link {
+  font-size: 0.875rem;
+  color: var(--wb-primary, #1f8660);
+}
+
+.inv-error {
+  margin: 0;
+  color: var(--wb-danger, #b42318);
+  font-size: 0.875rem;
+}
+
+.inv-preview-frame {
+  width: 100%;
+  min-height: 70vh;
+  border: 1px solid var(--wb-border);
+  border-radius: 12px;
+  background: #fff;
+}

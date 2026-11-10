@@ -389,6 +389,10 @@ export function PaymentsOpsPage() {
                       All payments for this booking
                     </Link>
                     {" · "}
+                    <Link to={`/dashboard/finance/invoices?payment_id=${pay.id}&booking_id=${pay.booking_id}`}>
+                      Tax invoice
+                    </Link>
+                    {" · "}
                     <span className="pay-ops-mono">{pay.booking_id}</span>
                   </div>
                 ) : null}

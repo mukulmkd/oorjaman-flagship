@@ -7,6 +7,8 @@ import type {
   SubscriptionRow,
   VendorSettlementRow,
 } from "../database.types";
+import { emitVendorAmcSubscriptionAssignedNotification } from "../notifications/amc-notifications";
+import { invokeNotifyVendorAssignment } from "../notifications/vendor-assignment-email";
 import { SupabaseApiError, takeRows, takeSingleRow } from "../result";
 
 export function computeAmcPerVisitAllocPaise(
@@ -124,7 +126,35 @@ export async function adminAssignAmcSubscriptionVendor(
     p_reassign_open_bookings: options?.reassignOpenBookings ?? true,
   });
   if (error) throw new SupabaseApiError(error.message, error);
-  return data as SubscriptionRow;
+  const subscription = data as SubscriptionRow;
+  const assignedVendorId = subscription.assigned_vendor_id?.trim() || vendorId.trim();
+
+  let vendorName: string | null = null;
+  if (assignedVendorId) {
+    const { data: vendor } = await client
+      .from("vendors")
+      .select("business_name, trade_name")
+      .eq("id", assignedVendorId)
+      .maybeSingle();
+    vendorName = vendor?.trade_name?.trim() || vendor?.business_name?.trim() || null;
+
+    try {
+      await emitVendorAmcSubscriptionAssignedNotification(client, {
+        subscription,
+        recipientVendorId: assignedVendorId,
+        vendorName,
+      });
+    } catch (err) {
+      console.warn("Vendor AMC in-app notification was not sent.", err);
+    }
+
+    await invokeNotifyVendorAssignment(client, {
+      kind: "amc_subscription",
+      subscriptionId: subscription.id,
+    });
+  }
+
+  return subscription;
 }
 
 export async function fundAmcWalletFromPayment(

@@ -1,5 +1,13 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { Linking, Platform, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  AppState,
+  Linking,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+  type AppStateStatus,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Updates from "expo-updates";
 import { colors, fontFamily, fontSize, lineHeight, spacing } from "@oorjaman/config";
@@ -18,6 +26,9 @@ type AppUpdateGateProps = {
   children: ReactNode;
 };
 
+/** Avoid hammering the update server on rapid background ↔ foreground flips. */
+const FOREGROUND_CHECK_COOLDOWN_MS = 60_000;
+
 function isUatBuild(): boolean {
   return Updates.channel === "uat";
 }
@@ -35,7 +46,9 @@ function storeUrl(audience: AppUpdateAudience): string {
 
 /**
  * Blocks the app only when a newer store version is required, or when a
- * downloaded refresh is ready. Web, local development, and UAT builds pass through.
+ * downloaded refresh is ready. Checks again whenever the app returns to the
+ * foreground so OTA updates apply without force-closing. Web, local
+ * development, and UAT builds pass through.
  */
 export function AppUpdateGate({ audience, children }: AppUpdateGateProps) {
   const insets = useSafeAreaInsets();
@@ -44,26 +57,53 @@ export function AppUpdateGate({ audience, children }: AppUpdateGateProps) {
   const policy = APP_UPDATE_POLICY[audience];
   const { isStartupProcedureRunning, isUpdatePending } = Updates.useUpdates();
 
+  const promptRef = useRef<Prompt | null>(null);
+  const startupRef = useRef(isStartupProcedureRunning);
+  const pendingRef = useRef(isUpdatePending);
+  const checkingRef = useRef(false);
+  const lastCheckAtRef = useRef(0);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+
+  promptRef.current = prompt;
+  startupRef.current = isStartupProcedureRunning;
+  pendingRef.current = isUpdatePending;
+
   useEffect(() => {
     if (Platform.OS === "web" || __DEV__ || isUatBuild()) return;
 
-    if (isStoreVersionBelowMinimum(Updates.runtimeVersion, policy.minimumStoreVersion)) {
-      setPrompt("store");
-      return;
-    }
-
-    if (!Updates.isEnabled || isStartupProcedureRunning) return;
-
-    // iOS downloads the update during launch, before this screen can ask.
-    // That download is already waiting, so the server check reports nothing new.
-    if (isUpdatePending) {
-      setPrompt("refresh");
-      return;
-    }
-
     let cancelled = false;
 
-    async function lookForUpdate() {
+    async function lookForUpdate(options?: { ignoreCooldown?: boolean }) {
+      if (cancelled) return;
+
+      if (isStoreVersionBelowMinimum(Updates.runtimeVersion, policy.minimumStoreVersion)) {
+        setPrompt("store");
+        return;
+      }
+
+      // Store gate already showing — do not downgrade to an OTA refresh prompt.
+      if (promptRef.current === "store") return;
+
+      if (!Updates.isEnabled || startupRef.current) return;
+
+      // iOS may finish downloading while we were backgrounded.
+      if (pendingRef.current || promptRef.current === "refresh") {
+        setPrompt("refresh");
+        return;
+      }
+
+      const now = Date.now();
+      if (
+        !options?.ignoreCooldown &&
+        lastCheckAtRef.current > 0 &&
+        now - lastCheckAtRef.current < FOREGROUND_CHECK_COOLDOWN_MS
+      ) {
+        return;
+      }
+      if (checkingRef.current) return;
+      checkingRef.current = true;
+      lastCheckAtRef.current = now;
+
       try {
         const available = await Updates.checkForUpdateAsync();
         if (cancelled || !available.isAvailable) return;
@@ -71,12 +111,24 @@ export function AppUpdateGate({ audience, children }: AppUpdateGateProps) {
         if (!cancelled && fetched.isNew) setPrompt("refresh");
       } catch {
         // A failed check must not block bookings or jobs.
+      } finally {
+        checkingRef.current = false;
       }
     }
 
-    void lookForUpdate();
+    void lookForUpdate({ ignoreCooldown: true });
+
+    const onAppState = (next: AppStateStatus) => {
+      const prev = appStateRef.current;
+      appStateRef.current = next;
+      if (next !== "active" || prev === "active") return;
+      void lookForUpdate();
+    };
+
+    const sub = AppState.addEventListener("change", onAppState);
     return () => {
       cancelled = true;
+      sub.remove();
     };
   }, [isStartupProcedureRunning, isUpdatePending, policy.minimumStoreVersion]);
 

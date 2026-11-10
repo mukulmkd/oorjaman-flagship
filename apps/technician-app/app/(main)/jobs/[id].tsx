@@ -98,12 +98,21 @@ function DetailSection({ title, children }: { title: string; children: ReactNode
   );
 }
 
-function recipientLines(metadata: unknown): { headline: string; detail?: string } {
-  const rec = readBookingRecipientMeta(metadata as never);
-  if (!rec || rec.is_self) return { headline: "Customer" };
-  const headline = rec.recipient_name?.trim() || "Someone else";
-  const parts = [rec.relationship, rec.recipient_phone].filter(Boolean).join(" · ");
-  return { headline, detail: parts || undefined };
+function customerContactLines(booking: {
+  metadata: unknown;
+  customerDisplayName?: string | null;
+  customerContactPhone?: string | null;
+}): { headline: string; phone?: string; onSite?: string } {
+  const name = booking.customerDisplayName?.trim() || "Customer";
+  const phone = booking.customerContactPhone?.trim() || undefined;
+  const rec = readBookingRecipientMeta(booking.metadata as never);
+  if (!rec || rec.is_self) return { headline: name, phone };
+  const onSiteParts = [
+    rec.recipient_name?.trim() || "Someone else",
+    rec.relationship,
+    rec.recipient_phone,
+  ].filter(Boolean);
+  return { headline: name, phone, onSite: onSiteParts.join(" · ") };
 }
 
 export default function JobDetailScreen() {
@@ -132,7 +141,7 @@ export default function JobDetailScreen() {
   });
 
   const b = query.data;
-  const rec = b ? recipientLines(b.metadata) : null;
+  const contact = b ? customerContactLines(b) : null;
   const opsMeta = b ? readBookingOpsMeta(b.metadata) : null;
   const serviceOtp = b ? readBookingServiceOtpMeta(b.metadata) : null;
   const siteCoords = useMemo(() => {
@@ -346,7 +355,13 @@ export default function JobDetailScreen() {
             </DetailSection>
           ) : null}
 
-          <DetailSection title="Site">
+          <DetailSection title="Customer">
+            <Text style={styles.body}>{contact?.headline ?? "Customer"}</Text>
+            {contact?.phone ? <Text style={styles.meta}>{contact.phone}</Text> : null}
+            {contact?.onSite ? <Text style={styles.meta}>On-site: {contact.onSite}</Text> : null}
+          </DetailSection>
+
+          <DetailSection title="Address">
             <Text style={styles.body}>{stringifyAddress(b.service_site_address)}</Text>
             <Text style={styles.meta}>Service: {b.service_type.replace(/_/g, " ")}</Text>
             {canNavigate ? (
@@ -383,12 +398,6 @@ export default function JobDetailScreen() {
               </View>
             </DetailSection>
           ) : null}
-          <DetailSection title="Service for">
-            <Text style={styles.body}>{rec?.headline ?? "Customer"}</Text>
-            {rec?.detail ? (
-              <Text style={styles.meta}>{rec.detail}</Text>
-            ) : null}
-          </DetailSection>
 
           <DetailSection title="Support for this visit">
             {(visitUnreadQ.data ?? 0) > 0 ? (

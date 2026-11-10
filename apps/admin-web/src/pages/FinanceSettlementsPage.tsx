@@ -249,6 +249,9 @@ export function FinanceSettlementsPage() {
           <Link to="/dashboard/finance/payments" className="fin-amc-wallets-link">
             Payments
           </Link>
+          <Link to="/dashboard/finance/invoices" className="fin-amc-wallets-link">
+            Invoices
+          </Link>
           <Link to="/dashboard/finance/amc-contracts" className="fin-amc-wallets-link">
             AMC contracts
           </Link>

@@ -23,6 +23,7 @@ import { FeatureManagementPage } from "./pages/FeatureManagementPage";
 import { AmcContractsPage } from "./pages/AmcContractsPage";
 import { FinanceSettlementsPage } from "./pages/FinanceSettlementsPage";
 import { PaymentsOpsPage } from "./pages/PaymentsOpsPage";
+import { InvoicesPage } from "./pages/InvoicesPage";
 import { BrandCollateralPage } from "./pages/BrandCollateralPage";
 import { StateDesksPage } from "./pages/StateDesksPage";
 import { AmcDeskPage } from "./pages/AmcDeskPage";
@@ -118,6 +119,7 @@ export default function App() {
         />
         <Route path="finance" element={<FinanceSettlementsPage />} />
         <Route path="finance/payments" element={<PaymentsOpsPage />} />
+        <Route path="finance/invoices" element={<InvoicesPage />} />
         <Route path="finance/amc-contracts" element={<AmcContractsPage />} />
         <Route path="finance/amc-wallets" element={<Navigate to="/dashboard/finance/amc-contracts" replace />} />
       </Route>

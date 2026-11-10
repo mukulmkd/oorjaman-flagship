@@ -2,13 +2,34 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import {
   DEFAULT_BRAND_PRINT_CONTACT,
   amountInInrWords,
-  formatInrFromPaise,
   splitGstFromInclusivePaise,
   type TaxInvoiceInput,
 } from "@oorjaman/utils";
 
 const A4 = { w: 595.28, h: 841.89 }; // points
 const MARGIN = 40;
+
+/** Helvetica/WinAnsi cannot encode ₹ — use ASCII for pdf-lib StandardFonts. */
+function formatInrForPdf(amountPaise: number): string {
+  const paise = Math.max(0, Math.round(amountPaise));
+  const rupees = paise / 100;
+  const formatted = new Intl.NumberFormat("en-IN", {
+    maximumFractionDigits: paise % 100 === 0 ? 0 : 2,
+    minimumFractionDigits: paise % 100 === 0 ? 0 : 2,
+  }).format(rupees);
+  return winAnsiSafe(`Rs. ${formatted}`);
+}
+
+/** Strip/replace characters StandardFonts cannot encode. */
+function winAnsiSafe(value: string): string {
+  return value
+    .replace(/₹/g, "Rs.")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/\u2026/g, "...")
+    .replace(/[^\x09\x0A\x0D\x20-\x7E\xA0-\xFF]/g, "?");
+}
 
 const C = {
   man: rgb(0x1c / 255, 0x42 / 255, 0x76 / 255),
@@ -36,7 +57,9 @@ function formatInvoiceDatePlain(value: string): string {
 }
 
 function dataUriToBytes(dataUri: string): Uint8Array | null {
-  const match = /^data:image\/(png|jpeg|jpg);base64,(.+)$/i.exec(dataUri.trim());
+  const match =
+    /^data:image\/(png|jpeg|jpg)(?:;charset=[^;,]+)?;base64,(.+)$/i.exec(dataUri.trim()) ??
+    /^data:image\/(png|jpeg|jpg);base64,(.+)$/i.exec(dataUri.trim());
   if (!match?.[2]) return null;
   const binary = atob(match[2]);
   const bytes = new Uint8Array(binary.length);
@@ -80,24 +103,27 @@ export async function buildTaxInvoicePdfBytes(input: TaxInvoiceInput): Promise<U
   const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
   let y = A4.h - MARGIN;
+  const brandTop = y;
+  let brandBottom = brandTop - 22; // wordmark-only fallback depth
 
-  // Brand mark
+  // Brand mark (logo + split wordmark), matching on-screen invoice header
   if (input.logoDataUri) {
     const logoBytes = dataUriToBytes(input.logoDataUri);
     if (logoBytes) {
       try {
-        const isJpeg = /^data:image\/jpe?g;/i.test(input.logoDataUri);
+        const isJpeg = /^data:image\/jpe?g/i.test(input.logoDataUri);
         const logo = isJpeg ? await pdf.embedJpg(logoBytes) : await pdf.embedPng(logoBytes);
         const logoSize = 36;
+        const wordBaseline = brandTop - logoSize / 2 - 6;
         page.drawImage(logo, {
           x: MARGIN,
-          y: y - logoSize,
+          y: brandTop - logoSize,
           width: logoSize,
           height: logoSize,
         });
         page.drawText("Oorja", {
           x: MARGIN + logoSize + 8,
-          y: y - 18,
+          y: wordBaseline,
           size: 18,
           font: fontBold,
           color: C.oorja,
@@ -105,30 +131,77 @@ export async function buildTaxInvoicePdfBytes(input: TaxInvoiceInput): Promise<U
         const oorjaW = fontBold.widthOfTextAtSize("Oorja", 18);
         page.drawText("Man", {
           x: MARGIN + logoSize + 8 + oorjaW,
-          y: y - 18,
+          y: wordBaseline,
           size: 18,
           font: fontBold,
           color: C.man,
         });
+        brandBottom = brandTop - logoSize;
       } catch {
-        page.drawText("OorjaMan", { x: MARGIN, y: y - 18, size: 18, font: fontBold, color: C.man });
+        page.drawText("Oorja", {
+          x: MARGIN,
+          y: brandTop - 18,
+          size: 18,
+          font: fontBold,
+          color: C.oorja,
+        });
+        const oorjaW = fontBold.widthOfTextAtSize("Oorja", 18);
+        page.drawText("Man", {
+          x: MARGIN + oorjaW,
+          y: brandTop - 18,
+          size: 18,
+          font: fontBold,
+          color: C.man,
+        });
+        brandBottom = brandTop - 22;
       }
     } else {
-      page.drawText("OorjaMan", { x: MARGIN, y: y - 18, size: 18, font: fontBold, color: C.man });
+      page.drawText("Oorja", {
+        x: MARGIN,
+        y: brandTop - 18,
+        size: 18,
+        font: fontBold,
+        color: C.oorja,
+      });
+      const oorjaW = fontBold.widthOfTextAtSize("Oorja", 18);
+      page.drawText("Man", {
+        x: MARGIN + oorjaW,
+        y: brandTop - 18,
+        size: 18,
+        font: fontBold,
+        color: C.man,
+      });
+      brandBottom = brandTop - 22;
     }
   } else {
-    page.drawText("OorjaMan", { x: MARGIN, y: y - 18, size: 18, font: fontBold, color: C.man });
+    page.drawText("Oorja", {
+      x: MARGIN,
+      y: brandTop - 18,
+      size: 18,
+      font: fontBold,
+      color: C.oorja,
+    });
+    const oorjaW = fontBold.widthOfTextAtSize("Oorja", 18);
+    page.drawText("Man", {
+      x: MARGIN + oorjaW,
+      y: brandTop - 18,
+      size: 18,
+      font: fontBold,
+      color: C.man,
+    });
+    brandBottom = brandTop - 22;
   }
 
   const title = "TAX INVOICE";
   page.drawText(title, {
     x: A4.w - MARGIN - fontBold.widthOfTextAtSize(title, 14),
-    y: y - 14,
+    y: brandTop - 14,
     size: 14,
     font: fontBold,
     color: C.man,
   });
-  y -= 32;
+  // Keep seller / meta below the logo so they never collide with the brand mark
+  y = Math.min(brandBottom, brandTop - 28) - 10;
 
   const rightMeta = [
     `Invoice No: ${input.invoiceNo}`,
@@ -147,11 +220,17 @@ export async function buildTaxInvoicePdfBytes(input: TaxInvoiceInput): Promise<U
     metaY -= 12;
   }
 
-  page.drawText(seller.companyLegal, { x: MARGIN, y, size: 10, font: fontBold, color: C.man });
+  page.drawText(winAnsiSafe(seller.companyLegal), {
+    x: MARGIN,
+    y,
+    size: 10,
+    font: fontBold,
+    color: C.man,
+  });
   y -= 12;
   for (const line of [seller.descriptor, seller.address, seller.phone, seller.email, seller.web]) {
-    const clipped = line.length > 90 ? `${line.slice(0, 87)}…` : line;
-    page.drawText(clipped, { x: MARGIN, y, size: 8.5, font, color: C.muted });
+    const clipped = line.length > 90 ? `${line.slice(0, 87)}...` : line;
+    page.drawText(winAnsiSafe(clipped), { x: MARGIN, y, size: 8.5, font, color: C.muted });
     y -= 11;
   }
 
@@ -166,7 +245,7 @@ export async function buildTaxInvoicePdfBytes(input: TaxInvoiceInput): Promise<U
 
   page.drawText("Bill to", { x: MARGIN, y, size: 10, font: fontBold, color: C.man });
   y -= 14;
-  page.drawText(input.billTo.name.trim() || "Customer", {
+  page.drawText(winAnsiSafe(input.billTo.name.trim() || "Customer"), {
     x: MARGIN,
     y,
     size: 10,
@@ -180,7 +259,7 @@ export async function buildTaxInvoicePdfBytes(input: TaxInvoiceInput): Promise<U
     input.billTo.email?.trim() || null,
   ].filter(Boolean) as string[];
   for (const bit of billBits) {
-    for (const line of wrapText(bit, font, 9, A4.w - MARGIN * 2)) {
+    for (const line of wrapText(winAnsiSafe(bit), font, 9, A4.w - MARGIN * 2)) {
       page.drawText(line, { x: MARGIN, y, size: 9, font, color: C.muted });
       y -= 11;
     }
@@ -194,7 +273,7 @@ export async function buildTaxInvoicePdfBytes(input: TaxInvoiceInput): Promise<U
   if (metaBits.length) {
     y -= 4;
     for (const bit of metaBits) {
-      page.drawText(bit, { x: MARGIN, y, size: 8.5, font, color: C.muted });
+      page.drawText(winAnsiSafe(bit), { x: MARGIN, y, size: 8.5, font, color: C.muted });
       y -= 11;
     }
   }
@@ -202,9 +281,9 @@ export async function buildTaxInvoicePdfBytes(input: TaxInvoiceInput): Promise<U
   y -= 10;
   const tableTop = y;
   const tableWidth = A4.w - MARGIN * 2;
-  const colQty = A4.w - MARGIN - 160;
-  const colRate = A4.w - MARGIN - 100;
-  const colAmt = A4.w - MARGIN - 8;
+  const colQty = A4.w - MARGIN - 200;
+  const colRateRight = A4.w - MARGIN - 110;
+  const colAmtRight = A4.w - MARGIN - 8;
 
   page.drawRectangle({
     x: MARGIN,
@@ -215,9 +294,15 @@ export async function buildTaxInvoicePdfBytes(input: TaxInvoiceInput): Promise<U
   });
   page.drawText("Description", { x: MARGIN + 6, y: tableTop - 13, size: 9, font: fontBold, color: C.white });
   page.drawText("Qty", { x: colQty, y: tableTop - 13, size: 9, font: fontBold, color: C.white });
-  page.drawText("Rate", { x: colRate, y: tableTop - 13, size: 9, font: fontBold, color: C.white });
+  page.drawText("Rate", {
+    x: colRateRight - fontBold.widthOfTextAtSize("Rate", 9),
+    y: tableTop - 13,
+    size: 9,
+    font: fontBold,
+    color: C.white,
+  });
   page.drawText("Amount", {
-    x: colAmt - fontBold.widthOfTextAtSize("Amount", 9),
+    x: colAmtRight - fontBold.widthOfTextAtSize("Amount", 9),
     y: tableTop - 13,
     size: 9,
     font: fontBold,
@@ -230,7 +315,7 @@ export async function buildTaxInvoicePdfBytes(input: TaxInvoiceInput): Promise<U
     const qty = Math.max(1, Math.round(row.qty));
     const amt = Math.max(0, Math.round(row.amountPaise));
     const rate = qty > 0 ? Math.round(amt / qty) : amt;
-    const descLines = wrapText(row.description, font, 9, descMax);
+    const descLines = wrapText(winAnsiSafe(row.description), font, 9, descMax);
     const rowHeight = Math.max(16, descLines.length * 11 + 4);
 
     for (let i = 0; i < descLines.length; i += 1) {
@@ -243,17 +328,17 @@ export async function buildTaxInvoicePdfBytes(input: TaxInvoiceInput): Promise<U
       });
     }
     page.drawText(String(qty), { x: colQty, y, size: 9, font, color: C.man });
-    const rateText = formatInrFromPaise(rate);
-    const amtText = formatInrFromPaise(amt);
+    const rateText = formatInrForPdf(rate);
+    const amtText = formatInrForPdf(amt);
     page.drawText(rateText, {
-      x: colRate,
+      x: colRateRight - font.widthOfTextAtSize(rateText, 9),
       y,
       size: 9,
       font,
       color: C.man,
     });
     page.drawText(amtText, {
-      x: colAmt - font.widthOfTextAtSize(amtText, 9),
+      x: colAmtRight - font.widthOfTextAtSize(amtText, 9),
       y,
       size: 9,
       font,
@@ -273,9 +358,9 @@ export async function buildTaxInvoicePdfBytes(input: TaxInvoiceInput): Promise<U
   y -= 8;
   const totalsX = A4.w - MARGIN - 170;
   const totals: Array<[string, string, boolean]> = [
-    ["Taxable value", formatInrFromPaise(gst.taxablePaise), false],
-    [`GST (${gst.gstRatePercent}%)`, formatInrFromPaise(gst.gstPaise), false],
-    ["Total", formatInrFromPaise(gst.totalPaise), true],
+    ["Taxable value", formatInrForPdf(gst.taxablePaise), false],
+    [`GST (${gst.gstRatePercent}%)`, formatInrForPdf(gst.gstPaise), false],
+    ["Total", formatInrForPdf(gst.totalPaise), true],
   ];
   for (const [label, value, bold] of totals) {
     const f = bold ? fontBold : font;
@@ -291,7 +376,7 @@ export async function buildTaxInvoicePdfBytes(input: TaxInvoiceInput): Promise<U
   }
 
   y -= 8;
-  const wordsLabel = `Amount in words: ${words}`;
+  const wordsLabel = winAnsiSafe(`Amount in words: ${words}`);
   for (const line of wrapText(wordsLabel, font, 8.5, A4.w - MARGIN * 2)) {
     page.drawText(line, { x: MARGIN, y, size: 8.5, font, color: C.muted });
     y -= 11;
@@ -305,15 +390,16 @@ export async function buildTaxInvoicePdfBytes(input: TaxInvoiceInput): Promise<U
     height: footerH,
     color: C.man,
   });
-  page.drawText(`${seller.company}  ·  ${seller.web}`, {
+  page.drawText(winAnsiSafe(`${seller.company}  ·  ${seller.web}`), {
     x: MARGIN,
     y: 10,
     size: 8,
     font: fontBold,
     color: C.white,
   });
-  page.drawText(seller.tagline, {
-    x: A4.w - MARGIN - font.widthOfTextAtSize(seller.tagline, 7.5),
+  const taglineSafe = winAnsiSafe(seller.tagline);
+  page.drawText(taglineSafe, {
+    x: A4.w - MARGIN - font.widthOfTextAtSize(taglineSafe, 7.5),
     y: 10,
     size: 7.5,
     font,

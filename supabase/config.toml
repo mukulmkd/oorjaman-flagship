@@ -401,6 +401,10 @@ verify_jwt = true
 [functions.send-customer-payment-documents]
 verify_jwt = true
 
+# Vendor email when a booking or AMC contract is assigned. Caller JWT is checked in the function.
+[functions.notify-vendor-assignment]
+verify_jwt = true
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

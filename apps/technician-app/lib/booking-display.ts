@@ -1,6 +1,12 @@
-import type { BookingRow } from "@oorjaman/api";
-import { readBookingOpsMeta, readBookingRecipientMeta } from "@oorjaman/api";
+import type { BookingCustomerContactFields, BookingRow, Json } from "@oorjaman/api";
+import {
+  formattedSiteAddressFromJson,
+  readBookingOpsMeta,
+  readBookingRecipientMeta,
+} from "@oorjaman/api";
 import { formatDisplayDateTime } from "@oorjaman/utils";
+
+type BookingContactRow = BookingRow & Partial<BookingCustomerContactFields>;
 
 export function formatJobWhen(iso: string): string {
   return formatDisplayDateTime(iso);
@@ -26,28 +32,28 @@ export function todayIstDayKey(): string {
 export function stringifyAddress(value: unknown): string {
   if (value == null) return "Address on file";
   if (typeof value === "string") return value.trim() || "Address on file";
-  if (typeof value === "object" && value !== null && "formatted" in value) {
-    const f = (value as { formatted?: unknown }).formatted;
-    if (typeof f === "string" && f.trim()) return f;
-  }
-  try {
-    const lines: string[] = [];
-    const o = value as Record<string, unknown>;
-    for (const k of ["line1", "line2", "city", "state", "postal_code"]) {
-      const v = o[k];
-      if (typeof v === "string" && v.trim()) lines.push(v.trim());
-    }
-    if (lines.length) return lines.join(", ");
-  } catch {
-    /* fall through */
-  }
-  return "Site address";
+  const formatted = formattedSiteAddressFromJson(value as Json)
+    .replace(/\n/g, ", ")
+    .trim();
+  return formatted || "Site address";
 }
 
-export function serviceForLabel(row: BookingRow): string {
+export function customerNameLabel(row: BookingContactRow): string {
+  return row.customerDisplayName?.trim() || "Customer";
+}
+
+export function customerPhoneLabel(row: BookingContactRow): string {
+  return row.customerContactPhone?.trim() || "";
+}
+
+export function onSiteContactLabel(row: BookingContactRow): string | null {
   const rec = readBookingRecipientMeta(row.metadata);
-  if (!rec || rec.is_self) return "Customer";
+  if (!rec || rec.is_self) return null;
   return rec.recipient_name?.trim() || "Someone else";
+}
+
+export function serviceForLabel(row: BookingContactRow): string {
+  return onSiteContactLabel(row) ?? customerNameLabel(row);
 }
 
 export function opsWatchLabel(row: BookingRow): string | null {

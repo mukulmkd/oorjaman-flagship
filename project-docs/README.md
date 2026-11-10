@@ -38,6 +38,7 @@ Topic-specific how-tos (push setup, local APK, realtime) remain in [`docs/`](../
 | [BILLING.md](BILLING.md) | Supabase, Vercel, EAS, Maps, store fees |
 | [EMAILS.md](EMAILS.md) | Business email setup & DNS |
 | [TODO.md](TODO.md) | Dated release & ops checklist |
+| [../BACKLOG.md](../BACKLOG.md) | Root backlog: GCP trial, finance, KPIs, hardening, SEO |
 | [GOOD_ENAHNCEMENTS.md](GOOD_ENAHNCEMENTS.md) | Enhancement backlog notes |
 
 ## Architecture & test guides (Word)

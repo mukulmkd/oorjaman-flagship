@@ -150,11 +150,12 @@ function ellipsize(s: string, max: number): string {
   return t.slice(0, Math.max(0, max - 1)) + "…";
 }
 
-function bookingForLabel(row: BookingMonitoringEnriched): string {
-  const rec = readBookingRecipientMeta(row.metadata);
-  if (!rec) return "Customer";
-  if (rec.is_self) return "Customer";
-  return rec.recipient_name?.trim() || "Someone else";
+function customerNameLabel(row: BookingMonitoringEnriched): string {
+  return row.customerDisplayName?.trim() || "Customer";
+}
+
+function customerPhoneLabel(row: BookingMonitoringEnriched): string {
+  return row.customerContactPhone?.trim() || "-";
 }
 
 function readMarketplaceWindow(row: BookingMonitoringEnriched): { openUntil: Date | null } {
@@ -536,7 +537,8 @@ export function BookingMonitoringPage() {
                         <th>Status</th>
                         <th>Partner</th>
                         <th>Scheduled</th>
-                        <th>Service for</th>
+                        <th>Customer</th>
+                        <th>Contact</th>
                         <th>Site</th>
                         <th className="bm-col-routing">Routing</th>
                         <th className="bm-col-alerts">Alerts</th>
@@ -585,7 +587,21 @@ export function BookingMonitoringPage() {
                                 <div className="bm-timing-actual">{timing.actual}</div>
                               ) : null}
                             </td>
-                            <td>{bookingForLabel(row)}</td>
+                            <td>
+                              <div className="bm-cell-stack">
+                                <span>{customerNameLabel(row)}</span>
+                                {(() => {
+                                  const rec = readBookingRecipientMeta(row.metadata);
+                                  if (!rec || rec.is_self) return null;
+                                  return (
+                                    <span className="bm-timing-actual">
+                                      On-site: {rec.recipient_name?.trim() || "Someone else"}
+                                    </span>
+                                  );
+                                })()}
+                              </div>
+                            </td>
+                            <td className="bm-cell-mono">{customerPhoneLabel(row)}</td>
                             <td className="bm-table-note">{ellipsize(formatSiteLine(row.service_site_address), 48)}</td>
                             <td className="bm-col-routing">
                               <div className="bm-cell-stack">
@@ -659,7 +675,7 @@ export function BookingMonitoringPage() {
         }
         description={
           actionRow
-            ? `${formatTiming(actionRow).scheduled} · ${bookingForLabel(actionRow)}`
+            ? `${formatTiming(actionRow).scheduled} · ${customerNameLabel(actionRow)}`
             : undefined
         }
         onClose={closeActionModal}
@@ -692,7 +708,25 @@ export function BookingMonitoringPage() {
                 {actionRow.vendorDisplayName ??
                   (actionRow.vendor_id ? actionRow.vendor_id.slice(0, 12) + "…" : "Unassigned")}
               </dd>
-              <dt style={{ color: "var(--wb-muted-fg)" }}>Site</dt>
+              <dt style={{ color: "var(--wb-muted-fg)" }}>Customer</dt>
+              <dd style={{ margin: 0 }}>{customerNameLabel(actionRow)}</dd>
+              <dt style={{ color: "var(--wb-muted-fg)" }}>Contact</dt>
+              <dd style={{ margin: 0 }}>{customerPhoneLabel(actionRow)}</dd>
+              {(() => {
+                const rec = readBookingRecipientMeta(actionRow.metadata);
+                if (!rec || rec.is_self) return null;
+                return (
+                  <>
+                    <dt style={{ color: "var(--wb-muted-fg)" }}>On-site</dt>
+                    <dd style={{ margin: 0, lineHeight: 1.45 }}>
+                      {[rec.recipient_name?.trim() || "Someone else", rec.recipient_phone?.trim()]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </dd>
+                  </>
+                );
+              })()}
+              <dt style={{ color: "var(--wb-muted-fg)" }}>Address</dt>
               <dd style={{ margin: 0, lineHeight: 1.45 }}>
                 {formatSiteLine(actionRow.service_site_address)}
               </dd>
@@ -740,6 +774,10 @@ export function BookingMonitoringPage() {
             <p style={{ margin: 0, fontSize: webTypography.size.sm }}>
               <Link to={`/dashboard/finance/payments?booking_id=${actionRow.id}`}>
                 View payments for this booking
+              </Link>
+              {" · "}
+              <Link to={`/dashboard/finance/invoices?booking_id=${actionRow.id}`}>
+                Tax invoice
               </Link>
             </p>
 

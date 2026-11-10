@@ -138,9 +138,15 @@ export {
   adminAmcAwaitingPartnerCopy,
   customerAmcPartnerAssignedCopy,
   emitAdminAmcAwaitingPartnerNotification,
+  emitVendorAmcSubscriptionAssignedNotification,
+  vendorAmcSubscriptionAssignedCopy,
   type AdminAmcNotificationEventType,
   type AmcInAppNotificationPayload,
 } from "./notifications/amc-notifications";
+export {
+  invokeNotifyVendorAssignment,
+  type NotifyVendorAssignmentBody,
+} from "./notifications/vendor-assignment-email";
 export {
   adminListNotificationTemplates,
   adminPreviewNotificationTemplate,
@@ -266,7 +272,9 @@ export {
   type AdminBookingMonitorTab,
   type AdminBookingsSubscriptionBucket,
   type AdminBookingsStatusFilter,
+  type BookingCustomerContactFields,
   type BookingMonitoringEnriched,
+  type BookingWithCustomerContact,
 } from "./bookings/booking-api";
 export {
   adminFetchBookingStats,
@@ -587,6 +595,10 @@ export {
   type AdminPaymentListRow,
   type AdminPaymentOpsDetail,
 } from "./payments/admin-payment-ops";
+export {
+  adminGetTaxInvoiceContext,
+  type AdminTaxInvoiceContext,
+} from "./payments/tax-invoice-context";
 export {
   adminAssignAmcSubscriptionVendor,
   adminListAmcContracts,
