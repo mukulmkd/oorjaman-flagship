@@ -30,7 +30,7 @@ const config: ExpoConfig = {
   name: displayName,
   slug: "technician-app",
   scheme: isUat ? "oorjaman-technician-uat" : "oorjaman-technician",
-  version: "1.0.1",
+  version: "1.0.0",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   userInterfaceStyle: "automatic",

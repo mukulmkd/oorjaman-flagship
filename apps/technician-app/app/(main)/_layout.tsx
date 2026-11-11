@@ -10,7 +10,6 @@ import { colors } from "@oorjaman/config";
 import { fontFamily, fontSize } from "../../constants/fonts";
 import { supabase } from "../../lib/supabase";
 import { TechnicianLocationTracker } from "../../components/technician-location-tracker";
-import { MandatoryLocationGate } from "../../components/mandatory-location-gate";
 import { TechnicianBookingRealtime } from "../../components/technician-booking-realtime";
 import { TechnicianApprovalToast } from "../../components/technician-approval-toast";
 import { consumeTechnicianApprovalToastPending } from "../../lib/technician-approval-toast";
@@ -60,8 +59,9 @@ export default function MainTabsLayout() {
     return <Redirect href="/technician-onboarding" />;
   }
 
+  // Location is feature-scoped (Mark en route), not an app-wide hard gate — App Store 5.1.1(iv).
   return (
-    <MandatoryLocationGate>
+    <>
       <TechnicianApprovalToast visible={showApprovalToast} onDismiss={dismissApprovalToast} />
       <TechnicianLocationTracker />
       <TechnicianBookingRealtime technicianId={tech?.id} />
@@ -180,7 +180,7 @@ export default function MainTabsLayout() {
           </Tabs>
         </View>
       </View>
-    </MandatoryLocationGate>
+    </>
   );
 }
 

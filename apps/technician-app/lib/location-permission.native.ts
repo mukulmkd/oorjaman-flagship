@@ -14,17 +14,23 @@ export type PartnerLocationStatus = {
   servicesEnabled: boolean;
 };
 
-function showLocationSettingsAlert(title: string, message: string): void {
+/**
+ * Informational alert when a location-gated feature cannot run.
+ * Always includes a dismiss action so we respect a prior "Don't Allow"
+ * (App Store Guideline 5.1.1(iv)). Open Settings is optional, never the only button.
+ */
+function showLocationNeededAlert(title: string, message: string): void {
   Alert.alert(
     title,
     message,
     [
+      { text: "Not Now", style: "cancel" },
       {
         text: "Open Settings",
         onPress: () => void Linking.openSettings(),
       },
     ],
-    { cancelable: false },
+    { cancelable: true },
   );
 }
 
@@ -47,15 +53,16 @@ export async function isForegroundLocationGranted(): Promise<boolean> {
 
 /**
  * En route requires permission, system location on, and a live GPS fix.
+ * Denial returns null — the rest of the Partner app stays usable.
  */
 export async function ensureEnRouteLocationFix(): Promise<EnRouteLocationFix | null> {
   const status = await getPartnerLocationStatus();
   if (!status.permissionGranted) {
-    let perm = await Location.requestForegroundPermissionsAsync();
+    const perm = await Location.requestForegroundPermissionsAsync();
     if (perm.status !== "granted") {
-      showLocationSettingsAlert(
-        "Location permission required",
-        "Allow location access for OorjaMan Partner in Settings before marking en route.",
+      showLocationNeededAlert(
+        "Location needed for en route",
+        "Marking en route shares your trip with the customer. You can continue using other Partner features without location. To enable tracking later, turn on Location for OorjaMan Partner in Settings.",
       );
       return null;
     }
@@ -63,9 +70,9 @@ export async function ensureEnRouteLocationFix(): Promise<EnRouteLocationFix | n
 
   const servicesOn = await Location.hasServicesEnabledAsync();
   if (!servicesOn) {
-    showLocationSettingsAlert(
-      "Turn on location",
-      "Enable your phone's Location/GPS setting so customers can track your trip.",
+    showLocationNeededAlert(
+      "Turn on Location",
+      "Your phone's Location/GPS is off, so live tracking cannot start. You can enable it in Settings when you are ready to mark en route.",
     );
     return null;
   }
@@ -85,9 +92,9 @@ export async function ensureEnRouteLocationFix(): Promise<EnRouteLocationFix | n
       "GPS unavailable",
       e instanceof Error
         ? e.message
-        : "Could not read your location. Enable location services and try again near a window or outdoors.",
+        : "Could not read your location. Try again near a window or outdoors when you are ready to mark en route.",
       [{ text: "OK" }],
-      { cancelable: false },
+      { cancelable: true },
     );
     return null;
   }

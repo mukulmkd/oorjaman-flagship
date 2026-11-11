@@ -32,11 +32,13 @@ async function queryGeolocationPermissionState(): Promise<PermissionState | "uns
   }
 }
 
-function showLocationSettingsAlert(title: string, message: string): void {
+/** Soft alert: dismiss always available; Settings optional (5.1.1(iv)). */
+function showLocationNeededAlert(title: string, message: string): void {
   Alert.alert(
     title,
     message,
     [
+      { text: "Not Now", style: "cancel" },
       {
         text: "Open Settings",
         onPress: () => {
@@ -48,7 +50,7 @@ function showLocationSettingsAlert(title: string, message: string): void {
         },
       },
     ],
-    { cancelable: false },
+    { cancelable: true },
   );
 }
 
@@ -72,7 +74,6 @@ export async function getPartnerLocationStatus(): Promise<PartnerLocationStatus>
     return { permissionGranted: false, servicesEnabled: true };
   }
 
-  // prompt / unsupported — honor in-tab success cache after En Route / gate prompt.
   if (webGeoGrantedCache === true) {
     return { permissionGranted: true, servicesEnabled: true };
   }
@@ -95,9 +96,9 @@ export async function isForegroundLocationGranted(): Promise<boolean> {
  */
 export async function ensureEnRouteLocationFix(): Promise<EnRouteLocationFix | null> {
   if (!geolocationAvailable()) {
-    showLocationSettingsAlert(
+    showLocationNeededAlert(
       "Location unavailable",
-      "This browser does not support location. Use a mobile browser or the Partner app.",
+      "This browser does not support location. You can still use other Partner features, or open the native Partner app for live tracking.",
     );
     return null;
   }
@@ -121,9 +122,9 @@ export async function ensureEnRouteLocationFix(): Promise<EnRouteLocationFix | n
       e && typeof e === "object" && "code" in e ? Number((e as { code?: unknown }).code) : NaN;
     if (code === 1) {
       webGeoGrantedCache = false;
-      showLocationSettingsAlert(
-        "Location permission required",
-        "Allow location access in your browser before marking en route.",
+      showLocationNeededAlert(
+        "Location needed for en route",
+        "Marking en route shares your trip with the customer. Other Partner features still work. Enable location in the browser when you are ready to go en route.",
       );
       return null;
     }
@@ -131,9 +132,9 @@ export async function ensureEnRouteLocationFix(): Promise<EnRouteLocationFix | n
       "GPS unavailable",
       e instanceof Error
         ? e.message
-        : "Could not read your location. Enable location and try again.",
+        : "Could not read your location. Try again when you are ready to mark en route.",
       [{ text: "OK" }],
-      { cancelable: false },
+      { cancelable: true },
     );
     return null;
   }

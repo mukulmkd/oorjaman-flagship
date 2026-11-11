@@ -44,10 +44,10 @@ export default function PermissionsScreen() {
         ]}
       >
       <Text style={styles.kicker}>Field-ready</Text>
-      <Text style={styles.title}>Location for job routing</Text>
+      <Text style={styles.title}>Location for trip tracking</Text>
       <Text style={styles.body}>
-        Turn on location while using the partner app so dispatch can assign nearby jobs and customers see
-        realistic ETAs when you are en route to a site.
+        Location is optional for browsing jobs. When you mark en route, it lets customers see a live ETA.
+        You can skip for now and enable it later when you need that feature.
       </Text>
 
       <View style={styles.card}>

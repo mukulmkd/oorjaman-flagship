@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -230,10 +230,13 @@ export default function JobDetailScreen() {
   const handleEnRoute = useCallback(async () => {
     if (locationGranted === false) {
       Alert.alert(
-        "Location required",
-        "Turn on location before marking en route so the customer can track your trip.",
-        [{ text: "OK" }],
-        { cancelable: false },
+        "Location needed for en route",
+        "Live tracking needs location while you travel to the site. You can keep using jobs and chat without it. Enable Location for OorjaMan Partner in Settings when you are ready.",
+        [
+          { text: "Not Now", style: "cancel" },
+          { text: "Open Settings", onPress: () => void Linking.openSettings() },
+        ],
+        { cancelable: true },
       );
       return;
     }
@@ -503,8 +506,8 @@ export default function JobDetailScreen() {
                   </Button>
                   {enRouteBlocked ? (
                     <Text style={styles.locationHint}>
-                      Location must be on before you can mark en route. Use the location prompt on the home
-                      screen or enable it in Settings.
+                      Live tracking for this trip needs location. Other Partner features still work without it.
+                      When you are ready, enable Location in Settings, then tap En route again.
                     </Text>
                   ) : (
                     <Text style={styles.locationHint}>
