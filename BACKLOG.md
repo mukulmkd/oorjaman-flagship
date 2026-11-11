@@ -11,7 +11,6 @@ Update this file when something ships or a new must-do appears.
 | ID | Item | Notes |
 | --- | --- | --- |
 | B-001 | **Upgrade Google Cloud billing before trial ends** | Console shows ~**30 days** left on the free trial. Upgrade to a paid billing account so Maps / related APIs keep working. Unused trial credit carries over until the original trial window ends. Set a low budget alert ($10–50). OorjaMan mainly uses Maps SDK (unlimited free), Static Maps, and optional Directions — see [project-docs/BILLING.md](project-docs/BILLING.md) and [Maps pricing](https://developers.google.com/maps/billing-and-pricing/pricing). |
-| B-002 | **Commit / ship local develop work still uncommitted** | Working tree has Admin invoices + tax PDF, vendor-assignment Resend email, book date/time split, AppUpdateGate foreground refresh, customer contact on ops surfaces, related API changes. Decide commit + deploy (portals / OTA) vs park. |
 | B-003 | **Confirm PROD Supabase PITR / backup retention** | Production hardening; not launch-blocking but ops-critical. From [TODO.md](project-docs/TODO.md). |
 | B-004 | **Error tracking + Supabase log alerts + uptime** | Same hardening pass as B-003. |
 
@@ -26,6 +25,9 @@ Update this file when something ships or a new must-do appears.
 | B-012 | **Full `db:baseline` disaster-recovery bootstrap** | Needs Docker; one-command base DDL. [TODO.md](project-docs/TODO.md). |
 | B-013 | **Portal CSP: remove `'unsafe-inline'`** | Hashes or nonces. [TODO.md](project-docs/TODO.md). |
 | B-014 | **Re-scan `npm audit` after next Expo SDK bump** | Remaining items were transitive / build-time. |
+| B-015 | **Activate Resend Forge for `oorjaman.com`** | Do later. Optional deliverability upgrade — not blocking. In Resend → Domains → Activate Forge → Return-Path subdomain `mail` (`mail.oorjaman.com` is DNS-only, not a website/inbox) → add the CNAME Resend shows at GoDaddy (Cloudflare: DNS only / gray cloud). No API or Edge Function changes; existing SPF/DKIM/MX stay; mail keeps sending while DNS verifies, then Forge ramps gradually. Skip / rename if `mail` already has conflicting DNS records. |
+| B-016 | **Customer OTA: visit lifecycle remote push** | Shipped Customer production OTA `0bd79c57-…` (runtime 1.0.1). Devices opt in via `visit_push_enabled_at` on next token register. |
+| B-017 | **Partner day-of job digest push** | Optional later. Cancel/reschedule remote push shipped; morning “N jobs today” would need a cron. |
 
 ---
 
@@ -90,6 +92,7 @@ Track detail in git history / [TODO.md](project-docs/TODO.md) archive. Notable:
 
 - Customer + Partner production OTAs (runtime `1.0.1`) including foreground OTA gate behavior
 - Vendor assignment email Edge Function (UAT soft-skip Resend; PROD live)
+- Admin invoices + tax PDF, book date/time split, AppUpdateGate foreground refresh, customer contact on ops surfaces (committed `52cd9f6`, develop/main synced)
 - Admin national KPIs scorecard (computable subset)
 - Live mobile OTP path (MSG91) shipped in product; UI may still gate by env/config in some builds
 

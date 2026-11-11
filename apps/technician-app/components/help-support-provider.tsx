@@ -9,6 +9,7 @@ import {
   useHelpSupport,
 } from "@oorjaman/ui";
 import { supabase } from "../lib/supabase";
+import { JobNotificationResponse } from "./job-notification-response";
 import { SupportChatRealtimeNotifications } from "./support-chat-realtime-notifications";
 import { SupportNotificationResponse } from "./support-notification-response";
 import { TechnicianPushRegistration } from "./technician-push-registration";
@@ -77,6 +78,7 @@ export function HelpSupportProvider({ children }: { children: ReactNode }) {
       <TechnicianPushRegistration />
       <SupportChatRealtimeNotifications />
       <SupportNotificationResponse />
+      <JobNotificationResponse />
       <HelpSupportModal
         role="technician"
         client={supabase}

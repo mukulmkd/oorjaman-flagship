@@ -22,7 +22,9 @@ function resolveExpoProjectId(): string | undefined {
 }
 
 /**
- * Registers the device Expo push token for remote support (and future) notifications.
+ * Registers the device Expo push token for remote notifications.
+ * This OTA also opts the device into visit lifecycle remote push (server-gated
+ * by visit_push_enabled_at — no flood for devices that have not updated).
  * Requires a physical device and EXPO_PUBLIC_EAS_PROJECT_ID (or EAS project in app config).
  */
 export function CustomerPushRegistration() {
@@ -81,14 +83,16 @@ export function CustomerPushRegistration() {
           const tokenResult = await Notifications.getExpoPushTokenAsync({ projectId });
           const token = tokenResult.data?.trim();
           if (!token || cancelled) return;
-          if (registeredTokenRef.current === token) return;
+          const registrationKey = `${token}:visit_push_v1`;
+          if (registeredTokenRef.current === registrationKey) return;
 
           const platform = Platform.OS === "ios" ? "ios" : Platform.OS === "android" ? "android" : "unknown";
           await customerPushApi.upsertCustomerPushToken(client, {
             expo_push_token: token,
             platform,
+            visit_push_enabled: customerPushApi.CUSTOMER_VISIT_PUSH_ENABLED,
           });
-          if (!cancelled) registeredTokenRef.current = token;
+          if (!cancelled) registeredTokenRef.current = registrationKey;
         })().catch(() => {
           /* Permission denied or Expo token unavailable - local notifications still work. */
         });

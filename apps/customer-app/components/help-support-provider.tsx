@@ -12,6 +12,7 @@ import { supabase } from "../lib/supabase";
 import { CustomerPushRegistration } from "./customer-push-registration";
 import { SupportChatRealtimeNotifications } from "./support-chat-realtime-notifications";
 import { AmcNotificationResponse } from "./amc-notification-response";
+import { BookingNotificationResponse } from "./booking-notification-response";
 import { SubscriptionRealtimeNotifications } from "./subscription-realtime-notifications";
 import { SupportNotificationResponse } from "./support-notification-response";
 
@@ -83,6 +84,7 @@ export function HelpSupportProvider({ children }: { children: ReactNode }) {
       <SupportChatRealtimeNotifications />
       <SupportNotificationResponse />
       <AmcNotificationResponse />
+      <BookingNotificationResponse />
       <HelpSupportModal
         role="customer"
         client={supabase}

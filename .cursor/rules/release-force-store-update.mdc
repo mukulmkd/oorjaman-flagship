@@ -19,13 +19,13 @@ PATCH/JS-only OTAs do **not** raise the store minimum unless explicitly requeste
 
 ## Checklist (after the new store binary is live)
 
-1. Confirm **Play** and/or **App Store** listing shows the new version (e.g. `2.0.0`) for that app.
+1. Confirm **Play** and **App Store** (when both ship) show the new version (e.g. `2.0.0`) for that app. Partner **MAJOR**: both platforms must share that same `version` before raising the gate (`release-versioning.mdc`).
 2. Set `minimumStoreVersion` to that version for **customer** and/or **partner** (only apps in the release).
-3. Publish production OTA for **every older runtime still in the wild** (e.g. `1.0.0`, `1.0.1`, `1.1.0`):
+3. Publish production OTA for **every older runtime still in the wild** (e.g. Partner `1.0.0` iOS + `1.0.1` Android):
    - Temporarily set `version` in that app’s `app.config.ts` to the old runtime
    - `eas update --channel production --environment production --message "Require store version X.Y.Z."`
    - Restore `version` to the current store version
-   - Repeat per app (Customer / Partner) and per old runtime
+   - Repeat per app (Customer / Partner) and per old runtime — cover **both** platforms’ live versions
 4. Also publish the same policy OTA for the **new** runtime so binaries already on it stay aligned.
 5. Do **not** leave `app.config.ts` `version` stuck on an old runtime after publishing.
 

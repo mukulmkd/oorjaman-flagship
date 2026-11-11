@@ -1,8 +1,11 @@
 /**
  * Store builds whose runtime is below `minimumStoreVersion` see a blocking
- * screen that opens the store. Runtime follows the store version (`appVersion`).
- * Leave it unset so current binaries keep working. Raise it in a later update
- * only after that store version is live.
+ * screen that opens the store and cannot use the app until they install that
+ * binary. `AppUpdateGate` re-checks this on every foreground resume (same as
+ * OTA refresh). Runtime follows the store version (`appVersion`). Leave it
+ * unset so current binaries keep working. Raise it in a later update only
+ * after that store version is live, then OTA every older runtime still in use
+ * (see `.cursor/rules/release-force-store-update.mdc`).
  */
 export type AppUpdateAudience = "customer" | "partner";
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   AppState,
+  BackHandler,
   Linking,
   Platform,
   StyleSheet,
@@ -44,11 +45,16 @@ function storeUrl(audience: AppUpdateAudience): string {
   return `https://play.google.com/store/apps/details?id=${policy.androidPackage}`;
 }
 
+function installedStoreVersion(): string | null {
+  const runtime = Updates.runtimeVersion?.trim();
+  return runtime ? runtime : null;
+}
+
 /**
- * Blocks the app only when a newer store version is required, or when a
- * downloaded refresh is ready. Checks again whenever the app returns to the
- * foreground so OTA updates apply without force-closing. Web, local
- * development, and UAT builds pass through.
+ * Blocks the app when a newer store binary is required, or when a downloaded
+ * OTA refresh is ready. Re-checks on every return to the foreground so both
+ * the store force-upgrade and OTA refresh apply without force-closing.
+ * Web, local development, and UAT builds pass through.
  */
 export function AppUpdateGate({ audience, children }: AppUpdateGateProps) {
   const insets = useSafeAreaInsets();
@@ -68,20 +74,29 @@ export function AppUpdateGate({ audience, children }: AppUpdateGateProps) {
   startupRef.current = isStartupProcedureRunning;
   pendingRef.current = isUpdatePending;
 
+  const storeForced = prompt === "store";
+
   useEffect(() => {
     if (Platform.OS === "web" || __DEV__ || isUatBuild()) return;
 
     let cancelled = false;
 
+    function enforceStoreGate(): boolean {
+      if (!isStoreVersionBelowMinimum(installedStoreVersion(), policy.minimumStoreVersion)) {
+        return false;
+      }
+      setPrompt("store");
+      return true;
+    }
+
     async function lookForUpdate(options?: { ignoreCooldown?: boolean }) {
       if (cancelled) return;
 
-      if (isStoreVersionBelowMinimum(Updates.runtimeVersion, policy.minimumStoreVersion)) {
-        setPrompt("store");
-        return;
-      }
+      // Store force-upgrade always wins — checked on cold start and every
+      // foreground resume, before any OTA cooldown / fetch logic.
+      if (enforceStoreGate()) return;
 
-      // Store gate already showing — do not downgrade to an OTA refresh prompt.
+      // Store gate already showing — never downgrade to an OTA refresh prompt.
       if (promptRef.current === "store") return;
 
       if (!Updates.isEnabled || startupRef.current) return;
@@ -107,8 +122,11 @@ export function AppUpdateGate({ audience, children }: AppUpdateGateProps) {
       try {
         const available = await Updates.checkForUpdateAsync();
         if (cancelled || !available.isAvailable) return;
+        // Policy OTA may raise minimumStoreVersion — re-check after fetch.
         const fetched = await Updates.fetchUpdateAsync();
-        if (!cancelled && fetched.isNew) setPrompt("refresh");
+        if (cancelled) return;
+        if (enforceStoreGate()) return;
+        if (fetched.isNew) setPrompt("refresh");
       } catch {
         // A failed check must not block bookings or jobs.
       } finally {
@@ -122,6 +140,7 @@ export function AppUpdateGate({ audience, children }: AppUpdateGateProps) {
       const prev = appStateRef.current;
       appStateRef.current = next;
       if (next !== "active" || prev === "active") return;
+      // Returning from Play / App Store without updating must still block.
       void lookForUpdate();
     };
 
@@ -132,12 +151,19 @@ export function AppUpdateGate({ audience, children }: AppUpdateGateProps) {
     };
   }, [isStartupProcedureRunning, isUpdatePending, policy.minimumStoreVersion]);
 
+  useEffect(() => {
+    if (!storeForced || Platform.OS === "web") return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => true);
+    return () => sub.remove();
+  }, [storeForced]);
+
   async function onPress() {
     if (busy) return;
     setBusy(true);
     try {
       if (prompt === "store") {
         await Linking.openURL(storeUrl(audience));
+        // Stay on the blocking store screen until a new binary is installed.
         setBusy(false);
         return;
       }
@@ -149,13 +175,14 @@ export function AppUpdateGate({ audience, children }: AppUpdateGateProps) {
 
   return (
     <View style={styles.root}>
-      {children}
+      {storeForced ? null : children}
       {prompt ? (
         <View
           style={[
             styles.overlay,
             { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xl },
           ]}
+          pointerEvents="auto"
           accessibilityViewIsModal
         >
           <View style={styles.panel}>

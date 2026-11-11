@@ -57,6 +57,8 @@ eas update --channel production --environment production --message "Short descri
 - Do **not** bump `version` in `app.config.ts`
 - Do **not** run production EAS **build** unless native change is required
 - Confirm message and app before publishing
+- **Both platforms / all live runtimes:** if Android and iOS (or multiple store versions) are still in the wild for that app, publish the OTA for **each** `runtimeVersion` — see `release-versioning.mdc` dual-platform OTA. Partner today may need both `1.0.0` (iOS) and `1.0.1` (Android) until reunified.
+- Next Partner **MAJOR**: align Android + iOS `version` in the same release (`release-versioning.mdc`)
 
 ---
 

@@ -48,6 +48,16 @@ If the bump type is unclear, **ask before changing `version`**.
 
 Customer and Partner versions are **independent** — bump only the app being released.
 
+### Partner Android ↔ iOS alignment (mandatory)
+
+Partner store versions may diverge temporarily (e.g. Android `1.0.1`, iOS `1.0.0` after App Review skew). That is allowed short-term.
+
+**Next Partner MAJOR store release** (`2.0.0`, `3.0.0`, …): ship the **same** `version` string on **both** Android and iOS. Do not leave Partner platforms on different majors/minors after that release.
+
+Prefer reunifying earlier on the next dual-platform Partner store ship (e.g. both → `1.0.2`) when practical — still required by the next MAJOR.
+
+Customer follows the same dual-platform rule when both stores are shipping that app.
+
 ---
 
 ## 2. Android `versionCode` / iOS `buildNumber`
@@ -78,6 +88,17 @@ Both apps use `expo-updates` with:
 
 Never bump `version` only to “force” OTA — that orphans updates for older binaries still on the previous runtime.
 
+### Dual-platform / multi-runtime OTA (mandatory)
+
+`runtimeVersion` = `appVersion`. Android and iOS with different store versions are **different runtimes**.
+
+When publishing a production OTA for an app:
+
+1. List every **live** store `version` still in the wild for that app (Android **and** iOS).
+2. Publish the **same** update payload for **each** of those runtimes (`eas update --channel production`, temporarily set `app.config.ts` `version` to each old runtime when needed — see `release-force-store-update.mdc`).
+3. Do **not** OTA only the platform or runtime you just built; the other platform’s users will never receive it.
+4. Confirm in EAS Update that each runtime (e.g. Partner `1.0.0` and `1.0.1`) got a production group before calling the hotfix done.
+
 To require a store upgrade for everyone still on older binaries, use `release-force-store-update.mdc` (not a version bump alone).
 
 ---
@@ -89,9 +110,11 @@ To require a store upgrade for everyone still on older binaries, use `release-fo
 - Shipping production with UAT env / `.uat` package or bundle ID
 - Treating OTA as a substitute for a required native rebuild
 - Syncing Customer and Partner to the same version number “for neatness” unless explicitly requested
+- Shipping a Partner **MAJOR** with Android and iOS on different `version` strings
+- Publishing production OTA for only one platform/runtime when both still have users in the wild
 
 ## 5. After changing `version`
 
 1. Commit the `app.config.ts` change with the release.
-2. Run production EAS build(s) so the new runtime is baked in.
-3. Publish OTA only for the runtime(s) that should receive it (existing channel + matching runtime).
+2. Run production EAS build(s) so the new runtime is baked in — **both** platforms when that store version is meant for both.
+3. Publish OTA for **every** live runtime that should receive the JS change (both platforms’ versions still in the wild).

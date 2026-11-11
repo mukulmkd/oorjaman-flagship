@@ -1,6 +1,18 @@
 # Partner app - remote push (Expo)
 
-Field-support chat uses **Expo Push** for notifications when the OorjaMan Partner app is killed or in the background.
+Field-support chat and job dispatch updates use **Expo Push** when the OorjaMan Partner app is killed or in the background.
+
+## Job lifecycle pushes
+
+| Event | When |
+| --- | --- |
+| New job assigned | `technician_id` set on a booking |
+| Job reassigned | Technician removed / replaced |
+| Visit cancelled | Assigned booking → `cancelled` |
+| Visit rescheduled | Assigned booking `scheduled_start` changes |
+| Support message | Admin/system reply on technician support chat |
+
+Cancel / reschedule: migration `20261111150000_technician_booking_cancel_reschedule_push.sql` (forward-looking only; no backfill).
 
 For the full dev vs production matrix (all env vars and apps), see [**ENVIRONMENT.md**](../project-docs/ENVIRONMENT.md).
 
@@ -64,9 +76,15 @@ Same as customer app: **chat_message.wav** for support chat (foreground local + 
 
 Development builds from Expo Go have limited push support; use a **development build** or **production build** for end-to-end testing.
 
-## Tap → open chat
+## Tap → open
 
-Notification `data` includes `kind: support_message` and `conversationId`. The partner app opens the support sheet on that thread automatically (local and remote pushes).
+- Support: `kind: support_message` + `conversationId` → support sheet
+- Jobs: `kind: booking_technician_assigned` / `booking_technician_unassigned` / `booking_cancelled` / `booking_rescheduled` + `bookingId` → job detail
+
+## Not remote (by design)
+
+- Day-of / morning job digest — optional later (cron)
+- En route / start / complete — technician initiates these
 
 ## Deploy both mobile push functions
 

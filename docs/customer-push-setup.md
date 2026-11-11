@@ -1,10 +1,25 @@
 # Customer app - remote push (Expo)
 
-Support chat uses **Expo Push** for notifications when the app is killed or in the background.
+Support chat and (after OTA) visit lifecycle updates use **Expo Push** when the app is killed or in the background.
 
 For the full dev vs production matrix (all env vars and apps), see [**ENVIRONMENT.md**](../project-docs/ENVIRONMENT.md).
 
 Partner app push (separate function and outbox): [**technician-push-setup.md**](technician-push-setup.md).
+
+## Visit lifecycle pushes (capability-gated)
+
+After the customer installs the OTA that registers `visit_push_enabled`, the server may enqueue remote pushes for:
+
+- Visit confirmed (payment / pay-later confirm)
+- First technician assigned
+- Technician en route
+- Visit completed
+- Visit cancelled
+- Visit rescheduled
+
+**Gate:** `customer_push_tokens.visit_push_enabled_at` — stamped only when the updated app calls `upsert_customer_push_token(..., visit_push_enabled: true)`. Devices without that OTA keep getting support / AMC / technician-*reassignment* pushes only. No backfill of existing bookings; only future transitions notify.
+
+Migration: `20261111143000_customer_visit_push_capability.sql`.
 
 ## 1. Apply migrations
 
@@ -12,7 +27,7 @@ Partner app push (separate function and outbox): [**technician-push-setup.md**](
 npm run db:push
 ```
 
-Includes `20260730130000_support_customer_unread.sql` and `20260731120000_customer_expo_push.sql`. Use **OorjaMan UAT** project first — see [SUPABASE-UAT-PROD.md](../project-docs/SUPABASE-UAT-PROD.md).
+Includes `20260730130000_support_customer_unread.sql`, `20260731120000_customer_expo_push.sql`, and `20261111143000_customer_visit_push_capability.sql`. Use **OorjaMan UAT** project first — see [SUPABASE-UAT-PROD.md](../project-docs/SUPABASE-UAT-PROD.md).
 
 ## 2. EAS project ID (client)
 
@@ -75,9 +90,11 @@ Grant notification permission with sound allowed (iOS Settings → Notifications
 
 Development builds from Expo Go have limited push support; use a **development build** or **production build** for end-to-end testing.
 
-## Tap → open chat
+## Tap → open
 
-Notification `data` includes `kind: support_message` and `conversationId`. The customer app opens the support sheet on that thread automatically (local and remote pushes).
+- Support: `kind: support_message` + `conversationId` → support sheet
+- Visit lifecycle: `kind: booking_*` + `bookingId` → booking detail
+- AMC partner: `kind: amc_partner_assigned` + `subscriptionId` → AMC tab
 
 ## Both mobile apps on one Supabase project
 

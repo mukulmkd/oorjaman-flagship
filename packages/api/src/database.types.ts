@@ -315,6 +315,7 @@ export type CustomerPushTokenRow = {
   last_seen_at: string;
   created_at: string;
   updated_at: string;
+  visit_push_enabled_at: string | null;
 };
 
 export type TechnicianPushTokenRow = {
@@ -1980,7 +1981,11 @@ export type Database = {
         Returns: TechnicianPushTokenRow;
       };
       upsert_customer_push_token: {
-        Args: { p_expo_push_token: string; p_platform?: string };
+        Args: {
+          p_expo_push_token: string;
+          p_platform?: string;
+          p_visit_push_enabled?: boolean;
+        };
         Returns: CustomerPushTokenRow;
       };
       get_support_desk_insights: {
