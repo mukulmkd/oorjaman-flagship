@@ -87,11 +87,12 @@ Desktop.ini
 .vscode/*
 !.vscode/extensions.json
 
-# Cursor: keep shared rules + MCP example; ignore local MCP config / state
+# Cursor: keep shared rules + MCP example + cloud env; ignore local MCP config / state
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**
 !.cursor/mcp.json.example
+!.cursor/environment.json
 
 # -----------------------------------------------------------------------------
 # TypeScript / JS tooling caches

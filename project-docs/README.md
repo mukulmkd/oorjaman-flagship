@@ -23,6 +23,7 @@ Topic-specific how-tos (push setup, local APK, realtime) remain in [`docs/`](../
 | [SEO.md](SEO.md) | Marketing site SEO & GoDaddy deploy |
 | [WEB-UNIVERSAL.md](WEB-UNIVERSAL.md) | Live Customer and Technician web hosts (`app` / `partner`), Vercel projects, Auth allowlist |
 | [ANDROID-PLAY.md](ANDROID-PLAY.md) | Google Play rebuild: EAS, FCM, Maps SHA-1, internal track |
+| [CURSOR-CLOUD-EAS.md](CURSOR-CLOUD-EAS.md) | Expo `EXPO_TOKEN` for Cursor Cloud Agents / iPhone EAS |
 | [LAUNCH.md](LAUNCH.md) | Marketing site and store listing URLs |
 
 ## Product plans
