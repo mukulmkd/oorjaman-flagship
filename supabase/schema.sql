@@ -16678,7 +16678,7 @@ for each row execute function public.enqueue_technician_booking_schedule_push();
 comment on function public.enqueue_technician_booking_schedule_push() is
   'Enqueues technician Expo push when an assigned visit is cancelled or rescheduled.';
 
--- ----- 20261112044432_state_ops_assign_amc_subscription_vendor.sql -----
+-- ----- 20261112044726_state_ops_assign_amc_subscription_vendor.sql -----
 create or replace function public.admin_assign_amc_subscription_vendor(
   p_subscription_id uuid,
   p_vendor_id uuid,
