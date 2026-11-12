@@ -16004,4 +16004,796 @@ revoke all on function public.count_unread_support_messages_for_customer_booking
 
 grant execute on function public.count_unread_support_messages_for_customer_booking(uuid) to authenticated;
 
+-- ----- 20261028143000_auth_phone_store_without_plus_for_gotrue.sql -----
+update auth.users
+set
+  phone = regexp_replace(phone, '^\+', ''),
+  updated_at = now()
+where phone like '+%';
+
+update auth.identities i
+set
+  provider_id = regexp_replace(
+    coalesce(nullif(trim(i.identity_data->>'phone'), ''), i.provider_id),
+    '^\+',
+    ''
+  ),
+  identity_data = jsonb_set(
+    jsonb_set(
+      coalesce(i.identity_data, '{}'::jsonb),
+      '{phone}',
+      to_jsonb(regexp_replace(coalesce(i.identity_data->>'phone', ''), '^\+', '')),
+      true
+    ),
+    '{sub}',
+    to_jsonb(regexp_replace(coalesce(i.identity_data->>'phone', i.provider_id), '^\+', '')),
+    true
+  ),
+  updated_at = now()
+where i.provider = 'phone'
+  and (
+    i.provider_id like '+%'
+    or coalesce(i.identity_data->>'phone', '') like '+%'
+    or i.provider_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  );
+
+create or replace function public.sync_customer_contact_phone_to_auth()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  e164 text;
+
+auth_phone text;
+
+other_id uuid;
+
+au auth.users;
+
+begin
+  e164 := public.format_indian_mobile_e164(new.alternate_phone);
+
+if e164 is null then
+    if regexp_replace(coalesce(new.alternate_phone, ''), '\D', '', 'g') = '' then
+      return new;
+
+end if;
+
+raise exception 'Enter a 10-digit mobile number';
+
+end if;
+
+auth_phone := regexp_replace(e164, '^\+', '');
+
+select u.id
+  into other_id
+  from auth.users u
+  where public.format_indian_mobile_e164(u.phone) = e164
+    and u.id <> new.user_id;
+
+if other_id is not null then
+    raise exception 'This mobile number is already used by another account';
+
+end if;
+
+update auth.users
+  set
+    phone = auth_phone,
+    phone_confirmed_at = coalesce(phone_confirmed_at, now()),
+    updated_at = now()
+  where id = new.user_id
+    and phone is distinct from auth_phone;
+
+insert into auth.identities (
+    provider_id,
+    user_id,
+    identity_data,
+    provider,
+    created_at,
+    updated_at
+  )
+  values (
+    auth_phone,
+    new.user_id,
+    jsonb_build_object(
+      'sub', auth_phone,
+      'phone', auth_phone,
+      'email_verified', false,
+      'phone_verified', true
+    ),
+    'phone',
+    now(),
+    now()
+  )
+  on conflict (provider_id, provider) do update
+  set
+    user_id = excluded.user_id,
+    identity_data = excluded.identity_data,
+    updated_at = now();
+
+select * into au from auth.users where id = new.user_id;
+
+if au.id is not null then
+    perform public.apply_auth_user_to_public_users(au);
+
+end if;
+
+return new;
+
+end;
+
+$$;
+
+-- ----- 20261028143000_vendor_technician_invite_email_match.sql -----
+update public.vendor_technician_invites
+set invite_email = lower(trim(invite_email))
+where invite_email is not null
+  and invite_email <> lower(trim(invite_email));
+
+create index if not exists vendor_technician_invites_email_lower_idx
+  on public.vendor_technician_invites (lower(invite_email))
+  where invite_email is not null;
+
+-- ----- 20261103120000_schedule_slot_raised_capacity.sql -----
+alter table public.vendor_slot_availability
+  alter column capacity set default 5;
+
+comment on column public.vendor_slot_availability.capacity is
+  'Optional vendor hint; platform raised-booking cap for a schedule slot is 5.';
+
+create or replace function public.vendor_slot_bookability_batch(
+  p_vendor_id uuid,
+  p_day_key text,
+  p_slot_ids text[],
+  p_exclude_booking_id uuid default null
+)
+returns table (slot_id text, bookable boolean)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    u.slot_id,
+    (
+      coalesce(vsa.is_available, true)
+      and coalesce(raised.cnt, 0) < 5
+    ) as bookable
+  from unnest(coalesce(p_slot_ids, array[]::text[])) as u(slot_id)
+  left join public.vendor_slot_availability vsa
+    on vsa.vendor_id = p_vendor_id
+   and vsa.day_key = p_day_key::date
+   and vsa.slot_id = u.slot_id
+  left join lateral (
+    select count(*)::int as cnt
+    from public.bookings b
+    where b.status in (
+        'pending_payment'::public.booking_status,
+        'confirmed'::public.booking_status,
+        'vendor_acknowledged'::public.booking_status,
+        'accepted'::public.booking_status,
+        'in_progress'::public.booking_status
+      )
+      and b.metadata @> jsonb_build_object(
+        'schedule_slot',
+        jsonb_build_object('day_key', p_day_key, 'slot_id', u.slot_id)
+      )
+      and (p_exclude_booking_id is null or b.id <> p_exclude_booking_id)
+  ) raised on true;
+
+$$;
+
+revoke all on function public.vendor_slot_bookability_batch(uuid, text, text[], uuid) from public;
+
+grant execute on function public.vendor_slot_bookability_batch(uuid, text, text[], uuid) to authenticated;
+
+grant execute on function public.vendor_slot_bookability_batch(uuid, text, text[], uuid) to service_role;
+
+create or replace function public.schedule_slot_raised_bookability_batch(
+  p_day_key text,
+  p_slot_ids text[],
+  p_exclude_booking_id uuid default null
+)
+returns table (slot_id text, bookable boolean, raised_count integer)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    u.slot_id,
+    (coalesce(raised.cnt, 0) < 5) as bookable,
+    coalesce(raised.cnt, 0)::int as raised_count
+  from unnest(coalesce(p_slot_ids, array[]::text[])) as u(slot_id)
+  left join lateral (
+    select count(*)::int as cnt
+    from public.bookings b
+    where b.status in (
+        'pending_payment'::public.booking_status,
+        'confirmed'::public.booking_status,
+        'vendor_acknowledged'::public.booking_status,
+        'accepted'::public.booking_status,
+        'in_progress'::public.booking_status
+      )
+      and b.metadata @> jsonb_build_object(
+        'schedule_slot',
+        jsonb_build_object('day_key', p_day_key, 'slot_id', u.slot_id)
+      )
+      and (p_exclude_booking_id is null or b.id <> p_exclude_booking_id)
+  ) raised on true;
+
+$$;
+
+revoke all on function public.schedule_slot_raised_bookability_batch(text, text[], uuid) from public;
+
+grant execute on function public.schedule_slot_raised_bookability_batch(text, text[], uuid) to authenticated;
+
+grant execute on function public.schedule_slot_raised_bookability_batch(text, text[], uuid) to service_role;
+
+-- ----- 20261111143000_customer_visit_push_capability.sql -----
+alter table public.customer_push_tokens
+  add column if not exists visit_push_enabled_at timestamptz;
+
+comment on column public.customer_push_tokens.visit_push_enabled_at is
+  'Set when the customer app OTA that supports visit lifecycle remote push registers this token. Null = legacy client; do not enqueue visit pushes.';
+
+create index if not exists customer_push_tokens_visit_push_enabled_idx
+  on public.customer_push_tokens (customer_id)
+  where visit_push_enabled_at is not null;
+
+create or replace function public.customer_has_visit_push(p_customer_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.customer_push_tokens t
+    where t.customer_id = p_customer_id
+      and t.visit_push_enabled_at is not null
+  );
+
+$$;
+
+comment on function public.customer_has_visit_push(uuid) is
+  'True when the customer has registered a device that opted into visit lifecycle remote push.';
+
+revoke all on function public.customer_has_visit_push(uuid) from public, anon, authenticated;
+
+grant execute on function public.customer_has_visit_push(uuid) to service_role;
+
+drop function if exists public.upsert_customer_push_token(text, text);
+
+drop function if exists public.upsert_customer_push_token(text, text, boolean);
+
+create function public.upsert_customer_push_token(
+  p_expo_push_token text,
+  p_platform text default 'unknown',
+  p_visit_push_enabled boolean default false
+)
+returns public.customer_push_tokens
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_customer_id uuid;
+
+row public.customer_push_tokens;
+
+v_platform text;
+
+begin
+  if auth.uid() is null then
+    raise exception 'sign in required';
+
+end if;
+
+v_customer_id := public.my_customer_id();
+
+if v_customer_id is null then
+    raise exception 'customer profile required';
+
+end if;
+
+v_platform := case
+    when lower(coalesce(p_platform, '')) in ('ios', 'android') then lower(p_platform)
+    else 'unknown'
+  end;
+
+insert into public.customer_push_tokens (
+    user_id,
+    customer_id,
+    expo_push_token,
+    platform,
+    last_seen_at,
+    updated_at,
+    visit_push_enabled_at
+  )
+  values (
+    auth.uid(),
+    v_customer_id,
+    trim(p_expo_push_token),
+    v_platform,
+    now(),
+    now(),
+    case when coalesce(p_visit_push_enabled, false) then now() else null end
+  )
+  on conflict (user_id, expo_push_token) do update
+  set
+    customer_id = excluded.customer_id,
+    platform = excluded.platform,
+    last_seen_at = now(),
+    updated_at = now(),
+    visit_push_enabled_at = case
+      when coalesce(p_visit_push_enabled, false)
+        then coalesce(public.customer_push_tokens.visit_push_enabled_at, now())
+      else public.customer_push_tokens.visit_push_enabled_at
+    end
+  returning * into row;
+
+return row;
+
+end;
+
+$$;
+
+grant execute on function public.upsert_customer_push_token(text, text, boolean) to authenticated;
+
+create or replace function public.enqueue_customer_visit_push(
+  p_customer_id uuid,
+  p_event_type text,
+  p_title text,
+  p_body text,
+  p_data jsonb default '{}'::jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid;
+
+begin
+  if p_customer_id is null then
+    return;
+
+end if;
+
+if not public.customer_has_visit_push(p_customer_id) then
+    return;
+
+end if;
+
+select c.user_id into v_user_id
+  from public.customers c
+  where c.id = p_customer_id;
+
+if v_user_id is null then
+    return;
+
+end if;
+
+insert into public.customer_push_outbox (
+    user_id,
+    customer_id,
+    event_type,
+    title,
+    body,
+    data
+  )
+  values (
+    v_user_id,
+    p_customer_id,
+    p_event_type,
+    p_title,
+    p_body,
+    coalesce(p_data, '{}'::jsonb)
+  );
+
+end;
+
+$$;
+
+comment on function public.enqueue_customer_visit_push(uuid, text, text, text, jsonb) is
+  'Enqueue a customer Expo push only when visit_push capability is enabled on a device token.';
+
+revoke all on function public.enqueue_customer_visit_push(uuid, text, text, text, jsonb) from public, anon, authenticated;
+
+grant execute on function public.enqueue_customer_visit_push(uuid, text, text, text, jsonb) to service_role;
+
+create or replace function public.enqueue_customer_booking_lifecycle_push()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_ref text;
+
+v_data jsonb;
+
+begin
+  if tg_op = 'UPDATE' then
+    if new.customer_id is null then
+      return new;
+
+end if;
+
+if not public.customer_has_visit_push(new.customer_id) then
+      return new;
+
+end if;
+
+v_ref := coalesce(nullif(trim(both from new.reference_code), ''), left(new.id::text, 8));
+
+v_data := jsonb_build_object('bookingId', new.id, 'referenceCode', v_ref);
+
+if old.status is distinct from new.status
+      and new.status = 'confirmed'::public.booking_status
+      and old.status = 'pending_payment'::public.booking_status
+    then
+      perform public.enqueue_customer_visit_push(
+        new.customer_id,
+        'booking_confirmed',
+        'OorjaMan - visit confirmed',
+        'Thank you. Your payment went through and your solar care visit is booked. We will keep you posted.',
+        v_data || jsonb_build_object('kind', 'booking_confirmed')
+      );
+
+end if;
+
+if old.technician_id is null
+      and new.technician_id is not null
+    then
+      perform public.enqueue_customer_visit_push(
+        new.customer_id,
+        'booking_technician_assigned',
+        'Technician assigned',
+        'Your technician is assigned for visit ' || v_ref || '. Open the booking for details.',
+        v_data || jsonb_build_object('kind', 'booking_technician_assigned')
+      );
+
+end if;
+
+if old.technician_en_route_at is null
+      and new.technician_en_route_at is not null
+    then
+      perform public.enqueue_customer_visit_push(
+        new.customer_id,
+        'booking_technician_en_route',
+        'Technician on the way',
+        'Your technician is heading to your site for visit ' || v_ref || '. Open the app to track live.',
+        v_data || jsonb_build_object('kind', 'booking_technician_en_route')
+      );
+
+end if;
+
+if old.status is distinct from new.status
+      and new.status = 'completed'::public.booking_status
+    then
+      perform public.enqueue_customer_visit_push(
+        new.customer_id,
+        'booking_completed',
+        'Visit complete - thank you',
+        'Your panel care visit ' || v_ref || ' is done. Open the app to rate your experience.',
+        v_data || jsonb_build_object('kind', 'booking_completed')
+      );
+
+end if;
+
+if old.status is distinct from new.status
+      and new.status = 'cancelled'::public.booking_status
+    then
+      perform public.enqueue_customer_visit_push(
+        new.customer_id,
+        'booking_cancelled',
+        'Visit cancelled',
+        'Your OorjaMan visit ' || v_ref || ' was cancelled. Open the app for details or to book again.',
+        v_data || jsonb_build_object('kind', 'booking_cancelled')
+      );
+
+end if;
+
+if old.scheduled_start is not null
+      and new.scheduled_start is not null
+      and old.scheduled_start is distinct from new.scheduled_start
+      and new.status is distinct from 'cancelled'::public.booking_status
+      and new.status is distinct from 'completed'::public.booking_status
+    then
+      perform public.enqueue_customer_visit_push(
+        new.customer_id,
+        'booking_rescheduled',
+        'Visit rescheduled',
+        'Your visit ' || v_ref || ' has a new date or time. Open the booking to review.',
+        v_data || jsonb_build_object('kind', 'booking_rescheduled')
+      );
+
+end if;
+
+return new;
+
+end if;
+
+if tg_op = 'INSERT' then
+    if new.customer_id is null then
+      return new;
+
+end if;
+
+if not public.customer_has_visit_push(new.customer_id) then
+      return new;
+
+end if;
+
+if new.status = 'confirmed'::public.booking_status then
+      v_ref := coalesce(nullif(trim(both from new.reference_code), ''), left(new.id::text, 8));
+
+perform public.enqueue_customer_visit_push(
+        new.customer_id,
+        'booking_confirmed',
+        'OorjaMan - visit confirmed',
+        'Thank you. Your solar care visit is booked. We will keep you posted as your partner and technician are assigned.',
+        jsonb_build_object(
+          'kind', 'booking_confirmed',
+          'bookingId', new.id,
+          'referenceCode', v_ref
+        )
+      );
+
+end if;
+
+return new;
+
+end if;
+
+return new;
+
+end;
+
+$$;
+
+drop trigger if exists bookings_enqueue_customer_lifecycle_push on public.bookings;
+
+create trigger bookings_enqueue_customer_lifecycle_push
+after insert or update of status, technician_id, technician_en_route_at, scheduled_start
+on public.bookings
+for each row execute function public.enqueue_customer_booking_lifecycle_push();
+
+comment on function public.enqueue_customer_booking_lifecycle_push() is
+  'Capability-gated customer remote push for visit confirm / tech / en route / complete / cancel / reschedule.';
+
+-- ----- 20261111150000_technician_booking_cancel_reschedule_push.sql -----
+create or replace function public.enqueue_technician_booking_schedule_push()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_tech_id uuid;
+
+v_tech_user uuid;
+
+v_ref text;
+
+begin
+  if tg_op <> 'UPDATE' then
+    return new;
+
+end if;
+
+v_tech_id := coalesce(new.technician_id, old.technician_id);
+
+if v_tech_id is null then
+    return new;
+
+end if;
+
+select t.user_id into v_tech_user
+  from public.technicians t
+  where t.id = v_tech_id;
+
+if v_tech_user is null then
+    return new;
+
+end if;
+
+v_ref := coalesce(nullif(trim(both from new.reference_code), ''), left(new.id::text, 8));
+
+if old.status is distinct from new.status
+    and new.status = 'cancelled'::public.booking_status
+  then
+    insert into public.technician_push_outbox (
+      user_id,
+      technician_id,
+      event_type,
+      title,
+      body,
+      data
+    )
+    values (
+      v_tech_user,
+      v_tech_id,
+      'booking_cancelled',
+      'Visit cancelled',
+      'Booking ' || v_ref || ' was cancelled. You do not need to attend this visit.',
+      jsonb_build_object(
+        'kind', 'booking_cancelled',
+        'bookingId', new.id,
+        'referenceCode', v_ref
+      )
+    );
+
+end if;
+
+if new.technician_id is not null
+    and old.scheduled_start is not null
+    and new.scheduled_start is not null
+    and old.scheduled_start is distinct from new.scheduled_start
+    and new.status is distinct from 'cancelled'::public.booking_status
+    and new.status is distinct from 'completed'::public.booking_status
+  then
+    insert into public.technician_push_outbox (
+      user_id,
+      technician_id,
+      event_type,
+      title,
+      body,
+      data
+    )
+    values (
+      v_tech_user,
+      new.technician_id,
+      'booking_rescheduled',
+      'Visit rescheduled',
+      'Booking ' || v_ref || ' has a new date or time. Open the app to review.',
+      jsonb_build_object(
+        'kind', 'booking_rescheduled',
+        'bookingId', new.id,
+        'referenceCode', v_ref
+      )
+    );
+
+end if;
+
+return new;
+
+end;
+
+$$;
+
+drop trigger if exists bookings_enqueue_technician_schedule_push on public.bookings;
+
+create trigger bookings_enqueue_technician_schedule_push
+after update of status, scheduled_start, technician_id
+on public.bookings
+for each row execute function public.enqueue_technician_booking_schedule_push();
+
+comment on function public.enqueue_technician_booking_schedule_push() is
+  'Enqueues technician Expo push when an assigned visit is cancelled or rescheduled.';
+
+-- ----- 20261112044432_state_ops_assign_amc_subscription_vendor.sql -----
+create or replace function public.admin_assign_amc_subscription_vendor(
+  p_subscription_id uuid,
+  p_vendor_id uuid,
+  p_reassign_open_bookings boolean default true
+)
+returns public.subscriptions
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_sub public.subscriptions;
+
+v_vendor public.vendors;
+
+v_site_state text;
+
+v_actor text;
+
+begin
+  if public.is_admin() then
+    v_actor := 'admin';
+
+elsif public.is_state_ops() then
+    v_actor := 'state_ops';
+
+else
+    raise exception 'admin or state_ops only';
+
+end if;
+
+select * into v_vendor from public.vendors where id = p_vendor_id;
+
+if not found then raise exception 'vendor not found'; end if;
+
+if v_vendor.approval_status <> 'approved'::public.vendor_approval_status then
+    raise exception 'vendor must be approved';
+
+end if;
+
+select * into v_sub from public.subscriptions where id = p_subscription_id;
+
+if not found then raise exception 'subscription not found'; end if;
+
+if v_actor = 'state_ops' then
+    v_site_state := nullif(trim(v_sub.metadata -> 'service_site_address' ->> 'state'), '');
+
+if not public.state_in_my_operation(v_site_state) then
+      raise exception 'subscription site is outside your state desk';
+
+end if;
+
+if not public.vendor_in_my_operation(p_vendor_id) then
+      raise exception 'partner is outside your state desk';
+
+end if;
+
+end if;
+
+update public.subscriptions
+  set
+    assigned_vendor_id = p_vendor_id,
+    assigned_vendor_at = now(),
+    updated_at = now()
+  where id = p_subscription_id
+  returning * into v_sub;
+
+update public.amc_wallets
+  set assigned_vendor_id = p_vendor_id, updated_at = now()
+  where subscription_id = p_subscription_id;
+
+if p_reassign_open_bookings then
+    update public.bookings b
+    set
+      vendor_id = p_vendor_id,
+      technician_id = null,
+      status = case
+        when b.status = 'accepted'::public.booking_status then 'confirmed'::public.booking_status
+        else b.status
+      end,
+      metadata = coalesce(b.metadata, '{}'::jsonb) || jsonb_build_object(
+        'amc_vendor_reassignment', jsonb_build_object(
+          'previous_vendor_id', b.vendor_id,
+          'reassigned_at', now(),
+          'reassigned_by', v_actor,
+          'scope', 'subscription',
+          'subscription_id', p_subscription_id
+        ),
+        'vendor_reassignment', coalesce(b.metadata->'vendor_reassignment', '{}'::jsonb) || jsonb_build_object(
+          'awaiting_admin_assignment', false,
+          'reassigned_at', now(),
+          'reassigned_vendor_id', p_vendor_id,
+          'previous_vendor_id', b.vendor_id
+        ),
+        'vendor_response', jsonb_build_object('anchor_at', now())
+      ),
+      updated_at = now()
+    where b.subscription_id = p_subscription_id
+      and b.status in (
+        'confirmed'::public.booking_status,
+        'accepted'::public.booking_status,
+        'in_progress'::public.booking_status
+      )
+      and b.vendor_id is distinct from p_vendor_id;
+
+end if;
+
+return v_sub;
+
+end;
+
+$$;
+
+revoke all on function public.admin_assign_amc_subscription_vendor(uuid, uuid, boolean) from public;
+
+grant execute on function public.admin_assign_amc_subscription_vendor(uuid, uuid, boolean) to authenticated;
+
 -- End of schema (generated)
