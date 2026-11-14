@@ -16796,4 +16796,28 @@ revoke all on function public.admin_assign_amc_subscription_vendor(uuid, uuid, b
 
 grant execute on function public.admin_assign_amc_subscription_vendor(uuid, uuid, boolean) to authenticated;
 
+-- ----- 20261114113540_fix_bookings_payments_rls_recursion.sql -----
+create or replace function public.customer_has_successful_booking_payment(p_booking_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    p_booking_id is not null
+    and exists (
+      select 1
+      from public.payments p
+      where p.booking_id = p_booking_id
+        and p.customer_id = public.my_customer_id()
+        and p.status = 'success'::public.payment_status
+    );
+
+$$;
+
+revoke all on function public.customer_has_successful_booking_payment(uuid) from public;
+
+grant execute on function public.customer_has_successful_booking_payment(uuid) to authenticated;
+
 -- End of schema (generated)

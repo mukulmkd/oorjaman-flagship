@@ -3075,4 +3075,20 @@ create policy vendor_technician_invites_update_scope
     )
   );
 
+drop policy if exists bookings_update_customer on public.bookings;
+
+create policy bookings_update_customer
+on public.bookings for update to authenticated
+using (customer_id = public.my_customer_id())
+with check (
+  customer_id = public.my_customer_id()
+  and (
+    status is distinct from 'confirmed'::public.booking_status
+    or coalesce(payment_timing, 'prepaid') = 'postpaid'
+    or public.customer_owns_funded_amc_subscription(subscription_id)
+    or public.client_dummy_payments_allowed()
+    or public.customer_has_successful_booking_payment(id)
+  )
+);
+
 -- End of policies (generated)
