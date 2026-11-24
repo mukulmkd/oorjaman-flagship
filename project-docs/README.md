@@ -24,6 +24,9 @@ Topic-specific how-tos (push setup, local APK, realtime) remain in [`docs/`](../
 | [WEB-UNIVERSAL.md](WEB-UNIVERSAL.md) | Live Customer and Technician web hosts (`app` / `partner`), Vercel projects, Auth allowlist |
 | [ANDROID-PLAY.md](ANDROID-PLAY.md) | Google Play rebuild: EAS, FCM, Maps SHA-1, internal track |
 | [CURSOR-CLOUD-EAS.md](CURSOR-CLOUD-EAS.md) | Expo `EXPO_TOKEN` for Cursor Cloud Agents / iPhone EAS |
+| [TESTING.md](TESTING.md) | Vitest unit/smoke strategy + soft `packages/api` coverage gate |
+| [MOBILE-STRESS.md](MOBILE-STRESS.md) | UAT-only k6 API + Maestro device stress (never PROD) |
+| [PROD-SMOKE.md](PROD-SMOKE.md) | PROD Customer smoke checklist + one-shot Maestro (after security / Edge deploys) |
 | [LAUNCH.md](LAUNCH.md) | Marketing site and store listing URLs |
 
 ## Product plans

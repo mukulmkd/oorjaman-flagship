@@ -26,6 +26,8 @@ export const RATE_LIMIT_PROFILES = {
   "delete-technician-account": { max: 5, windowSeconds: 3600 } satisfies RateLimitProfile,
   /** Admin vendor intake approval. */
   "approve-vendor-intake": { max: 60, windowSeconds: 60 } satisfies RateLimitProfile,
+  /** Unauth vendor signup KYC upload (token-gated). */
+  "vendor-intake-upload": { max: 40, windowSeconds: 60 } satisfies RateLimitProfile,
   /** Cron / push dispatchers — higher, still capped if secret leaks. */
   "send-customer-expo-push": { max: 120, windowSeconds: 60 } satisfies RateLimitProfile,
   "send-technician-expo-push": { max: 120, windowSeconds: 60 } satisfies RateLimitProfile,

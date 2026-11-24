@@ -1,20 +1,15 @@
-/**
- * Lightweight unit tests for Razorpay error normalization (Node test runner).
- * Run: node --experimental-strip-types --test packages/api/src/payments/razorpay-errors.test.ts
- */
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vitest";
 import {
   PaymentErrorCategory,
   normalizeRazorpayError,
   dbStatusForNormalizedError,
-} from "./razorpay-errors.ts";
+} from "./razorpay-errors";
 import {
   dbPaymentStatusToDomain,
   OorjaManPaymentStatus,
   isPaymentPaidDbStatus,
   paymentUiResultFromDb,
-} from "./razorpay-status.ts";
+} from "./razorpay-status";
 
 describe("normalizeRazorpayError", () => {
   const cases: Array<{ reason: string; category: string }> = [
@@ -38,9 +33,9 @@ describe("normalizeRazorpayError", () => {
   for (const c of cases) {
     it(`maps ${c.reason}`, () => {
       const n = normalizeRazorpayError({ error: { reason: c.reason, code: "BAD_REQUEST_ERROR" } });
-      assert.equal(n.category, c.category);
-      assert.ok(n.customerMessage.length > 0);
-      assert.ok(n.raw.reason === c.reason || n.reason === c.reason);
+      expect(n.category).toBe(c.category);
+      expect(n.customerMessage.length).toBeGreaterThan(0);
+      expect(n.raw.reason === c.reason || n.reason === c.reason).toBe(true);
     });
   }
 
@@ -56,24 +51,24 @@ describe("normalizeRazorpayError", () => {
         metadata: { payment_id: "pay_x" },
       },
     });
-    assert.equal(n.raw.field, "cvv");
-    assert.equal(n.raw.payment_id, "pay_x");
-    assert.equal(dbStatusForNormalizedError(n), "failed");
+    expect(n.raw.field).toBe("cvv");
+    expect(n.raw.payment_id).toBe("pay_x");
+    expect(dbStatusForNormalizedError(n)).toBe("failed");
   });
 });
 
 describe("payment status domain", () => {
   it("maps success to PAID and never treats authorized as paid", () => {
-    assert.equal(dbPaymentStatusToDomain("success"), OorjaManPaymentStatus.PAID);
-    assert.equal(dbPaymentStatusToDomain("authorized"), OorjaManPaymentStatus.PAYMENT_AUTHORIZED);
-    assert.equal(isPaymentPaidDbStatus("authorized"), false);
-    assert.equal(isPaymentPaidDbStatus("success"), true);
+    expect(dbPaymentStatusToDomain("success")).toBe(OorjaManPaymentStatus.PAID);
+    expect(dbPaymentStatusToDomain("authorized")).toBe(OorjaManPaymentStatus.PAYMENT_AUTHORIZED);
+    expect(isPaymentPaidDbStatus("authorized")).toBe(false);
+    expect(isPaymentPaidDbStatus("success")).toBe(true);
   });
 
   it("ui outcomes", () => {
-    assert.equal(paymentUiResultFromDb("success").outcome, "SUCCESS");
-    assert.equal(paymentUiResultFromDb("cancelled").outcome, "CANCELLED");
-    assert.equal(paymentUiResultFromDb("timeout").outcome, "TIMEOUT");
-    assert.equal(paymentUiResultFromDb("refund_pending").outcome, "REFUND_PENDING");
+    expect(paymentUiResultFromDb("success").outcome).toBe("SUCCESS");
+    expect(paymentUiResultFromDb("cancelled").outcome).toBe("CANCELLED");
+    expect(paymentUiResultFromDb("timeout").outcome).toBe("TIMEOUT");
+    expect(paymentUiResultFromDb("refund_pending").outcome).toBe("REFUND_PENDING");
   });
 });

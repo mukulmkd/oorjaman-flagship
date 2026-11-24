@@ -1,0 +1,17 @@
+# PROD Customer smoke (once): Home → Bookings
+# Requires store/prod app com.oorjaman.customer already logged in (real OTP).
+# Do NOT use --repeat. Do NOT clearState (would force OTP).
+appId: com.oorjaman.customer
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "Home"
+    timeout: 60000
+- tapOn:
+    text: "Home"
+    optional: true
+- tapOn: "Bookings"
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Bookings"
+    timeout: 30000

@@ -65,7 +65,18 @@
     "docs:onboarding-prerequisites": ".venv-docgen/bin/python scripts/generate-onboarding-prerequisites-doc.py",
     "analyze:knip": "knip --no-config-hints",
     "knip:fix": "knip --fix",
-    "validate": "npm run typecheck && npm run analyze:knip",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:coverage:api": "vitest run --config packages/api/vitest.config.ts --coverage",
+    "stress:k6:smoke": "node scripts/run-k6-stress.mjs smoke",
+    "stress:k6:booking": "node scripts/run-k6-stress.mjs booking",
+    "stress:k6:smoke:dash": "node scripts/run-k6-stress.mjs smoke --dashboard",
+    "stress:k6:booking:dash": "node scripts/run-k6-stress.mjs booking --dashboard",
+    "stress:maestro:customer": "node scripts/run-maestro-stress.mjs customer",
+    "stress:maestro:partner": "node scripts/run-maestro-stress.mjs partner",
+    "smoke:maestro:customer:prod": "node scripts/run-maestro-prod-smoke.mjs",
+    "validate": "npm run typecheck && npm run analyze:knip && npm test",
     "android:local-props": "node scripts/android-local-properties.mjs",
     "android:clear-autolinking": "node scripts/android-clear-autolinking-cache.mjs",
     "android": "npm run android -w customer-app",
@@ -100,12 +111,14 @@
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.49.1",
+    "@vitest/coverage-v8": "^3.2.7",
     "dotenv": "^16.4.5",
     "knip": "^5.88.1",
     "pdf-lib": "^1.17.1",
     "sharp": "^0.34.2",
     "supabase": "^2.106.0",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "vitest": "^3.2.7"
   },
   "version": "1.0.0"
 }

@@ -282,32 +282,19 @@ export async function createPaidOneTimeBookingCheckout(
     paymentMethod?: string;
   },
 ): Promise<{ booking: BookingRow; payment: PaymentRow }> {
+  // pending_payment → dummy pending → success confirm (RLS forbids direct confirmed insert on prod).
   const booking = await createBookingAsCustomer(client, {
     ...params.bookingInput,
-    status: "confirmed",
+    status: "pending_payment",
   });
-
-  const paidAt = new Date().toISOString();
-  const method = params.paymentMethod?.trim() || "UPI";
-  const amount = Math.max(0, Math.round(params.amountPaise));
-
-  const { data, error } = await client
-    .from("payments")
-    .insert({
-      customer_id: booking.customer_id,
-      booking_id: booking.id,
-      amount,
-      status: "success",
-      provider: "dummy",
-      paid_at: paidAt,
-      payment_method: method,
-    })
-    .select()
-    .single();
-
-  const payment = takeSingleRow(data, error) as PaymentRow;
-  await enqueuePaymentDocumentsEmail(client, booking.id, payment.id);
-  return { booking, payment };
+  const payment = await createPendingPayment(client, {
+    customerId: booking.customer_id,
+    bookingId: booking.id,
+    amountPaise: params.amountPaise,
+  });
+  return completeDummyPaymentSuccess(client, payment.id, {
+    paymentMethod: params.paymentMethod,
+  });
 }
 
 export type RazorpayCheckoutSession = {

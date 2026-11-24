@@ -405,6 +405,10 @@ verify_jwt = true
 [functions.notify-vendor-assignment]
 verify_jwt = true
 
+# Vendor signup KYC upload. No user JWT; draft_access_token verified in function code.
+[functions.vendor-intake-upload]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

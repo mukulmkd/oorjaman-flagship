@@ -1,0 +1,43 @@
+---
+description: Fetch all remotes before git activity so local work does not overwrite remote
+alwaysApply: true
+---
+
+# Git: fetch before any activity
+
+Cloud Agents / iPhone merges update **GitHub only**. Local and agent checkouts can be behind `origin`. Never start git work on a stale view of the repo.
+
+## Mandatory before git activity
+
+Before **any** of the following, run `git fetch --all --prune` first (or `git fetch origin` if that is the only remote):
+
+- Inspecting branch state for a decision (`status`, `log`, `diff` vs remote)
+- Committing
+- Merging / rebasing
+- Pushing
+- Creating or syncing `develop` ↔ `main`
+- “Checkin / merge / sync” style user requests
+- Any command that could move branch tips or overwrite remote history
+
+After fetch, sync the branch you will change:
+
+```bash
+git fetch --all --prune
+git status -sb
+# If behind origin on the working branch:
+git pull --ff-only
+# or: git merge --ff-only @{u}
+```
+
+Prefer **fast-forward only** pulls/merges unless the user explicitly asks otherwise.
+
+## Do not
+
+- Commit or push based on a pre-fetch assumption that local `develop`/`main` match GitHub
+- Force-push or reset in ways that discard remote commits
+- Merge `develop` → `main` (or the reverse) without fetching both tips first
+- Assume an iPhone / Cloud Agent merge is already on the local machine
+
+## After remote merges (phone / cloud)
+
+Remind or run fetch/pull on the local workspace so the Mac checkout matches `origin` before further local edits.

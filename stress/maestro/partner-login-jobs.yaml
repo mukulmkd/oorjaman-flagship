@@ -1,0 +1,36 @@
+# Partner UAT: login → Jobs tab → open first job if present
+# Override: maestro test -e TECHNICIAN_EMAIL=you@example.com …
+appId: com.oorjaman.technician.uat
+env:
+  TECHNICIAN_EMAIL: amit.das@gamusagreen.in
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Sign in with email"
+    timeout: 45000
+- tapOn: "Email"
+- tapOn:
+    text: "you@example.com"
+    optional: true
+- eraseText
+- inputText: ${TECHNICIAN_EMAIL}
+- tapOn: "Send code"
+- extendedWaitUntil:
+    visible: "One-time code"
+    timeout: 30000
+- tapOn: "One-time code"
+- eraseText
+- inputText: "123456"
+- tapOn: "Verify and continue"
+- tapOn:
+    text: "Skip location for now"
+    optional: true
+- tapOn:
+    text: "Not now"
+    optional: true
+- extendedWaitUntil:
+    visible: "Jobs"
+    timeout: 60000
+- tapOn: "Jobs"
+- waitForAnimationToEnd

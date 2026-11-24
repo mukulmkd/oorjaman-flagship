@@ -119,7 +119,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: booking, error: bookErr } = await adminClient
       .from("bookings")
-      .select("id, customer_id, status")
+      .select("id, customer_id, status, estimated_price_cents, final_price_cents")
       .eq("id", bookingId)
       .maybeSingle();
     if (bookErr) return json({ ok: false, error: bookErr.message }, 500);
@@ -128,6 +128,12 @@ Deno.serve(async (req: Request) => {
     }
     if (booking.status !== "pending_payment") {
       return json({ ok: false, error: "Booking is not awaiting payment" }, 400);
+    }
+    const expected = Math.round(
+      Number(booking.final_price_cents ?? booking.estimated_price_cents ?? 0),
+    );
+    if (expected < 100 || expected !== amountPaise) {
+      return json({ ok: false, error: "Payment amount does not match the booking price" }, 400);
     }
   } else if (purpose === "postpaid_collect") {
     bookingId = body.booking_id?.trim() || null;
@@ -154,6 +160,13 @@ Deno.serve(async (req: Request) => {
     }
 
     paymentCustomerId = booking.customer_id;
+
+    const expected = Math.round(
+      Number(booking.final_price_cents ?? booking.estimated_price_cents ?? 0),
+    );
+    if (expected < 100 || expected !== amountPaise) {
+      return json({ ok: false, error: "Payment amount does not match the booking price" }, 400);
+    }
 
     const { data: existingPaid } = await adminClient
       .from("payments")
@@ -239,6 +252,10 @@ Deno.serve(async (req: Request) => {
     }
     if (sub.status !== "trialing") {
       return json({ ok: false, error: "Subscription is not awaiting AMC payment" }, 400);
+    }
+    const expected = Math.round(Number(sub.amount_cents ?? 0));
+    if (expected < 100 || expected !== amountPaise) {
+      return json({ ok: false, error: "Payment amount does not match the AMC plan price" }, 400);
     }
   }
 

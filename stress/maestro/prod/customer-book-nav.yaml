@@ -1,0 +1,22 @@
+# PROD Customer smoke (once): open book entry points, then Bookings
+# Requires com.oorjaman.customer already logged in. No Razorpay / no writes.
+# Do NOT use --repeat.
+appId: com.oorjaman.customer
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "Home"
+    timeout: 60000
+- tapOn:
+    text: "Home"
+    optional: true
+- tapOn:
+    text: "Book a visit"
+    optional: true
+- tapOn:
+    text: "Book cleaning"
+    optional: true
+- waitForAnimationToEnd
+- back
+- tapOn: "Bookings"
+- waitForAnimationToEnd

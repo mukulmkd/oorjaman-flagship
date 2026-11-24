@@ -139,6 +139,13 @@ Root `android:apk:*` scripts are thin wrappers → `npm run android:apk:* -w <ap
 | `functions:deploy` | Deploy edge function(s) |
 | `typecheck:edge-functions` | Typecheck `supabase/functions/` |
 | `seed:dummy-users` | Seed UAT dummy users (root `.env.uat.local`) |
+| `stress:k6:smoke` | k6 UAT smoke (vendors / bookings / jobs reads) — needs k6 CLI |
+| `stress:k6:booking` | k6 UAT heavier read load (+ optional create) — needs k6 CLI |
+| `stress:k6:smoke:dash` | Same as smoke + live dashboard at :5665 + HTML report |
+| `stress:k6:booking:dash` | Same as booking + live dashboard at :5665 + HTML report |
+| `stress:maestro:customer` | Maestro Customer UAT login + book smoke — needs Maestro CLI + device |
+| `stress:maestro:partner` | Maestro Partner UAT login / jobs / Not now — needs Maestro CLI + device |
+| `smoke:maestro:customer:prod` | One-shot Maestro on PROD Customer (`com.oorjaman.customer`, already logged in) — see [PROD-SMOKE.md](PROD-SMOKE.md) |
 
 ---
 
