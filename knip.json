@@ -6,7 +6,8 @@
   "ignore": [
     "**/*.d.ts",
     "**/*.{web,native}.{ts,tsx}",
-    "**/*.{ios,android}.{ts,tsx}"
+    "**/*.{ios,android}.{ts,tsx}",
+    "**/*.{test,smoke.test}.{ts,tsx}"
   ],
   "ignoreIssues": {
     "apps/customer-app/**": [
